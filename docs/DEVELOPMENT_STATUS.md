@@ -12,8 +12,8 @@ This file tracks agent orchestration so work can be resumed later.
 
 | Agent | ID | Current Status | Current Task | Last Reported Commit |
 | --- | --- | --- | --- | --- |
-| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Running | Replace placeholder HTTP routes with MCP transport/tool shape | `a9905ba` from prior path-normalization task |
-| Locke | `019f88e1-5257-7683-b382-205bbf1c935e` | Running | VSIX document symbols navigation service | Pending |
+| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Running | Harden broker HTTP endpoint validation and smoke coverage | `ca4fcda` from prior MCP HTTP task |
+| Locke | `019f88e1-5257-7683-b382-205bbf1c935e` | Running | VSIX build + diagnostics service skeletons | `c371042` from prior navigation task |
 
 ## Completed Agent Tasks
 
@@ -108,25 +108,64 @@ This file tracks agent orchestration so work can be resumed later.
   - `src/NetVsMcp.Broker/Services/SessionRegistry.cs`
   - `tests/NetVsMcp.Broker.Tests/SessionRegistryTests.cs`
 
+### Jason: MCP HTTP Transport For Broker Tools
+
+- Status: Integrated on `master`
+- Commit: `ca4fcda` - `Use MCP HTTP transport for broker tools`
+- Local build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors after Locke's navigation fix
+- Local tests: `dotnet test .\tests\NetVsMcp.Broker.Tests\NetVsMcp.Broker.Tests.csproj` passed with 21 tests
+- Review status: Reviewed, follow-up issues tracked below
+- Files:
+  - `src/NetVsMcp.Broker/NetVsMcp.Broker.csproj`
+  - `src/NetVsMcp.Broker/Services/BrokerToolService.cs`
+  - `src/NetVsMcp.Broker/Services/LocalMcpHttpHost.cs`
+  - `tests/NetVsMcp.Broker.Tests/LocalMcpHttpHostTests.cs`
+
+### Locke: VSIX Document Symbols Navigation Service
+
+- Status: Integrated on `master`
+- Commit: `85ba7db` - `Add VSIX document symbols service`
+- Local build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors after later navigation fix
+- Review status: Reviewed
+- Files:
+  - `docs/VSIX.md`
+  - `src/NetVsMcp.Vsix/Capabilities/NavigationCapabilityService.cs`
+  - `src/NetVsMcp.Vsix/Capabilities/NavigationModels.cs`
+  - `src/NetVsMcp.Vsix/Capabilities/NavigationRpcTarget.cs`
+
+### Locke: VSIX Definition And Reference Navigation
+
+- Status: Integrated on `master`
+- Commit: `c371042` - `Add VSIX definition and reference navigation`
+- Reported build: `dotnet build .\src\NetVsMcp.Vsix\NetVsMcp.Vsix.csproj` passed with 0 warnings and 0 errors
+- Local solution build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors
+- Local broker tests: `dotnet test .\tests\NetVsMcp.Broker.Tests\NetVsMcp.Broker.Tests.csproj` passed with 21 tests
+- Review status: Reviewed
+- Files:
+  - `docs/VSIX.md`
+  - `src/NetVsMcp.Vsix/Capabilities/NavigationCapabilityService.cs`
+  - `src/NetVsMcp.Vsix/Capabilities/NavigationModels.cs`
+  - `src/NetVsMcp.Vsix/Capabilities/NavigationRpcTarget.cs`
+
 ## Current Agent Tasks
 
-### Jason: Replace Placeholder HTTP Routes With MCP Transport
+### Jason: Harden Broker HTTP Endpoint Validation
 
 Write scope:
 
 - `src/NetVsMcp.Broker/**`
-- `src/NetVsMcp.Contracts/**` only if needed
 - `tests/NetVsMcp.Broker.Tests/**`
 
 Expected output:
 
-- actual MCP-over-HTTP behavior if practical, or a clean adapter abstraction documenting SDK blockers
-- `vs_list_sessions`, `vs_get_status`, and `vs_get_capabilities` exposed as MCP tools
-- loopback-only endpoint binding
+- `localhost` and loopback IPs handled deliberately
+- non-loopback hosts rejected
+- endpoint validation tests
+- optional MCP initialize/tools-list smoke test
 - build/test result
 - commit hash
 
-### Locke: VSIX Document Symbols Navigation Service
+### Locke: VSIX Build + Diagnostics Service Skeletons
 
 Write scope:
 
@@ -135,8 +174,8 @@ Write scope:
 
 Expected output:
 
-- VSIX-side method/interface for `code_document_symbols`
-- symbol name, kind, file, line/column, containing type/namespace where practical
+- VSIX-side methods/RPC target methods for `build_solution`, `build_status`, `errors_list`, and `output_read`
+- structured models for build status, errors, and output text
 - docs update with expected RPC method names/inputs/outputs
 - build result
 - commit hash
@@ -166,7 +205,15 @@ Expected output:
 - Commit: `6f57956`
 - Issue: HTTP routes expose placeholder JSON endpoints under `/mcp/tools/*`, not the actual MCP HTTP transport yet.
 - Impact: useful for broker status/dev smoke testing, but MCP clients cannot register this as a real HTTP MCP server yet.
-- Follow-up: replace placeholder routes with proper MCP HTTP transport after broker/VSIX registration is wired.
+- Status: Resolved by `ca4fcda`, which maps MCP Streamable HTTP at `/mcp` and exposes broker tools with MCP tool attributes.
+
+### HTTP Endpoint Host Validation
+
+- File: `src/NetVsMcp.Broker/Services/LocalMcpHttpHost.cs`
+- Commit: `ca4fcda`
+- Issue: endpoint validation uses `IPAddress.Parse(uri.Host)`, so hostnames such as `localhost` fail with a parsing exception rather than a deliberate loopback validation result.
+- Impact: default `127.0.0.1` works, but config robustness is weaker than intended.
+- Follow-up: Jason is hardening endpoint validation and tests.
 
 ### VSIX Heartbeat Lifecycle
 

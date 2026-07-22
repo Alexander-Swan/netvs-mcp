@@ -220,12 +220,16 @@ Expected StreamJsonRpc method:
 
 ```text
 CodeDocumentSymbolsAsync(DocumentSymbolsRequest request, CancellationToken cancellationToken)
+CodeGoToDefinitionAsync(CodePositionRequest request, CancellationToken cancellationToken)
+CodeFindReferencesAsync(CodePositionRequest request, CancellationToken cancellationToken)
 ```
 
 Broker-facing MCP tool mapping:
 
 ```text
-code_document_symbols -> CodeDocumentSymbolsAsync
+code_document_symbols  -> CodeDocumentSymbolsAsync
+code_go_to_definition  -> CodeGoToDefinitionAsync
+code_find_references   -> CodeFindReferencesAsync
 ```
 
 `code_document_symbols` request:
@@ -267,6 +271,84 @@ code_document_symbols -> CodeDocumentSymbolsAsync
 ```
 
 Line and column values are 1-based. The initial implementation returns namespaces, types, methods, properties, fields, and events.
+
+`code_go_to_definition` and `code_find_references` use the same 1-based source position request:
+
+```json
+{
+  "documentPath": "src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+  "line": 18,
+  "column": 35
+}
+```
+
+`code_go_to_definition` returns the symbol at the requested position, all source definitions Roslyn finds for it, and whether the VSIX navigated Visual Studio to the first definition:
+
+```json
+{
+  "symbol": {
+    "name": "InitializeAsync",
+    "kind": "Method",
+    "file": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+    "line": 18,
+    "column": 35,
+    "containingType": "NetVsMcp.Vsix.NetVsMcpPackage",
+    "containingNamespace": "NetVsMcp.Vsix"
+  },
+  "definitions": [
+    {
+      "file": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+      "line": 18,
+      "column": 35,
+      "symbol": {
+        "name": "InitializeAsync",
+        "kind": "Method",
+        "file": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+        "line": 18,
+        "column": 35,
+        "containingType": "NetVsMcp.Vsix.NetVsMcpPackage",
+        "containingNamespace": "NetVsMcp.Vsix"
+      }
+    }
+  ],
+  "navigated": true
+}
+```
+
+`code_find_references` returns the resolved symbol and source reference locations:
+
+```json
+{
+  "symbol": {
+    "name": "InitializeAsync",
+    "kind": "Method",
+    "file": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+    "line": 18,
+    "column": 35,
+    "containingType": "NetVsMcp.Vsix.NetVsMcpPackage",
+    "containingNamespace": "NetVsMcp.Vsix"
+  },
+  "references": [
+    {
+      "file": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+      "line": 18,
+      "column": 35,
+      "isImplicit": false,
+      "symbol": {
+        "name": "InitializeAsync",
+        "kind": "Method",
+        "file": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+        "line": 18,
+        "column": 35,
+        "containingType": "NetVsMcp.Vsix.NetVsMcpPackage",
+        "containingNamespace": "NetVsMcp.Vsix"
+      }
+    }
+  ]
+}
+```
+
+If Roslyn cannot resolve a symbol at the requested position, the VSIX returns a null `symbol` and an empty `definitions` or `references` collection.
 
 ## Open Packaging Notes
 

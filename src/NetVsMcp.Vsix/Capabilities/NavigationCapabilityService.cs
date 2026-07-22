@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnvDTE;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.FindSymbols;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.LanguageServices;
 using Microsoft.VisualStudio.Shell;
@@ -15,8 +16,8 @@ namespace NetVsMcp.Vsix;
 
 internal interface INavigationCapabilityService
 {
-    Task GoToDefinitionAsync(string documentPath, int line, int column, CancellationToken cancellationToken);
-    Task FindReferencesAsync(string documentPath, int line, int column, CancellationToken cancellationToken);
+    Task<GoToDefinitionResult> GoToDefinitionAsync(string documentPath, int line, int column, CancellationToken cancellationToken);
+    Task<FindReferencesResult> FindReferencesAsync(string documentPath, int line, int column, CancellationToken cancellationToken);
     Task<DocumentSymbolsResult> ListDocumentSymbolsAsync(string? documentPath, CancellationToken cancellationToken);
 }
 
@@ -29,23 +30,72 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
         this.package = package;
     }
 
-    public Task GoToDefinitionAsync(string documentPath, int line, int column, CancellationToken cancellationToken)
+    public async Task<GoToDefinitionResult> GoToDefinitionAsync(string documentPath, int line, int column, CancellationToken cancellationToken)
     {
-        _ = package;
-        _ = documentPath;
-        _ = line;
-        _ = column;
-        _ = cancellationToken;
-        throw new System.NotImplementedException("Use Visual Studio's live workspace/language services instead of standalone Roslyn parsing.");
+        var resolvedSymbol = await ResolveSymbolAtPositionAsync(documentPath, line, column, cancellationToken);
+        if (resolvedSymbol.Symbol is null)
+        {
+            return new GoToDefinitionResult(null, Array.Empty<CodeLocationInfo>(), false);
+        }
+
+        var locations = GetSourceLocations(resolvedSymbol.Symbol)
+            .Select(location => CreateLocationInfo(location, resolvedSymbol.Symbol))
+            .Where(location => location is not null)
+            .Cast<CodeLocationInfo>()
+            .ToArray();
+
+        var primaryLocation = locations.FirstOrDefault();
+        if (primaryLocation is not null)
+        {
+            await NavigateToLocationAsync(primaryLocation, cancellationToken);
+        }
+
+        return new GoToDefinitionResult(
+            DocumentSymbolInfoFactory.FromSymbol(resolvedSymbol.Symbol, primaryLocation?.File, primaryLocation?.Line ?? 0, primaryLocation?.Column ?? 0),
+            locations,
+            primaryLocation is not null);
     }
 
-    public Task FindReferencesAsync(string documentPath, int line, int column, CancellationToken cancellationToken)
+    public async Task<FindReferencesResult> FindReferencesAsync(string documentPath, int line, int column, CancellationToken cancellationToken)
     {
-        _ = documentPath;
-        _ = line;
-        _ = column;
-        _ = cancellationToken;
-        throw new System.NotImplementedException("Use VS Find All References APIs or Roslyn from the VisualStudioWorkspace.");
+        var resolvedSymbol = await ResolveSymbolAtPositionAsync(documentPath, line, column, cancellationToken);
+        if (resolvedSymbol.Symbol is null)
+        {
+            return new FindReferencesResult(null, Array.Empty<CodeReferenceInfo>());
+        }
+
+        var referencedSymbols = await SymbolFinder.FindReferencesAsync(
+            resolvedSymbol.Symbol,
+            resolvedSymbol.Document.Project.Solution,
+            cancellationToken);
+
+        var references = new List<CodeReferenceInfo>();
+        foreach (var referencedSymbol in referencedSymbols)
+        {
+            foreach (var referenceLocation in referencedSymbol.Locations)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var location = await CreateReferenceInfoAsync(
+                    referenceLocation,
+                    referencedSymbol.Definition,
+                    cancellationToken);
+                if (location is not null)
+                {
+                    references.Add(location);
+                }
+            }
+        }
+
+        var orderedReferences = references
+            .OrderBy(reference => reference.File, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(reference => reference.Line)
+            .ThenBy(reference => reference.Column)
+            .ToArray();
+
+        return new FindReferencesResult(
+            DocumentSymbolInfoFactory.FromSymbol(resolvedSymbol.Symbol, resolvedSymbol.Document.FilePath, line, column),
+            orderedReferences);
     }
 
     public async Task<DocumentSymbolsResult> ListDocumentSymbolsAsync(string? documentPath, CancellationToken cancellationToken)
@@ -84,6 +134,35 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
         return componentModel?.GetService<VisualStudioWorkspace>();
     }
 
+    private async Task<ResolvedSymbolAtPosition> ResolveSymbolAtPositionAsync(
+        string documentPath,
+        int line,
+        int column,
+        CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDteAsync();
+        var resolvedPath = ResolveDocumentPath(dte, documentPath);
+        var workspace = await GetVisualStudioWorkspaceAsync(cancellationToken);
+        if (workspace is null)
+        {
+            throw new InvalidOperationException("Visual Studio Roslyn workspace service is unavailable.");
+        }
+
+        var document = FindWorkspaceDocument(workspace.CurrentSolution, resolvedPath);
+        if (document is null)
+        {
+            throw new FileNotFoundException("Document was not found in the live Visual Studio workspace.", resolvedPath);
+        }
+
+        var position = await GetTextPositionAsync(document, line, column, cancellationToken);
+        var semanticModel = await document.GetSemanticModelAsync(cancellationToken)
+            ?? throw new InvalidOperationException("Document semantic model is unavailable.");
+        var symbol = await SymbolFinder.FindSymbolAtPositionAsync(semanticModel, position, workspace, cancellationToken);
+        return new ResolvedSymbolAtPosition(document, symbol);
+    }
+
     private static string ResolveDocumentPath(DTE? dte, string? documentPath)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -117,6 +196,33 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
         return solution.Projects
             .SelectMany(project => project.Documents)
             .FirstOrDefault(document => string.Equals(document.FilePath, resolvedPath, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static async Task<int> GetTextPositionAsync(
+        Microsoft.CodeAnalysis.Document document,
+        int line,
+        int column,
+        CancellationToken cancellationToken)
+    {
+        if (line < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(line), "Line must be 1-based.");
+        }
+
+        if (column < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(column), "Column must be 1-based.");
+        }
+
+        var text = await document.GetTextAsync(cancellationToken);
+        if (line > text.Lines.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(line), "Line is outside the document.");
+        }
+
+        var textLine = text.Lines[line - 1];
+        var zeroBasedColumn = Math.Min(column - 1, textLine.Span.Length);
+        return textLine.Start + zeroBasedColumn;
     }
 
     private static async Task<IReadOnlyList<DocumentSymbolInfo>> ReadDeclaredSymbolsAsync(
@@ -163,5 +269,91 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
             or SymbolKind.Field
             or SymbolKind.Event
             or SymbolKind.Namespace;
+    }
+
+    private static IEnumerable<Location> GetSourceLocations(ISymbol symbol)
+    {
+        var targetSymbol = symbol.OriginalDefinition ?? symbol;
+        return targetSymbol.Locations.Where(location => location.IsInSource);
+    }
+
+    private static CodeLocationInfo? CreateLocationInfo(Location location, ISymbol symbol)
+    {
+        if (!location.IsInSource)
+        {
+            return null;
+        }
+
+        var lineSpan = location.GetLineSpan();
+        var position = lineSpan.StartLinePosition;
+        return new CodeLocationInfo(
+            lineSpan.Path,
+            position.Line + 1,
+            position.Character + 1,
+            DocumentSymbolInfoFactory.FromSymbol(
+                symbol,
+                lineSpan.Path,
+                position.Line + 1,
+                position.Character + 1));
+    }
+
+    private static async Task<CodeReferenceInfo?> CreateReferenceInfoAsync(
+        ReferenceLocation referenceLocation,
+        ISymbol symbol,
+        CancellationToken cancellationToken)
+    {
+        var sourceSpan = referenceLocation.Location;
+        var document = referenceLocation.Document;
+        if (!sourceSpan.IsInSource)
+        {
+            return null;
+        }
+
+        var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken);
+        var lineSpan = syntaxTree?.GetLineSpan(sourceSpan.SourceSpan, cancellationToken)
+            ?? sourceSpan.GetLineSpan();
+        var position = lineSpan.StartLinePosition;
+
+        return new CodeReferenceInfo(
+            lineSpan.Path,
+            position.Line + 1,
+            position.Character + 1,
+            referenceLocation.IsImplicit,
+            DocumentSymbolInfoFactory.FromSymbol(
+                symbol,
+                lineSpan.Path,
+                position.Line + 1,
+                position.Character + 1));
+    }
+
+    private async Task NavigateToLocationAsync(CodeLocationInfo location, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(location.File))
+        {
+            return;
+        }
+
+        var dte = await GetDteAsync();
+        var window = dte?.ItemOperations.OpenFile(location.File);
+        window?.Activate();
+
+        if (window?.Document?.Selection is TextSelection selection)
+        {
+            selection.MoveToLineAndOffset(location.Line, location.Column);
+        }
+    }
+
+    private sealed class ResolvedSymbolAtPosition
+    {
+        public ResolvedSymbolAtPosition(Microsoft.CodeAnalysis.Document document, ISymbol? symbol)
+        {
+            Document = document;
+            Symbol = symbol;
+        }
+
+        public Microsoft.CodeAnalysis.Document Document { get; }
+        public ISymbol? Symbol { get; }
     }
 }

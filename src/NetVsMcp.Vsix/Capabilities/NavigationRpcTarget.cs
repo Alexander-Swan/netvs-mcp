@@ -16,4 +16,14 @@ internal sealed class NavigationRpcTarget
     {
         return navigation.ListDocumentSymbolsAsync(request.DocumentPath, cancellationToken);
     }
+
+    public Task<GoToDefinitionResult> CodeGoToDefinitionAsync(CodePositionRequest request, CancellationToken cancellationToken)
+    {
+        return navigation.GoToDefinitionAsync(request.DocumentPath, request.Line, request.Column, cancellationToken);
+    }
+
+    public Task<FindReferencesResult> CodeFindReferencesAsync(CodePositionRequest request, CancellationToken cancellationToken)
+    {
+        return navigation.FindReferencesAsync(request.DocumentPath, request.Line, request.Column, cancellationToken);
+    }
 }
