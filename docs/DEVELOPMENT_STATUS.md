@@ -12,8 +12,8 @@ This file tracks agent orchestration so work can be resumed later.
 
 | Agent | ID | Current Status | Current Task | Last Reported Commit |
 | --- | --- | --- | --- | --- |
-| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Running | Broker-routed VSIX tool dispatch skeleton | `c69105a` from broker dispatcher |
-| Locke | `019f88e1-5257-7683-b382-205bbf1c935e` | Running | VSIX broker-facing capability RPC wiring | `3338ea5` from debugger tools |
+| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Running | Wire VSIX registration endpoint to dispatcher connection map | `c69105a` from broker dispatcher |
+| Locke | `019f88e1-5257-7683-b382-205bbf1c935e` | Running | VSIX debugger status/breakpoint polish | `3338ea5` from debugger tools |
 | Feynman | `019f89d6-0d09-7813-bfe1-457186641c73` | Running | Broker tray/status UX and autostart service | Pending |
 | Darwin | `019f89d6-5179-76d0-8471-9f3cd6579f54` | Running | Tool/RPC contract specification | Pending |
 
@@ -231,7 +231,7 @@ Status:
 - Completed by `cd0511d`.
 - Jason completed the dispatcher follow-up in `c69105a` and is now wiring live VSIX registration connections into the dispatcher connection map.
 
-### Locke: VSIX Broker-Facing Capability RPC Wiring
+### Locke: VSIX Debugger Status And Breakpoint Polish
 
 Write scope:
 
@@ -240,9 +240,9 @@ Write scope:
 
 Expected output:
 
-- wire existing editor/navigation/build/debugger RPC targets into the broker connection path
-- keep registration and heartbeat behavior intact
-- document broker invocation shape
+- fix relative path resolution for breakpoint removal
+- add `debug_get_mode` or `debug_status` as a distinct status tool
+- add `breakpoint_enable` if straightforward with EnvDTE
 - build result
 - commit hash
 
@@ -250,42 +250,7 @@ Status:
 
 - Build diagnostics completed by `78c4fa3`.
 - Debugger tools completed by `3338ea5`.
-
-### Agent C: Broker Tray/Status UX And Autostart
-
-Write scope:
-
-- `src/NetVsMcp.Broker/App.xaml*`
-- `src/NetVsMcp.Broker/MainWindow.xaml*`
-- `src/NetVsMcp.Broker/ViewModels/**`
-- `src/NetVsMcp.Broker/Services/TrayIconController.cs`
-- `src/NetVsMcp.Broker/Services/AutostartService.cs` if added
-- `docs/BROKER_UX.md` if added
-
-Expected output:
-
-- richer broker status window with running status, endpoint, pipe name, MCP config, registered VS sessions, and health
-- tray menu with status/open/copy config/refresh/autostart/logs/exit actions
-- autostart service abstraction or documented placeholder
-- build result
-- commit hash
-
-### Agent D: Shared Routed Tool Contracts
-
-Write scope:
-
-- `src/NetVsMcp.Contracts/**`
-- `tests/NetVsMcp.Contracts.Tests/**` if added
-- `NetVsMcp.slnx` if a test project is added
-- `docs/RPC.md` if added
-
-Expected output:
-
-- shared DTOs for broker-routed VSIX tool requests/responses
-- request/correlation IDs, routing target, status/error shape
-- JSON-RPC method naming documentation
-- build/test result
-- commit hash
+- Current task assigned after review of `3338ea5`.
 
 ### Feynman: Broker Tray/Status UX And Autostart
 
@@ -382,6 +347,14 @@ Expected output:
 - Issue: editor methods exist behind `EditorRpcTarget`, but that target is not yet attached to a broker-facing JSON-RPC server/client path.
 - Impact: service code is ready for broker invocation but not reachable end-to-end.
 - Follow-up: when bidirectional VSIX session RPC is added, expose `document_active`, `document_read`, `document_open`, and `selection_get` through the shared broker routing path.
+
+### VSIX Breakpoint Removal Path Resolution
+
+- File: `src/NetVsMcp.Vsix/Capabilities/DebuggerCapabilityService.cs`
+- Commit: `3338ea5`
+- Issue: breakpoint setting resolves relative document paths against the solution directory, but breakpoint removal compares `request.DocumentPath` with `Path.GetFullPath(request.DocumentPath)` using the process working directory.
+- Impact: removing a breakpoint by relative file path may fail even when setting the same relative path succeeded.
+- Follow-up: Locke is fixing this in the debugger polish slice.
 
 ## Next Tasks
 

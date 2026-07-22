@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
+using NetVsMcp.Contracts;
 using StreamJsonRpc;
 
 namespace NetVsMcp.Broker.Services;
@@ -8,7 +9,8 @@ namespace NetVsMcp.Broker.Services;
 public sealed class VsixRegistrationPipeListener : IAsyncDisposable
 {
     private readonly BrokerOptions _options;
-    private readonly BrokerRegistrationRpcService _registrationService;
+    private readonly SessionRegistry _sessions;
+    private readonly IVsSessionConnectionMap _connections;
     private readonly List<Task> _clientTasks = [];
     private readonly object _gate = new();
     private CancellationTokenSource? _listenerCancellation;
@@ -16,10 +18,12 @@ public sealed class VsixRegistrationPipeListener : IAsyncDisposable
 
     public VsixRegistrationPipeListener(
         BrokerOptions options,
-        BrokerRegistrationRpcService registrationService)
+        SessionRegistry sessions,
+        IVsSessionConnectionMap connections)
     {
         _options = options;
-        _registrationService = registrationService;
+        _sessions = sessions;
+        _connections = connections;
     }
 
     public bool IsRunning => _listenerTask is { IsCompleted: false };
@@ -97,11 +101,21 @@ public sealed class VsixRegistrationPipeListener : IAsyncDisposable
 
     private async Task ServeClientAsync(Stream pipe, CancellationToken cancellationToken)
     {
+        BrokerRegistrationRpcService? registrationService = null;
+
         try
         {
             await using (pipe)
-            using (var jsonRpc = JsonRpc.Attach(pipe, _registrationService))
+            using (var jsonRpc = new JsonRpc(pipe))
             {
+                var sessionConnection = jsonRpc.Attach<IVisualStudioSessionRpc>();
+                registrationService = new BrokerRegistrationRpcService(
+                    _sessions,
+                    _connections,
+                    sessionConnection);
+
+                jsonRpc.AddLocalRpcTarget(registrationService);
+                jsonRpc.StartListening();
                 await jsonRpc.Completion.WaitAsync(cancellationToken);
             }
         }
@@ -111,6 +125,10 @@ public sealed class VsixRegistrationPipeListener : IAsyncDisposable
         catch (Exception ex)
         {
             Trace.WriteLine($"VSIX registration pipe client failed: {ex}");
+        }
+        finally
+        {
+            registrationService?.RemoveRegisteredConnections();
         }
     }
 

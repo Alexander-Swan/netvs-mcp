@@ -21,6 +21,23 @@ public sealed class BrokerRegistrationRpcServiceTests
     }
 
     [Fact]
+    public async Task RegisterAsync_AddsSessionConnection_WhenConnectionIsAvailable()
+    {
+        var registry = new SessionRegistry();
+        var connections = new VsSessionConnectionMap();
+        var sessionConnection = new FakeVisualStudioSessionRpc();
+        var service = new BrokerRegistrationRpcService(registry, connections, sessionConnection);
+
+        var response = await service.RegisterAsync(
+            CreateRegistration("vs-1", "NetVsMcp"),
+            CancellationToken.None);
+
+        Assert.True(response.Success);
+        Assert.True(connections.TryGet("vs-1", out var connection));
+        Assert.Same(sessionConnection, connection);
+    }
+
+    [Fact]
     public async Task UpdateAsync_UpdatesExistingSession()
     {
         var registry = new SessionRegistry();
@@ -43,6 +60,30 @@ public sealed class BrokerRegistrationRpcServiceTests
         Assert.Equal("NewName", session.SolutionName);
         Assert.Equal(DebuggerMode.Break, session.DebuggerMode);
         Assert.Contains(VsCapability.Debugger, session.Capabilities);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_PreservesExistingSessionConnection()
+    {
+        var registry = new SessionRegistry();
+        var connections = new VsSessionConnectionMap();
+        var sessionConnection = new FakeVisualStudioSessionRpc();
+        var service = new BrokerRegistrationRpcService(registry, connections, sessionConnection);
+        await service.RegisterAsync(CreateRegistration("vs-1", "OldName"), CancellationToken.None);
+
+        var response = await service.UpdateAsync(
+            new VsSessionUpdate(
+                SessionId: "vs-1",
+                SolutionName: "NewName",
+                SolutionPath: @"C:\Code\NewName\NewName.slnx",
+                ActiveDocument: "Program.cs",
+                DebuggerMode: DebuggerMode.Design,
+                IsActiveWindow: true),
+            CancellationToken.None);
+
+        Assert.True(response.Success);
+        Assert.True(connections.TryGet("vs-1", out var connection));
+        Assert.Same(sessionConnection, connection);
     }
 
     [Fact]
@@ -78,6 +119,22 @@ public sealed class BrokerRegistrationRpcServiceTests
     }
 
     [Fact]
+    public async Task HeartbeatAsync_PreservesExistingSessionConnection()
+    {
+        var registry = new SessionRegistry();
+        var connections = new VsSessionConnectionMap();
+        var sessionConnection = new FakeVisualStudioSessionRpc();
+        var service = new BrokerRegistrationRpcService(registry, connections, sessionConnection);
+        await service.RegisterAsync(CreateRegistration("vs-1", "NetVsMcp"), CancellationToken.None);
+
+        var response = await service.HeartbeatAsync("vs-1", CancellationToken.None);
+
+        Assert.True(response.Success);
+        Assert.True(connections.TryGet("vs-1", out var connection));
+        Assert.Same(sessionConnection, connection);
+    }
+
+    [Fact]
     public async Task HeartbeatAsync_ReturnsFailureForUnknownSession()
     {
         var service = new BrokerRegistrationRpcService(new SessionRegistry());
@@ -98,6 +155,42 @@ public sealed class BrokerRegistrationRpcServiceTests
 
         Assert.True(response.Success);
         Assert.Empty(registry.ListSessions());
+    }
+
+    [Fact]
+    public async Task UnregisterAsync_RemovesExistingSessionConnection()
+    {
+        var registry = new SessionRegistry();
+        var connections = new VsSessionConnectionMap();
+        var service = new BrokerRegistrationRpcService(
+            registry,
+            connections,
+            new FakeVisualStudioSessionRpc());
+        await service.RegisterAsync(CreateRegistration("vs-1", "NetVsMcp"), CancellationToken.None);
+
+        var response = await service.UnregisterAsync("vs-1", CancellationToken.None);
+
+        Assert.True(response.Success);
+        Assert.False(connections.TryGet("vs-1", out _));
+    }
+
+    [Fact]
+    public async Task RemoveRegisteredConnections_RemovesConnectionsForDisconnectedPipe()
+    {
+        var registry = new SessionRegistry();
+        var connections = new VsSessionConnectionMap();
+        var service = new BrokerRegistrationRpcService(
+            registry,
+            connections,
+            new FakeVisualStudioSessionRpc());
+        await service.RegisterAsync(CreateRegistration("vs-1", "NetVsMcp"), CancellationToken.None);
+        await service.RegisterAsync(CreateRegistration("vs-2", "Other"), CancellationToken.None);
+
+        service.RemoveRegisteredConnections();
+
+        Assert.False(connections.TryGet("vs-1", out _));
+        Assert.False(connections.TryGet("vs-2", out _));
+        Assert.Equal(2, registry.ListSessions().Count);
     }
 
     [Fact]
@@ -123,5 +216,25 @@ public sealed class BrokerRegistrationRpcServiceTests
             DebuggerMode: DebuggerMode.Design,
             IsActiveWindow: true,
             Capabilities: [VsCapability.Editor, VsCapability.Navigation]);
+    }
+
+    private sealed class FakeVisualStudioSessionRpc : IVisualStudioSessionRpc
+    {
+        public Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<ToolResponse<string?>> GetActiveDocumentAsync(CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<ToolResponse<IReadOnlyCollection<string>>> ListDocumentSymbolsAsync(
+            string documentPath,
+            CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
     }
 }

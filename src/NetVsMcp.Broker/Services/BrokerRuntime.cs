@@ -19,7 +19,7 @@ public sealed class BrokerRuntime
         Registration = new BrokerRegistrationRpcService(sessions);
         Tools = new BrokerToolService(this);
         _httpHost = new LocalMcpHttpHost(options, Tools);
-        _registrationPipeListener = new VsixRegistrationPipeListener(options, Registration);
+        _registrationPipeListener = new VsixRegistrationPipeListener(options, sessions, Connections);
     }
 
     public BrokerOptions Options { get; }
