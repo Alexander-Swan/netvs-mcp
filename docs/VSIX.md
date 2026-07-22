@@ -350,6 +350,108 @@ Line and column values are 1-based. The initial implementation returns namespace
 
 If Roslyn cannot resolve a symbol at the requested position, the VSIX returns a null `symbol` and an empty `definitions` or `references` collection.
 
+## Build And Diagnostics RPC Contract Expectation
+
+The VSIX-side build capability service now supports the first broker-routed build and diagnostics tools. It uses Visual Studio DTE on the UI thread for solution builds, build status, Error List extraction, and Output window pane reads.
+
+Expected StreamJsonRpc methods:
+
+```text
+BuildSolutionAsync(BuildSolutionRequest request, CancellationToken cancellationToken)
+BuildStatusAsync(CancellationToken cancellationToken)
+ErrorsListAsync(ErrorListRequest request, CancellationToken cancellationToken)
+OutputReadAsync(OutputReadRequest request, CancellationToken cancellationToken)
+```
+
+Broker-facing MCP tool mapping:
+
+```text
+build_solution -> BuildSolutionAsync
+build_status   -> BuildStatusAsync
+errors_list    -> ErrorsListAsync
+output_read    -> OutputReadAsync
+```
+
+`build_solution` request:
+
+```json
+{
+  "waitForBuildToFinish": true
+}
+```
+
+`build_solution` returns:
+
+```json
+{
+  "status": {
+    "state": "vsBuildStateDone",
+    "lastBuildInfo": 0
+  },
+  "lastBuildInfo": 0
+}
+```
+
+`lastBuildInfo` follows Visual Studio DTE conventions: after a completed build, `0` means no failed projects and positive values indicate failed project count.
+
+`build_status` returns:
+
+```json
+{
+  "state": "vsBuildStateInProgress",
+  "lastBuildInfo": 0
+}
+```
+
+`errors_list` request:
+
+```json
+{
+  "includeWarnings": true,
+  "maxItems": 200
+}
+```
+
+`errors_list` returns:
+
+```json
+{
+  "items": [
+    {
+      "description": "The name 'value' does not exist in the current context",
+      "file": "D:\\Work\\App\\Program.cs",
+      "line": 42,
+      "column": 17,
+      "level": "vsBuildErrorLevelHigh",
+      "project": "App"
+    }
+  ]
+}
+```
+
+`output_read` request:
+
+```json
+{
+  "paneName": "Build",
+  "maxChars": 20000
+}
+```
+
+If `paneName` is omitted, the VSIX prefers the `Build` output pane and otherwise returns the first available output pane.
+
+`output_read` returns:
+
+```json
+{
+  "paneName": "Build",
+  "text": "Build started...\r\nBuild succeeded.",
+  "truncated": false
+}
+```
+
+When `maxChars` is smaller than the pane content, the VSIX returns the trailing text and marks `truncated` as `true`.
+
 ## Open Packaging Notes
 
 - Verify the VSIX builds on a machine with the Visual Studio extension development workload.

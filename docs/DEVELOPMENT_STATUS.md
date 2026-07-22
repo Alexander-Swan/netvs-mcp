@@ -12,8 +12,11 @@ This file tracks agent orchestration so work can be resumed later.
 
 | Agent | ID | Current Status | Current Task | Last Reported Commit |
 | --- | --- | --- | --- | --- |
-| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Running | Harden broker HTTP endpoint validation and smoke coverage | `ca4fcda` from prior MCP HTTP task |
+| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Running | Broker routed tool dispatcher tests/follow-up | `cd0511d` from endpoint hardening |
 | Locke | `019f88e1-5257-7683-b382-205bbf1c935e` | Running | VSIX build + diagnostics service skeletons | `c371042` from prior navigation task |
+| Agent C | `client-new-thread:22291b11-a133-4af1-ba53-c26b78949be0` | Queued | Broker tray/status UX and autostart planning implementation | None yet |
+| Agent D | `client-new-thread:3fac3be6-225a-4b5a-a1d8-c00300c7a745` | Queued | Shared broker-to-VSIX routed tool contracts | None yet |
+| Agent D | `client-new-thread:d33e0211-d74f-432a-96f2-c666162f18f8` | Queued | Tool/RPC contract specification for broker-routed VSIX tools | None yet |
 | Feynman | `019f89d6-0d09-7813-bfe1-457186641c73` | Running | Broker tray/status UX and autostart service | Pending |
 | Darwin | `019f89d6-5179-76d0-8471-9f3cd6579f54` | Running | Tool/RPC contract specification | Pending |
 
@@ -123,6 +126,23 @@ This file tracks agent orchestration so work can be resumed later.
   - `src/NetVsMcp.Broker/Services/LocalMcpHttpHost.cs`
   - `tests/NetVsMcp.Broker.Tests/LocalMcpHttpHostTests.cs`
 
+### Jason: Harden Broker MCP Endpoint Validation
+
+- Status: Integrated on `master`
+- Commit: `cd0511d` - `Harden broker MCP endpoint validation`
+- Review status: Pending
+- Files:
+  - `src/NetVsMcp.Broker/Services/LocalMcpHttpHost.cs`
+  - `tests/NetVsMcp.Broker.Tests/LocalMcpHttpHostTests.cs`
+
+### Orchestrator: Expanded Agent Workstreams
+
+- Status: Integrated on `master`
+- Commit: `24a5338` - `Track expanded agent workstreams`
+- Review status: Tracking-only commit
+- Notes:
+  - Added follow-up orchestration for broker dispatcher, VSIX build/diagnostics, and upcoming UX/contracts lanes.
+
 ### Locke: VSIX Document Symbols Navigation Service
 
 - Status: Integrated on `master`
@@ -167,6 +187,11 @@ Expected output:
 - build/test result
 - commit hash
 
+Status:
+
+- Completed by `cd0511d`.
+- Jason is now continuing into broker routed tool dispatcher tests/follow-up work.
+
 ### Locke: VSIX Build + Diagnostics Service Skeletons
 
 Write scope:
@@ -180,6 +205,42 @@ Expected output:
 - structured models for build status, errors, and output text
 - docs update with expected RPC method names/inputs/outputs
 - build result
+- commit hash
+
+### Agent C: Broker Tray/Status UX And Autostart
+
+Write scope:
+
+- `src/NetVsMcp.Broker/App.xaml*`
+- `src/NetVsMcp.Broker/MainWindow.xaml*`
+- `src/NetVsMcp.Broker/ViewModels/**`
+- `src/NetVsMcp.Broker/Services/TrayIconController.cs`
+- `src/NetVsMcp.Broker/Services/AutostartService.cs` if added
+- `docs/BROKER_UX.md` if added
+
+Expected output:
+
+- richer broker status window with running status, endpoint, pipe name, MCP config, registered VS sessions, and health
+- tray menu with status/open/copy config/refresh/autostart/logs/exit actions
+- autostart service abstraction or documented placeholder
+- build result
+- commit hash
+
+### Agent D: Shared Routed Tool Contracts
+
+Write scope:
+
+- `src/NetVsMcp.Contracts/**`
+- `tests/NetVsMcp.Contracts.Tests/**` if added
+- `NetVsMcp.slnx` if a test project is added
+- `docs/RPC.md` if added
+
+Expected output:
+
+- shared DTOs for broker-routed VSIX tool requests/responses
+- request/correlation IDs, routing target, status/error shape
+- JSON-RPC method naming documentation
+- build/test result
 - commit hash
 
 ### Feynman: Broker Tray/Status UX And Autostart
