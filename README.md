@@ -13,7 +13,7 @@ Codex / MCP Client
       -> NetVsMcp.Vsix instance C
 ```
 
-See [docs/PLAN.md](docs/PLAN.md) for the saved development plan and [docs/SETUP.md](docs/SETUP.md) for local setup and usage.
+See [docs/PLAN.md](docs/PLAN.md) for the saved development plan, [docs/SETUP.md](docs/SETUP.md) for local setup and usage, and [docs/BROKER_UX.md](docs/BROKER_UX.md) for the tray/status window behavior.
 
 ## Projects
 

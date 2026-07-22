@@ -9,17 +9,20 @@ public partial class App : System.Windows.Application
     private BrokerRuntime? _runtime;
     private MainWindow? _mainWindow;
     private TrayIconController? _trayIcon;
+    private AutostartService? _autostart;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
         var sessions = new SessionRegistry();
+        _autostart = new AutostartService();
         _runtime = new BrokerRuntime(BrokerOptions.LocalDefault, sessions);
         await _runtime.StartAsync(CancellationToken.None);
 
-        _mainWindow = new MainWindow(new MainWindowViewModel(_runtime));
-        _trayIcon = new TrayIconController(_runtime, () => _mainWindow);
+        var viewModel = new MainWindowViewModel(_runtime, _autostart);
+        _mainWindow = new MainWindow(viewModel);
+        _trayIcon = new TrayIconController(_runtime, viewModel, () => _mainWindow);
         _mainWindow.Show();
     }
 

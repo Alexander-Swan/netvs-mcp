@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Windows;
+using NetVsMcp.Broker.ViewModels;
 using Forms = System.Windows.Forms;
 
 namespace NetVsMcp.Broker.Services;
@@ -7,13 +8,15 @@ namespace NetVsMcp.Broker.Services;
 public sealed class TrayIconController : IDisposable
 {
     private readonly BrokerRuntime _runtime;
+    private readonly MainWindowViewModel _viewModel;
     private readonly Func<Window> _windowFactory;
     private readonly Forms.NotifyIcon _notifyIcon;
     private bool _disposed;
 
-    public TrayIconController(BrokerRuntime runtime, Func<Window> windowFactory)
+    public TrayIconController(BrokerRuntime runtime, MainWindowViewModel viewModel, Func<Window> windowFactory)
     {
         _runtime = runtime;
+        _viewModel = viewModel;
         _windowFactory = windowFactory;
 
         _notifyIcon = new Forms.NotifyIcon
@@ -56,12 +59,28 @@ public sealed class TrayIconController : IDisposable
     {
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Open Status Window", null, (_, _) => ShowStatusWindow());
-        menu.Items.Add("Copy MCP Config", null, (_, _) => System.Windows.Clipboard.SetText(_runtime.Options.McpRegistrationJson));
-        menu.Items.Add("Refresh Status", null, (_, _) => UpdateStatus());
+        menu.Items.Add("Copy MCP Config", null, (_, _) => _viewModel.CopyMcpConfig());
+        menu.Items.Add("Refresh", null, (_, _) => Refresh());
+        var autostartItem = new Forms.ToolStripMenuItem(BuildAutostartMenuText());
+        autostartItem.Click += (_, _) =>
+        {
+            _viewModel.ToggleAutostart();
+            autostartItem.Text = BuildAutostartMenuText();
+        };
+        menu.Items.Add(autostartItem);
+        menu.Items.Add("Open Logs Folder", null, (_, _) => _viewModel.OpenLogsFolder());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => System.Windows.Application.Current.Shutdown());
         return menu;
     }
+
+    private void Refresh()
+    {
+        _viewModel.Refresh();
+        UpdateStatus();
+    }
+
+    private string BuildAutostartMenuText() => $"Start at Login: {_viewModel.AutostartStatus}";
 
     private void ShowStatusWindow()
     {

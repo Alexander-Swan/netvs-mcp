@@ -2,52 +2,81 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="NetVsMcp Broker"
-        Height="640"
-        MinHeight="520"
-        Width="960"
-        MinWidth="760">
+        Height="720"
+        MinHeight="560"
+        Width="1120"
+        MinWidth="860">
     <DockPanel Margin="16">
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <TextBlock Text="NetVsMcp Broker" FontSize="24" FontWeight="SemiBold" />
-            <TextBlock Text="{Binding StatusText}" Margin="0,4,0,0" />
-        </StackPanel>
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel>
+                <TextBlock Text="NetVsMcp Broker" FontSize="24" FontWeight="SemiBold" />
+                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                    <Border BorderBrush="#2f855a" BorderThickness="1" Padding="8,3" CornerRadius="3" Margin="0,0,8,0">
+                        <TextBlock Text="{Binding RunningState}" FontWeight="SemiBold" Foreground="#276749" />
+                    </Border>
+                    <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" />
+                    <TextBlock Text="  |  " VerticalAlignment="Center" Foreground="#777" />
+                    <TextBlock Text="{Binding LastRefreshedText}" VerticalAlignment="Center" Foreground="#555" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="Copy MCP Config" Click="CopyConfig_Click" Padding="12,6" Margin="0,0,8,0" />
+                <Button Content="Refresh" Click="Refresh_Click" Padding="12,6" />
+            </StackPanel>
+        </Grid>
 
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button Content="Copy MCP Config" Click="CopyConfig_Click" Padding="12,6" Margin="0,0,8,0" />
-            <Button Content="Refresh" Click="Refresh_Click" Padding="12,6" />
+            <Button Content="Copy Endpoint" Click="CopyEndpoint_Click" Padding="12,6" Margin="0,0,8,0" />
+            <Button Content="Copy Pipe" Click="CopyPipe_Click" Padding="12,6" Margin="0,0,8,0" />
+            <Button Content="Toggle Start at Login" Click="ToggleAutostart_Click" Padding="12,6" Margin="0,0,8,0" />
+            <Button Content="Open Logs Folder" Click="OpenLogs_Click" Padding="12,6" />
         </StackPanel>
 
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="2*" />
-                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <GroupBox Header="Local MCP Registration" Grid.Row="0" Margin="0,0,0,12">
+            <GroupBox Header="Runtime And MCP Client Registration" Grid.Row="0" Margin="0,0,0,12">
                 <Grid Margin="12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="120" />
+                        <ColumnDefinition Width="140" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock Text="Endpoint" FontWeight="SemiBold" />
+                    <TextBlock Text="MCP endpoint" FontWeight="SemiBold" />
                     <TextBlock Grid.Column="1" Text="{Binding McpEndpoint}" />
 
-                    <TextBlock Grid.Row="1" Text="VSIX pipe" FontWeight="SemiBold" Margin="0,6,0,0" />
+                    <TextBlock Grid.Row="1" Text="Named pipe" FontWeight="SemiBold" Margin="0,6,0,0" />
                     <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PipeName}" Margin="0,6,0,0" />
 
-                    <TextBox Grid.Row="2"
+                    <TextBlock Grid.Row="2" Text="Start at login" FontWeight="SemiBold" Margin="0,6,0,0" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding AutostartStatus}" Margin="0,6,0,0" />
+
+                    <TextBlock Grid.Row="3" Text="Logs folder" FontWeight="SemiBold" Margin="0,6,0,0" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LogsFolder}" Margin="0,6,0,0" />
+
+                    <TextBox Grid.Row="4"
                              Grid.ColumnSpan="2"
                              Text="{Binding McpRegistrationJson}"
                              Margin="0,12,0,0"
                              FontFamily="Consolas"
-                             MinHeight="96"
+                             MinHeight="104"
                              IsReadOnly="True"
                              TextWrapping="NoWrap"
                              VerticalScrollBarVisibility="Auto"
@@ -55,28 +84,34 @@
                 </Grid>
             </GroupBox>
 
-            <GroupBox Header="Registered Visual Studio Instances" Grid.Row="1" Margin="0,0,0,12">
+            <GroupBox Header="Registered Visual Studio Sessions" Grid.Row="1" Margin="0,0,0,12">
                 <DataGrid ItemsSource="{Binding Sessions}"
                           AutoGenerateColumns="False"
                           CanUserAddRows="False"
                           IsReadOnly="True"
-                          Margin="12">
+                          Margin="12"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="Horizontal">
                     <DataGrid.Columns>
                         <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActiveWindow}" Width="64" />
-                        <DataGridTextColumn Header="Solution" Binding="{Binding SolutionName}" Width="*" />
-                        <DataGridTextColumn Header="PID" Binding="{Binding ProcessId}" Width="80" />
+                        <DataGridTextColumn Header="Health" Binding="{Binding Health}" Width="90" />
+                        <DataGridTextColumn Header="Solution" Binding="{Binding SolutionName}" Width="160" />
+                        <DataGridTextColumn Header="Solution Path" Binding="{Binding SolutionPath}" Width="2*" />
+                        <DataGridTextColumn Header="Session ID" Binding="{Binding SessionId}" Width="180" />
+                        <DataGridTextColumn Header="PID" Binding="{Binding ProcessId}" Width="70" />
+                        <DataGridTextColumn Header="Last Seen" Binding="{Binding LastSeen}" Width="130" />
+                        <DataGridTextColumn Header="Age" Binding="{Binding Age}" Width="80" />
                         <DataGridTextColumn Header="Debugger" Binding="{Binding DebuggerMode}" Width="100" />
                         <DataGridTextColumn Header="Active Document" Binding="{Binding ActiveDocument}" Width="2*" />
-                        <DataGridTextColumn Header="Last Seen UTC" Binding="{Binding LastSeenUtc}" Width="180" />
+                        <DataGridTextColumn Header="Capabilities" Binding="{Binding Capabilities}" Width="220" />
                     </DataGrid.Columns>
                 </DataGrid>
             </GroupBox>
 
-            <GroupBox Header="Recent Activity" Grid.Row="2">
-                <TextBox Margin="12"
-                         IsReadOnly="True"
-                         TextWrapping="Wrap"
-                         Text="Broker skeleton is running. VSIX registration and HTTP MCP handlers will fill this log in later slices." />
+            <GroupBox Header="Basic Actions" Grid.Row="2">
+                <TextBlock Margin="12"
+                           TextWrapping="Wrap"
+                           Text="Use the tray icon to keep the broker running in the background. Copy the MCP config into your MCP client, then open Visual Studio with the NetVsMcp VSIX installed so sessions appear here." />
             </GroupBox>
         </Grid>
     </DockPanel>
