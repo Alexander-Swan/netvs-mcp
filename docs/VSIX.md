@@ -110,6 +110,26 @@ netvs-mcp-S-1-5-21-...
 
 The broker should expose a matching named-pipe server and accept exactly one request object for registration/heartbeat. Once shared contracts land, replace `VsSessionSnapshot`, `VsRegistrationRequest`, and `VsHeartbeatRequest` in the VSIX with the shared DTOs rather than maintaining parallel types.
 
+The VSIX attaches a composed `VisualStudioCapabilityRpcTarget` to the same StreamJsonRpc connection used for registration and heartbeat. This lets the broker invoke VS-side capability methods over the existing named pipe after a session registers. Registration still flows from VSIX to broker with:
+
+```text
+RegisterVisualStudioSessionAsync
+HeartbeatVisualStudioSessionAsync
+UnregisterVisualStudioSessionAsync
+```
+
+Broker-to-VSIX capability calls use StreamJsonRpc method names such as:
+
+```text
+DocumentActiveAsync
+CodeDocumentSymbolsAsync
+BuildSolutionAsync
+DebugStatusAsync
+BreakpointEnableAsync
+```
+
+The broker-facing MCP tool names remain snake_case. The broker is responsible for mapping MCP names like `document_active`, `code_document_symbols`, `build_solution`, `debug_status`, and `breakpoint_enable` to the StreamJsonRpc method names documented below.
+
 ## Execution Surface
 
 The skeleton defines service interfaces for the future VS-side command handlers:

@@ -31,12 +31,13 @@ public sealed class NetVsMcpPackage : AsyncPackage
             new NavigationCapabilityService(this),
             new BuildCapabilityService(this),
             new DebuggerCapabilityService(this));
+        var capabilityRpcTarget = new VisualStudioCapabilityRpcTarget(capabilities);
 
         lifecycle = new BrokerRegistrationLifecycle(
             snapshotProvider,
             capabilities,
             stateMonitor,
-            new NamedPipeBrokerConnectionFactory(BrokerPipeName.CurrentUserDefault()));
+            new NamedPipeBrokerConnectionFactory(BrokerPipeName.CurrentUserDefault(), capabilityRpcTarget));
 
         await lifecycle.StartAsync(cancellationToken);
     }

@@ -23,10 +23,12 @@ internal sealed class NamedPipeBrokerConnectionFactory : IBrokerConnectionFactor
 {
     private const int ConnectTimeoutMilliseconds = 2_000;
     private readonly string pipeName;
+    private readonly object localRpcTarget;
 
-    public NamedPipeBrokerConnectionFactory(string pipeName)
+    public NamedPipeBrokerConnectionFactory(string pipeName, object localRpcTarget)
     {
         this.pipeName = pipeName;
+        this.localRpcTarget = localRpcTarget;
     }
 
     public async Task<IBrokerConnection> ConnectAsync(CancellationToken cancellationToken)
@@ -40,7 +42,7 @@ internal sealed class NamedPipeBrokerConnectionFactory : IBrokerConnectionFactor
         try
         {
             await Task.Run(() => stream.Connect(ConnectTimeoutMilliseconds), cancellationToken);
-            return new JsonRpcBrokerConnection(stream);
+            return new JsonRpcBrokerConnection(stream, localRpcTarget);
         }
         catch
         {
@@ -56,10 +58,10 @@ internal sealed class JsonRpcBrokerConnection : IBrokerConnection
     private readonly JsonRpc rpc;
     private bool disposed;
 
-    public JsonRpcBrokerConnection(NamedPipeClientStream stream)
+    public JsonRpcBrokerConnection(NamedPipeClientStream stream, object localRpcTarget)
     {
         this.stream = stream;
-        rpc = JsonRpc.Attach(stream);
+        rpc = JsonRpc.Attach(stream, localRpcTarget);
     }
 
     public bool IsConnected => !disposed && stream.IsConnected;
