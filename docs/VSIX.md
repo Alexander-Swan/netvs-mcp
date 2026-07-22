@@ -764,6 +764,15 @@ BreakpointEnableAsync(BreakpointEnableRequest request, CancellationToken cancell
 DebugGetCallstackAsync(CancellationToken cancellationToken)
 DebugGetLocalsAsync(CancellationToken cancellationToken)
 DebugEvaluateAsync(EvaluateExpressionRequest request, CancellationToken cancellationToken)
+WatchAddAsync(WatchAddRequest request, CancellationToken cancellationToken)
+WatchRemoveAsync(WatchRemoveRequest request, CancellationToken cancellationToken)
+WatchListAsync(CancellationToken cancellationToken)
+DebugGetThreadsAsync(CancellationToken cancellationToken)
+ThreadSwitchAsync(ThreadSwitchRequest request, CancellationToken cancellationToken)
+ModuleListAsync(CancellationToken cancellationToken)
+ImmediateExecuteAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken)
+ExceptionSettingsGetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken)
+ExceptionSettingsSetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken)
 ```
 
 Broker-facing MCP tool mapping:
@@ -783,6 +792,15 @@ breakpoint_enable   -> BreakpointEnableAsync
 debug_get_callstack -> DebugGetCallstackAsync
 debug_get_locals    -> DebugGetLocalsAsync
 debug_evaluate      -> DebugEvaluateAsync
+watch_add           -> WatchAddAsync
+watch_remove        -> WatchRemoveAsync
+watch_list          -> WatchListAsync
+debug_get_threads   -> DebugGetThreadsAsync
+thread_switch       -> ThreadSwitchAsync
+module_list         -> ModuleListAsync
+immediate_execute   -> ImmediateExecuteAsync
+exception_settings_get -> ExceptionSettingsGetAsync
+exception_settings_set -> ExceptionSettingsSetAsync
 ```
 
 Debugger state response:
@@ -934,6 +952,105 @@ The EnvDTE `StackFrame` API available to this project exposes function names and
   }
 }
 ```
+
+`watch_add` request:
+
+```json
+{
+  "expression": "count"
+}
+```
+
+`watch_remove` uses the same request shape and matches by watch expression/name. In the current VSIX target, EnvDTE does not expose watch expression mutation, so watch operations return an unsupported result:
+
+```json
+{
+  "supported": false,
+  "success": false,
+  "message": "Watch expressions are not exposed through this VSIX skeleton yet.",
+  "watch": null
+}
+```
+
+`watch_list` returns:
+
+```json
+{
+  "supported": false,
+  "message": "Watch expressions are not exposed through this VSIX skeleton yet.",
+  "watches": []
+}
+```
+
+`debug_get_threads` returns the current program's EnvDTE threads when a debug program is active:
+
+```json
+{
+  "supported": true,
+  "message": null,
+  "threads": [
+    {
+      "id": 1234,
+      "name": "Main Thread",
+      "isCurrent": true
+    }
+  ]
+}
+```
+
+`thread_switch` request:
+
+```json
+{
+  "threadId": 1234
+}
+```
+
+`thread_switch` returns:
+
+```json
+{
+  "supported": true,
+  "success": true,
+  "message": null,
+  "thread": {
+    "id": 1234,
+    "name": "Main Thread",
+    "isCurrent": true
+  }
+}
+```
+
+`module_list` currently returns an unsupported result because the EnvDTE `Program` API available to this VSIX target does not expose module enumeration:
+
+```json
+{
+  "supported": false,
+  "message": "Module listing is not exposed through this VSIX skeleton yet.",
+  "modules": []
+}
+```
+
+`immediate_execute` request:
+
+```json
+{
+  "statement": "? count"
+}
+```
+
+`immediate_execute` currently returns `supported: false`; command routing to the Immediate window needs runtime validation so the VSIX does not send text to the wrong shell window.
+
+`exception_settings_get` and `exception_settings_set` request:
+
+```json
+{
+  "exceptionName": "System.InvalidOperationException",
+  "breakOnThrown": true
+}
+```
+
+Exception settings operations currently return `supported: false`; a later slice should wire the Visual Studio debugger exception settings APIs directly.
 
 ## Solution, Project, And Test RPC Contract Expectation
 

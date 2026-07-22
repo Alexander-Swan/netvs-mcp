@@ -81,4 +81,49 @@ internal sealed class DebuggerRpcTarget
     {
         return debugger.EvaluateAsync(request, cancellationToken);
     }
+
+    public Task<WatchOperationResult> WatchAddAsync(WatchAddRequest request, CancellationToken cancellationToken)
+    {
+        return debugger.AddWatchAsync(request, cancellationToken);
+    }
+
+    public Task<WatchOperationResult> WatchRemoveAsync(WatchRemoveRequest request, CancellationToken cancellationToken)
+    {
+        return debugger.RemoveWatchAsync(request, cancellationToken);
+    }
+
+    public Task<WatchListResult> WatchListAsync(CancellationToken cancellationToken)
+    {
+        return debugger.ListWatchesAsync(cancellationToken);
+    }
+
+    public Task<DebugThreadListResult> DebugGetThreadsAsync(CancellationToken cancellationToken)
+    {
+        return debugger.GetThreadsAsync(cancellationToken);
+    }
+
+    public Task<ThreadSwitchResult> ThreadSwitchAsync(ThreadSwitchRequest request, CancellationToken cancellationToken)
+    {
+        return debugger.SwitchThreadAsync(request, cancellationToken);
+    }
+
+    public Task<ModuleListResult> ModuleListAsync(CancellationToken cancellationToken)
+    {
+        return debugger.ListModulesAsync(cancellationToken);
+    }
+
+    public Task<ImmediateExecuteResult> ImmediateExecuteAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken)
+    {
+        return debugger.ExecuteImmediateAsync(request, cancellationToken);
+    }
+
+    public Task<ExceptionSettingsResult> ExceptionSettingsGetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken)
+    {
+        return debugger.GetExceptionSettingsAsync(request, cancellationToken);
+    }
+
+    public Task<ExceptionSettingsResult> ExceptionSettingsSetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken)
+    {
+        return debugger.SetExceptionSettingsAsync(request, cancellationToken);
+    }
 }

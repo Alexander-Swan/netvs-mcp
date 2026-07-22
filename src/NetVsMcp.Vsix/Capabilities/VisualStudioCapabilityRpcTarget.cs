@@ -183,6 +183,33 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<EvaluateExpressionResult> DebugEvaluateAsync(EvaluateExpressionRequest request, CancellationToken cancellationToken) =>
         debugger.DebugEvaluateAsync(request, cancellationToken);
 
+    public Task<WatchOperationResult> WatchAddAsync(WatchAddRequest request, CancellationToken cancellationToken) =>
+        debugger.WatchAddAsync(request, cancellationToken);
+
+    public Task<WatchOperationResult> WatchRemoveAsync(WatchRemoveRequest request, CancellationToken cancellationToken) =>
+        debugger.WatchRemoveAsync(request, cancellationToken);
+
+    public Task<WatchListResult> WatchListAsync(CancellationToken cancellationToken) =>
+        debugger.WatchListAsync(cancellationToken);
+
+    public Task<DebugThreadListResult> DebugGetThreadsAsync(CancellationToken cancellationToken) =>
+        debugger.DebugGetThreadsAsync(cancellationToken);
+
+    public Task<ThreadSwitchResult> ThreadSwitchAsync(ThreadSwitchRequest request, CancellationToken cancellationToken) =>
+        debugger.ThreadSwitchAsync(request, cancellationToken);
+
+    public Task<ModuleListResult> ModuleListAsync(CancellationToken cancellationToken) =>
+        debugger.ModuleListAsync(cancellationToken);
+
+    public Task<ImmediateExecuteResult> ImmediateExecuteAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken) =>
+        debugger.ImmediateExecuteAsync(request, cancellationToken);
+
+    public Task<ExceptionSettingsResult> ExceptionSettingsGetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken) =>
+        debugger.ExceptionSettingsGetAsync(request, cancellationToken);
+
+    public Task<ExceptionSettingsResult> ExceptionSettingsSetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken) =>
+        debugger.ExceptionSettingsSetAsync(request, cancellationToken);
+
     public Task<SolutionInfoResult> SolutionInfoAsync(CancellationToken cancellationToken) =>
         solution.SolutionInfoAsync(cancellationToken);
 
