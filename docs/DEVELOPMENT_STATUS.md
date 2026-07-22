@@ -12,7 +12,7 @@ This file tracks agent orchestration so work can be resumed later.
 
 | Agent | ID | Current Status | Current Task | Last Reported Commit |
 | --- | --- | --- | --- | --- |
-| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Running | Wire VSIX registration endpoint to dispatcher connection map | `c69105a` from broker dispatcher |
+| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Running | Broker-routed MCP tool methods over live VSIX sessions | `ec19017` from pipe connection wiring |
 | Locke | `019f88e1-5257-7683-b382-205bbf1c935e` | Running | VSIX debugger status/breakpoint polish | `3338ea5` from debugger tools |
 | Feynman | `019f89d6-0d09-7813-bfe1-457186641c73` | Running | Broker tray/status UX and autostart service | Pending |
 | Darwin | `019f89d6-5179-76d0-8471-9f3cd6579f54` | Running | Tool/RPC contract specification | Pending |
@@ -155,6 +155,20 @@ This file tracks agent orchestration so work can be resumed later.
   - `src/NetVsMcp.Broker/Services/VsSessionDispatcher.cs`
   - `tests/NetVsMcp.Broker.Tests/VsSessionDispatcherTests.cs`
 
+### Jason: VSIX Pipe Registration Connections
+
+- Status: Integrated on `master`
+- Commit: `ec19017` - `Wire VSIX pipe registrations to connections`
+- Local solution build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors
+- Local tests: `dotnet test .\tests\NetVsMcp.Broker.Tests\NetVsMcp.Broker.Tests.csproj` passed with 35 tests
+- Review status: Pending full review
+- Files:
+  - `src/NetVsMcp.Broker/Services/BrokerRegistrationRpcService.cs`
+  - `src/NetVsMcp.Broker/Services/BrokerRuntime.cs`
+  - `src/NetVsMcp.Broker/Services/VsixRegistrationPipeListener.cs`
+  - `tests/NetVsMcp.Broker.Tests/BrokerRegistrationRpcServiceTests.cs`
+  - `tests/NetVsMcp.Broker.Tests/VsixRegistrationPipeListenerTests.cs`
+
 ### Locke: VSIX Document Symbols Navigation Service
 
 - Status: Integrated on `master`
@@ -210,7 +224,7 @@ This file tracks agent orchestration so work can be resumed later.
 
 ## Current Agent Tasks
 
-### Jason: Harden Broker HTTP Endpoint Validation
+### Jason: Broker-Routed MCP Tool Methods
 
 Write scope:
 
@@ -219,17 +233,19 @@ Write scope:
 
 Expected output:
 
-- `localhost` and loopback IPs handled deliberately
-- non-loopback hosts rejected
-- endpoint validation tests
-- optional MCP initialize/tools-list smoke test
+- broker MCP tool/service methods route through registered `IVisualStudioSessionRpc` proxies
+- first live-routed tools for editor, navigation, and build/diagnostics
+- typed response/error behavior for no session, ambiguity, stale sessions, missing connection, and VSIX RPC failures
+- successful fake-RPC tests per category
+- routing, ambiguity, missing connection, and request-shape tests
 - build/test result
 - commit hash
 
 Status:
 
 - Completed by `cd0511d`.
-- Jason completed the dispatcher follow-up in `c69105a` and is now wiring live VSIX registration connections into the dispatcher connection map.
+- First dispatcher abstraction completed by `c69105a`.
+- Pipe registration-to-connection wiring completed by `ec19017`.
 
 ### Locke: VSIX Debugger Status And Breakpoint Polish
 
