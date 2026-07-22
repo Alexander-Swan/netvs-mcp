@@ -14,6 +14,8 @@ This file tracks agent orchestration so work can be resumed later.
 | --- | --- | --- | --- | --- |
 | Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Running | Harden broker HTTP endpoint validation and smoke coverage | `ca4fcda` from prior MCP HTTP task |
 | Locke | `019f88e1-5257-7683-b382-205bbf1c935e` | Running | VSIX build + diagnostics service skeletons | `c371042` from prior navigation task |
+| Feynman | `019f89d6-0d09-7813-bfe1-457186641c73` | Running | Broker tray/status UX and autostart service | Pending |
+| Darwin | `019f89d6-5179-76d0-8471-9f3cd6579f54` | Running | Tool/RPC contract specification | Pending |
 
 ## Completed Agent Tasks
 
@@ -178,6 +180,43 @@ Expected output:
 - structured models for build status, errors, and output text
 - docs update with expected RPC method names/inputs/outputs
 - build result
+- commit hash
+
+### Feynman: Broker Tray/Status UX And Autostart
+
+Write scope:
+
+- `src/NetVsMcp.Broker/App.xaml*`
+- `src/NetVsMcp.Broker/MainWindow.xaml*`
+- `src/NetVsMcp.Broker/ViewModels/**`
+- `src/NetVsMcp.Broker/Services/TrayIconController.cs`
+- `src/NetVsMcp.Broker/Services/AutostartService.cs` if added
+- `docs/BROKER_UX.md` if added
+
+Expected output:
+
+- richer status window/tray UX
+- MCP config copy/display
+- registered VS sessions with health where available
+- autostart service abstraction or documented placeholder
+- build result
+- commit hash
+
+### Darwin: Tool/RPC Contract Specification
+
+Write scope:
+
+- `docs/TOOL_CONTRACTS.md`
+- `docs/PLAN.md` if needed
+- `docs/DEVELOPMENT_STATUS.md` only if needed
+
+Expected output:
+
+- broker MCP tool method names and routing fields
+- VSIX RPC target method names and request/response shapes
+- error behavior
+- ownership by Broker vs VSIX
+- open design questions
 - commit hash
 
 ## Review Checklist

@@ -110,12 +110,22 @@ public sealed class LocalMcpHttpHost : IAsyncDisposable
             throw new InvalidOperationException($"Invalid MCP endpoint '{endpoint}'.");
         }
 
-        if (!IPAddress.IsLoopback(IPAddress.Parse(uri.Host)))
+        if (!IsLoopbackHost(uri.Host))
         {
             throw new InvalidOperationException("The broker HTTP endpoint must bind to a loopback address.");
         }
 
         return uri;
+    }
+
+    private static bool IsLoopbackHost(string host)
+    {
+        if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return IPAddress.TryParse(host, out var address) && IPAddress.IsLoopback(address);
     }
 
     private static void ListenOptions(ListenOptions options)
