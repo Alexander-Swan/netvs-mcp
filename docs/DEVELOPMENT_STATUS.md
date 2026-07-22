@@ -12,8 +12,9 @@ This file tracks agent orchestration so work can be resumed later.
 
 | Agent | ID | Current Status | Current Task | Last Reported Commit |
 | --- | --- | --- | --- | --- |
-| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Running | Broker core session tools | `5110c05` from routed document tools |
-| Locke | `019f88e1-5257-7683-b382-205bbf1c935e` | Running | Fix VSIX broker registration RPC alignment | `1a28a51` from capability RPC target wiring |
+| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Idle | Completed broker session utility tools | `01ebf25` |
+| Agent E | `client-new-thread:f9ff1f98-3c7d-44a2-8244-b9948c548e7b` | Queued | Broker-routed build/diagnostics MCP tools | None yet |
+| Locke | `019f88e1-5257-7683-b382-205bbf1c935e` | Running | VSIX solution/project/test operations skeletons | `f7ca112` from registration RPC alignment |
 | Feynman | `019f89d6-0d09-7813-bfe1-457186641c73` | Running | Broker tray/status UX and autostart service | Pending |
 | Darwin | `019f89d6-5179-76d0-8471-9f3cd6579f54` | Running | Tool/RPC contract specification | Pending |
 
@@ -182,6 +183,18 @@ This file tracks agent orchestration so work can be resumed later.
   - `src/NetVsMcp.Broker/Services/VsSessionDispatcher.cs`
   - `tests/NetVsMcp.Broker.Tests/BrokerToolServiceTests.cs`
 
+### Jason: Broker Session Utility Tools
+
+- Status: Integrated on `master`
+- Commit: `01ebf25` - `Add broker session utility tools`
+- Reported build: `dotnet build .\src\NetVsMcp.Broker\NetVsMcp.Broker.csproj` passed with 0 warnings and 0 errors
+- Reported tests: `dotnet test .\tests\NetVsMcp.Broker.Tests\NetVsMcp.Broker.Tests.csproj` passed with 47 tests
+- Local solution build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors
+- Review status: Pending full review
+- Files:
+  - `src/NetVsMcp.Broker/Services/BrokerToolService.cs`
+  - `tests/NetVsMcp.Broker.Tests/BrokerToolServiceTests.cs`
+
 ### Locke: VSIX Document Symbols Navigation Service
 
 - Status: Integrated on `master`
@@ -262,20 +275,38 @@ This file tracks agent orchestration so work can be resumed later.
   - `src/NetVsMcp.Vsix/Capabilities/VisualStudioCapabilityRpcTarget.cs`
   - `src/NetVsMcp.Vsix/NetVsMcpPackage.cs`
 
+### Locke: VSIX Broker Registration RPC Alignment
+
+- Status: Integrated on `master`
+- Commit: `f7ca112` - `Align VSIX broker RPC contracts`
+- Reported build: `dotnet build .\src\NetVsMcp.Vsix\NetVsMcp.Vsix.csproj` passed with 0 warnings and 0 errors
+- Local solution build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors
+- Local broker tests: `dotnet test .\tests\NetVsMcp.Broker.Tests\NetVsMcp.Broker.Tests.csproj` passed with 47 tests
+- Review status: Pending full review
+- Files:
+  - `docs/VSIX.md`
+  - `src/NetVsMcp.Vsix/BrokerConnection.cs`
+  - `src/NetVsMcp.Vsix/Capabilities/VisualStudioCapabilityRpcTarget.cs`
+  - `src/NetVsMcp.Vsix/NetVsMcpPackage.cs`
+  - `src/NetVsMcp.Vsix/RegistrationModels.cs`
+
 ## Current Agent Tasks
 
-### Jason: Broker Core Session Tools
+### Agent E: Broker-Routed Build/Diagnostics Tools
 
 Write scope:
 
-- `src/NetVsMcp.Broker/**`
+- `src/NetVsMcp.Contracts/**`
+- `src/NetVsMcp.Broker/Services/BrokerToolService.cs`
+- `src/NetVsMcp.Broker/Services/VsSessionDispatcher.cs` if needed
 - `tests/NetVsMcp.Broker.Tests/**`
 
 Expected output:
 
-- add `vs_get_session`, `vs_select_session`, and `vs_ping`
-- `vs_get_session` uses routing rules and structured ambiguity metadata
-- `vs_select_session` implements a preferred/default session if design stays small, or a documented placeholder
+- extend broker-side RPC contracts/models for `BuildSolutionAsync`, `BuildStatusAsync`, `ErrorsListAsync`, and `OutputReadAsync`
+- add MCP tools `build_solution`, `build_status`, `errors_list`, and `output_read`
+- reuse existing routed-tool error behavior for no session, ambiguity, stale session, missing connection, and VSIX RPC failure
+- add fake-RPC success tests and at least one routing failure test
 - build/test result
 - commit hash
 
@@ -285,8 +316,9 @@ Status:
 - First dispatcher abstraction completed by `c69105a`.
 - Pipe registration-to-connection wiring completed by `ec19017`.
 - Routed document tools completed by `5110c05`.
+- Session utility tools completed by `01ebf25`.
 
-### Locke: VSIX Broker Registration RPC Alignment
+### Locke: VSIX Solution/Project/Test Operations
 
 Write scope:
 
@@ -295,9 +327,10 @@ Write scope:
 
 Expected output:
 
-- align VSIX registration method names with `IBrokerRegistrationRpc`
-- ensure VSIX registration/heartbeat/unregister DTOs are broker-compatible
-- preserve the capability RPC target attachment from `1a28a51`
+- VSIX-side methods for solution_info, project_list, project_info, startup_project_get, startup_project_set
+- VSIX-side test_discover, test_run, and test_results skeletons with clear unsupported/not-implemented responses where needed
+- update `VisualStudioCapabilityRpcTarget`
+- document method names and response shapes
 - build result
 - commit hash
 
@@ -307,7 +340,7 @@ Status:
 - Debugger tools completed by `3338ea5`.
 - Debugger polish completed by `e47378d`.
 - Capability RPC target wiring completed by `1a28a51`.
-- Current task assigned after review of `1a28a51`.
+- Broker registration RPC alignment completed by `f7ca112`.
 
 ### Feynman: Broker Tray/Status UX And Autostart
 

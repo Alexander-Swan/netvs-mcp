@@ -69,19 +69,27 @@ internal sealed class JsonRpcBrokerConnection : IBrokerConnection
     public Task RegisterAsync(VsRegistrationRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return rpc.InvokeAsync("RegisterVisualStudioSessionAsync", request);
+        return rpc.InvokeAsync("RegisterAsync", VsSessionRegistrationWire.FromRequest(request));
     }
 
     public Task HeartbeatAsync(VsHeartbeatRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return rpc.InvokeAsync("HeartbeatVisualStudioSessionAsync", request);
+        return HeartbeatAndUpdateAsync(request, cancellationToken);
     }
 
     public Task UnregisterAsync(string sessionId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return rpc.InvokeAsync("UnregisterVisualStudioSessionAsync", sessionId);
+        return rpc.InvokeAsync("UnregisterAsync", sessionId);
+    }
+
+    private async Task HeartbeatAndUpdateAsync(VsHeartbeatRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await rpc.InvokeAsync("UpdateAsync", VsSessionUpdateWire.FromRequest(request));
+        cancellationToken.ThrowIfCancellationRequested();
+        await rpc.InvokeAsync("HeartbeatAsync", request.Session.SessionId);
     }
 
     public void Dispose()

@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -9,13 +12,65 @@ internal sealed class VisualStudioCapabilityRpcTarget
     private readonly NavigationRpcTarget navigation;
     private readonly BuildRpcTarget build;
     private readonly DebuggerRpcTarget debugger;
+    private readonly IVisualStudioSessionSnapshotProvider snapshotProvider;
+    private readonly IVisualStudioCapabilityCatalog capabilities;
 
-    public VisualStudioCapabilityRpcTarget(IVisualStudioCapabilityCatalog capabilities)
+    public VisualStudioCapabilityRpcTarget(
+        IVisualStudioCapabilityCatalog capabilities,
+        IVisualStudioSessionSnapshotProvider snapshotProvider)
     {
+        this.capabilities = capabilities;
+        this.snapshotProvider = snapshotProvider;
         editor = new EditorRpcTarget(capabilities.Editor);
         navigation = new NavigationRpcTarget(capabilities.Navigation);
         build = new BuildRpcTarget(capabilities.Build);
         debugger = new DebuggerRpcTarget(capabilities.Debugger);
+    }
+
+    public async Task<ToolResponseWire<VsSessionInfoWire>> GetStatusAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var snapshot = await snapshotProvider.CaptureAsync(cancellationToken);
+            return ToolResponseWire<VsSessionInfoWire>.Ok(VsSessionInfoWire.FromSnapshot(snapshot, capabilities));
+        }
+        catch (Exception ex)
+        {
+            return ToolResponseWire<VsSessionInfoWire>.Fail(ex.Message);
+        }
+    }
+
+    public async Task<ToolResponseWire<string?>> GetActiveDocumentAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var document = await editor.DocumentActiveAsync(cancellationToken);
+            return ToolResponseWire<string?>.Ok(document?.Path ?? document?.Name);
+        }
+        catch (Exception ex)
+        {
+            return ToolResponseWire<string?>.Fail(ex.Message);
+        }
+    }
+
+    public async Task<ToolResponseWire<IReadOnlyCollection<string>>> ListDocumentSymbolsAsync(
+        string documentPath,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var request = new DocumentSymbolsRequest
+            {
+                DocumentPath = string.IsNullOrWhiteSpace(documentPath) ? null : documentPath
+            };
+            var result = await navigation.CodeDocumentSymbolsAsync(request, cancellationToken);
+            var symbols = result.Symbols.Select(FormatSymbolLabel).ToArray();
+            return ToolResponseWire<IReadOnlyCollection<string>>.Ok(symbols);
+        }
+        catch (Exception ex)
+        {
+            return ToolResponseWire<IReadOnlyCollection<string>>.Fail(ex.Message);
+        }
     }
 
     public Task<EditorDocumentInfo?> DocumentActiveAsync(CancellationToken cancellationToken) =>
@@ -92,4 +147,14 @@ internal sealed class VisualStudioCapabilityRpcTarget
 
     public Task<EvaluateExpressionResult> DebugEvaluateAsync(EvaluateExpressionRequest request, CancellationToken cancellationToken) =>
         debugger.DebugEvaluateAsync(request, cancellationToken);
+
+    private static string FormatSymbolLabel(DocumentSymbolInfo symbol)
+    {
+        var scope = symbol.ContainingType ?? symbol.ContainingNamespace;
+        var qualifiedName = string.IsNullOrWhiteSpace(scope)
+            ? symbol.Name
+            : $"{scope}.{symbol.Name}";
+
+        return $"{qualifiedName} ({symbol.Kind}) {symbol.File}:{symbol.Line}:{symbol.Column}";
+    }
 }

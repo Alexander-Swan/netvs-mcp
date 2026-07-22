@@ -110,15 +110,32 @@ netvs-mcp-S-1-5-21-...
 
 The broker should expose a matching named-pipe server and accept exactly one request object for registration/heartbeat. Once shared contracts land, replace `VsSessionSnapshot`, `VsRegistrationRequest`, and `VsHeartbeatRequest` in the VSIX with the shared DTOs rather than maintaining parallel types.
 
-The VSIX attaches a composed `VisualStudioCapabilityRpcTarget` to the same StreamJsonRpc connection used for registration and heartbeat. This lets the broker invoke VS-side capability methods over the existing named pipe after a session registers. Registration still flows from VSIX to broker with:
+The VSIX attaches a composed `VisualStudioCapabilityRpcTarget` to the same StreamJsonRpc connection used for registration and heartbeat. This lets the broker invoke VS-side capability methods over the existing named pipe after a session registers. Registration flows from VSIX to broker with the shared `IBrokerRegistrationRpc` method names:
 
 ```text
-RegisterVisualStudioSessionAsync
-HeartbeatVisualStudioSessionAsync
-UnregisterVisualStudioSessionAsync
+RegisterAsync
+UpdateAsync
+HeartbeatAsync
+UnregisterAsync
 ```
 
-Broker-to-VSIX capability calls use StreamJsonRpc method names such as:
+The VSIX sends DTOs with the same JSON property shape as `VsSessionRegistration` and `VsSessionUpdate`. The VSIX currently keeps local wire DTOs instead of referencing `NetVsMcp.Contracts` directly because the VSIX targets `net472` and the contracts assembly targets `net10.0`.
+
+The broker creates a reverse proxy for `IVisualStudioSessionRpc`, so the VSIX target exposes these exact broker-callable methods:
+
+```text
+GetStatusAsync(CancellationToken cancellationToken)
+GetActiveDocumentAsync(CancellationToken cancellationToken)
+ListDocumentSymbolsAsync(string documentPath, CancellationToken cancellationToken)
+```
+
+Those methods return `ToolResponse`-shaped values compatible with the shared contract:
+
+- `GetStatusAsync` returns the current `VsSessionInfo` wire shape
+- `GetActiveDocumentAsync` returns the active document path, falling back to document name
+- `ListDocumentSymbolsAsync` returns conservative symbol label strings from the existing navigation service
+
+Additional broker-to-VSIX capability calls use StreamJsonRpc method names such as:
 
 ```text
 DocumentActiveAsync
