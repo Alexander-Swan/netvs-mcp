@@ -452,6 +452,160 @@ If `paneName` is omitted, the VSIX prefers the `Build` output pane and otherwise
 
 When `maxChars` is smaller than the pane content, the VSIX returns the trailing text and marks `truncated` as `true`.
 
+## Debugger RPC Contract Expectation
+
+The VSIX-side debugger capability service now supports the first broker-routed debugger tools. It uses Visual Studio DTE on the UI thread for execution control, breakpoints, call stack, locals, and expression evaluation.
+
+Expected StreamJsonRpc methods:
+
+```text
+DebugStartAsync(CancellationToken cancellationToken)
+DebugStopAsync(CancellationToken cancellationToken)
+DebugContinueAsync(CancellationToken cancellationToken)
+DebugBreakAsync(CancellationToken cancellationToken)
+DebugStepAsync(DebugStepRequest request, CancellationToken cancellationToken)
+BreakpointSetAsync(BreakpointSetRequest request, CancellationToken cancellationToken)
+BreakpointListAsync(CancellationToken cancellationToken)
+BreakpointRemoveAsync(BreakpointRemoveRequest request, CancellationToken cancellationToken)
+DebugGetCallstackAsync(CancellationToken cancellationToken)
+DebugGetLocalsAsync(CancellationToken cancellationToken)
+DebugEvaluateAsync(EvaluateExpressionRequest request, CancellationToken cancellationToken)
+```
+
+Broker-facing MCP tool mapping:
+
+```text
+debug_start         -> DebugStartAsync
+debug_stop          -> DebugStopAsync
+debug_continue      -> DebugContinueAsync
+debug_break         -> DebugBreakAsync
+debug_step          -> DebugStepAsync
+breakpoint_set      -> BreakpointSetAsync
+breakpoint_list     -> BreakpointListAsync
+breakpoint_remove   -> BreakpointRemoveAsync
+debug_get_callstack -> DebugGetCallstackAsync
+debug_get_locals    -> DebugGetLocalsAsync
+debug_evaluate      -> DebugEvaluateAsync
+```
+
+Debugger state response:
+
+```json
+{
+  "mode": "dbgBreakMode"
+}
+```
+
+`debug_step` request:
+
+```json
+{
+  "stepKind": "Over"
+}
+```
+
+Supported step kinds are `Into`, `Over`, and `Out`.
+
+`breakpoint_set` request:
+
+```json
+{
+  "documentPath": "src\\App\\Program.cs",
+  "line": 42,
+  "column": 1,
+  "condition": "count > 3"
+}
+```
+
+`breakpoint_set` and `breakpoint_list` return breakpoint records:
+
+```json
+{
+  "name": "Program.cs, line 42",
+  "file": "D:\\Work\\App\\Program.cs",
+  "line": 42,
+  "column": 1,
+  "functionName": null,
+  "condition": "count > 3",
+  "enabled": true
+}
+```
+
+`breakpoint_remove` request:
+
+```json
+{
+  "name": "Program.cs, line 42",
+  "documentPath": "src\\App\\Program.cs",
+  "line": 42
+}
+```
+
+The VSIX removes breakpoints by exact name match or by exact file and line match.
+
+`debug_get_callstack` returns:
+
+```json
+{
+  "state": {
+    "mode": "dbgBreakMode"
+  },
+  "frames": [
+    {
+      "functionName": "App.Program.Main(string[])",
+      "file": null,
+      "line": 0,
+      "column": 0
+    }
+  ]
+}
+```
+
+The EnvDTE `StackFrame` API available to this project exposes function names and frame locals, but not source file, line, or column directly. Those fields are reserved in the contract and currently returned as `null` or `0` until a runtime-validated richer debugger frame API is wired.
+
+`debug_get_locals` returns:
+
+```json
+{
+  "state": {
+    "mode": "dbgBreakMode"
+  },
+  "locals": [
+    {
+      "name": "count",
+      "value": "4",
+      "type": "int",
+      "isValidValue": true
+    }
+  ]
+}
+```
+
+`debug_evaluate` request:
+
+```json
+{
+  "expression": "count + 1",
+  "timeoutMilliseconds": 5000
+}
+```
+
+`debug_evaluate` returns:
+
+```json
+{
+  "state": {
+    "mode": "dbgBreakMode"
+  },
+  "expression": {
+    "name": "count + 1",
+    "value": "5",
+    "type": "int",
+    "isValidValue": true
+  }
+}
+```
+
 ## Open Packaging Notes
 
 - Verify the VSIX builds on a machine with the Visual Studio extension development workload.

@@ -12,11 +12,8 @@ This file tracks agent orchestration so work can be resumed later.
 
 | Agent | ID | Current Status | Current Task | Last Reported Commit |
 | --- | --- | --- | --- | --- |
-| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Running | Wire VSIX registration endpoint to dispatcher connection map | `c69105a` from broker dispatcher |
-| Locke | `019f88e1-5257-7683-b382-205bbf1c935e` | Running | VSIX build + diagnostics service skeletons | `c371042` from prior navigation task |
-| Agent C | `client-new-thread:22291b11-a133-4af1-ba53-c26b78949be0` | Queued | Broker tray/status UX and autostart planning implementation | None yet |
-| Agent D | `client-new-thread:3fac3be6-225a-4b5a-a1d8-c00300c7a745` | Queued | Shared broker-to-VSIX routed tool contracts | None yet |
-| Agent D | `client-new-thread:d33e0211-d74f-432a-96f2-c666162f18f8` | Queued | Tool/RPC contract specification for broker-routed VSIX tools | None yet |
+| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Running | Broker-routed VSIX tool dispatch skeleton | `c69105a` from broker dispatcher |
+| Locke | `019f88e1-5257-7683-b382-205bbf1c935e` | Running | VSIX broker-facing capability RPC wiring | `3338ea5` from debugger tools |
 | Feynman | `019f89d6-0d09-7813-bfe1-457186641c73` | Running | Broker tray/status UX and autostart service | Pending |
 | Darwin | `019f89d6-5179-76d0-8471-9f3cd6579f54` | Running | Tool/RPC contract specification | Pending |
 
@@ -184,6 +181,33 @@ This file tracks agent orchestration so work can be resumed later.
   - `src/NetVsMcp.Vsix/Capabilities/NavigationModels.cs`
   - `src/NetVsMcp.Vsix/Capabilities/NavigationRpcTarget.cs`
 
+### Locke: VSIX Build Diagnostics Tools
+
+- Status: Integrated on `master`
+- Commit: `78c4fa3` - `Add VSIX build diagnostics tools`
+- Reported build: `dotnet build .\src\NetVsMcp.Vsix\NetVsMcp.Vsix.csproj` passed with 0 warnings and 0 errors
+- Local solution build: blocked by later uncommitted debugger-slice changes, not by this commit
+- Review status: Pending full review
+- Files:
+  - `docs/VSIX.md`
+  - `src/NetVsMcp.Vsix/Capabilities/BuildCapabilityService.cs`
+  - `src/NetVsMcp.Vsix/Capabilities/BuildModels.cs`
+  - `src/NetVsMcp.Vsix/Capabilities/BuildRpcTarget.cs`
+
+### Locke: VSIX Debugger Tool Skeletons
+
+- Status: Integrated on `master`
+- Commit: `3338ea5` - `Add VSIX debugger tool skeletons`
+- Reported build: `dotnet build .\src\NetVsMcp.Vsix\NetVsMcp.Vsix.csproj` passed with 0 warnings and 0 errors
+- Local solution build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors
+- Local broker tests: `dotnet test .\tests\NetVsMcp.Broker.Tests\NetVsMcp.Broker.Tests.csproj` passed with 34 tests
+- Review status: Pending full review
+- Files:
+  - `docs/VSIX.md`
+  - `src/NetVsMcp.Vsix/Capabilities/DebuggerCapabilityService.cs`
+  - `src/NetVsMcp.Vsix/Capabilities/DebuggerModels.cs`
+  - `src/NetVsMcp.Vsix/Capabilities/DebuggerRpcTarget.cs`
+
 ## Current Agent Tasks
 
 ### Jason: Harden Broker HTTP Endpoint Validation
@@ -207,7 +231,7 @@ Status:
 - Completed by `cd0511d`.
 - Jason completed the dispatcher follow-up in `c69105a` and is now wiring live VSIX registration connections into the dispatcher connection map.
 
-### Locke: VSIX Build + Diagnostics Service Skeletons
+### Locke: VSIX Broker-Facing Capability RPC Wiring
 
 Write scope:
 
@@ -216,11 +240,16 @@ Write scope:
 
 Expected output:
 
-- VSIX-side methods/RPC target methods for `build_solution`, `build_status`, `errors_list`, and `output_read`
-- structured models for build status, errors, and output text
-- docs update with expected RPC method names/inputs/outputs
+- wire existing editor/navigation/build/debugger RPC targets into the broker connection path
+- keep registration and heartbeat behavior intact
+- document broker invocation shape
 - build result
 - commit hash
+
+Status:
+
+- Build diagnostics completed by `78c4fa3`.
+- Debugger tools completed by `3338ea5`.
 
 ### Agent C: Broker Tray/Status UX And Autostart
 
