@@ -17,7 +17,7 @@ This file tracks agent orchestration so work can be resumed later.
 | Agent F | `client-new-thread:22291b11-a133-4af1-ba53-c26b78949be0` | Completed | Broker-routed editor/safe-editing tools | `37262ec` |
 | Agent G | `client-new-thread:3fac3be6-225a-4b5a-a1d8-c00300c7a745` | Completed | Broker-routed solution/project/test tools | `260c708` |
 | Locke | `019f88e1-5257-7683-b382-205bbf1c935e` | Idle | Completed safe edit preview and advanced debugger skeletons | `c517104` |
-| Feynman | `019f89d6-0d09-7813-bfe1-457186641c73` | Running | Broker tray/status UX and autostart service | Pending |
+| Feynman | `019f89d6-0d09-7813-bfe1-457186641c73` | Completed | Orchestration-only; broker UX completed by Locke | `4ebec1f` |
 | Darwin | `019f89d6-5179-76d0-8471-9f3cd6579f54` | Completed | Tracker/orchestration update; contract spec completed by orchestrator | `32bb4c4` |
 
 ## Completed Agent Tasks
@@ -391,6 +391,24 @@ This file tracks agent orchestration so work can be resumed later.
   - `tests/NetVsMcp.Broker.Tests/VsSessionDispatcherTests.cs`
   - `tests/NetVsMcp.Broker.Tests/VsixRegistrationPipeListenerTests.cs`
 
+### Locke: Broker Tray Status UX
+
+- Status: Integrated on `master`
+- Commit: `7a89bb6` - `Improve broker tray status UX`
+- Review fix: `36d5698` - `Marshal broker status refresh to UI thread`
+- Local solution build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors
+- Local broker tests: `dotnet test .\tests\NetVsMcp.Broker.Tests\NetVsMcp.Broker.Tests.csproj` passed with 96 tests
+- Review status: Reviewed with UI-thread fix
+- Files:
+  - `README.md`
+  - `docs/BROKER_UX.md`
+  - `src/NetVsMcp.Broker/App.xaml.cs`
+  - `src/NetVsMcp.Broker/MainWindow.xaml`
+  - `src/NetVsMcp.Broker/MainWindow.xaml.cs`
+  - `src/NetVsMcp.Broker/Services/AutostartService.cs`
+  - `src/NetVsMcp.Broker/Services/TrayIconController.cs`
+  - `src/NetVsMcp.Broker/ViewModels/MainWindowViewModel.cs`
+
 ### Locke: VSIX Safe Editor Mutation Tools
 
 - Status: Integrated on `master`
@@ -517,6 +535,11 @@ Expected output:
 - autostart service abstraction or documented placeholder
 - build result
 - commit hash
+
+Status:
+
+- Original Feynman task returned orchestration/status updates instead of code.
+- Implemented by Locke in `7a89bb6`; UI-thread review fix committed as `36d5698`.
 
 ### Darwin: Tool/RPC Contract Specification
 

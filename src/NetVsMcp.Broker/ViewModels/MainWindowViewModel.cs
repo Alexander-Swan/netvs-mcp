@@ -95,6 +95,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public void Refresh()
     {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is not null && !dispatcher.CheckAccess())
+        {
+            _ = dispatcher.BeginInvoke((Action)Refresh);
+            return;
+        }
+
         var status = _runtime.GetStatus();
         RunningState = status.IsRunning ? "Running" : "Stopped";
         StatusText = status.IsRunning
