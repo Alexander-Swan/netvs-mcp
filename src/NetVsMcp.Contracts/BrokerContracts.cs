@@ -340,6 +340,46 @@ public sealed record TestResultInfo(
     string? Duration,
     string? Message);
 
+public sealed class CodePositionRequest
+{
+    public string DocumentPath { get; set; } = string.Empty;
+
+    public int Line { get; set; }
+
+    public int Column { get; set; }
+}
+
+public sealed record DocumentSymbolInfo(
+    string Name,
+    string Kind,
+    string? File,
+    int Line,
+    int Column,
+    string? ContainingType,
+    string? ContainingNamespace);
+
+public sealed record CodeLocationInfo(
+    string? File,
+    int Line,
+    int Column,
+    DocumentSymbolInfo Symbol);
+
+public sealed record CodeReferenceInfo(
+    string? File,
+    int Line,
+    int Column,
+    bool IsImplicit,
+    DocumentSymbolInfo Symbol);
+
+public sealed record GoToDefinitionResult(
+    DocumentSymbolInfo? Symbol,
+    IReadOnlyCollection<CodeLocationInfo> Definitions,
+    bool Navigated);
+
+public sealed record FindReferencesResult(
+    DocumentSymbolInfo? Symbol,
+    IReadOnlyCollection<CodeReferenceInfo> References);
+
 public sealed class BuildSolutionRequest
 {
     public bool WaitForBuildToFinish { get; set; }
@@ -623,6 +663,14 @@ public interface IVisualStudioSessionRpc
 
     Task<TestOperationResult> TestResultsAsync(
         TestResultsRequest request,
+        CancellationToken cancellationToken);
+
+    Task<GoToDefinitionResult> CodeGoToDefinitionAsync(
+        CodePositionRequest request,
+        CancellationToken cancellationToken);
+
+    Task<FindReferencesResult> CodeFindReferencesAsync(
+        CodePositionRequest request,
         CancellationToken cancellationToken);
 
     Task<BuildSolutionResult> BuildSolutionAsync(

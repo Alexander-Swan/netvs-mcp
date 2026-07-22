@@ -17,6 +17,8 @@ public sealed class BrokerToolService
         new("vs_ping", "Returns lightweight broker health and optional routed Visual Studio session status.", false),
         new("document_active", "Returns the active document for a routed Visual Studio session.", true),
         new("code_document_symbols", "Lists document symbols through a routed Visual Studio session.", true),
+        new("code_go_to_definition", "Finds and navigates to a symbol definition through a routed Visual Studio session.", true),
+        new("code_find_references", "Finds symbol references through a routed Visual Studio session.", true),
         new("build_solution", "Starts a solution build in a routed Visual Studio session.", true),
         new("build_status", "Returns build status from a routed Visual Studio session.", true),
         new("errors_list", "Lists errors and warnings from a routed Visual Studio session.", true),
@@ -208,6 +210,68 @@ public sealed class BrokerToolService
             cancellationToken);
 
         return ToToolResponse(dispatch);
+    }
+
+    [McpServerTool(Name = "code_go_to_definition")]
+    [Description("Finds and navigates to a symbol definition through a routed Visual Studio session.")]
+    public Task<ToolResponse<GoToDefinitionResult>> CodeGoToDefinition(
+        string documentPath,
+        int line,
+        int column,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateCodePosition(documentPath, line, column) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<GoToDefinitionResult>.Fail(validation));
+        }
+
+        var request = new CodePositionRequest
+        {
+            DocumentPath = documentPath.Trim(),
+            Line = line,
+            Column = column
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.CodeGoToDefinitionAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "code_find_references")]
+    [Description("Finds symbol references through a routed Visual Studio session.")]
+    public Task<ToolResponse<FindReferencesResult>> CodeFindReferences(
+        string documentPath,
+        int line,
+        int column,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateCodePosition(documentPath, line, column) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<FindReferencesResult>.Fail(validation));
+        }
+
+        var request = new CodePositionRequest
+        {
+            DocumentPath = documentPath.Trim(),
+            Line = line,
+            Column = column
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.CodeFindReferencesAsync(request, ct),
+            cancellationToken);
     }
 
     [McpServerTool(Name = "document_read")]
@@ -1371,6 +1435,19 @@ public sealed class BrokerToolService
         return string.IsNullOrWhiteSpace(projectName)
             ? "Project name is required."
             : null;
+    }
+
+    private static string? ValidateCodePosition(
+        string? documentPath,
+        int line,
+        int column)
+    {
+        if (string.IsNullOrWhiteSpace(documentPath))
+        {
+            return "Document path is required.";
+        }
+
+        return ValidatePosition(line, column);
     }
 
     private static ToolResponse<T> ToToolResponse<T>(

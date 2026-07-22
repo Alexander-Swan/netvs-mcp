@@ -12,7 +12,7 @@ This file tracks agent orchestration so work can be resumed later.
 
 | Agent | ID | Current Status | Current Task | Last Reported Commit |
 | --- | --- | --- | --- | --- |
-| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Idle | Completed broker debugger tools | `b8352c2` |
+| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Idle | Completed broker rich navigation tools | `92a080c` |
 | Agent E | `client-new-thread:f9ff1f98-3c7d-44a2-8244-b9948c548e7b` | Completed | Broker-routed build/diagnostics MCP tools | `121e892` |
 | Agent F | `client-new-thread:22291b11-a133-4af1-ba53-c26b78949be0` | Completed | Broker-routed editor/safe-editing tools | `37262ec` |
 | Agent G | `client-new-thread:3fac3be6-225a-4b5a-a1d8-c00300c7a745` | Completed | Broker-routed solution/project/test tools | `260c708` |
@@ -376,6 +376,21 @@ This file tracks agent orchestration so work can be resumed later.
   - `tests/NetVsMcp.Broker.Tests/VsSessionDispatcherTests.cs`
   - `tests/NetVsMcp.Broker.Tests/VsixRegistrationPipeListenerTests.cs`
 
+### Jason: Broker Rich Navigation Tools
+
+- Status: Integrated on `master`
+- Commit: `92a080c` - `Add broker rich navigation tools`
+- Local solution build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors
+- Local broker tests: `dotnet test .\tests\NetVsMcp.Broker.Tests\NetVsMcp.Broker.Tests.csproj` passed with 96 tests
+- Review status: Pending full review
+- Files:
+  - `src/NetVsMcp.Contracts/BrokerContracts.cs`
+  - `src/NetVsMcp.Broker/Services/BrokerToolService.cs`
+  - `tests/NetVsMcp.Broker.Tests/BrokerToolServiceTests.cs`
+  - `tests/NetVsMcp.Broker.Tests/BrokerRegistrationRpcServiceTests.cs`
+  - `tests/NetVsMcp.Broker.Tests/VsSessionDispatcherTests.cs`
+  - `tests/NetVsMcp.Broker.Tests/VsixRegistrationPipeListenerTests.cs`
+
 ### Locke: VSIX Safe Editor Mutation Tools
 
 - Status: Integrated on `master`
@@ -539,7 +554,7 @@ Expected output:
 Status:
 
 - Editor read/open, mutation, cleanup, and safe-edit preview tools completed by `37262ec`.
-- Definition/reference broker routing remains a follow-up.
+- Definition/reference broker routing completed by `92a080c`.
 
 ### Agent G: Broker-Routed Solution/Project/Test Tools
 

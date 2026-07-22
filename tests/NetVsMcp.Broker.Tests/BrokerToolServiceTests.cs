@@ -34,6 +34,8 @@ public sealed class BrokerToolServiceTests
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_ping", RequiresVisualStudioSession: false });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "document_active", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "code_document_symbols", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "code_go_to_definition", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "code_find_references", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "build_solution", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "build_status", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "errors_list", RequiresVisualStudioSession: true });
@@ -401,6 +403,72 @@ public sealed class BrokerToolServiceTests
 
         Assert.False(response.Success);
         Assert.Equal("Document path is required.", response.Message);
+    }
+
+    [Fact]
+    public async Task CodeGoToDefinition_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.CodeGoToDefinition(
+            documentPath: "Program.cs",
+            line: 10,
+            column: 5,
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("Program.cs", session.LastCodeGoToDefinitionRequest!.DocumentPath);
+        Assert.Equal(10, session.LastCodeGoToDefinitionRequest.Line);
+        Assert.True(response.Value!.Navigated);
+        Assert.Equal("Run", response.Value.Symbol!.Name);
+        Assert.Equal("Run", Assert.Single(response.Value.Definitions).Symbol.Name);
+    }
+
+    [Fact]
+    public async Task CodeFindReferences_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.CodeFindReferences(
+            documentPath: "Program.cs",
+            line: 10,
+            column: 5,
+            solutionName: "NetVsMcp");
+
+        Assert.True(response.Success);
+        Assert.Equal(5, session.LastCodeFindReferencesRequest!.Column);
+        var reference = Assert.Single(response.Value!.References);
+        Assert.False(reference.IsImplicit);
+        Assert.Equal("Run", reference.Symbol.Name);
+    }
+
+    [Fact]
+    public async Task CodeGoToDefinition_ValidatesPosition()
+    {
+        var runtime = CreateRuntime();
+
+        var response = await runtime.Tools.CodeGoToDefinition("Program.cs", 0, 5);
+
+        Assert.False(response.Success);
+        Assert.Equal("Line must be greater than zero.", response.Message);
+    }
+
+    [Fact]
+    public async Task CodeFindReferences_ReturnsMissingConnectionFailure()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+
+        var response = await runtime.Tools.CodeFindReferences("Program.cs", 10, 5, sessionId: "vs-1");
+
+        Assert.False(response.Success);
+        Assert.Equal("MissingConnection", response.Metadata!["failureReason"]);
     }
 
     [Fact]
@@ -922,6 +990,10 @@ public sealed class BrokerToolServiceTests
 
         public string? LastSymbolsDocumentPath { get; private set; }
 
+        public CodePositionRequest? LastCodeGoToDefinitionRequest { get; private set; }
+
+        public CodePositionRequest? LastCodeFindReferencesRequest { get; private set; }
+
         public DocumentReadRequest? LastDocumentReadRequest { get; private set; }
 
         public DocumentOpenRequest? LastDocumentOpenRequest { get; private set; }
@@ -987,6 +1059,34 @@ public sealed class BrokerToolServiceTests
             LastSymbolsDocumentPath = documentPath;
             IReadOnlyCollection<string> symbols = ["Editor", "Editor.Run"];
             return Task.FromResult(ToolResponse<IReadOnlyCollection<string>>.Ok(symbols));
+        }
+
+        public Task<GoToDefinitionResult> CodeGoToDefinitionAsync(
+            CodePositionRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastCodeGoToDefinitionRequest = request;
+            var symbol = CreateSymbol(request);
+            IReadOnlyCollection<CodeLocationInfo> definitions =
+            [
+                new(request.DocumentPath, request.Line, request.Column, symbol)
+            ];
+
+            return Task.FromResult(new GoToDefinitionResult(symbol, definitions, true));
+        }
+
+        public Task<FindReferencesResult> CodeFindReferencesAsync(
+            CodePositionRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastCodeFindReferencesRequest = request;
+            var symbol = CreateSymbol(request);
+            IReadOnlyCollection<CodeReferenceInfo> references =
+            [
+                new(request.DocumentPath, request.Line + 1, request.Column, false, symbol)
+            ];
+
+            return Task.FromResult(new FindReferencesResult(symbol, references));
         }
 
         public Task<DocumentReadResult> DocumentReadAsync(
@@ -1412,6 +1512,18 @@ public sealed class BrokerToolServiceTests
             [
                 new("BrokerToolServiceTests.ProjectList", "Passed", "00:00:00.100", null)
             ];
+        }
+
+        private static DocumentSymbolInfo CreateSymbol(CodePositionRequest request)
+        {
+            return new DocumentSymbolInfo(
+                "Run",
+                "Method",
+                request.DocumentPath,
+                request.Line,
+                request.Column,
+                "Program",
+                "NetVsMcp");
         }
     }
 }

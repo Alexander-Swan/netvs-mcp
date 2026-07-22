@@ -281,6 +281,10 @@ public sealed class BrokerRegistrationRpcServiceTests
 
         public Task<TestOperationResult> TestResultsAsync(TestResultsRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<GoToDefinitionResult> CodeGoToDefinitionAsync(CodePositionRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<FindReferencesResult> CodeFindReferencesAsync(CodePositionRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<BuildSolutionResult> BuildSolutionAsync(
             BuildSolutionRequest request,
             CancellationToken cancellationToken)
