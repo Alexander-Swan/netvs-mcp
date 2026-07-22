@@ -212,6 +212,62 @@ Relative paths are resolved against the active solution directory. Absolute path
 
 Line and column values follow Visual Studio DTE conventions and are 1-based.
 
+## Code Navigation RPC Contract Expectation
+
+The VSIX-side navigation capability service now supports the first broker-routed code navigation tool. It uses Visual Studio's live Roslyn workspace through `VisualStudioWorkspace`, so symbols are resolved from the solution state known to Visual Studio rather than from standalone disk parsing.
+
+Expected StreamJsonRpc method:
+
+```text
+CodeDocumentSymbolsAsync(DocumentSymbolsRequest request, CancellationToken cancellationToken)
+```
+
+Broker-facing MCP tool mapping:
+
+```text
+code_document_symbols -> CodeDocumentSymbolsAsync
+```
+
+`code_document_symbols` request:
+
+```json
+{
+  "documentPath": "src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs"
+}
+```
+
+`documentPath` is optional. If omitted, the VSIX uses the active Visual Studio document. Relative paths are resolved against the active solution directory. Absolute paths are used as-is.
+
+`code_document_symbols` returns:
+
+```json
+{
+  "documentPath": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+  "symbols": [
+    {
+      "name": "NetVsMcpPackage",
+      "kind": "NamedType",
+      "file": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+      "line": 12,
+      "column": 21,
+      "containingType": null,
+      "containingNamespace": "NetVsMcp.Vsix"
+    },
+    {
+      "name": "InitializeAsync",
+      "kind": "Method",
+      "file": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+      "line": 18,
+      "column": 35,
+      "containingType": "NetVsMcp.Vsix.NetVsMcpPackage",
+      "containingNamespace": "NetVsMcp.Vsix"
+    }
+  ]
+}
+```
+
+Line and column values are 1-based. The initial implementation returns namespaces, types, methods, properties, fields, and events.
+
 ## Open Packaging Notes
 
 - Verify the VSIX builds on a machine with the Visual Studio extension development workload.
