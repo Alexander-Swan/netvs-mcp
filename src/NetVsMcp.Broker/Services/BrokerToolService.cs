@@ -12,6 +12,9 @@ public sealed class BrokerToolService
         new("vs_list_sessions", "Lists Visual Studio instances registered with the local broker.", false),
         new("vs_get_status", "Returns local broker endpoint, uptime, and registered session status.", false),
         new("vs_get_capabilities", "Lists broker tools and Visual Studio capability categories.", false),
+        new("vs_get_session", "Resolves a Visual Studio session and returns its current broker status.", false),
+        new("vs_select_session", "Resolves a Visual Studio session using broker routing rules without persisting selection.", false),
+        new("vs_ping", "Returns lightweight broker health and optional routed Visual Studio session status.", false),
         new("document_active", "Returns the active document for a routed Visual Studio session.", true),
         new("code_document_symbols", "Lists document symbols through a routed Visual Studio session.", true)
     ];
@@ -58,6 +61,75 @@ public sealed class BrokerToolService
             VisualStudioCapabilities);
 
         return ToolResponse<BrokerCapabilities>.Ok(capabilities);
+    }
+
+    [McpServerTool(Name = "vs_get_session")]
+    [Description("Resolves a Visual Studio session using sessionId, solutionName, or solutionPath and returns its current broker status.")]
+    public ToolResponse<VsSessionStatus> VsGetSession(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null)
+    {
+        var route = _runtime.Sessions.Resolve(CreateTarget(sessionId, solutionName, solutionPath));
+        if (!route.Success || route.Session is null)
+        {
+            return new ToolResponse<VsSessionStatus>(
+                false,
+                default,
+                route.Message,
+                CreateRouteFailureMetadata(route));
+        }
+
+        var status = GetSessionStatus(route.Session);
+        return status is null
+            ? ToolResponse<VsSessionStatus>.Fail($"Visual Studio session '{route.Session.SessionId}' is no longer registered.")
+            : ToolResponse<VsSessionStatus>.Ok(status);
+    }
+
+    [McpServerTool(Name = "vs_select_session")]
+    [Description("Resolves and returns a Visual Studio session using broker routing rules without storing global selection state.")]
+    public ToolResponse<VsSessionInfo> VsSelectSession(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null)
+    {
+        var route = _runtime.Sessions.Resolve(CreateTarget(sessionId, solutionName, solutionPath));
+        if (!route.Success || route.Session is null)
+        {
+            return new ToolResponse<VsSessionInfo>(
+                false,
+                default,
+                route.Message,
+                CreateRouteFailureMetadata(route));
+        }
+
+        return ToolResponse<VsSessionInfo>.Ok(route.Session);
+    }
+
+    [McpServerTool(Name = "vs_ping")]
+    [Description("Returns lightweight broker health and optional routed Visual Studio session status.")]
+    public ToolResponse<BrokerPing> VsPing(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null)
+    {
+        if (!HasRoutingFields(sessionId, solutionName, solutionPath))
+        {
+            return ToolResponse<BrokerPing>.Ok(CreatePing(null));
+        }
+
+        var route = _runtime.Sessions.Resolve(CreateTarget(sessionId, solutionName, solutionPath));
+        if (!route.Success || route.Session is null)
+        {
+            return new ToolResponse<BrokerPing>(
+                false,
+                default,
+                route.Message,
+                CreateRouteFailureMetadata(route));
+        }
+
+        var status = GetSessionStatus(route.Session);
+        return ToolResponse<BrokerPing>.Ok(CreatePing(status));
     }
 
     [McpServerTool(Name = "document_active")]
@@ -121,6 +193,37 @@ public sealed class BrokerToolService
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
+    private VsSessionStatus? GetSessionStatus(VsSessionInfo session)
+    {
+        return _runtime.Sessions.ListSessionStatuses()
+            .SingleOrDefault(status => string.Equals(
+                status.Session.SessionId,
+                session.SessionId,
+                StringComparison.OrdinalIgnoreCase));
+    }
+
+    private BrokerPing CreatePing(VsSessionStatus? targetSession)
+    {
+        return new BrokerPing(
+            ServerTimeUtc: DateTimeOffset.UtcNow,
+            IsRunning: _runtime.IsHttpEndpointRunning,
+            McpEndpoint: _runtime.Options.McpEndpoint,
+            PipeName: _runtime.Options.PipeName,
+            Uptime: DateTimeOffset.UtcNow - _runtime.StartedUtc,
+            RegisteredSessionCount: _runtime.Sessions.ListSessions().Count,
+            TargetSession: targetSession);
+    }
+
+    private static bool HasRoutingFields(
+        string? sessionId,
+        string? solutionName,
+        string? solutionPath)
+    {
+        return !string.IsNullOrWhiteSpace(sessionId) ||
+            !string.IsNullOrWhiteSpace(solutionName) ||
+            !string.IsNullOrWhiteSpace(solutionPath);
+    }
+
     private static ToolResponse<T> ToToolResponse<T>(
         VsSessionDispatchResult<ToolResponse<T>> dispatch)
     {
@@ -134,6 +237,17 @@ public sealed class BrokerToolService
         }
 
         return dispatch.Value ?? ToolResponse<T>.Fail("Visual Studio session returned no response.");
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateRouteFailureMetadata(RouteResult route)
+    {
+        var metadata = new Dictionary<string, string>
+        {
+            ["failureReason"] = route.FailureReason.ToString()
+        };
+
+        AddCandidateMetadata(metadata, route.Candidates);
+        return metadata;
     }
 
     private static IReadOnlyDictionary<string, string> CreateFailureMetadata<T>(
@@ -151,10 +265,31 @@ public sealed class BrokerToolService
 
         if (dispatch.Candidates.Count > 0)
         {
-            metadata["candidateCount"] = dispatch.Candidates.Count.ToString();
-            metadata["candidateSessionIds"] = string.Join(",", dispatch.Candidates.Select(candidate => candidate.SessionId));
+            AddCandidateMetadata(metadata, dispatch.Candidates);
         }
 
         return metadata;
     }
+
+    private static void AddCandidateMetadata(
+        IDictionary<string, string> metadata,
+        IReadOnlyCollection<VsSessionInfo> candidates)
+    {
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+
+        metadata["candidateCount"] = candidates.Count.ToString();
+        metadata["candidateSessionIds"] = string.Join(",", candidates.Select(candidate => candidate.SessionId));
+    }
 }
+
+public sealed record BrokerPing(
+    DateTimeOffset ServerTimeUtc,
+    bool IsRunning,
+    string McpEndpoint,
+    string PipeName,
+    TimeSpan Uptime,
+    int RegisteredSessionCount,
+    VsSessionStatus? TargetSession);

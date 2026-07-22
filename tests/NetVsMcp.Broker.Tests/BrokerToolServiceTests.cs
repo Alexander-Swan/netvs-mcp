@@ -29,11 +29,106 @@ public sealed class BrokerToolServiceTests
         Assert.Contains(response.Value!.Tools, tool => tool.Name == "vs_list_sessions");
         Assert.Contains(response.Value.Tools, tool => tool.Name == "vs_get_status");
         Assert.Contains(response.Value.Tools, tool => tool.Name == "vs_get_capabilities");
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_get_session", RequiresVisualStudioSession: false });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_select_session", RequiresVisualStudioSession: false });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_ping", RequiresVisualStudioSession: false });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "document_active", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "code_document_symbols", RequiresVisualStudioSession: true });
         Assert.All(
             response.Value.Tools.Where(tool => tool.Name.StartsWith("vs_", StringComparison.Ordinal)),
             tool => Assert.False(tool.RequiresVisualStudioSession));
+    }
+
+    [Fact]
+    public void VsGetSession_SelectsBySessionId()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Sessions.Register(CreateRegistration("vs-2", "Other"));
+
+        var response = runtime.Tools.VsGetSession(sessionId: "vs-2");
+
+        Assert.True(response.Success);
+        Assert.Equal("vs-2", response.Value!.Session.SessionId);
+        Assert.Equal(SessionHealth.Connected, response.Value.Health);
+    }
+
+    [Fact]
+    public void VsGetSession_SelectsByNormalizedSolutionPath()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp", @"C:\Code\NetVsMcp\NetVsMcp.slnx", isActive: false));
+
+        var response = runtime.Tools.VsGetSession(solutionPath: @"c:/code/NetVsMcp/../NetVsMcp/NetVsMcp.slnx");
+
+        Assert.True(response.Success);
+        Assert.Equal("vs-1", response.Value!.Session.SessionId);
+    }
+
+    [Fact]
+    public void VsSelectSession_SelectsBySolutionName()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Sessions.Register(CreateRegistration("vs-2", "Other"));
+
+        var response = runtime.Tools.VsSelectSession(solutionName: "Other");
+
+        Assert.True(response.Success);
+        Assert.Equal("vs-2", response.Value!.SessionId);
+        Assert.Equal("Other", response.Value.SolutionName);
+    }
+
+    [Fact]
+    public void VsSelectSession_ReturnsAmbiguousFailureWithCandidates()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "Shared", @"C:\Code\One\Shared.slnx", isActive: false));
+        runtime.Sessions.Register(CreateRegistration("vs-2", "Shared", @"C:\Code\Two\Shared.slnx", isActive: false));
+
+        var response = runtime.Tools.VsSelectSession(solutionName: "Shared");
+
+        Assert.False(response.Success);
+        Assert.Equal("Ambiguous", response.Metadata!["failureReason"]);
+        Assert.Equal("2", response.Metadata["candidateCount"]);
+        Assert.Equal("vs-1,vs-2", response.Metadata["candidateSessionIds"]);
+    }
+
+    [Fact]
+    public void VsGetSession_ReturnsNoSessionsFailure()
+    {
+        var runtime = CreateRuntime();
+
+        var response = runtime.Tools.VsGetSession();
+
+        Assert.False(response.Success);
+        Assert.Equal("NoRegisteredSessions", response.Metadata!["failureReason"]);
+    }
+
+    [Fact]
+    public void VsPing_ReturnsBrokerHealthWithoutTarget()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+
+        var response = runtime.Tools.VsPing();
+
+        Assert.True(response.Success);
+        Assert.Equal(BrokerOptions.LocalDefault.McpEndpoint, response.Value!.McpEndpoint);
+        Assert.Equal(1, response.Value.RegisteredSessionCount);
+        Assert.Null(response.Value.TargetSession);
+    }
+
+    [Fact]
+    public void VsPing_ReturnsTargetStatus_WhenTargetIsSupplied()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+
+        var response = runtime.Tools.VsPing(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("vs-1", response.Value!.TargetSession!.Session.SessionId);
     }
 
     [Fact]
