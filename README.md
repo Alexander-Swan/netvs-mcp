@@ -15,15 +15,21 @@ Codex / MCP Client
 
 See [docs/PLAN.md](docs/PLAN.md) for the saved development plan.
 
-## Planned Projects
+## Projects
 
 ```text
 NetVsMcp.slnx
   src/NetVsMcp.Broker
-  src/NetVsMcp.Vsix
+    WPF tray/status app and local HTTP MCP broker skeleton
+
   src/NetVsMcp.Contracts
-  tests/NetVsMcp.Tests
+    shared DTOs and RPC contracts for broker/VSIX communication
+
+  src/NetVsMcp.Vsix
+    planned Visual Studio extension
 ```
+
+This repo is now structured for the local broker plus VSIX architecture. The old single-executable console prototype is intentionally not part of this fresh-start layout.
 
 ## MCP Registration
 
