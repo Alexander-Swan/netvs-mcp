@@ -212,3 +212,170 @@ internal sealed class DebugExpressionInfo
             expression.IsValidValue);
     }
 }
+
+internal sealed class WatchAddRequest
+{
+    public string Expression { get; set; } = string.Empty;
+}
+
+internal sealed class WatchRemoveRequest
+{
+    public string Expression { get; set; } = string.Empty;
+}
+
+internal sealed class WatchOperationResult
+{
+    public WatchOperationResult(bool supported, bool success, string? message, DebugExpressionInfo? watch)
+    {
+        Supported = supported;
+        Success = success;
+        Message = message;
+        Watch = watch;
+    }
+
+    public bool Supported { get; }
+    public bool Success { get; }
+    public string? Message { get; }
+    public DebugExpressionInfo? Watch { get; }
+}
+
+internal sealed class WatchListResult
+{
+    public WatchListResult(bool supported, string? message, IReadOnlyCollection<DebugExpressionInfo> watches)
+    {
+        Supported = supported;
+        Message = message;
+        Watches = watches;
+    }
+
+    public bool Supported { get; }
+    public string? Message { get; }
+    public IReadOnlyCollection<DebugExpressionInfo> Watches { get; }
+}
+
+internal sealed class DebugThreadInfo
+{
+    public DebugThreadInfo(int id, string? name, bool isCurrent)
+    {
+        Id = id;
+        Name = name;
+        IsCurrent = isCurrent;
+    }
+
+    public int Id { get; }
+    public string? Name { get; }
+    public bool IsCurrent { get; }
+
+    public static DebugThreadInfo FromThread(EnvDTE.Thread thread, EnvDTE.Thread? currentThread)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        return new DebugThreadInfo(
+            thread.ID,
+            thread.Name,
+            currentThread is not null && thread.ID == currentThread.ID);
+    }
+}
+
+internal sealed class DebugThreadListResult
+{
+    public DebugThreadListResult(bool supported, string? message, IReadOnlyCollection<DebugThreadInfo> threads)
+    {
+        Supported = supported;
+        Message = message;
+        Threads = threads;
+    }
+
+    public bool Supported { get; }
+    public string? Message { get; }
+    public IReadOnlyCollection<DebugThreadInfo> Threads { get; }
+}
+
+internal sealed class ThreadSwitchRequest
+{
+    public int ThreadId { get; set; }
+}
+
+internal sealed class ThreadSwitchResult
+{
+    public ThreadSwitchResult(bool supported, bool success, string? message, DebugThreadInfo? thread)
+    {
+        Supported = supported;
+        Success = success;
+        Message = message;
+        Thread = thread;
+    }
+
+    public bool Supported { get; }
+    public bool Success { get; }
+    public string? Message { get; }
+    public DebugThreadInfo? Thread { get; }
+}
+
+internal sealed class DebugModuleInfo
+{
+    public DebugModuleInfo(string? name, string? path)
+    {
+        Name = name;
+        Path = path;
+    }
+
+    public string? Name { get; }
+    public string? Path { get; }
+
+}
+
+internal sealed class ModuleListResult
+{
+    public ModuleListResult(bool supported, string? message, IReadOnlyCollection<DebugModuleInfo> modules)
+    {
+        Supported = supported;
+        Message = message;
+        Modules = modules;
+    }
+
+    public bool Supported { get; }
+    public string? Message { get; }
+    public IReadOnlyCollection<DebugModuleInfo> Modules { get; }
+}
+
+internal sealed class ImmediateExecuteRequest
+{
+    public string Statement { get; set; } = string.Empty;
+}
+
+internal sealed class ImmediateExecuteResult
+{
+    public ImmediateExecuteResult(bool supported, bool success, string? message, string? output)
+    {
+        Supported = supported;
+        Success = success;
+        Message = message;
+        Output = output;
+    }
+
+    public bool Supported { get; }
+    public bool Success { get; }
+    public string? Message { get; }
+    public string? Output { get; }
+}
+
+internal sealed class ExceptionSettingsRequest
+{
+    public string? ExceptionName { get; set; }
+    public bool? BreakOnThrown { get; set; }
+}
+
+internal sealed class ExceptionSettingsResult
+{
+    public ExceptionSettingsResult(bool supported, bool success, string? message)
+    {
+        Supported = supported;
+        Success = success;
+        Message = message;
+    }
+
+    public bool Supported { get; }
+    public bool Success { get; }
+    public string? Message { get; }
+}

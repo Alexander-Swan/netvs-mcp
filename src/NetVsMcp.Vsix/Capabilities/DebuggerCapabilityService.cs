@@ -24,6 +24,15 @@ internal interface IDebuggerCapabilityService
     Task<CallStackResult> GetCallStackAsync(CancellationToken cancellationToken);
     Task<LocalsResult> GetLocalsAsync(CancellationToken cancellationToken);
     Task<EvaluateExpressionResult> EvaluateAsync(EvaluateExpressionRequest request, CancellationToken cancellationToken);
+    Task<WatchOperationResult> AddWatchAsync(WatchAddRequest request, CancellationToken cancellationToken);
+    Task<WatchOperationResult> RemoveWatchAsync(WatchRemoveRequest request, CancellationToken cancellationToken);
+    Task<WatchListResult> ListWatchesAsync(CancellationToken cancellationToken);
+    Task<DebugThreadListResult> GetThreadsAsync(CancellationToken cancellationToken);
+    Task<ThreadSwitchResult> SwitchThreadAsync(ThreadSwitchRequest request, CancellationToken cancellationToken);
+    Task<ModuleListResult> ListModulesAsync(CancellationToken cancellationToken);
+    Task<ImmediateExecuteResult> ExecuteImmediateAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken);
+    Task<ExceptionSettingsResult> GetExceptionSettingsAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken);
+    Task<ExceptionSettingsResult> SetExceptionSettingsAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken);
 }
 
 internal enum DebugStepKind
@@ -254,6 +263,132 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         var timeout = request.TimeoutMilliseconds <= 0 ? 5000 : request.TimeoutMilliseconds;
         var expression = debugger.GetExpression(request.Expression, UseAutoExpandRules: true, Timeout: timeout);
         return new EvaluateExpressionResult(GetDebuggerState(debugger), DebugExpressionInfo.FromExpression(expression));
+    }
+
+    public async Task<WatchOperationResult> AddWatchAsync(WatchAddRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (string.IsNullOrWhiteSpace(request.Expression))
+        {
+            return new WatchOperationResult(true, false, "Watch expression is required.", null);
+        }
+
+        return new WatchOperationResult(
+            false,
+            false,
+            "Watch expressions are not exposed through this VSIX skeleton yet.",
+            null);
+    }
+
+    public async Task<WatchOperationResult> RemoveWatchAsync(WatchRemoveRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (string.IsNullOrWhiteSpace(request.Expression))
+        {
+            return new WatchOperationResult(true, false, "Watch expression is required.", null);
+        }
+
+        return new WatchOperationResult(
+            false,
+            false,
+            "Watch expressions are not exposed through this VSIX skeleton yet.",
+            null);
+    }
+
+    public async Task<WatchListResult> ListWatchesAsync(CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        return new WatchListResult(
+            false,
+            "Watch expressions are not exposed through this VSIX skeleton yet.",
+            Array.Empty<DebugExpressionInfo>());
+    }
+
+    public async Task<DebugThreadListResult> GetThreadsAsync(CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var debugger = await GetDebuggerAsync();
+        var currentProgram = debugger.CurrentProgram;
+        if (currentProgram?.Threads is not Threads threads)
+        {
+            return new DebugThreadListResult(false, "No current debug program is available.", Array.Empty<DebugThreadInfo>());
+        }
+
+        var result = new List<DebugThreadInfo>();
+        var currentThread = debugger.CurrentThread;
+        foreach (EnvDTE.Thread thread in threads)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            result.Add(DebugThreadInfo.FromThread(thread, currentThread));
+        }
+
+        return new DebugThreadListResult(true, null, result);
+    }
+
+    public async Task<ThreadSwitchResult> SwitchThreadAsync(ThreadSwitchRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var debugger = await GetDebuggerAsync();
+        var currentProgram = debugger.CurrentProgram;
+        if (currentProgram?.Threads is not Threads threads)
+        {
+            return new ThreadSwitchResult(false, false, "No current debug program is available.", null);
+        }
+
+        foreach (EnvDTE.Thread thread in threads)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (thread.ID != request.ThreadId)
+            {
+                continue;
+            }
+
+            debugger.CurrentThread = thread;
+            return new ThreadSwitchResult(true, true, null, DebugThreadInfo.FromThread(thread, debugger.CurrentThread));
+        }
+
+        return new ThreadSwitchResult(true, false, "Thread was not found.", null);
+    }
+
+    public async Task<ModuleListResult> ListModulesAsync(CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        return new ModuleListResult(
+            false,
+            "Module listing is not exposed through this VSIX skeleton yet.",
+            Array.Empty<DebugModuleInfo>());
+    }
+
+    public Task<ImmediateExecuteResult> ExecuteImmediateAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new ImmediateExecuteResult(
+            false,
+            false,
+            "Immediate window execution is not wired yet; EnvDTE command routing needs runtime validation to avoid sending text to the wrong window.",
+            null));
+    }
+
+    public Task<ExceptionSettingsResult> GetExceptionSettingsAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new ExceptionSettingsResult(
+            false,
+            false,
+            "Exception settings are not exposed through this VSIX skeleton yet; use Visual Studio debugger exception settings APIs in a later slice."));
+    }
+
+    public Task<ExceptionSettingsResult> SetExceptionSettingsAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new ExceptionSettingsResult(
+            false,
+            false,
+            "Exception settings mutation is not exposed through this VSIX skeleton yet; use Visual Studio debugger exception settings APIs in a later slice."));
     }
 
     private async Task<DTE> GetDteAsync()
