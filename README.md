@@ -13,7 +13,7 @@ Codex / MCP Client
       -> NetVsMcp.Vsix instance C
 ```
 
-See [docs/PLAN.md](docs/PLAN.md) for the saved development plan.
+See [docs/PLAN.md](docs/PLAN.md) for the saved development plan and [docs/SETUP.md](docs/SETUP.md) for local setup and usage.
 
 ## Projects
 
@@ -40,7 +40,7 @@ The broker status window will show the final ready-to-copy MCP configuration. Th
   "mcpServers": {
     "netvs": {
       "type": "http",
-      "url": "http://127.0.0.1:5050"
+      "url": "http://127.0.0.1:5050/mcp"
     }
   }
 }
