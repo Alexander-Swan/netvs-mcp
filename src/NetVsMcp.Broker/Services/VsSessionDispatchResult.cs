@@ -11,7 +11,8 @@ public enum VsSessionDispatchFailureReason
     SolutionNameNotFound,
     AmbiguousTarget,
     StaleSession,
-    MissingConnection
+    MissingConnection,
+    RpcFailure
 }
 
 public sealed record VsSessionDispatchResult<T>(

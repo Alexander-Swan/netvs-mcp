@@ -62,8 +62,22 @@ public sealed class VsSessionDispatcher : IVsSessionDispatcher
                 route.Session);
         }
 
-        var value = await operation(connection, cancellationToken);
-        return VsSessionDispatchResult<T>.Ok(route.Session, value);
+        try
+        {
+            var value = await operation(connection, cancellationToken);
+            return VsSessionDispatchResult<T>.Ok(route.Session, value);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return VsSessionDispatchResult<T>.Failed(
+                VsSessionDispatchFailureReason.RpcFailure,
+                $"Visual Studio session '{route.Session.SessionId}' RPC call failed: {ex.Message}",
+                route.Session);
+        }
     }
 
     private static VsSessionDispatchFailureReason MapRouteFailure(RouteFailureReason reason)
