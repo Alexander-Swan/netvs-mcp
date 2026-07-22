@@ -1,0 +1,9 @@
+bin/
+obj/
+.vs/
+artifacts/
+TestResults/
+*.user
+*.suo
+*.pdb
+*.nupkg
