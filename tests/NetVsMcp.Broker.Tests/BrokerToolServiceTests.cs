@@ -42,6 +42,10 @@ public sealed class BrokerToolServiceTests
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "debug_step", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "breakpoint_set", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "debug_evaluate", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "document_read", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "document_write", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "edit_preview", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "edit_list_pending", RequiresVisualStudioSession: true });
         Assert.All(
             response.Value.Tools.Where(tool => tool.Name.StartsWith("vs_", StringComparison.Ordinal)),
             tool => Assert.False(tool.RequiresVisualStudioSession));
@@ -395,6 +399,255 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task DocumentRead_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DocumentRead("Program.cs", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("Program.cs", session.LastDocumentReadRequest!.Path);
+        Assert.Equal("class Program {}", response.Value!.Text);
+    }
+
+    [Fact]
+    public async Task DocumentOpen_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DocumentOpen("Program.cs", solutionName: "NetVsMcp");
+
+        Assert.True(response.Success);
+        Assert.Equal("Program.cs", session.LastDocumentOpenRequest!.Path);
+        Assert.Equal("Program.cs", response.Value!.Name);
+    }
+
+    [Fact]
+    public async Task SelectionGet_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.SelectionGet(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("selected", response.Value!.Text);
+    }
+
+    [Fact]
+    public async Task DocumentWrite_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DocumentWrite(
+            path: "Program.cs",
+            text: "new text",
+            createIfMissing: true,
+            saveAfterWrite: true,
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("new text", session.LastDocumentWriteRequest!.Text);
+        Assert.True(session.LastDocumentWriteRequest.CreateIfMissing);
+        Assert.True(response.Value!.Saved);
+    }
+
+    [Fact]
+    public async Task EditorInsert_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.EditorInsert("Program.cs", 3, 4, "hello", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal(3, session.LastEditorInsertRequest!.Line);
+        Assert.Equal("hello", session.LastEditorInsertRequest.Text);
+    }
+
+    [Fact]
+    public async Task EditorReplace_ValidatesRange()
+    {
+        var runtime = CreateRuntime();
+
+        var response = await runtime.Tools.EditorReplace("Program.cs", 5, 1, 4, 1, "x");
+
+        Assert.False(response.Success);
+        Assert.Equal("End position must be greater than or equal to start position.", response.Message);
+    }
+
+    [Fact]
+    public async Task EditorReplace_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.EditorReplace("Program.cs", 1, 1, 1, 5, "class", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal(5, session.LastEditorReplaceRequest!.EndColumn);
+        Assert.Equal("class", session.LastEditorReplaceRequest.Text);
+    }
+
+    [Fact]
+    public async Task EditorGotoLine_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.EditorGotoLine("Program.cs", 12, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal(12, session.LastEditorGotoLineRequest!.Line);
+    }
+
+    [Fact]
+    public async Task SelectionSet_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.SelectionSet("Program.cs", 1, 1, 2, 1, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal(2, session.LastSelectionSetRequest!.EndLine);
+        Assert.False(response.Value!.IsEmpty);
+    }
+
+    [Fact]
+    public async Task DocumentCleanup_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DocumentCleanup("Program.cs", saveAfterCleanup: true, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.True(session.LastDocumentCleanupRequest!.SaveAfterCleanup);
+        Assert.Equal("Edit.FormatDocument", response.Value!.Command);
+    }
+
+    [Fact]
+    public async Task EditPreview_ValidatesOperation()
+    {
+        var runtime = CreateRuntime();
+
+        var response = await runtime.Tools.EditPreview("delete", "Program.cs", "x");
+
+        Assert.False(response.Success);
+        Assert.Equal("Edit operation must be one of: write, insert, replace.", response.Message);
+    }
+
+    [Fact]
+    public async Task EditPreview_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.EditPreview(
+            operation: "replace",
+            path: "Program.cs",
+            text: "replacement",
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 5,
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("replace", session.LastEditPreviewRequest!.Operation);
+        Assert.Equal("edit-1", response.Value!.PendingEdit!.EditId);
+    }
+
+    [Fact]
+    public async Task EditApprove_RequiresEditId()
+    {
+        var runtime = CreateRuntime();
+
+        var response = await runtime.Tools.EditApprove("");
+
+        Assert.False(response.Success);
+        Assert.Equal("Edit id is required.", response.Message);
+    }
+
+    [Fact]
+    public async Task EditApprove_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.EditApprove("edit-1", saveAfterApply: true, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.True(session.LastEditApproveRequest!.SaveAfterApply);
+        Assert.True(response.Value!.Applied);
+    }
+
+    [Fact]
+    public async Task EditReject_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.EditReject("edit-1", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("edit-1", session.LastEditRejectRequest!.EditId);
+        Assert.False(response.Value!.Applied);
+    }
+
+    [Fact]
+    public async Task EditListPending_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.EditListPending(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("edit-1", Assert.Single(response.Value!.PendingEdits).EditId);
+    }
+
+    [Fact]
+    public async Task DocumentRead_ReturnsMissingConnectionFailure()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+
+        var response = await runtime.Tools.DocumentRead("Program.cs", sessionId: "vs-1");
+
+        Assert.False(response.Success);
+        Assert.Equal("MissingConnection", response.Metadata!["failureReason"]);
+    }
+
+    [Fact]
     public async Task BuildSolution_RoutesToConnectedSession()
     {
         var runtime = CreateRuntime();
@@ -522,6 +775,28 @@ public sealed class BrokerToolServiceTests
 
         public string? LastSymbolsDocumentPath { get; private set; }
 
+        public DocumentReadRequest? LastDocumentReadRequest { get; private set; }
+
+        public DocumentOpenRequest? LastDocumentOpenRequest { get; private set; }
+
+        public DocumentWriteRequest? LastDocumentWriteRequest { get; private set; }
+
+        public EditorInsertRequest? LastEditorInsertRequest { get; private set; }
+
+        public EditorReplaceRequest? LastEditorReplaceRequest { get; private set; }
+
+        public EditorGotoLineRequest? LastEditorGotoLineRequest { get; private set; }
+
+        public SelectionSetRequest? LastSelectionSetRequest { get; private set; }
+
+        public DocumentCleanupRequest? LastDocumentCleanupRequest { get; private set; }
+
+        public EditPreviewRequest? LastEditPreviewRequest { get; private set; }
+
+        public EditDecisionRequest? LastEditApproveRequest { get; private set; }
+
+        public EditDecisionRequest? LastEditRejectRequest { get; private set; }
+
         public BuildSolutionRequest? LastBuildSolutionRequest { get; private set; }
 
         public ErrorListRequest? LastErrorListRequest { get; private set; }
@@ -555,6 +830,131 @@ public sealed class BrokerToolServiceTests
             LastSymbolsDocumentPath = documentPath;
             IReadOnlyCollection<string> symbols = ["Editor", "Editor.Run"];
             return Task.FromResult(ToolResponse<IReadOnlyCollection<string>>.Ok(symbols));
+        }
+
+        public Task<DocumentReadResult> DocumentReadAsync(
+            DocumentReadRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastDocumentReadRequest = request;
+            return Task.FromResult(new DocumentReadResult(CreateDocument(request.Path), "class Program {}", "live", true));
+        }
+
+        public Task<EditorDocumentInfo> DocumentOpenAsync(
+            DocumentOpenRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastDocumentOpenRequest = request;
+            return Task.FromResult(CreateDocument(request.Path));
+        }
+
+        public Task<SelectionInfo?> SelectionGetAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult<SelectionInfo?>(CreateSelection());
+        }
+
+        public Task<DocumentMutationResult> DocumentWriteAsync(
+            DocumentWriteRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastDocumentWriteRequest = request;
+            return Task.FromResult(CreateMutation(request.Path, request.SaveAfterWrite, request.Text.Length));
+        }
+
+        public Task<DocumentMutationResult> DocumentSaveAsync(
+            DocumentSaveRequest request,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(CreateMutation(string.IsNullOrWhiteSpace(request.Path) ? "Program.cs" : request.Path, true, 0));
+        }
+
+        public Task<DocumentMutationResult> EditorInsertAsync(
+            EditorInsertRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastEditorInsertRequest = request;
+            return Task.FromResult(CreateMutation(request.Path, request.SaveAfterEdit, request.Text.Length));
+        }
+
+        public Task<DocumentMutationResult> EditorReplaceAsync(
+            EditorReplaceRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastEditorReplaceRequest = request;
+            return Task.FromResult(CreateMutation(request.Path, request.SaveAfterEdit, request.Text.Length));
+        }
+
+        public Task<EditorDocumentInfo> EditorGotoLineAsync(
+            EditorGotoLineRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastEditorGotoLineRequest = request;
+            return Task.FromResult(CreateDocument(request.Path));
+        }
+
+        public Task<SelectionInfo> SelectionSetAsync(
+            SelectionSetRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastSelectionSetRequest = request;
+            return Task.FromResult(CreateSelection());
+        }
+
+        public Task<DocumentCleanupResult> DocumentCleanupAsync(
+            DocumentCleanupRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastDocumentCleanupRequest = request;
+            return Task.FromResult(new DocumentCleanupResult(
+                true,
+                true,
+                null,
+                CreateDocument(request.Path),
+                request.SaveAfterCleanup,
+                "Edit.FormatDocument"));
+        }
+
+        public Task<EditPreviewResult> EditPreviewAsync(
+            EditPreviewRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastEditPreviewRequest = request;
+            return Task.FromResult(new EditPreviewResult(true, null, CreatePendingEdit(request.Operation, request.Path, request.Text)));
+        }
+
+        public Task<EditDecisionResult> EditApproveAsync(
+            EditDecisionRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastEditApproveRequest = request;
+            var pending = CreatePendingEdit("replace", "Program.cs", "replacement");
+            return Task.FromResult(new EditDecisionResult(
+                true,
+                null,
+                request.EditId,
+                true,
+                pending,
+                CreateMutation("Program.cs", request.SaveAfterApply, pending.ProposedLength)));
+        }
+
+        public Task<EditDecisionResult> EditRejectAsync(
+            EditDecisionRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastEditRejectRequest = request;
+            return Task.FromResult(new EditDecisionResult(
+                true,
+                null,
+                request.EditId,
+                false,
+                CreatePendingEdit("replace", "Program.cs", "replacement"),
+                null));
+        }
+
+        public Task<PendingEditListResult> EditListPendingAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<PendingEditInfo> pendingEdits = [CreatePendingEdit("replace", "Program.cs", "replacement")];
+            return Task.FromResult(new PendingEditListResult(pendingEdits));
         }
 
         public Task<BuildSolutionResult> BuildSolutionAsync(
@@ -706,6 +1106,62 @@ public sealed class BrokerToolServiceTests
                 FunctionName: null,
                 Condition: condition,
                 Enabled: true);
+        }
+
+        private static EditorDocumentInfo CreateDocument(string path)
+        {
+            return new EditorDocumentInfo(
+                Name: Path.GetFileName(path),
+                Path: path,
+                Language: "CSharp",
+                IsOpen: true,
+                IsSaved: false);
+        }
+
+        private static SelectionInfo CreateSelection()
+        {
+            return new SelectionInfo(
+                CreateDocument("Program.cs"),
+                "selected",
+                1,
+                1,
+                2,
+                1,
+                false);
+        }
+
+        private static DocumentMutationResult CreateMutation(
+            string path,
+            bool saved,
+            int charactersChanged)
+        {
+            return new DocumentMutationResult(
+                true,
+                null,
+                CreateDocument(path),
+                saved,
+                charactersChanged);
+        }
+
+        private static PendingEditInfo CreatePendingEdit(
+            string operation,
+            string path,
+            string proposedText)
+        {
+            return new PendingEditInfo(
+                "edit-1",
+                operation,
+                path,
+                "Replace text.",
+                "old",
+                proposedText,
+                1,
+                1,
+                1,
+                5,
+                3,
+                proposedText.Length,
+                DateTimeOffset.Parse("2026-07-22T15:00:00Z"));
         }
     }
 }

@@ -88,6 +88,191 @@ public sealed record VsSessionStatus(
     SessionHealth Health,
     TimeSpan Age);
 
+public sealed record EditorDocumentInfo(
+    string? Name,
+    string? Path,
+    string? Language,
+    bool IsOpen,
+    bool IsSaved);
+
+public sealed class DocumentReadRequest
+{
+    public string Path { get; set; } = string.Empty;
+}
+
+public sealed record DocumentReadResult(
+    EditorDocumentInfo Document,
+    string Text,
+    string Source,
+    bool UsedLiveBuffer);
+
+public sealed class DocumentOpenRequest
+{
+    public string Path { get; set; } = string.Empty;
+}
+
+public sealed record SelectionInfo(
+    EditorDocumentInfo Document,
+    string Text,
+    int AnchorLine,
+    int AnchorColumn,
+    int ActiveLine,
+    int ActiveColumn,
+    bool IsEmpty);
+
+public sealed class DocumentWriteRequest
+{
+    public string Path { get; set; } = string.Empty;
+
+    public string Text { get; set; } = string.Empty;
+
+    public bool CreateIfMissing { get; set; }
+
+    public bool SaveAfterWrite { get; set; }
+}
+
+public sealed record DocumentMutationResult(
+    bool Success,
+    string? Message,
+    EditorDocumentInfo? Document,
+    bool Saved,
+    int CharactersChanged);
+
+public sealed class DocumentSaveRequest
+{
+    public string Path { get; set; } = string.Empty;
+}
+
+public sealed class EditorInsertRequest
+{
+    public string Path { get; set; } = string.Empty;
+
+    public int Line { get; set; }
+
+    public int Column { get; set; }
+
+    public string Text { get; set; } = string.Empty;
+
+    public bool SaveAfterEdit { get; set; }
+}
+
+public sealed class EditorReplaceRequest
+{
+    public string Path { get; set; } = string.Empty;
+
+    public int StartLine { get; set; }
+
+    public int StartColumn { get; set; }
+
+    public int EndLine { get; set; }
+
+    public int EndColumn { get; set; }
+
+    public string Text { get; set; } = string.Empty;
+
+    public bool SaveAfterEdit { get; set; }
+}
+
+public sealed class EditorGotoLineRequest
+{
+    public string Path { get; set; } = string.Empty;
+
+    public int Line { get; set; }
+
+    public int Column { get; set; } = 1;
+}
+
+public sealed class SelectionSetRequest
+{
+    public string Path { get; set; } = string.Empty;
+
+    public int StartLine { get; set; }
+
+    public int StartColumn { get; set; }
+
+    public int EndLine { get; set; }
+
+    public int EndColumn { get; set; }
+}
+
+public sealed class DocumentCleanupRequest
+{
+    public string Path { get; set; } = string.Empty;
+
+    public bool SaveAfterCleanup { get; set; }
+}
+
+public sealed record DocumentCleanupResult(
+    bool Success,
+    bool Supported,
+    string? Message,
+    EditorDocumentInfo? Document,
+    bool Saved,
+    string? Command);
+
+public sealed class EditPreviewRequest
+{
+    public string Operation { get; set; } = string.Empty;
+
+    public string Path { get; set; } = string.Empty;
+
+    public string Text { get; set; } = string.Empty;
+
+    public bool CreateIfMissing { get; set; }
+
+    public bool SaveAfterEdit { get; set; }
+
+    public int Line { get; set; }
+
+    public int Column { get; set; }
+
+    public int StartLine { get; set; }
+
+    public int StartColumn { get; set; }
+
+    public int EndLine { get; set; }
+
+    public int EndColumn { get; set; }
+}
+
+public sealed class EditDecisionRequest
+{
+    public string EditId { get; set; } = string.Empty;
+
+    public bool SaveAfterApply { get; set; }
+}
+
+public sealed record PendingEditInfo(
+    string EditId,
+    string Operation,
+    string Path,
+    string Summary,
+    string? OriginalText,
+    string ProposedText,
+    int? StartLine,
+    int? StartColumn,
+    int? EndLine,
+    int? EndColumn,
+    int OriginalLength,
+    int ProposedLength,
+    DateTimeOffset CreatedUtc);
+
+public sealed record EditPreviewResult(
+    bool Success,
+    string? Message,
+    PendingEditInfo? PendingEdit);
+
+public sealed record EditDecisionResult(
+    bool Success,
+    string? Message,
+    string EditId,
+    bool Applied,
+    PendingEditInfo? PendingEdit,
+    DocumentMutationResult? Mutation);
+
+public sealed record PendingEditListResult(
+    IReadOnlyCollection<PendingEditInfo> PendingEdits);
+
 public sealed class BuildSolutionRequest
 {
     public bool WaitForBuildToFinish { get; set; }
@@ -294,6 +479,58 @@ public interface IVisualStudioSessionRpc
     Task<ToolResponse<IReadOnlyCollection<string>>> ListDocumentSymbolsAsync(
         string documentPath,
         CancellationToken cancellationToken);
+
+    Task<DocumentReadResult> DocumentReadAsync(
+        DocumentReadRequest request,
+        CancellationToken cancellationToken);
+
+    Task<EditorDocumentInfo> DocumentOpenAsync(
+        DocumentOpenRequest request,
+        CancellationToken cancellationToken);
+
+    Task<SelectionInfo?> SelectionGetAsync(CancellationToken cancellationToken);
+
+    Task<DocumentMutationResult> DocumentWriteAsync(
+        DocumentWriteRequest request,
+        CancellationToken cancellationToken);
+
+    Task<DocumentMutationResult> DocumentSaveAsync(
+        DocumentSaveRequest request,
+        CancellationToken cancellationToken);
+
+    Task<DocumentMutationResult> EditorInsertAsync(
+        EditorInsertRequest request,
+        CancellationToken cancellationToken);
+
+    Task<DocumentMutationResult> EditorReplaceAsync(
+        EditorReplaceRequest request,
+        CancellationToken cancellationToken);
+
+    Task<EditorDocumentInfo> EditorGotoLineAsync(
+        EditorGotoLineRequest request,
+        CancellationToken cancellationToken);
+
+    Task<SelectionInfo> SelectionSetAsync(
+        SelectionSetRequest request,
+        CancellationToken cancellationToken);
+
+    Task<DocumentCleanupResult> DocumentCleanupAsync(
+        DocumentCleanupRequest request,
+        CancellationToken cancellationToken);
+
+    Task<EditPreviewResult> EditPreviewAsync(
+        EditPreviewRequest request,
+        CancellationToken cancellationToken);
+
+    Task<EditDecisionResult> EditApproveAsync(
+        EditDecisionRequest request,
+        CancellationToken cancellationToken);
+
+    Task<EditDecisionResult> EditRejectAsync(
+        EditDecisionRequest request,
+        CancellationToken cancellationToken);
+
+    Task<PendingEditListResult> EditListPendingAsync(CancellationToken cancellationToken);
 
     Task<BuildSolutionResult> BuildSolutionAsync(
         BuildSolutionRequest request,

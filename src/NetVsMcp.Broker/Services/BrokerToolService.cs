@@ -34,7 +34,21 @@ public sealed class BrokerToolService
         new("breakpoint_enable", "Enables or disables breakpoints in a routed Visual Studio session.", true),
         new("debug_get_callstack", "Returns the current call stack from a routed Visual Studio session.", true),
         new("debug_get_locals", "Returns locals from a routed Visual Studio session.", true),
-        new("debug_evaluate", "Evaluates an expression in a routed Visual Studio session.", true)
+        new("debug_evaluate", "Evaluates an expression in a routed Visual Studio session.", true),
+        new("document_read", "Reads a document through a routed Visual Studio session.", true),
+        new("document_open", "Opens a document through a routed Visual Studio session.", true),
+        new("selection_get", "Returns the current editor selection from a routed Visual Studio session.", true),
+        new("document_write", "Replaces a document buffer through a routed Visual Studio session.", true),
+        new("document_save", "Saves a document through a routed Visual Studio session.", true),
+        new("editor_insert", "Inserts text through a routed Visual Studio session.", true),
+        new("editor_replace", "Replaces a text range through a routed Visual Studio session.", true),
+        new("editor_goto_line", "Moves the caret through a routed Visual Studio session.", true),
+        new("selection_set", "Sets the editor selection through a routed Visual Studio session.", true),
+        new("document_cleanup", "Formats/cleans up a document through a routed Visual Studio session.", true),
+        new("edit_preview", "Creates a pending safe-edit preview through a routed Visual Studio session.", true),
+        new("edit_approve", "Approves a pending safe edit through a routed Visual Studio session.", true),
+        new("edit_reject", "Rejects a pending safe edit through a routed Visual Studio session.", true),
+        new("edit_list_pending", "Lists pending safe edits through a routed Visual Studio session.", true)
     ];
 
     private static readonly VsCapability[] VisualStudioCapabilities =
@@ -186,6 +200,439 @@ public sealed class BrokerToolService
             cancellationToken);
 
         return ToToolResponse(dispatch);
+    }
+
+    [McpServerTool(Name = "document_read")]
+    [Description("Reads a document through a routed Visual Studio session.")]
+    public Task<ToolResponse<DocumentReadResult>> DocumentRead(
+        string path,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateRequiredPath(path) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<DocumentReadResult>.Fail(validation));
+        }
+
+        var request = new DocumentReadRequest { Path = path.Trim() };
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.DocumentReadAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "document_open")]
+    [Description("Opens a document through a routed Visual Studio session.")]
+    public Task<ToolResponse<EditorDocumentInfo>> DocumentOpen(
+        string path,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateRequiredPath(path) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<EditorDocumentInfo>.Fail(validation));
+        }
+
+        var request = new DocumentOpenRequest { Path = path.Trim() };
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.DocumentOpenAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "selection_get")]
+    [Description("Returns the current editor selection from a routed Visual Studio session.")]
+    public Task<ToolResponse<SelectionInfo?>> SelectionGet(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.SelectionGetAsync(ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "document_write")]
+    [Description("Replaces a document buffer through a routed Visual Studio session.")]
+    public Task<ToolResponse<DocumentMutationResult>> DocumentWrite(
+        string path,
+        string text,
+        bool createIfMissing = false,
+        bool saveAfterWrite = false,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateRequiredPath(path) is { } pathValidation)
+        {
+            return Task.FromResult(ToolResponse<DocumentMutationResult>.Fail(pathValidation));
+        }
+
+        if (text is null)
+        {
+            return Task.FromResult(ToolResponse<DocumentMutationResult>.Fail("Text is required."));
+        }
+
+        var request = new DocumentWriteRequest
+        {
+            Path = path.Trim(),
+            Text = text,
+            CreateIfMissing = createIfMissing,
+            SaveAfterWrite = saveAfterWrite
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.DocumentWriteAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "document_save")]
+    [Description("Saves a document through a routed Visual Studio session.")]
+    public Task<ToolResponse<DocumentMutationResult>> DocumentSave(
+        string? path = null,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new DocumentSaveRequest { Path = NormalizeOptional(path) ?? string.Empty };
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.DocumentSaveAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "editor_insert")]
+    [Description("Inserts text through a routed Visual Studio session.")]
+    public Task<ToolResponse<DocumentMutationResult>> EditorInsert(
+        string path,
+        int line,
+        int column,
+        string text,
+        bool saveAfterEdit = false,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateRequiredPath(path) is { } pathValidation)
+        {
+            return Task.FromResult(ToolResponse<DocumentMutationResult>.Fail(pathValidation));
+        }
+
+        if (ValidatePosition(line, column) is { } positionValidation)
+        {
+            return Task.FromResult(ToolResponse<DocumentMutationResult>.Fail(positionValidation));
+        }
+
+        if (text is null)
+        {
+            return Task.FromResult(ToolResponse<DocumentMutationResult>.Fail("Text is required."));
+        }
+
+        var request = new EditorInsertRequest
+        {
+            Path = path.Trim(),
+            Line = line,
+            Column = column,
+            Text = text,
+            SaveAfterEdit = saveAfterEdit
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.EditorInsertAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "editor_replace")]
+    [Description("Replaces a text range through a routed Visual Studio session.")]
+    public Task<ToolResponse<DocumentMutationResult>> EditorReplace(
+        string path,
+        int startLine,
+        int startColumn,
+        int endLine,
+        int endColumn,
+        string text,
+        bool saveAfterEdit = false,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateRequiredPath(path) is { } pathValidation)
+        {
+            return Task.FromResult(ToolResponse<DocumentMutationResult>.Fail(pathValidation));
+        }
+
+        if (ValidateRange(startLine, startColumn, endLine, endColumn) is { } rangeValidation)
+        {
+            return Task.FromResult(ToolResponse<DocumentMutationResult>.Fail(rangeValidation));
+        }
+
+        if (text is null)
+        {
+            return Task.FromResult(ToolResponse<DocumentMutationResult>.Fail("Text is required."));
+        }
+
+        var request = new EditorReplaceRequest
+        {
+            Path = path.Trim(),
+            StartLine = startLine,
+            StartColumn = startColumn,
+            EndLine = endLine,
+            EndColumn = endColumn,
+            Text = text,
+            SaveAfterEdit = saveAfterEdit
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.EditorReplaceAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "editor_goto_line")]
+    [Description("Moves the caret through a routed Visual Studio session.")]
+    public Task<ToolResponse<EditorDocumentInfo>> EditorGotoLine(
+        string path,
+        int line,
+        int column = 1,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateRequiredPath(path) is { } pathValidation)
+        {
+            return Task.FromResult(ToolResponse<EditorDocumentInfo>.Fail(pathValidation));
+        }
+
+        if (ValidatePosition(line, column) is { } positionValidation)
+        {
+            return Task.FromResult(ToolResponse<EditorDocumentInfo>.Fail(positionValidation));
+        }
+
+        var request = new EditorGotoLineRequest
+        {
+            Path = path.Trim(),
+            Line = line,
+            Column = column
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.EditorGotoLineAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "selection_set")]
+    [Description("Sets the editor selection through a routed Visual Studio session.")]
+    public Task<ToolResponse<SelectionInfo>> SelectionSet(
+        string path,
+        int startLine,
+        int startColumn,
+        int endLine,
+        int endColumn,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateRequiredPath(path) is { } pathValidation)
+        {
+            return Task.FromResult(ToolResponse<SelectionInfo>.Fail(pathValidation));
+        }
+
+        if (ValidateRange(startLine, startColumn, endLine, endColumn) is { } rangeValidation)
+        {
+            return Task.FromResult(ToolResponse<SelectionInfo>.Fail(rangeValidation));
+        }
+
+        var request = new SelectionSetRequest
+        {
+            Path = path.Trim(),
+            StartLine = startLine,
+            StartColumn = startColumn,
+            EndLine = endLine,
+            EndColumn = endColumn
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.SelectionSetAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "document_cleanup")]
+    [Description("Formats/cleans up a document through a routed Visual Studio session.")]
+    public Task<ToolResponse<DocumentCleanupResult>> DocumentCleanup(
+        string path,
+        bool saveAfterCleanup = false,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateRequiredPath(path) is { } pathValidation)
+        {
+            return Task.FromResult(ToolResponse<DocumentCleanupResult>.Fail(pathValidation));
+        }
+
+        var request = new DocumentCleanupRequest
+        {
+            Path = path.Trim(),
+            SaveAfterCleanup = saveAfterCleanup
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.DocumentCleanupAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "edit_preview")]
+    [Description("Creates a pending safe-edit preview through a routed Visual Studio session.")]
+    public Task<ToolResponse<EditPreviewResult>> EditPreview(
+        string operation,
+        string path,
+        string text,
+        bool createIfMissing = false,
+        bool saveAfterEdit = false,
+        int line = 0,
+        int column = 0,
+        int startLine = 0,
+        int startColumn = 0,
+        int endLine = 0,
+        int endColumn = 0,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateEditPreview(operation, path, text, line, column, startLine, startColumn, endLine, endColumn) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<EditPreviewResult>.Fail(validation));
+        }
+
+        var normalizedOperation = operation.Trim().ToLowerInvariant();
+        var request = new EditPreviewRequest
+        {
+            Operation = normalizedOperation,
+            Path = path.Trim(),
+            Text = text,
+            CreateIfMissing = createIfMissing,
+            SaveAfterEdit = saveAfterEdit,
+            Line = line,
+            Column = column,
+            StartLine = startLine,
+            StartColumn = startColumn,
+            EndLine = endLine,
+            EndColumn = endColumn
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.EditPreviewAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "edit_approve")]
+    [Description("Approves a pending safe edit through a routed Visual Studio session.")]
+    public Task<ToolResponse<EditDecisionResult>> EditApprove(
+        string editId,
+        bool saveAfterApply = false,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateEditId(editId) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<EditDecisionResult>.Fail(validation));
+        }
+
+        var request = new EditDecisionRequest
+        {
+            EditId = editId.Trim(),
+            SaveAfterApply = saveAfterApply
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.EditApproveAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "edit_reject")]
+    [Description("Rejects a pending safe edit through a routed Visual Studio session.")]
+    public Task<ToolResponse<EditDecisionResult>> EditReject(
+        string editId,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateEditId(editId) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<EditDecisionResult>.Fail(validation));
+        }
+
+        var request = new EditDecisionRequest { EditId = editId.Trim() };
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.EditRejectAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "edit_list_pending")]
+    [Description("Lists pending safe edits through a routed Visual Studio session.")]
+    public Task<ToolResponse<PendingEditListResult>> EditListPending(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.EditListPendingAsync(ct),
+            cancellationToken);
     }
 
     [McpServerTool(Name = "build_solution")]
@@ -669,6 +1116,91 @@ public sealed class BrokerToolService
 
         return line < 1
             ? "Breakpoint line must be greater than zero."
+            : null;
+    }
+
+    private static string? ValidateRequiredPath(string? path)
+    {
+        return string.IsNullOrWhiteSpace(path)
+            ? "Path is required."
+            : null;
+    }
+
+    private static string? ValidatePosition(int line, int column)
+    {
+        if (line < 1)
+        {
+            return "Line must be greater than zero.";
+        }
+
+        return column < 1
+            ? "Column must be greater than zero."
+            : null;
+    }
+
+    private static string? ValidateRange(
+        int startLine,
+        int startColumn,
+        int endLine,
+        int endColumn)
+    {
+        if (ValidatePosition(startLine, startColumn) is { } startValidation)
+        {
+            return startValidation;
+        }
+
+        if (ValidatePosition(endLine, endColumn) is { } endValidation)
+        {
+            return endValidation;
+        }
+
+        if (endLine < startLine || (endLine == startLine && endColumn < startColumn))
+        {
+            return "End position must be greater than or equal to start position.";
+        }
+
+        return null;
+    }
+
+    private static string? ValidateEditPreview(
+        string? operation,
+        string? path,
+        string? text,
+        int line,
+        int column,
+        int startLine,
+        int startColumn,
+        int endLine,
+        int endColumn)
+    {
+        if (string.IsNullOrWhiteSpace(operation))
+        {
+            return "Edit operation is required.";
+        }
+
+        if (ValidateRequiredPath(path) is { } pathValidation)
+        {
+            return pathValidation;
+        }
+
+        if (text is null)
+        {
+            return "Text is required.";
+        }
+
+        return operation.Trim().ToLowerInvariant() switch
+        {
+            "write" => null,
+            "insert" => ValidatePosition(line, column),
+            "replace" => ValidateRange(startLine, startColumn, endLine, endColumn),
+            _ => "Edit operation must be one of: write, insert, replace."
+        };
+    }
+
+    private static string? ValidateEditId(string? editId)
+    {
+        return string.IsNullOrWhiteSpace(editId)
+            ? "Edit id is required."
             : null;
     }
 
