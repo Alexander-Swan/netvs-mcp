@@ -87,6 +87,27 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<SelectionInfo?> SelectionGetAsync(CancellationToken cancellationToken) =>
         editor.SelectionGetAsync(cancellationToken);
 
+    public Task<DocumentMutationResult> DocumentWriteAsync(DocumentWriteRequest request, CancellationToken cancellationToken) =>
+        editor.DocumentWriteAsync(request, cancellationToken);
+
+    public Task<DocumentMutationResult> DocumentSaveAsync(DocumentSaveRequest request, CancellationToken cancellationToken) =>
+        editor.DocumentSaveAsync(request, cancellationToken);
+
+    public Task<DocumentMutationResult> EditorInsertAsync(EditorInsertRequest request, CancellationToken cancellationToken) =>
+        editor.EditorInsertAsync(request, cancellationToken);
+
+    public Task<DocumentMutationResult> EditorReplaceAsync(EditorReplaceRequest request, CancellationToken cancellationToken) =>
+        editor.EditorReplaceAsync(request, cancellationToken);
+
+    public Task<EditorDocumentInfo> EditorGotoLineAsync(EditorGotoLineRequest request, CancellationToken cancellationToken) =>
+        editor.EditorGotoLineAsync(request, cancellationToken);
+
+    public Task<SelectionInfo> SelectionSetAsync(SelectionSetRequest request, CancellationToken cancellationToken) =>
+        editor.SelectionSetAsync(request, cancellationToken);
+
+    public Task<DocumentCleanupResult> DocumentCleanupAsync(DocumentCleanupRequest request, CancellationToken cancellationToken) =>
+        editor.DocumentCleanupAsync(request, cancellationToken);
+
     public Task<DocumentSymbolsResult> CodeDocumentSymbolsAsync(DocumentSymbolsRequest request, CancellationToken cancellationToken) =>
         navigation.CodeDocumentSymbolsAsync(request, cancellationToken);
 

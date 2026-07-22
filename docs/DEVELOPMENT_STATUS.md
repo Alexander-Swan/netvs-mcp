@@ -13,8 +13,8 @@ This file tracks agent orchestration so work can be resumed later.
 | Agent | ID | Current Status | Current Task | Last Reported Commit |
 | --- | --- | --- | --- | --- |
 | Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Idle | Completed broker session utility tools | `01ebf25` |
-| Agent E | `client-new-thread:f9ff1f98-3c7d-44a2-8244-b9948c548e7b` | Queued | Broker-routed build/diagnostics MCP tools | None yet |
-| Locke | `019f88e1-5257-7683-b382-205bbf1c935e` | Running | VSIX safe editing tool skeletons | `41362da` from solution/project/test tools |
+| Agent E | `client-new-thread:f9ff1f98-3c7d-44a2-8244-b9948c548e7b` | Completed | Broker-routed build/diagnostics MCP tools | `121e892` |
+| Locke | `019f88e1-5257-7683-b382-205bbf1c935e` | Running | VSIX advanced debugger skeletons | `0cdef6b` from safe editor mutation tools |
 | Feynman | `019f89d6-0d09-7813-bfe1-457186641c73` | Running | Broker tray/status UX and autostart service | Pending |
 | Darwin | `019f89d6-5179-76d0-8471-9f3cd6579f54` | Running | Tool/RPC contract specification | Pending |
 
@@ -282,7 +282,7 @@ This file tracks agent orchestration so work can be resumed later.
 - Reported build: `dotnet build .\src\NetVsMcp.Vsix\NetVsMcp.Vsix.csproj` passed with 0 warnings and 0 errors
 - Local solution build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors
 - Local broker tests: `dotnet test .\tests\NetVsMcp.Broker.Tests\NetVsMcp.Broker.Tests.csproj` passed with 47 tests
-- Review status: Pending full review
+- Review status: Reviewed
 - Files:
   - `docs/VSIX.md`
   - `src/NetVsMcp.Vsix/BrokerConnection.cs`
@@ -297,7 +297,7 @@ This file tracks agent orchestration so work can be resumed later.
 - Reported build: `dotnet build .\src\NetVsMcp.Vsix\NetVsMcp.Vsix.csproj` passed with 0 warnings and 0 errors
 - Local solution build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors
 - Local broker tests: `dotnet test .\tests\NetVsMcp.Broker.Tests\NetVsMcp.Broker.Tests.csproj` passed with 47 tests
-- Review status: Pending full review
+- Review status: Reviewed
 - Files:
   - `docs/VSIX.md`
   - `src/NetVsMcp.Vsix/Capabilities/SolutionCapabilityService.cs`
@@ -306,6 +306,37 @@ This file tracks agent orchestration so work can be resumed later.
   - `src/NetVsMcp.Vsix/Capabilities/VisualStudioCapabilityCatalog.cs`
   - `src/NetVsMcp.Vsix/Capabilities/VisualStudioCapabilityRpcTarget.cs`
   - `src/NetVsMcp.Vsix/NetVsMcpPackage.cs`
+
+### Agent E: Broker Build Diagnostics Tools
+
+- Status: Integrated on `master`
+- Commit: `121e892` - `Add broker build diagnostics tools`
+- Local solution build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors
+- Local broker tests: `dotnet test .\tests\NetVsMcp.Broker.Tests\NetVsMcp.Broker.Tests.csproj` passed with 52 tests
+- Review status: Reviewed
+- Files:
+  - `src/NetVsMcp.Contracts/BrokerContracts.cs`
+  - `src/NetVsMcp.Broker/Services/BrokerToolService.cs`
+  - `tests/NetVsMcp.Broker.Tests/BrokerRegistrationRpcServiceTests.cs`
+  - `tests/NetVsMcp.Broker.Tests/BrokerToolServiceTests.cs`
+  - `tests/NetVsMcp.Broker.Tests/VsSessionDispatcherTests.cs`
+  - `tests/NetVsMcp.Broker.Tests/VsixRegistrationPipeListenerTests.cs`
+
+### Locke: VSIX Safe Editor Mutation Tools
+
+- Status: Integrated on `master`
+- Commit: `0cdef6b` - `Add VSIX safe editor mutation tools`
+- Reported build: `dotnet build .\src\NetVsMcp.Vsix\NetVsMcp.Vsix.csproj` passed with 0 warnings and 0 errors
+- Local solution build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors
+- Local broker tests: `dotnet test .\tests\NetVsMcp.Broker.Tests\NetVsMcp.Broker.Tests.csproj` passed with 52 tests
+- Review status: Reviewed
+- Files:
+  - `docs/VSIX.md`
+  - `src/NetVsMcp.Vsix/Capabilities/EditorCapabilityService.cs`
+  - `src/NetVsMcp.Vsix/Capabilities/EditorModels.cs`
+  - `src/NetVsMcp.Vsix/Capabilities/EditorRpcTarget.cs`
+  - `src/NetVsMcp.Vsix/Capabilities/VisualStudioCapabilityCatalog.cs`
+  - `src/NetVsMcp.Vsix/Capabilities/VisualStudioCapabilityRpcTarget.cs`
 
 ## Current Agent Tasks
 
@@ -334,8 +365,9 @@ Status:
 - Pipe registration-to-connection wiring completed by `ec19017`.
 - Routed document tools completed by `5110c05`.
 - Session utility tools completed by `01ebf25`.
+- Build diagnostics tools completed by `121e892`.
 
-### Locke: VSIX Safe Editing Tools
+### Locke: VSIX Advanced Debugger Skeletons
 
 Write scope:
 
@@ -344,8 +376,9 @@ Write scope:
 
 Expected output:
 
-- VSIX-side document_write, document_save, editor_insert, editor_replace, document_cleanup
-- edit_preview, edit_approve, edit_reject, and edit_list_pending with clear pending edit IDs
+- VSIX-side advanced debugger skeletons from the plan, such as watches, thread/process helpers, modules, exception settings, or immediate-window execution
+- prefer real EnvDTE behavior where straightforward
+- return explicit unsupported results where native/debugger-specific APIs are not safe in this slice
 - update `VisualStudioCapabilityRpcTarget`
 - document method names and response shapes
 - build result
@@ -359,6 +392,7 @@ Status:
 - Capability RPC target wiring completed by `1a28a51`.
 - Broker registration RPC alignment completed by `f7ca112`.
 - Solution/project/test operations completed by `41362da`.
+- Safe editor mutation tools completed by `0cdef6b`.
 
 ### Feynman: Broker Tray/Status UX And Autostart
 

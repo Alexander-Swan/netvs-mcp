@@ -167,6 +167,13 @@ DocumentActiveAsync(CancellationToken cancellationToken)
 DocumentReadAsync(DocumentReadRequest request, CancellationToken cancellationToken)
 DocumentOpenAsync(DocumentOpenRequest request, CancellationToken cancellationToken)
 SelectionGetAsync(CancellationToken cancellationToken)
+DocumentWriteAsync(DocumentWriteRequest request, CancellationToken cancellationToken)
+DocumentSaveAsync(DocumentSaveRequest request, CancellationToken cancellationToken)
+EditorInsertAsync(EditorInsertRequest request, CancellationToken cancellationToken)
+EditorReplaceAsync(EditorReplaceRequest request, CancellationToken cancellationToken)
+EditorGotoLineAsync(EditorGotoLineRequest request, CancellationToken cancellationToken)
+SelectionSetAsync(SelectionSetRequest request, CancellationToken cancellationToken)
+DocumentCleanupAsync(DocumentCleanupRequest request, CancellationToken cancellationToken)
 ```
 
 Broker-facing MCP tool mapping:
@@ -176,6 +183,13 @@ document_active -> DocumentActiveAsync
 document_read   -> DocumentReadAsync
 document_open   -> DocumentOpenAsync
 selection_get   -> SelectionGetAsync
+document_write  -> DocumentWriteAsync
+document_save   -> DocumentSaveAsync
+editor_insert   -> EditorInsertAsync
+editor_replace  -> EditorReplaceAsync
+editor_goto_line -> EditorGotoLineAsync
+selection_set   -> SelectionSetAsync
+document_cleanup -> DocumentCleanupAsync
 ```
 
 `document_read` request:
@@ -226,6 +240,121 @@ Relative paths are resolved against the active solution directory. Absolute path
 ```
 
 `document_read` prefers the live Visual Studio text buffer for open documents, so unsaved edits are visible to the agent. If the document is not open, it falls back to disk.
+
+`document_write` replaces the complete live text buffer for a file. It opens the document in Visual Studio first, so edits flow through the editor buffer. Missing files are rejected unless `createIfMissing` is true.
+
+```json
+{
+  "path": "src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+  "text": "new file contents",
+  "createIfMissing": false,
+  "saveAfterWrite": false
+}
+```
+
+`document_save` saves an open document. If `path` is omitted, it saves the active document; if a path is supplied, the document must already be open.
+
+```json
+{
+  "path": "src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs"
+}
+```
+
+`editor_insert` inserts text at a 1-based Visual Studio line/column position:
+
+```json
+{
+  "path": "src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+  "line": 10,
+  "column": 5,
+  "text": "inserted text",
+  "saveAfterEdit": false
+}
+```
+
+`editor_replace` replaces a 1-based Visual Studio text range:
+
+```json
+{
+  "path": "src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+  "startLine": 10,
+  "startColumn": 5,
+  "endLine": 10,
+  "endColumn": 18,
+  "text": "replacement text",
+  "saveAfterEdit": false
+}
+```
+
+Mutation methods return:
+
+```json
+{
+  "success": true,
+  "message": null,
+  "document": {
+    "name": "NetVsMcpPackage.cs",
+    "path": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+    "language": "CSharp",
+    "isOpen": true,
+    "isSaved": false
+  },
+  "saved": false,
+  "charactersChanged": 16
+}
+```
+
+`editor_goto_line` opens/activates a document and moves the caret:
+
+```json
+{
+  "path": "src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+  "line": 42,
+  "column": 1
+}
+```
+
+`selection_set` opens/activates a document and selects a 1-based Visual Studio range:
+
+```json
+{
+  "path": "src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+  "startLine": 10,
+  "startColumn": 5,
+  "endLine": 12,
+  "endColumn": 18
+}
+```
+
+`document_cleanup` currently invokes Visual Studio's `Edit.FormatDocument` command for text documents and can optionally save after formatting:
+
+```json
+{
+  "path": "src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+  "saveAfterCleanup": false
+}
+```
+
+`document_cleanup` returns:
+
+```json
+{
+  "success": true,
+  "supported": true,
+  "message": null,
+  "document": {
+    "name": "NetVsMcpPackage.cs",
+    "path": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+    "language": "CSharp",
+    "isOpen": true,
+    "isSaved": false
+  },
+  "saved": false,
+  "command": "Edit.FormatDocument"
+}
+```
+
+Mutation tools are intentionally conservative: unsupported non-text documents, unresolved paths, and invalid ranges return structured errors instead of writing directly through ad hoc disk parsing.
 
 `selection_get` returns:
 

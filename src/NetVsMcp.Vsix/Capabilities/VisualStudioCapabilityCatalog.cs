@@ -31,6 +31,7 @@ internal sealed class VisualStudioCapabilityCatalog : IVisualStudioCapabilityCat
     public IReadOnlyCollection<string> CapabilityNames { get; } =
     [
         "editor",
+        "editing",
         "navigation",
         "build",
         "debugger",

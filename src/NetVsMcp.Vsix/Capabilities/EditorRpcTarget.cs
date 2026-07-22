@@ -31,6 +31,41 @@ internal sealed class EditorRpcTarget
     {
         return editor.GetSelectionAsync(cancellationToken);
     }
+
+    public Task<DocumentMutationResult> DocumentWriteAsync(DocumentWriteRequest request, CancellationToken cancellationToken)
+    {
+        return editor.WriteDocumentAsync(request, cancellationToken);
+    }
+
+    public Task<DocumentMutationResult> DocumentSaveAsync(DocumentSaveRequest request, CancellationToken cancellationToken)
+    {
+        return editor.SaveDocumentAsync(request, cancellationToken);
+    }
+
+    public Task<DocumentMutationResult> EditorInsertAsync(EditorInsertRequest request, CancellationToken cancellationToken)
+    {
+        return editor.InsertAsync(request, cancellationToken);
+    }
+
+    public Task<DocumentMutationResult> EditorReplaceAsync(EditorReplaceRequest request, CancellationToken cancellationToken)
+    {
+        return editor.ReplaceAsync(request, cancellationToken);
+    }
+
+    public Task<EditorDocumentInfo> EditorGotoLineAsync(EditorGotoLineRequest request, CancellationToken cancellationToken)
+    {
+        return editor.GoToLineAsync(request, cancellationToken);
+    }
+
+    public Task<SelectionInfo> SelectionSetAsync(SelectionSetRequest request, CancellationToken cancellationToken)
+    {
+        return editor.SetSelectionAsync(request, cancellationToken);
+    }
+
+    public Task<DocumentCleanupResult> DocumentCleanupAsync(DocumentCleanupRequest request, CancellationToken cancellationToken)
+    {
+        return editor.CleanupDocumentAsync(request, cancellationToken);
+    }
 }
 
 internal sealed class DocumentReadRequest

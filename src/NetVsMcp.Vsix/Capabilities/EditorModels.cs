@@ -85,3 +85,107 @@ internal sealed class SelectionInfo
     public int ActiveColumn { get; }
     public bool IsEmpty { get; }
 }
+
+internal sealed class DocumentWriteRequest
+{
+    public string Path { get; set; } = string.Empty;
+    public string Text { get; set; } = string.Empty;
+    public bool CreateIfMissing { get; set; }
+    public bool SaveAfterWrite { get; set; }
+}
+
+internal sealed class DocumentMutationResult
+{
+    public DocumentMutationResult(
+        bool success,
+        string? message,
+        EditorDocumentInfo? document,
+        bool saved,
+        int charactersChanged)
+    {
+        Success = success;
+        Message = message;
+        Document = document;
+        Saved = saved;
+        CharactersChanged = charactersChanged;
+    }
+
+    public bool Success { get; }
+    public string? Message { get; }
+    public EditorDocumentInfo? Document { get; }
+    public bool Saved { get; }
+    public int CharactersChanged { get; }
+}
+
+internal sealed class DocumentSaveRequest
+{
+    public string Path { get; set; } = string.Empty;
+}
+
+internal sealed class EditorInsertRequest
+{
+    public string Path { get; set; } = string.Empty;
+    public int Line { get; set; }
+    public int Column { get; set; }
+    public string Text { get; set; } = string.Empty;
+    public bool SaveAfterEdit { get; set; }
+}
+
+internal sealed class EditorReplaceRequest
+{
+    public string Path { get; set; } = string.Empty;
+    public int StartLine { get; set; }
+    public int StartColumn { get; set; }
+    public int EndLine { get; set; }
+    public int EndColumn { get; set; }
+    public string Text { get; set; } = string.Empty;
+    public bool SaveAfterEdit { get; set; }
+}
+
+internal sealed class EditorGotoLineRequest
+{
+    public string Path { get; set; } = string.Empty;
+    public int Line { get; set; }
+    public int Column { get; set; } = 1;
+}
+
+internal sealed class SelectionSetRequest
+{
+    public string Path { get; set; } = string.Empty;
+    public int StartLine { get; set; }
+    public int StartColumn { get; set; }
+    public int EndLine { get; set; }
+    public int EndColumn { get; set; }
+}
+
+internal sealed class DocumentCleanupRequest
+{
+    public string Path { get; set; } = string.Empty;
+    public bool SaveAfterCleanup { get; set; }
+}
+
+internal sealed class DocumentCleanupResult
+{
+    public DocumentCleanupResult(
+        bool success,
+        bool supported,
+        string? message,
+        EditorDocumentInfo? document,
+        bool saved,
+        string? command)
+    {
+        Success = success;
+        Supported = supported;
+        Message = message;
+        Document = document;
+        Saved = saved;
+        Command = command;
+    }
+
+    public bool Success { get; }
+    public bool Supported { get; }
+    public string? Message { get; }
+    public EditorDocumentInfo? Document { get; }
+    public bool Saved { get; }
+    public string? Command { get; }
+}
