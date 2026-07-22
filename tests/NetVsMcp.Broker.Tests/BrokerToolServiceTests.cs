@@ -38,6 +38,10 @@ public sealed class BrokerToolServiceTests
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "build_status", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "errors_list", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "output_read", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "debug_status", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "debug_step", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "breakpoint_set", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "debug_evaluate", RequiresVisualStudioSession: true });
         Assert.All(
             response.Value.Tools.Where(tool => tool.Name.StartsWith("vs_", StringComparison.Ordinal)),
             tool => Assert.False(tool.RequiresVisualStudioSession));
@@ -194,6 +198,192 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task DebugStatus_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.DebugStatus(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("Break", response.Value!.Mode);
+    }
+
+    [Fact]
+    public async Task DebugStep_RoutesStepKindToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DebugStep(DebugStepKind.Into, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal(DebugStepKind.Into, session.LastDebugStepRequest!.StepKind);
+        Assert.Equal("Break", response.Value!.Mode);
+    }
+
+    [Fact]
+    public async Task BreakpointSet_ValidatesLine()
+    {
+        var runtime = CreateRuntime();
+
+        var response = await runtime.Tools.BreakpointSet("Program.cs", 0);
+
+        Assert.False(response.Success);
+        Assert.Equal("Breakpoint line must be greater than zero.", response.Message);
+    }
+
+    [Fact]
+    public async Task BreakpointSet_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.BreakpointSet(
+            documentPath: @"C:\Code\NetVsMcp\Program.cs",
+            line: 42,
+            column: 3,
+            condition: "count > 0",
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal(42, session.LastBreakpointSetRequest!.Line);
+        Assert.Equal("count > 0", session.LastBreakpointSetRequest.Condition);
+        Assert.Equal("bp-1", response.Value!.Name);
+    }
+
+    [Fact]
+    public async Task BreakpointList_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.BreakpointList(solutionName: "NetVsMcp");
+
+        Assert.True(response.Success);
+        Assert.Equal("bp-1", Assert.Single(response.Value!.Breakpoints).Name);
+    }
+
+    [Fact]
+    public async Task BreakpointEnable_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.BreakpointEnable(
+            enabled: false,
+            name: "bp-1",
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.False(session.LastBreakpointEnableRequest!.Enabled);
+        Assert.Equal(1, response.Value!.Updated);
+    }
+
+    [Fact]
+    public async Task BreakpointRemove_RequiresNameOrDocumentPath()
+    {
+        var runtime = CreateRuntime();
+
+        var response = await runtime.Tools.BreakpointRemove();
+
+        Assert.False(response.Success);
+        Assert.Equal("Breakpoint name or document path is required.", response.Message);
+    }
+
+    [Fact]
+    public async Task BreakpointRemove_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.BreakpointRemove(name: "bp-1", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("bp-1", session.LastBreakpointRemoveRequest!.Name);
+        Assert.Equal(1, response.Value!.Removed);
+    }
+
+    [Fact]
+    public async Task DebugGetCallstack_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.DebugGetCallstack(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("Break", response.Value!.State.Mode);
+        Assert.Equal("Program.Main", Assert.Single(response.Value.Frames).FunctionName);
+    }
+
+    [Fact]
+    public async Task DebugGetLocals_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.DebugGetLocals(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("count", Assert.Single(response.Value!.Locals).Name);
+    }
+
+    [Fact]
+    public async Task DebugEvaluate_RequiresExpression()
+    {
+        var runtime = CreateRuntime();
+
+        var response = await runtime.Tools.DebugEvaluate("");
+
+        Assert.False(response.Success);
+        Assert.Equal("Expression is required.", response.Message);
+    }
+
+    [Fact]
+    public async Task DebugEvaluate_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DebugEvaluate(
+            expression: "count + 1",
+            timeoutMilliseconds: 1000,
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("count + 1", session.LastEvaluateExpressionRequest!.Expression);
+        Assert.Equal("43", response.Value!.Expression.Value);
+    }
+
+    [Fact]
+    public async Task DebugStatus_ReturnsMissingConnectionFailure()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+
+        var response = await runtime.Tools.DebugStatus(sessionId: "vs-1");
+
+        Assert.False(response.Success);
+        Assert.Equal("MissingConnection", response.Metadata!["failureReason"]);
+        Assert.Equal("vs-1", response.Metadata["sessionId"]);
+    }
+
+    [Fact]
     public async Task CodeDocumentSymbols_RequiresDocumentPath()
     {
         var runtime = CreateRuntime();
@@ -338,6 +528,16 @@ public sealed class BrokerToolServiceTests
 
         public OutputReadRequest? LastOutputReadRequest { get; private set; }
 
+        public DebugStepRequest? LastDebugStepRequest { get; private set; }
+
+        public BreakpointSetRequest? LastBreakpointSetRequest { get; private set; }
+
+        public BreakpointRemoveRequest? LastBreakpointRemoveRequest { get; private set; }
+
+        public BreakpointEnableRequest? LastBreakpointEnableRequest { get; private set; }
+
+        public EvaluateExpressionRequest? LastEvaluateExpressionRequest { get; private set; }
+
         public Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
@@ -396,6 +596,116 @@ public sealed class BrokerToolServiceTests
         {
             LastOutputReadRequest = request;
             return Task.FromResult(new OutputReadResult(request.PaneName, "Build output", false));
+        }
+
+        public Task<DebuggerStateInfo> DebugStatusAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new DebuggerStateInfo("Break"));
+        }
+
+        public Task<DebuggerStateInfo> DebugGetModeAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new DebuggerStateInfo("Break"));
+        }
+
+        public Task<DebuggerStateInfo> DebugStartAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new DebuggerStateInfo("Run"));
+        }
+
+        public Task<DebuggerStateInfo> DebugStopAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new DebuggerStateInfo("Design"));
+        }
+
+        public Task<DebuggerStateInfo> DebugContinueAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new DebuggerStateInfo("Run"));
+        }
+
+        public Task<DebuggerStateInfo> DebugBreakAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new DebuggerStateInfo("Break"));
+        }
+
+        public Task<DebuggerStateInfo> DebugStepAsync(
+            DebugStepRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastDebugStepRequest = request;
+            return Task.FromResult(new DebuggerStateInfo("Break"));
+        }
+
+        public Task<BreakpointInfo> BreakpointSetAsync(
+            BreakpointSetRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastBreakpointSetRequest = request;
+            return Task.FromResult(CreateBreakpoint(request.Condition));
+        }
+
+        public Task<BreakpointListResult> BreakpointListAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<BreakpointInfo> breakpoints = [CreateBreakpoint(null)];
+            return Task.FromResult(new BreakpointListResult(breakpoints));
+        }
+
+        public Task<BreakpointRemoveResult> BreakpointRemoveAsync(
+            BreakpointRemoveRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastBreakpointRemoveRequest = request;
+            return Task.FromResult(new BreakpointRemoveResult(1));
+        }
+
+        public Task<BreakpointEnableResult> BreakpointEnableAsync(
+            BreakpointEnableRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastBreakpointEnableRequest = request;
+            IReadOnlyCollection<BreakpointInfo> breakpoints = [CreateBreakpoint(null) with { Enabled = request.Enabled }];
+            return Task.FromResult(new BreakpointEnableResult(1, breakpoints));
+        }
+
+        public Task<CallStackResult> DebugGetCallstackAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<CallStackFrameInfo> frames =
+            [
+                new("Program.Main", @"C:\Code\NetVsMcp\Program.cs", 42, 1)
+            ];
+
+            return Task.FromResult(new CallStackResult(new DebuggerStateInfo("Break"), frames));
+        }
+
+        public Task<LocalsResult> DebugGetLocalsAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<DebugExpressionInfo> locals =
+            [
+                new("count", "42", "int", true)
+            ];
+
+            return Task.FromResult(new LocalsResult(new DebuggerStateInfo("Break"), locals));
+        }
+
+        public Task<EvaluateExpressionResult> DebugEvaluateAsync(
+            EvaluateExpressionRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastEvaluateExpressionRequest = request;
+            var expression = new DebugExpressionInfo(request.Expression, "43", "int", true);
+            return Task.FromResult(new EvaluateExpressionResult(new DebuggerStateInfo("Break"), expression));
+        }
+
+        private static BreakpointInfo CreateBreakpoint(string? condition)
+        {
+            return new BreakpointInfo(
+                Name: "bp-1",
+                File: @"C:\Code\NetVsMcp\Program.cs",
+                Line: 42,
+                Column: 3,
+                FunctionName: null,
+                Condition: condition,
+                Enabled: true);
         }
     }
 }

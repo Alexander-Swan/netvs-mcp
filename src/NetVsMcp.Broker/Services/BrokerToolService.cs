@@ -20,7 +20,21 @@ public sealed class BrokerToolService
         new("build_solution", "Starts a solution build in a routed Visual Studio session.", true),
         new("build_status", "Returns build status from a routed Visual Studio session.", true),
         new("errors_list", "Lists errors and warnings from a routed Visual Studio session.", true),
-        new("output_read", "Reads an output pane from a routed Visual Studio session.", true)
+        new("output_read", "Reads an output pane from a routed Visual Studio session.", true),
+        new("debug_status", "Returns debugger status from a routed Visual Studio session.", true),
+        new("debug_get_mode", "Returns debugger mode from a routed Visual Studio session.", true),
+        new("debug_start", "Starts debugging in a routed Visual Studio session.", true),
+        new("debug_stop", "Stops debugging in a routed Visual Studio session.", true),
+        new("debug_continue", "Continues debugging in a routed Visual Studio session.", true),
+        new("debug_break", "Breaks into debugging in a routed Visual Studio session.", true),
+        new("debug_step", "Steps the debugger in a routed Visual Studio session.", true),
+        new("breakpoint_set", "Sets a breakpoint in a routed Visual Studio session.", true),
+        new("breakpoint_list", "Lists breakpoints from a routed Visual Studio session.", true),
+        new("breakpoint_remove", "Removes breakpoints in a routed Visual Studio session.", true),
+        new("breakpoint_enable", "Enables or disables breakpoints in a routed Visual Studio session.", true),
+        new("debug_get_callstack", "Returns the current call stack from a routed Visual Studio session.", true),
+        new("debug_get_locals", "Returns locals from a routed Visual Studio session.", true),
+        new("debug_evaluate", "Evaluates an expression in a routed Visual Studio session.", true)
     ];
 
     private static readonly VsCapability[] VisualStudioCapabilities =
@@ -270,6 +284,320 @@ public sealed class BrokerToolService
         return ToValueToolResponse(dispatch);
     }
 
+    [McpServerTool(Name = "debug_status")]
+    [Description("Returns debugger status from a routed Visual Studio session.")]
+    public Task<ToolResponse<DebuggerStateInfo>> DebugStatus(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.DebugStatusAsync(ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "debug_get_mode")]
+    [Description("Returns debugger mode from a routed Visual Studio session.")]
+    public Task<ToolResponse<DebuggerStateInfo>> DebugGetMode(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.DebugGetModeAsync(ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "debug_start")]
+    [Description("Starts debugging in a routed Visual Studio session.")]
+    public Task<ToolResponse<DebuggerStateInfo>> DebugStart(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.DebugStartAsync(ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "debug_stop")]
+    [Description("Stops debugging in a routed Visual Studio session.")]
+    public Task<ToolResponse<DebuggerStateInfo>> DebugStop(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.DebugStopAsync(ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "debug_continue")]
+    [Description("Continues debugging in a routed Visual Studio session.")]
+    public Task<ToolResponse<DebuggerStateInfo>> DebugContinue(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.DebugContinueAsync(ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "debug_break")]
+    [Description("Breaks into debugging in a routed Visual Studio session.")]
+    public Task<ToolResponse<DebuggerStateInfo>> DebugBreak(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.DebugBreakAsync(ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "debug_step")]
+    [Description("Steps the debugger in a routed Visual Studio session.")]
+    public Task<ToolResponse<DebuggerStateInfo>> DebugStep(
+        DebugStepKind stepKind = DebugStepKind.Over,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Enum.IsDefined(stepKind))
+        {
+            return Task.FromResult(ToolResponse<DebuggerStateInfo>.Fail("Debug step kind is invalid."));
+        }
+
+        var request = new DebugStepRequest
+        {
+            StepKind = stepKind
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.DebugStepAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "breakpoint_set")]
+    [Description("Sets a breakpoint in a routed Visual Studio session.")]
+    public Task<ToolResponse<BreakpointInfo>> BreakpointSet(
+        string documentPath,
+        int line,
+        int column = 1,
+        string? condition = null,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(documentPath))
+        {
+            return Task.FromResult(ToolResponse<BreakpointInfo>.Fail("Document path is required."));
+        }
+
+        if (line < 1)
+        {
+            return Task.FromResult(ToolResponse<BreakpointInfo>.Fail("Breakpoint line must be greater than zero."));
+        }
+
+        if (column < 1)
+        {
+            return Task.FromResult(ToolResponse<BreakpointInfo>.Fail("Breakpoint column must be greater than zero."));
+        }
+
+        var request = new BreakpointSetRequest
+        {
+            DocumentPath = documentPath.Trim(),
+            Line = line,
+            Column = column,
+            Condition = NormalizeOptional(condition)
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.BreakpointSetAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "breakpoint_list")]
+    [Description("Lists breakpoints from a routed Visual Studio session.")]
+    public Task<ToolResponse<BreakpointListResult>> BreakpointList(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.BreakpointListAsync(ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "breakpoint_remove")]
+    [Description("Removes breakpoints in a routed Visual Studio session.")]
+    public Task<ToolResponse<BreakpointRemoveResult>> BreakpointRemove(
+        string? name = null,
+        string? documentPath = null,
+        int line = 0,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        var validation = ValidateBreakpointLookup(name, documentPath, line);
+        if (validation is not null)
+        {
+            return Task.FromResult(ToolResponse<BreakpointRemoveResult>.Fail(validation));
+        }
+
+        var request = new BreakpointRemoveRequest
+        {
+            Name = NormalizeOptional(name),
+            DocumentPath = NormalizeOptional(documentPath),
+            Line = line
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.BreakpointRemoveAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "breakpoint_enable")]
+    [Description("Enables or disables breakpoints in a routed Visual Studio session.")]
+    public Task<ToolResponse<BreakpointEnableResult>> BreakpointEnable(
+        bool enabled,
+        string? name = null,
+        string? documentPath = null,
+        int line = 0,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        var validation = ValidateBreakpointLookup(name, documentPath, line);
+        if (validation is not null)
+        {
+            return Task.FromResult(ToolResponse<BreakpointEnableResult>.Fail(validation));
+        }
+
+        var request = new BreakpointEnableRequest
+        {
+            Name = NormalizeOptional(name),
+            DocumentPath = NormalizeOptional(documentPath),
+            Line = line,
+            Enabled = enabled
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.BreakpointEnableAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "debug_get_callstack")]
+    [Description("Returns the current call stack from a routed Visual Studio session.")]
+    public Task<ToolResponse<CallStackResult>> DebugGetCallstack(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.DebugGetCallstackAsync(ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "debug_get_locals")]
+    [Description("Returns locals from a routed Visual Studio session.")]
+    public Task<ToolResponse<LocalsResult>> DebugGetLocals(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.DebugGetLocalsAsync(ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "debug_evaluate")]
+    [Description("Evaluates an expression in a routed Visual Studio session.")]
+    public Task<ToolResponse<EvaluateExpressionResult>> DebugEvaluate(
+        string expression,
+        int timeoutMilliseconds = 5000,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(expression))
+        {
+            return Task.FromResult(ToolResponse<EvaluateExpressionResult>.Fail("Expression is required."));
+        }
+
+        if (timeoutMilliseconds < 1)
+        {
+            return Task.FromResult(ToolResponse<EvaluateExpressionResult>.Fail("Timeout milliseconds must be greater than zero."));
+        }
+
+        var request = new EvaluateExpressionRequest
+        {
+            Expression = expression.Trim(),
+            TimeoutMilliseconds = timeoutMilliseconds
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.DebugEvaluateAsync(request, ct),
+            cancellationToken);
+    }
+
     private static RoutingTarget? CreateTarget(
         string? sessionId,
         string? solutionName,
@@ -324,6 +652,26 @@ public sealed class BrokerToolService
             !string.IsNullOrWhiteSpace(solutionPath);
     }
 
+    private static string? ValidateBreakpointLookup(
+        string? name,
+        string? documentPath,
+        int line)
+    {
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(documentPath))
+        {
+            return "Breakpoint name or document path is required.";
+        }
+
+        return line < 1
+            ? "Breakpoint line must be greater than zero."
+            : null;
+    }
+
     private static ToolResponse<T> ToToolResponse<T>(
         VsSessionDispatchResult<ToolResponse<T>> dispatch)
     {
@@ -357,6 +705,21 @@ public sealed class BrokerToolService
         }
 
         return ToolResponse<T>.Ok(dispatch.Value);
+    }
+
+    private async Task<ToolResponse<T>> DispatchValueAsync<T>(
+        string? sessionId,
+        string? solutionName,
+        string? solutionPath,
+        Func<IVisualStudioSessionRpc, CancellationToken, Task<T>> operation,
+        CancellationToken cancellationToken)
+    {
+        var dispatch = await _runtime.Dispatcher.DispatchAsync(
+            CreateTarget(sessionId, solutionName, solutionPath),
+            operation,
+            cancellationToken);
+
+        return ToValueToolResponse(dispatch);
     }
 
     private static IReadOnlyDictionary<string, string> CreateRouteFailureMetadata(RouteResult route)

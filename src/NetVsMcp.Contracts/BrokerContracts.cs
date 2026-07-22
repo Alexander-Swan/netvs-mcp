@@ -19,6 +19,13 @@ public enum DebuggerMode
     Break
 }
 
+public enum DebugStepKind
+{
+    Into,
+    Over,
+    Out
+}
+
 public enum SessionHealth
 {
     Unknown,
@@ -124,6 +131,93 @@ public sealed record OutputReadResult(
     string Text,
     bool Truncated);
 
+public sealed record DebuggerStateInfo(string Mode);
+
+public sealed class DebugStepRequest
+{
+    public DebugStepKind StepKind { get; set; } = DebugStepKind.Over;
+}
+
+public sealed class BreakpointSetRequest
+{
+    public string DocumentPath { get; set; } = string.Empty;
+
+    public int Line { get; set; }
+
+    public int Column { get; set; } = 1;
+
+    public string? Condition { get; set; }
+}
+
+public sealed class BreakpointRemoveRequest
+{
+    public string? Name { get; set; }
+
+    public string? DocumentPath { get; set; }
+
+    public int Line { get; set; }
+}
+
+public sealed record BreakpointRemoveResult(int Removed);
+
+public sealed class BreakpointEnableRequest
+{
+    public string? Name { get; set; }
+
+    public string? DocumentPath { get; set; }
+
+    public int Line { get; set; }
+
+    public bool Enabled { get; set; } = true;
+}
+
+public sealed record BreakpointEnableResult(
+    int Updated,
+    IReadOnlyCollection<BreakpointInfo> Breakpoints);
+
+public sealed record BreakpointListResult(
+    IReadOnlyCollection<BreakpointInfo> Breakpoints);
+
+public sealed record BreakpointInfo(
+    string? Name,
+    string? File,
+    int Line,
+    int Column,
+    string? FunctionName,
+    string? Condition,
+    bool Enabled);
+
+public sealed record CallStackResult(
+    DebuggerStateInfo State,
+    IReadOnlyCollection<CallStackFrameInfo> Frames);
+
+public sealed record CallStackFrameInfo(
+    string? FunctionName,
+    string? File,
+    int Line,
+    int Column);
+
+public sealed record LocalsResult(
+    DebuggerStateInfo State,
+    IReadOnlyCollection<DebugExpressionInfo> Locals);
+
+public sealed class EvaluateExpressionRequest
+{
+    public string Expression { get; set; } = string.Empty;
+
+    public int TimeoutMilliseconds { get; set; } = 5000;
+}
+
+public sealed record EvaluateExpressionResult(
+    DebuggerStateInfo State,
+    DebugExpressionInfo Expression);
+
+public sealed record DebugExpressionInfo(
+    string? Name,
+    string? Value,
+    string? Type,
+    bool IsValidValue);
+
 public sealed record BrokerStatus(
     bool IsRunning,
     string McpEndpoint,
@@ -213,5 +307,43 @@ public interface IVisualStudioSessionRpc
 
     Task<OutputReadResult> OutputReadAsync(
         OutputReadRequest request,
+        CancellationToken cancellationToken);
+
+    Task<DebuggerStateInfo> DebugStatusAsync(CancellationToken cancellationToken);
+
+    Task<DebuggerStateInfo> DebugGetModeAsync(CancellationToken cancellationToken);
+
+    Task<DebuggerStateInfo> DebugStartAsync(CancellationToken cancellationToken);
+
+    Task<DebuggerStateInfo> DebugStopAsync(CancellationToken cancellationToken);
+
+    Task<DebuggerStateInfo> DebugContinueAsync(CancellationToken cancellationToken);
+
+    Task<DebuggerStateInfo> DebugBreakAsync(CancellationToken cancellationToken);
+
+    Task<DebuggerStateInfo> DebugStepAsync(
+        DebugStepRequest request,
+        CancellationToken cancellationToken);
+
+    Task<BreakpointInfo> BreakpointSetAsync(
+        BreakpointSetRequest request,
+        CancellationToken cancellationToken);
+
+    Task<BreakpointListResult> BreakpointListAsync(CancellationToken cancellationToken);
+
+    Task<BreakpointRemoveResult> BreakpointRemoveAsync(
+        BreakpointRemoveRequest request,
+        CancellationToken cancellationToken);
+
+    Task<BreakpointEnableResult> BreakpointEnableAsync(
+        BreakpointEnableRequest request,
+        CancellationToken cancellationToken);
+
+    Task<CallStackResult> DebugGetCallstackAsync(CancellationToken cancellationToken);
+
+    Task<LocalsResult> DebugGetLocalsAsync(CancellationToken cancellationToken);
+
+    Task<EvaluateExpressionResult> DebugEvaluateAsync(
+        EvaluateExpressionRequest request,
         CancellationToken cancellationToken);
 }

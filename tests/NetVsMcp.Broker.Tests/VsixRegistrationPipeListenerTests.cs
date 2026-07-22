@@ -133,5 +133,85 @@ public sealed class VsixRegistrationPipeListenerTests
         {
             throw new NotSupportedException();
         }
+
+        public Task<DebuggerStateInfo> DebugStatusAsync(CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<DebuggerStateInfo> DebugGetModeAsync(CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<DebuggerStateInfo> DebugStartAsync(CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<DebuggerStateInfo> DebugStopAsync(CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<DebuggerStateInfo> DebugContinueAsync(CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<DebuggerStateInfo> DebugBreakAsync(CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<DebuggerStateInfo> DebugStepAsync(
+            DebugStepRequest request,
+            CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<BreakpointInfo> BreakpointSetAsync(
+            BreakpointSetRequest request,
+            CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<BreakpointListResult> BreakpointListAsync(CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<BreakpointRemoveResult> BreakpointRemoveAsync(
+            BreakpointRemoveRequest request,
+            CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<BreakpointEnableResult> BreakpointEnableAsync(
+            BreakpointEnableRequest request,
+            CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<CallStackResult> DebugGetCallstackAsync(CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<LocalsResult> DebugGetLocalsAsync(CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<EvaluateExpressionResult> DebugEvaluateAsync(
+            EvaluateExpressionRequest request,
+            CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
     }
 }
