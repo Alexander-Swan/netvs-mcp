@@ -16,7 +16,11 @@ public sealed class BrokerToolService
         new("vs_select_session", "Resolves a Visual Studio session using broker routing rules without persisting selection.", false),
         new("vs_ping", "Returns lightweight broker health and optional routed Visual Studio session status.", false),
         new("document_active", "Returns the active document for a routed Visual Studio session.", true),
-        new("code_document_symbols", "Lists document symbols through a routed Visual Studio session.", true)
+        new("code_document_symbols", "Lists document symbols through a routed Visual Studio session.", true),
+        new("build_solution", "Starts a solution build in a routed Visual Studio session.", true),
+        new("build_status", "Returns build status from a routed Visual Studio session.", true),
+        new("errors_list", "Lists errors and warnings from a routed Visual Studio session.", true),
+        new("output_read", "Reads an output pane from a routed Visual Studio session.", true)
     ];
 
     private static readonly VsCapability[] VisualStudioCapabilities =
@@ -170,6 +174,102 @@ public sealed class BrokerToolService
         return ToToolResponse(dispatch);
     }
 
+    [McpServerTool(Name = "build_solution")]
+    [Description("Starts a solution build in a routed Visual Studio session.")]
+    public async Task<ToolResponse<BuildSolutionResult>> BuildSolution(
+        bool waitForBuildToFinish = false,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new BuildSolutionRequest
+        {
+            WaitForBuildToFinish = waitForBuildToFinish
+        };
+
+        var dispatch = await _runtime.Dispatcher.DispatchAsync(
+            CreateTarget(sessionId, solutionName, solutionPath),
+            (connection, ct) => connection.BuildSolutionAsync(request, ct),
+            cancellationToken);
+
+        return ToValueToolResponse(dispatch);
+    }
+
+    [McpServerTool(Name = "build_status")]
+    [Description("Returns build status from a routed Visual Studio session.")]
+    public async Task<ToolResponse<BuildStatusInfo>> BuildStatus(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        var dispatch = await _runtime.Dispatcher.DispatchAsync(
+            CreateTarget(sessionId, solutionName, solutionPath),
+            static (connection, ct) => connection.BuildStatusAsync(ct),
+            cancellationToken);
+
+        return ToValueToolResponse(dispatch);
+    }
+
+    [McpServerTool(Name = "errors_list")]
+    [Description("Lists errors and warnings from a routed Visual Studio session.")]
+    public async Task<ToolResponse<ErrorListResult>> ErrorsList(
+        bool includeWarnings = true,
+        int maxItems = 200,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (maxItems < 1)
+        {
+            return ToolResponse<ErrorListResult>.Fail("Max items must be greater than zero.");
+        }
+
+        var request = new ErrorListRequest
+        {
+            IncludeWarnings = includeWarnings,
+            MaxItems = maxItems
+        };
+
+        var dispatch = await _runtime.Dispatcher.DispatchAsync(
+            CreateTarget(sessionId, solutionName, solutionPath),
+            (connection, ct) => connection.ErrorsListAsync(request, ct),
+            cancellationToken);
+
+        return ToValueToolResponse(dispatch);
+    }
+
+    [McpServerTool(Name = "output_read")]
+    [Description("Reads an output pane from a routed Visual Studio session.")]
+    public async Task<ToolResponse<OutputReadResult>> OutputRead(
+        string? paneName = null,
+        int maxChars = 20000,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (maxChars < 1)
+        {
+            return ToolResponse<OutputReadResult>.Fail("Max chars must be greater than zero.");
+        }
+
+        var request = new OutputReadRequest
+        {
+            PaneName = NormalizeOptional(paneName),
+            MaxChars = maxChars
+        };
+
+        var dispatch = await _runtime.Dispatcher.DispatchAsync(
+            CreateTarget(sessionId, solutionName, solutionPath),
+            (connection, ct) => connection.OutputReadAsync(request, ct),
+            cancellationToken);
+
+        return ToValueToolResponse(dispatch);
+    }
+
     private static RoutingTarget? CreateTarget(
         string? sessionId,
         string? solutionName,
@@ -237,6 +337,26 @@ public sealed class BrokerToolService
         }
 
         return dispatch.Value ?? ToolResponse<T>.Fail("Visual Studio session returned no response.");
+    }
+
+    private static ToolResponse<T> ToValueToolResponse<T>(
+        VsSessionDispatchResult<T> dispatch)
+    {
+        if (!dispatch.Success)
+        {
+            return new ToolResponse<T>(
+                false,
+                default,
+                dispatch.Message,
+                CreateFailureMetadata(dispatch));
+        }
+
+        if (dispatch.Value is null)
+        {
+            return ToolResponse<T>.Fail("Visual Studio session returned no response.");
+        }
+
+        return ToolResponse<T>.Ok(dispatch.Value);
     }
 
     private static IReadOnlyDictionary<string, string> CreateRouteFailureMetadata(RouteResult route)

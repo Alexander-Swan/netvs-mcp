@@ -143,5 +143,31 @@ public sealed class VsSessionDispatcherTests
         {
             throw new NotSupportedException();
         }
+
+        public Task<BuildSolutionResult> BuildSolutionAsync(
+            BuildSolutionRequest request,
+            CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<BuildStatusInfo> BuildStatusAsync(CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<ErrorListResult> ErrorsListAsync(
+            ErrorListRequest request,
+            CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<OutputReadResult> OutputReadAsync(
+            OutputReadRequest request,
+            CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
     }
 }

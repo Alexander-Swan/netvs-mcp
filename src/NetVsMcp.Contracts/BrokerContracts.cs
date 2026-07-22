@@ -81,6 +81,49 @@ public sealed record VsSessionStatus(
     SessionHealth Health,
     TimeSpan Age);
 
+public sealed class BuildSolutionRequest
+{
+    public bool WaitForBuildToFinish { get; set; }
+}
+
+public sealed record BuildSolutionResult(
+    BuildStatusInfo Status,
+    int LastBuildInfo);
+
+public sealed record BuildStatusInfo(
+    string State,
+    int LastBuildInfo);
+
+public sealed class ErrorListRequest
+{
+    public bool IncludeWarnings { get; set; } = true;
+
+    public int MaxItems { get; set; } = 200;
+}
+
+public sealed record ErrorListResult(
+    IReadOnlyCollection<ErrorListItemInfo> Items);
+
+public sealed record ErrorListItemInfo(
+    string? Description,
+    string? File,
+    int Line,
+    int Column,
+    string Level,
+    string? Project);
+
+public sealed class OutputReadRequest
+{
+    public string? PaneName { get; set; }
+
+    public int MaxChars { get; set; } = 20000;
+}
+
+public sealed record OutputReadResult(
+    string? PaneName,
+    string Text,
+    bool Truncated);
+
 public sealed record BrokerStatus(
     bool IsRunning,
     string McpEndpoint,
@@ -156,5 +199,19 @@ public interface IVisualStudioSessionRpc
 
     Task<ToolResponse<IReadOnlyCollection<string>>> ListDocumentSymbolsAsync(
         string documentPath,
+        CancellationToken cancellationToken);
+
+    Task<BuildSolutionResult> BuildSolutionAsync(
+        BuildSolutionRequest request,
+        CancellationToken cancellationToken);
+
+    Task<BuildStatusInfo> BuildStatusAsync(CancellationToken cancellationToken);
+
+    Task<ErrorListResult> ErrorsListAsync(
+        ErrorListRequest request,
+        CancellationToken cancellationToken);
+
+    Task<OutputReadResult> OutputReadAsync(
+        OutputReadRequest request,
         CancellationToken cancellationToken);
 }
