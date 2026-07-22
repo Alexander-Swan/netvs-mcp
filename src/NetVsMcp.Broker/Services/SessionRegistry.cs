@@ -50,7 +50,7 @@ public sealed class SessionRegistry
             registration.VisualStudioVersion,
             registration.Edition,
             registration.SolutionName,
-            registration.SolutionPath,
+            SolutionPathNormalizer.Normalize(registration.SolutionPath),
             registration.ActiveDocument,
             registration.DebuggerMode,
             registration.IsActiveWindow,
@@ -80,7 +80,7 @@ public sealed class SessionRegistry
             _sessions[update.SessionId] = existing with
             {
                 SolutionName = update.SolutionName,
-                SolutionPath = update.SolutionPath,
+                SolutionPath = SolutionPathNormalizer.Normalize(update.SolutionPath),
                 ActiveDocument = update.ActiveDocument,
                 DebuggerMode = update.DebuggerMode,
                 IsActiveWindow = update.IsActiveWindow,
@@ -150,14 +150,15 @@ public sealed class SessionRegistry
 
         if (!string.IsNullOrWhiteSpace(target?.SolutionPath))
         {
+            var normalizedTargetPath = SolutionPathNormalizer.Normalize(target.SolutionPath);
             var matches = sessions
-                .Where(session => string.Equals(session.SolutionPath, target.SolutionPath, StringComparison.OrdinalIgnoreCase))
+                .Where(session => string.Equals(session.SolutionPath, normalizedTargetPath, StringComparison.OrdinalIgnoreCase))
                 .ToArray();
 
             return ResolveMatches(
                 matches,
                 RouteFailureReason.SolutionPathNotFound,
-                $"No session has solution path '{target.SolutionPath}'.",
+                $"No session has solution path '{normalizedTargetPath}'.",
                 sessions);
         }
 

@@ -45,6 +45,51 @@ public sealed class SessionRegistryTests
     }
 
     [Fact]
+    public void Resolve_MatchesNormalizedSolutionPath()
+    {
+        var registry = new SessionRegistry();
+        registry.Register(CreateRegistration("vs-1", "Shared", @"C:/Code/One/../One/Shared.sln", isActive: false));
+        registry.Register(CreateRegistration("vs-2", "Other", @"C:\Code\Other\Other.sln", isActive: true));
+
+        var result = registry.Resolve(new RoutingTarget(SolutionPath: @"c:\code\one\shared.sln"));
+
+        Assert.True(result.Success);
+        Assert.Equal("vs-1", result.Session?.SessionId);
+        Assert.Equal(@"C:\Code\One\Shared.sln", result.Session?.SolutionPath);
+    }
+
+    [Fact]
+    public void Update_StoresNormalizedSolutionPath()
+    {
+        var registry = new SessionRegistry();
+        registry.Register(CreateRegistration("vs-1", "Old", @"C:\Code\Old\Old.sln", isActive: true));
+
+        var response = registry.Update(new VsSessionUpdate(
+            SessionId: "vs-1",
+            SolutionName: "New",
+            SolutionPath: @"C:/Code/New/../New/New.slnx",
+            ActiveDocument: "Program.cs",
+            DebuggerMode: DebuggerMode.Design,
+            IsActiveWindow: true));
+
+        Assert.True(response.Success);
+        Assert.Equal(@"C:\Code\New\New.slnx", registry.ListSessions().Single().SolutionPath);
+    }
+
+    [Fact]
+    public void Resolve_UsesSolutionName_WhenPathIsNotProvided()
+    {
+        var registry = new SessionRegistry();
+        registry.Register(CreateRegistration("vs-1", "One", @"C:\Code\One\One.sln", isActive: false));
+        registry.Register(CreateRegistration("vs-2", "Two", @"C:\Code\Two\Two.sln", isActive: true));
+
+        var result = registry.Resolve(new RoutingTarget(SolutionName: "one"));
+
+        Assert.True(result.Success);
+        Assert.Equal("vs-1", result.Session?.SessionId);
+    }
+
+    [Fact]
     public void Resolve_UsesSingleActiveSession_WhenNoTargetIsProvided()
     {
         var registry = new SessionRegistry();
@@ -55,6 +100,32 @@ public sealed class SessionRegistryTests
 
         Assert.True(result.Success);
         Assert.Equal("vs-2", result.Session?.SessionId);
+    }
+
+    [Fact]
+    public void Resolve_UsesOnlyRegisteredSession_WhenNoTargetOrActiveSessionIsProvided()
+    {
+        var registry = new SessionRegistry();
+        registry.Register(CreateRegistration("vs-1", "One", @"C:\Code\One\One.sln", isActive: false));
+
+        var result = registry.Resolve(null);
+
+        Assert.True(result.Success);
+        Assert.Equal("vs-1", result.Session?.SessionId);
+    }
+
+    [Fact]
+    public void Resolve_ReturnsAmbiguous_WhenMultipleSessionsHaveNoSingleActiveWindow()
+    {
+        var registry = new SessionRegistry();
+        registry.Register(CreateRegistration("vs-1", "One", @"C:\Code\One\One.sln", isActive: false));
+        registry.Register(CreateRegistration("vs-2", "Two", @"C:\Code\Two\Two.sln", isActive: false));
+
+        var result = registry.Resolve(null);
+
+        Assert.False(result.Success);
+        Assert.Equal(RouteFailureReason.Ambiguous, result.FailureReason);
+        Assert.Equal(2, result.Candidates.Count);
     }
 
     [Fact]

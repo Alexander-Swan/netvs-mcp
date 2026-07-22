@@ -12,7 +12,7 @@ This file tracks agent orchestration so work can be resumed later.
 
 | Agent | ID | Current Status | Current Task | Last Reported Commit |
 | --- | --- | --- | --- | --- |
-| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Running | Normalize solution path routing | `0364eda` observed on `master` |
+| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Running | Replace placeholder HTTP routes with MCP transport/tool shape | `a9905ba` from prior path-normalization task |
 | Locke | `019f88e1-5257-7683-b382-205bbf1c935e` | Running | VSIX document symbols navigation service | Pending |
 
 ## Completed Agent Tasks
@@ -96,9 +96,21 @@ This file tracks agent orchestration so work can be resumed later.
   - `src/NetVsMcp.Vsix/Capabilities/EditorModels.cs`
   - `src/NetVsMcp.Vsix/Capabilities/EditorRpcTarget.cs`
 
+### Jason: Normalize Solution Path Routing
+
+- Status: Integrated on `master`
+- Commit: `a9905ba` - `Normalize solution path routing`
+- Reported build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors
+- Local tests: `dotnet test .\tests\NetVsMcp.Broker.Tests\NetVsMcp.Broker.Tests.csproj` passed with 20 tests
+- Review status: Reviewed
+- Files:
+  - `src/NetVsMcp.Broker/Services/SolutionPathNormalizer.cs`
+  - `src/NetVsMcp.Broker/Services/SessionRegistry.cs`
+  - `tests/NetVsMcp.Broker.Tests/SessionRegistryTests.cs`
+
 ## Current Agent Tasks
 
-### Jason: Normalize Solution Path Routing
+### Jason: Replace Placeholder HTTP Routes With MCP Transport
 
 Write scope:
 
@@ -108,8 +120,9 @@ Write scope:
 
 Expected output:
 
-- normalized solution paths at registration/update and target resolution
-- expanded routing tests
+- actual MCP-over-HTTP behavior if practical, or a clean adapter abstraction documenting SDK blockers
+- `vs_list_sessions`, `vs_get_status`, and `vs_get_capabilities` exposed as MCP tools
+- loopback-only endpoint binding
 - build/test result
 - commit hash
 
@@ -169,7 +182,7 @@ Expected output:
 - Lines: 151-154 at commit `3555c6f`
 - Issue: solution path routing compares raw strings without path normalization.
 - Impact: equivalent paths with different slash style, casing, or relative segments may fail to route.
-- Follow-up: normalize solution paths at registration/update and target resolution.
+- Status: Resolved by `a9905ba`, with tests covering normalized path routing and ambiguity behavior.
 
 ### VSIX Editor RPC Wiring
 
