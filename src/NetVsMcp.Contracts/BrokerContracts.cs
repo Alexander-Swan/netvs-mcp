@@ -273,6 +273,73 @@ public sealed record EditDecisionResult(
 public sealed record PendingEditListResult(
     IReadOnlyCollection<PendingEditInfo> PendingEdits);
 
+public sealed record SolutionInfoResult(
+    string? Name,
+    string? Path,
+    bool IsOpen,
+    int ProjectCount,
+    string? StartupProject);
+
+public sealed record ProjectListResult(
+    IReadOnlyCollection<ProjectInfo> Projects);
+
+public sealed class ProjectInfoRequest
+{
+    public string ProjectName { get; set; } = string.Empty;
+}
+
+public sealed record ProjectInfo(
+    string? Name,
+    string? UniqueName,
+    string? FullName,
+    string? Kind,
+    bool IsLoaded,
+    string? Language,
+    string? OutputFileName);
+
+public sealed record StartupProjectResult(
+    IReadOnlyCollection<string> Projects,
+    bool IsMultiStartup);
+
+public sealed class StartupProjectSetRequest
+{
+    public string ProjectName { get; set; } = string.Empty;
+}
+
+public sealed class TestDiscoverRequest
+{
+    public string? ProjectName { get; set; }
+}
+
+public sealed class TestRunRequest
+{
+    public string? ProjectName { get; set; }
+
+    public string? Filter { get; set; }
+}
+
+public sealed class TestResultsRequest
+{
+    public string? RunId { get; set; }
+}
+
+public sealed record TestOperationResult(
+    bool Supported,
+    string Message,
+    IReadOnlyCollection<TestCaseInfo> Tests,
+    IReadOnlyCollection<TestResultInfo> Results);
+
+public sealed record TestCaseInfo(
+    string Name,
+    string? ProjectName,
+    string? Source);
+
+public sealed record TestResultInfo(
+    string Name,
+    string Outcome,
+    string? Duration,
+    string? Message);
+
 public sealed class BuildSolutionRequest
 {
     public bool WaitForBuildToFinish { get; set; }
@@ -531,6 +598,32 @@ public interface IVisualStudioSessionRpc
         CancellationToken cancellationToken);
 
     Task<PendingEditListResult> EditListPendingAsync(CancellationToken cancellationToken);
+
+    Task<SolutionInfoResult> SolutionInfoAsync(CancellationToken cancellationToken);
+
+    Task<ProjectListResult> ProjectListAsync(CancellationToken cancellationToken);
+
+    Task<ProjectInfo?> ProjectInfoAsync(
+        ProjectInfoRequest request,
+        CancellationToken cancellationToken);
+
+    Task<StartupProjectResult> StartupProjectGetAsync(CancellationToken cancellationToken);
+
+    Task<StartupProjectResult> StartupProjectSetAsync(
+        StartupProjectSetRequest request,
+        CancellationToken cancellationToken);
+
+    Task<TestOperationResult> TestDiscoverAsync(
+        TestDiscoverRequest request,
+        CancellationToken cancellationToken);
+
+    Task<TestOperationResult> TestRunAsync(
+        TestRunRequest request,
+        CancellationToken cancellationToken);
+
+    Task<TestOperationResult> TestResultsAsync(
+        TestResultsRequest request,
+        CancellationToken cancellationToken);
 
     Task<BuildSolutionResult> BuildSolutionAsync(
         BuildSolutionRequest request,

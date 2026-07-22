@@ -15,7 +15,7 @@ This file tracks agent orchestration so work can be resumed later.
 | Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Idle | Completed broker debugger tools | `b8352c2` |
 | Agent E | `client-new-thread:f9ff1f98-3c7d-44a2-8244-b9948c548e7b` | Completed | Broker-routed build/diagnostics MCP tools | `121e892` |
 | Agent F | `client-new-thread:22291b11-a133-4af1-ba53-c26b78949be0` | Completed | Broker-routed editor/safe-editing tools | `37262ec` |
-| Agent G | `client-new-thread:3fac3be6-225a-4b5a-a1d8-c00300c7a745` | Queued | Broker-routed solution/project/test tools | Pending |
+| Agent G | `client-new-thread:3fac3be6-225a-4b5a-a1d8-c00300c7a745` | Completed | Broker-routed solution/project/test tools | `260c708` |
 | Locke | `019f88e1-5257-7683-b382-205bbf1c935e` | Idle | Completed safe edit preview and advanced debugger skeletons | `c517104` |
 | Feynman | `019f89d6-0d09-7813-bfe1-457186641c73` | Running | Broker tray/status UX and autostart service | Pending |
 | Darwin | `019f89d6-5179-76d0-8471-9f3cd6579f54` | Completed | Tracker/orchestration update; contract spec completed by orchestrator | `32bb4c4` |
@@ -361,6 +361,21 @@ This file tracks agent orchestration so work can be resumed later.
   - `tests/NetVsMcp.Broker.Tests/VsSessionDispatcherTests.cs`
   - `tests/NetVsMcp.Broker.Tests/VsixRegistrationPipeListenerTests.cs`
 
+### Jason: Broker Solution Project Test Tools
+
+- Status: Integrated on `master`
+- Commit: `260c708` - `Add broker solution project test tools`
+- Local solution build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors
+- Local broker tests: `dotnet test .\tests\NetVsMcp.Broker.Tests\NetVsMcp.Broker.Tests.csproj` passed with 92 tests
+- Review status: Pending full review
+- Files:
+  - `src/NetVsMcp.Contracts/BrokerContracts.cs`
+  - `src/NetVsMcp.Broker/Services/BrokerToolService.cs`
+  - `tests/NetVsMcp.Broker.Tests/BrokerToolServiceTests.cs`
+  - `tests/NetVsMcp.Broker.Tests/BrokerRegistrationRpcServiceTests.cs`
+  - `tests/NetVsMcp.Broker.Tests/VsSessionDispatcherTests.cs`
+  - `tests/NetVsMcp.Broker.Tests/VsixRegistrationPipeListenerTests.cs`
+
 ### Locke: VSIX Safe Editor Mutation Tools
 
 - Status: Integrated on `master`
@@ -544,7 +559,7 @@ Expected output:
 
 Status:
 
-- Assigned to Jason after `37262ec`; implementation is in progress.
+- Completed by `260c708`.
 
 ## Review Checklist
 

@@ -46,6 +46,11 @@ public sealed class BrokerToolServiceTests
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "document_write", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "edit_preview", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "edit_list_pending", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "solution_info", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "project_list", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "project_info", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "startup_project_set", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "test_run", RequiresVisualStudioSession: true });
         Assert.All(
             response.Value.Tools.Where(tool => tool.Name.StartsWith("vs_", StringComparison.Ordinal)),
             tool => Assert.False(tool.RequiresVisualStudioSession));
@@ -648,6 +653,148 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task SolutionInfo_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.SolutionInfo(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("NetVsMcp", response.Value!.Name);
+        Assert.Equal(2, response.Value.ProjectCount);
+    }
+
+    [Fact]
+    public async Task ProjectList_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.ProjectList(solutionName: "NetVsMcp");
+
+        Assert.True(response.Success);
+        Assert.Contains(response.Value!.Projects, project => project.Name == "NetVsMcp.Broker");
+    }
+
+    [Fact]
+    public async Task ProjectInfo_RequiresProjectName()
+    {
+        var runtime = CreateRuntime();
+
+        var response = await runtime.Tools.ProjectInfo("");
+
+        Assert.False(response.Success);
+        Assert.Equal("Project name is required.", response.Message);
+    }
+
+    [Fact]
+    public async Task ProjectInfo_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.ProjectInfo("NetVsMcp.Broker", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("NetVsMcp.Broker", session.LastProjectInfoRequest!.ProjectName);
+        Assert.Equal("NetVsMcp.Broker", response.Value!.Name);
+    }
+
+    [Fact]
+    public async Task StartupProjectGet_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.StartupProjectGet(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("src\\NetVsMcp.Broker\\NetVsMcp.Broker.csproj", Assert.Single(response.Value!.Projects));
+    }
+
+    [Fact]
+    public async Task StartupProjectSet_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.StartupProjectSet("NetVsMcp.Broker", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("NetVsMcp.Broker", session.LastStartupProjectSetRequest!.ProjectName);
+        Assert.False(response.Value!.IsMultiStartup);
+    }
+
+    [Fact]
+    public async Task TestDiscover_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.TestDiscover(projectName: "NetVsMcp.Broker.Tests", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("NetVsMcp.Broker.Tests", session.LastTestDiscoverRequest!.ProjectName);
+        Assert.True(response.Value!.Supported);
+        Assert.Equal("BrokerToolServiceTests.ProjectList", Assert.Single(response.Value.Tests).Name);
+    }
+
+    [Fact]
+    public async Task TestRun_RoutesFilterToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.TestRun(
+            projectName: "NetVsMcp.Broker.Tests",
+            filter: "FullyQualifiedName~BrokerToolServiceTests",
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("FullyQualifiedName~BrokerToolServiceTests", session.LastTestRunRequest!.Filter);
+        Assert.Equal("Passed", Assert.Single(response.Value!.Results).Outcome);
+    }
+
+    [Fact]
+    public async Task TestResults_RoutesRunIdToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.TestResults(runId: "run-1", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("run-1", session.LastTestResultsRequest!.RunId);
+        Assert.Equal("Passed", Assert.Single(response.Value!.Results).Outcome);
+    }
+
+    [Fact]
+    public async Task ProjectList_ReturnsMissingConnectionFailure()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+
+        var response = await runtime.Tools.ProjectList(sessionId: "vs-1");
+
+        Assert.False(response.Success);
+        Assert.Equal("MissingConnection", response.Metadata!["failureReason"]);
+    }
+
+    [Fact]
     public async Task BuildSolution_RoutesToConnectedSession()
     {
         var runtime = CreateRuntime();
@@ -796,6 +943,16 @@ public sealed class BrokerToolServiceTests
         public EditDecisionRequest? LastEditApproveRequest { get; private set; }
 
         public EditDecisionRequest? LastEditRejectRequest { get; private set; }
+
+        public ProjectInfoRequest? LastProjectInfoRequest { get; private set; }
+
+        public StartupProjectSetRequest? LastStartupProjectSetRequest { get; private set; }
+
+        public TestDiscoverRequest? LastTestDiscoverRequest { get; private set; }
+
+        public TestRunRequest? LastTestRunRequest { get; private set; }
+
+        public TestResultsRequest? LastTestResultsRequest { get; private set; }
 
         public BuildSolutionRequest? LastBuildSolutionRequest { get; private set; }
 
@@ -955,6 +1112,79 @@ public sealed class BrokerToolServiceTests
         {
             IReadOnlyCollection<PendingEditInfo> pendingEdits = [CreatePendingEdit("replace", "Program.cs", "replacement")];
             return Task.FromResult(new PendingEditListResult(pendingEdits));
+        }
+
+        public Task<SolutionInfoResult> SolutionInfoAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new SolutionInfoResult(
+                "NetVsMcp",
+                @"C:\Code\NetVsMcp\NetVsMcp.slnx",
+                true,
+                2,
+                @"src\NetVsMcp.Broker\NetVsMcp.Broker.csproj"));
+        }
+
+        public Task<ProjectListResult> ProjectListAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<ProjectInfo> projects =
+            [
+                CreateProject("NetVsMcp.Broker"),
+                CreateProject("NetVsMcp.Broker.Tests")
+            ];
+
+            return Task.FromResult(new ProjectListResult(projects));
+        }
+
+        public Task<ProjectInfo?> ProjectInfoAsync(
+            ProjectInfoRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastProjectInfoRequest = request;
+            return Task.FromResult<ProjectInfo?>(CreateProject(request.ProjectName));
+        }
+
+        public Task<StartupProjectResult> StartupProjectGetAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<string> projects = [@"src\NetVsMcp.Broker\NetVsMcp.Broker.csproj"];
+            return Task.FromResult(new StartupProjectResult(projects, false));
+        }
+
+        public Task<StartupProjectResult> StartupProjectSetAsync(
+            StartupProjectSetRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastStartupProjectSetRequest = request;
+            IReadOnlyCollection<string> projects = [request.ProjectName];
+            return Task.FromResult(new StartupProjectResult(projects, false));
+        }
+
+        public Task<TestOperationResult> TestDiscoverAsync(
+            TestDiscoverRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastTestDiscoverRequest = request;
+            IReadOnlyCollection<TestCaseInfo> tests =
+            [
+                new("BrokerToolServiceTests.ProjectList", request.ProjectName, "BrokerToolServiceTests.cs")
+            ];
+
+            return Task.FromResult(new TestOperationResult(true, "Discovered tests.", tests, []));
+        }
+
+        public Task<TestOperationResult> TestRunAsync(
+            TestRunRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastTestRunRequest = request;
+            return Task.FromResult(new TestOperationResult(true, "Ran tests.", [], CreateTestResults()));
+        }
+
+        public Task<TestOperationResult> TestResultsAsync(
+            TestResultsRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastTestResultsRequest = request;
+            return Task.FromResult(new TestOperationResult(true, "Returned test results.", [], CreateTestResults()));
         }
 
         public Task<BuildSolutionResult> BuildSolutionAsync(
@@ -1162,6 +1392,26 @@ public sealed class BrokerToolServiceTests
                 3,
                 proposedText.Length,
                 DateTimeOffset.Parse("2026-07-22T15:00:00Z"));
+        }
+
+        private static ProjectInfo CreateProject(string name)
+        {
+            return new ProjectInfo(
+                Name: name,
+                UniqueName: $@"src\{name}\{name}.csproj",
+                FullName: $@"C:\Code\NetVsMcp\src\{name}\{name}.csproj",
+                Kind: "CSharp",
+                IsLoaded: true,
+                Language: "CSharp",
+                OutputFileName: $"{name}.dll");
+        }
+
+        private static IReadOnlyCollection<TestResultInfo> CreateTestResults()
+        {
+            return
+            [
+                new("BrokerToolServiceTests.ProjectList", "Passed", "00:00:00.100", null)
+            ];
         }
     }
 }

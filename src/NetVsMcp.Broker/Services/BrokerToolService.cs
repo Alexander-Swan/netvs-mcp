@@ -48,7 +48,15 @@ public sealed class BrokerToolService
         new("edit_preview", "Creates a pending safe-edit preview through a routed Visual Studio session.", true),
         new("edit_approve", "Approves a pending safe edit through a routed Visual Studio session.", true),
         new("edit_reject", "Rejects a pending safe edit through a routed Visual Studio session.", true),
-        new("edit_list_pending", "Lists pending safe edits through a routed Visual Studio session.", true)
+        new("edit_list_pending", "Lists pending safe edits through a routed Visual Studio session.", true),
+        new("solution_info", "Returns solution metadata from a routed Visual Studio session.", true),
+        new("project_list", "Lists projects from a routed Visual Studio session.", true),
+        new("project_info", "Returns project metadata from a routed Visual Studio session.", true),
+        new("startup_project_get", "Returns startup project metadata from a routed Visual Studio session.", true),
+        new("startup_project_set", "Sets the startup project in a routed Visual Studio session.", true),
+        new("test_discover", "Discovers tests through a routed Visual Studio session.", true),
+        new("test_run", "Runs tests through a routed Visual Studio session.", true),
+        new("test_results", "Returns test results through a routed Visual Studio session.", true)
     ];
 
     private static readonly VsCapability[] VisualStudioCapabilities =
@@ -635,6 +643,160 @@ public sealed class BrokerToolService
             cancellationToken);
     }
 
+    [McpServerTool(Name = "solution_info")]
+    [Description("Returns solution metadata from a routed Visual Studio session.")]
+    public Task<ToolResponse<SolutionInfoResult>> SolutionInfo(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.SolutionInfoAsync(ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "project_list")]
+    [Description("Lists projects from a routed Visual Studio session.")]
+    public Task<ToolResponse<ProjectListResult>> ProjectList(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.ProjectListAsync(ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "project_info")]
+    [Description("Returns project metadata from a routed Visual Studio session.")]
+    public Task<ToolResponse<ProjectInfo?>> ProjectInfo(
+        string projectName,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateProjectName(projectName) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<ProjectInfo?>.Fail(validation));
+        }
+
+        var request = new ProjectInfoRequest { ProjectName = projectName.Trim() };
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.ProjectInfoAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "startup_project_get")]
+    [Description("Returns startup project metadata from a routed Visual Studio session.")]
+    public Task<ToolResponse<StartupProjectResult>> StartupProjectGet(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.StartupProjectGetAsync(ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "startup_project_set")]
+    [Description("Sets the startup project in a routed Visual Studio session.")]
+    public Task<ToolResponse<StartupProjectResult>> StartupProjectSet(
+        string projectName,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateProjectName(projectName) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<StartupProjectResult>.Fail(validation));
+        }
+
+        var request = new StartupProjectSetRequest { ProjectName = projectName.Trim() };
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.StartupProjectSetAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "test_discover")]
+    [Description("Discovers tests through a routed Visual Studio session.")]
+    public Task<ToolResponse<TestOperationResult>> TestDiscover(
+        string? projectName = null,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new TestDiscoverRequest { ProjectName = NormalizeOptional(projectName) };
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.TestDiscoverAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "test_run")]
+    [Description("Runs tests through a routed Visual Studio session.")]
+    public Task<ToolResponse<TestOperationResult>> TestRun(
+        string? projectName = null,
+        string? filter = null,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new TestRunRequest
+        {
+            ProjectName = NormalizeOptional(projectName),
+            Filter = NormalizeOptional(filter)
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.TestRunAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "test_results")]
+    [Description("Returns test results through a routed Visual Studio session.")]
+    public Task<ToolResponse<TestOperationResult>> TestResults(
+        string? runId = null,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new TestResultsRequest { RunId = NormalizeOptional(runId) };
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.TestResultsAsync(request, ct),
+            cancellationToken);
+    }
+
     [McpServerTool(Name = "build_solution")]
     [Description("Starts a solution build in a routed Visual Studio session.")]
     public async Task<ToolResponse<BuildSolutionResult>> BuildSolution(
@@ -1201,6 +1363,13 @@ public sealed class BrokerToolService
     {
         return string.IsNullOrWhiteSpace(editId)
             ? "Edit id is required."
+            : null;
+    }
+
+    private static string? ValidateProjectName(string? projectName)
+    {
+        return string.IsNullOrWhiteSpace(projectName)
+            ? "Project name is required."
             : null;
     }
 
