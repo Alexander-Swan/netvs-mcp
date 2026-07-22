@@ -21,6 +21,7 @@ The project uses the SDK-style VSIX shape:
 - install range: Visual Studio `[17.0,19.0)` for Visual Studio 2022 and 2026
 - product architecture: `amd64`
 - package loading contexts: no solution and solution exists
+- broker transport dependency: `StreamJsonRpc`
 
 The local machine did not have `dotnet new` VSIX templates installed, so this skeleton is hand-authored from the SDK-style project shape. A full packaging/build requires the Visual Studio extension development workload and compatible VSSDK build tooling.
 
@@ -34,6 +35,15 @@ On package initialization:
 4. Register this Visual Studio instance.
 5. Start heartbeat/state refresh.
 6. Subscribe to Visual Studio events and push updates.
+7. Unregister and disconnect when the package is disposed.
+
+The current VSIX implementation has a reconnecting lifecycle:
+
+- connect timeout: 2 seconds
+- heartbeat interval: 10 seconds
+- reconnect backoff: starts at 1 second and caps at 30 seconds
+- state changes wake the heartbeat loop immediately
+- failed unregisters are ignored during shutdown because the broker may already be gone
 
 Registration payload shape:
 
@@ -59,12 +69,46 @@ The VSIX should notify the broker when these change:
 
 - solution opened or closed
 - active document changed
-- selection changed
 - debugger mode changed
-- build started, completed, canceled, or failed
+- active Visual Studio window changed
 - package reconnects after broker restart
 
-The heartbeat should refresh `lastSeenUtc`, solution, active document, debugger mode, and capability list. Stopped heartbeats should make the broker mark the session as stale rather than immediately forgetting it.
+The current event hooks are intentionally lightweight:
+
+- `SolutionEvents.Opened`
+- `SolutionEvents.AfterClosing`
+- `WindowEvents.WindowActivated`
+- `DebuggerEvents.OnEnterBreakMode`
+- `DebuggerEvents.OnEnterDesignMode`
+- `DebuggerEvents.OnEnterRunMode`
+
+The heartbeat refreshes `lastSeenUtc`, solution, active document, debugger mode, active-window state, and capability list. Stopped heartbeats should make the broker mark the session as stale rather than immediately forgetting it.
+
+Selection and build status events are still planned; they should be added beside the current state monitor once the editor/build command services are implemented.
+
+## Broker RPC Contract Expectation
+
+Until `NetVsMcp.Contracts` is integrated, the VSIX uses internal DTOs with the expected wire shape and calls these StreamJsonRpc methods:
+
+```text
+RegisterVisualStudioSessionAsync(VsRegistrationRequest request)
+HeartbeatVisualStudioSessionAsync(VsHeartbeatRequest request)
+UnregisterVisualStudioSessionAsync(string sessionId)
+```
+
+The per-user pipe name is:
+
+```text
+netvs-mcp-{sanitized Windows user SID}
+```
+
+Example:
+
+```text
+netvs-mcp-S-1-5-21-...
+```
+
+The broker should expose a matching named-pipe server and accept exactly one request object for registration/heartbeat. Once shared contracts land, replace `VsSessionSnapshot`, `VsRegistrationRequest`, and `VsHeartbeatRequest` in the VSIX with the shared DTOs rather than maintaining parallel types.
 
 ## Execution Surface
 

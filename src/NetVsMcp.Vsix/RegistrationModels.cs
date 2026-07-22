@@ -59,6 +59,23 @@ internal sealed class VsRegistrationRequest
         => new(snapshot, capabilityCatalog.CapabilityNames);
 }
 
+internal sealed class VsHeartbeatRequest
+{
+    public VsHeartbeatRequest(VsSessionSnapshot session, IReadOnlyCollection<string> capabilities)
+    {
+        Session = session;
+        Capabilities = capabilities;
+    }
+
+    public VsSessionSnapshot Session { get; }
+    public IReadOnlyCollection<string> Capabilities { get; }
+
+    public static VsHeartbeatRequest FromSnapshot(
+        VsSessionSnapshot snapshot,
+        IVisualStudioCapabilityCatalog capabilityCatalog)
+        => new(snapshot, capabilityCatalog.CapabilityNames);
+}
+
 internal static class SessionIdentity
 {
     public static string CurrentProcessSessionId()

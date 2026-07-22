@@ -12,8 +12,8 @@ This file tracks agent orchestration so work can be resumed later.
 
 | Agent | ID | Current Status | Current Task | Last Reported Commit |
 | --- | --- | --- | --- | --- |
-| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Running | Broker named-pipe VSIX registration endpoint | `6f57956` from prior broker HTTP/session-tools task |
-| Lagrange | `019f8874-fa4c-7e02-875a-d00332883073` | Running | VSIX registration + heartbeat skeleton | `0d7b9c0` from prior VSIX skeleton task |
+| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Awaiting final message | Broker named-pipe VSIX registration endpoint | `0364eda` observed on `master` |
+| Lagrange | `019f8874-fa4c-7e02-875a-d00332883073` | Running | First VSIX editor tools | `9f9ccd5` from prior VSIX lifecycle task |
 
 ## Completed Agent Tasks
 
@@ -55,27 +55,48 @@ This file tracks agent orchestration so work can be resumed later.
   - `tests/NetVsMcp.Broker.Tests/**`
   - `NetVsMcp.slnx`
 
+### Jason: Broker Named-Pipe VSIX Registration Endpoint
+
+- Status: Integrated on `master`, but agent final message not received yet
+- Commit: `0364eda` - `Add VSIX registration pipe listener`
+- Local build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors on retry
+- Local tests: `dotnet test .\tests\NetVsMcp.Broker.Tests\NetVsMcp.Broker.Tests.csproj` passed with 15 tests
+- Review status: Pending full review
+- Observed files:
+  - `src/NetVsMcp.Broker/Services/VsixRegistrationPipeListener.cs`
+  - `src/NetVsMcp.Broker/Services/BrokerRegistrationRpcService.cs`
+  - `src/NetVsMcp.Broker/Services/BrokerRuntime.cs`
+  - `src/NetVsMcp.Broker/NetVsMcp.Broker.csproj`
+  - `tests/NetVsMcp.Broker.Tests/BrokerRegistrationRpcServiceTests.cs`
+
+### Lagrange: VSIX Registration + Heartbeat
+
+- Status: Integrated on `master`
+- Commit: `9f9ccd5` - `Add VSIX broker registration lifecycle`
+- Reported build: `dotnet build .\src\NetVsMcp.Vsix\NetVsMcp.Vsix.csproj` passed with 0 warnings and 0 errors
+- Local solution build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors on retry
+- Review status: Pending full review
+- Reported files:
+  - `docs/VSIX.md`
+  - `src/NetVsMcp.Vsix/ActiveWindowTracker.cs`
+  - `src/NetVsMcp.Vsix/BrokerConnection.cs`
+  - `src/NetVsMcp.Vsix/BrokerPipeName.cs`
+  - `src/NetVsMcp.Vsix/BrokerRegistrationLifecycle.cs`
+  - `src/NetVsMcp.Vsix/VisualStudioStateChangeMonitor.cs`
+
 ## Current Agent Tasks
 
-### Jason: Broker Named-Pipe VSIX Registration Endpoint
+### Jason: Pending
 
 Write scope:
 
-- `src/NetVsMcp.Contracts/**`
-- `src/NetVsMcp.Broker/**`
-- `tests/NetVsMcp.Broker.Tests/**` if useful
-- solution/project files needed for those projects
+- none queued until final message/review completes
 
 Expected output:
 
-- broker-side named pipe listener for VSIX connections
-- `IBrokerRegistrationRpc` implementation against `SessionRegistry`
-- BrokerRuntime start/stop for HTTP host and pipe listener
-- registration/update/heartbeat/unregister tests
-- build result
-- commit hash
+- next task likely: normalize session routing paths or replace placeholder HTTP routes with real MCP transport
 
-### Lagrange: VSIX Registration + Heartbeat
+### Lagrange: First VSIX Editor Tools
 
 Write scope:
 
@@ -84,9 +105,9 @@ Write scope:
 
 Expected output:
 
-- broker connection lifecycle skeleton
-- register/heartbeat/reconnect/unregister flow
-- session snapshot update hooks
+- VSIX-side methods/interfaces for `document_active`, `document_read`, `document_open`, `selection_get`
+- live editor/document state where practical
+- docs update with expected RPC method names/inputs/outputs
 - build result
 - commit hash
 
@@ -123,7 +144,7 @@ Expected output:
 - Lines: 22, 31-40, 52-64 at commit `0d7b9c0`
 - Issue: the timer callback fire-and-forgets async heartbeat work without exception handling, and dispose does not unregister the session.
 - Impact: broker can retain stale sessions after VS closes, and heartbeat failures may be swallowed or surface unpredictably.
-- Follow-up: Lagrange's current registration task should add guarded async lifecycle handling, reconnect/backoff, and unregister/disconnect semantics.
+- Status: Mostly resolved by `9f9ccd5`, which replaced the timer with a guarded connection loop, reconnect/backoff, and unregister/disconnect semantics. Needs end-to-end broker pipe validation.
 
 ### Solution Path Routing
 

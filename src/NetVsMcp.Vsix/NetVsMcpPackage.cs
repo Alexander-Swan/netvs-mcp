@@ -23,13 +23,21 @@ public sealed class NetVsMcpPackage : AsyncPackage
         await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
         var snapshotProvider = new VisualStudioSessionSnapshotProvider(this);
+        var stateMonitor = new VisualStudioStateChangeMonitor(this);
+        await stateMonitor.InitializeAsync(cancellationToken);
+
         var capabilities = new VisualStudioCapabilityCatalog(
             new EditorCapabilityService(this),
             new NavigationCapabilityService(this),
             new BuildCapabilityService(this),
             new DebuggerCapabilityService(this));
 
-        lifecycle = new BrokerRegistrationLifecycle(snapshotProvider, capabilities);
+        lifecycle = new BrokerRegistrationLifecycle(
+            snapshotProvider,
+            capabilities,
+            stateMonitor,
+            new NamedPipeBrokerConnectionFactory(BrokerPipeName.CurrentUserDefault()));
+
         await lifecycle.StartAsync(cancellationToken);
     }
 

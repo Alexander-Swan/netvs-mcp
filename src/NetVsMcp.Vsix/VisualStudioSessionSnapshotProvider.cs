@@ -41,7 +41,7 @@ internal sealed class VisualStudioSessionSnapshotProvider : IVisualStudioSession
             solutionPath,
             activeDocument,
             debuggerMode,
-            false,
+            ActiveWindowTracker.IsCurrentProcessForegroundWindow(),
             DateTimeOffset.UtcNow);
     }
 
