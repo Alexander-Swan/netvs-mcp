@@ -14,6 +14,8 @@ public sealed class BrokerRuntime
         Options = options;
         Sessions = sessions;
         StartedUtc = DateTimeOffset.UtcNow;
+        Connections = new VsSessionConnectionMap();
+        Dispatcher = new VsSessionDispatcher(sessions, Connections);
         Registration = new BrokerRegistrationRpcService(sessions);
         Tools = new BrokerToolService(this);
         _httpHost = new LocalMcpHttpHost(options, Tools);
@@ -23,6 +25,10 @@ public sealed class BrokerRuntime
     public BrokerOptions Options { get; }
 
     public SessionRegistry Sessions { get; }
+
+    public IVsSessionConnectionMap Connections { get; }
+
+    public IVsSessionDispatcher Dispatcher { get; }
 
     public BrokerToolService Tools { get; }
 

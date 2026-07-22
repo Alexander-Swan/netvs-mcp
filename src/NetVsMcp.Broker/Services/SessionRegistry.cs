@@ -5,8 +5,14 @@ namespace NetVsMcp.Broker.Services;
 public sealed class SessionRegistry
 {
     private static readonly TimeSpan StaleAfter = TimeSpan.FromSeconds(30);
+    private readonly Func<DateTimeOffset> _utcNow;
     private readonly object _gate = new();
     private readonly Dictionary<string, VsSessionInfo> _sessions = new(StringComparer.OrdinalIgnoreCase);
+
+    public SessionRegistry(Func<DateTimeOffset>? utcNow = null)
+    {
+        _utcNow = utcNow ?? (() => DateTimeOffset.UtcNow);
+    }
 
     public event EventHandler? SessionsChanged;
 
@@ -23,7 +29,7 @@ public sealed class SessionRegistry
 
     public IReadOnlyCollection<VsSessionStatus> ListSessionStatuses(DateTimeOffset? now = null)
     {
-        var snapshotTime = now ?? DateTimeOffset.UtcNow;
+        var snapshotTime = now ?? _utcNow();
 
         lock (_gate)
         {
@@ -54,7 +60,7 @@ public sealed class SessionRegistry
             registration.ActiveDocument,
             registration.DebuggerMode,
             registration.IsActiveWindow,
-            DateTimeOffset.UtcNow,
+            _utcNow(),
             registration.Capabilities);
 
         lock (_gate)
@@ -84,7 +90,7 @@ public sealed class SessionRegistry
                 ActiveDocument = update.ActiveDocument,
                 DebuggerMode = update.DebuggerMode,
                 IsActiveWindow = update.IsActiveWindow,
-                LastSeenUtc = DateTimeOffset.UtcNow,
+                LastSeenUtc = _utcNow(),
                 Capabilities = update.Capabilities ?? existing.Capabilities
             };
         }
@@ -102,7 +108,7 @@ public sealed class SessionRegistry
                 return ToolResponse.Fail($"Visual Studio session '{sessionId}' is not registered.");
             }
 
-            _sessions[sessionId] = existing with { LastSeenUtc = DateTimeOffset.UtcNow };
+            _sessions[sessionId] = existing with { LastSeenUtc = _utcNow() };
         }
 
         OnSessionsChanged();

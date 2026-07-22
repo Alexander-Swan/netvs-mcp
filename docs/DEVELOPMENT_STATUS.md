@@ -12,7 +12,7 @@ This file tracks agent orchestration so work can be resumed later.
 
 | Agent | ID | Current Status | Current Task | Last Reported Commit |
 | --- | --- | --- | --- | --- |
-| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Running | Broker routed tool dispatcher tests/follow-up | `cd0511d` from endpoint hardening |
+| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Running | Wire VSIX registration endpoint to dispatcher connection map | `c69105a` from broker dispatcher |
 | Locke | `019f88e1-5257-7683-b382-205bbf1c935e` | Running | VSIX build + diagnostics service skeletons | `c371042` from prior navigation task |
 | Agent C | `client-new-thread:22291b11-a133-4af1-ba53-c26b78949be0` | Queued | Broker tray/status UX and autostart planning implementation | None yet |
 | Agent D | `client-new-thread:3fac3be6-225a-4b5a-a1d8-c00300c7a745` | Queued | Shared broker-to-VSIX routed tool contracts | None yet |
@@ -143,6 +143,21 @@ This file tracks agent orchestration so work can be resumed later.
 - Notes:
   - Added follow-up orchestration for broker dispatcher, VSIX build/diagnostics, and upcoming UX/contracts lanes.
 
+### Jason: Broker VS Session Dispatcher
+
+- Status: Integrated on `master`
+- Commit: `c69105a` - `Add broker VS session dispatcher`
+- Local build: `dotnet build .\src\NetVsMcp.Broker\NetVsMcp.Broker.csproj` passed with 0 warnings and 0 errors
+- Local tests: `dotnet test .\tests\NetVsMcp.Broker.Tests\NetVsMcp.Broker.Tests.csproj` passed with 29 tests
+- Review status: Reviewed, follow-up issue tracked below
+- Files:
+  - `src/NetVsMcp.Broker/Services/BrokerRuntime.cs`
+  - `src/NetVsMcp.Broker/Services/SessionRegistry.cs`
+  - `src/NetVsMcp.Broker/Services/VsSessionConnectionMap.cs`
+  - `src/NetVsMcp.Broker/Services/VsSessionDispatchResult.cs`
+  - `src/NetVsMcp.Broker/Services/VsSessionDispatcher.cs`
+  - `tests/NetVsMcp.Broker.Tests/VsSessionDispatcherTests.cs`
+
 ### Locke: VSIX Document Symbols Navigation Service
 
 - Status: Integrated on `master`
@@ -190,7 +205,7 @@ Expected output:
 Status:
 
 - Completed by `cd0511d`.
-- Jason is now continuing into broker routed tool dispatcher tests/follow-up work.
+- Jason completed the dispatcher follow-up in `c69105a` and is now wiring live VSIX registration connections into the dispatcher connection map.
 
 ### Locke: VSIX Build + Diagnostics Service Skeletons
 
