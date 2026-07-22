@@ -37,6 +37,16 @@ internal sealed class DebuggerRpcTarget
         return debugger.StepAsync(request.StepKind, cancellationToken);
     }
 
+    public Task<DebuggerStateInfo> DebugStatusAsync(CancellationToken cancellationToken)
+    {
+        return debugger.GetStatusAsync(cancellationToken);
+    }
+
+    public Task<DebuggerStateInfo> DebugGetModeAsync(CancellationToken cancellationToken)
+    {
+        return debugger.GetStatusAsync(cancellationToken);
+    }
+
     public Task<BreakpointInfo> BreakpointSetAsync(BreakpointSetRequest request, CancellationToken cancellationToken)
     {
         return debugger.SetBreakpointAsync(request, cancellationToken);
@@ -50,6 +60,11 @@ internal sealed class DebuggerRpcTarget
     public Task<BreakpointRemoveResult> BreakpointRemoveAsync(BreakpointRemoveRequest request, CancellationToken cancellationToken)
     {
         return debugger.RemoveBreakpointAsync(request, cancellationToken);
+    }
+
+    public Task<BreakpointEnableResult> BreakpointEnableAsync(BreakpointEnableRequest request, CancellationToken cancellationToken)
+    {
+        return debugger.SetBreakpointEnabledAsync(request, cancellationToken);
     }
 
     public Task<CallStackResult> DebugGetCallstackAsync(CancellationToken cancellationToken)

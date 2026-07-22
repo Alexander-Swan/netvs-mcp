@@ -16,9 +16,11 @@ internal interface IDebuggerCapabilityService
     Task<DebuggerStateInfo> ContinueAsync(CancellationToken cancellationToken);
     Task<DebuggerStateInfo> BreakAsync(CancellationToken cancellationToken);
     Task<DebuggerStateInfo> StepAsync(DebugStepKind stepKind, CancellationToken cancellationToken);
+    Task<DebuggerStateInfo> GetStatusAsync(CancellationToken cancellationToken);
     Task<BreakpointInfo> SetBreakpointAsync(BreakpointSetRequest request, CancellationToken cancellationToken);
     Task<BreakpointListResult> ListBreakpointsAsync(CancellationToken cancellationToken);
     Task<BreakpointRemoveResult> RemoveBreakpointAsync(BreakpointRemoveRequest request, CancellationToken cancellationToken);
+    Task<BreakpointEnableResult> SetBreakpointEnabledAsync(BreakpointEnableRequest request, CancellationToken cancellationToken);
     Task<CallStackResult> GetCallStackAsync(CancellationToken cancellationToken);
     Task<LocalsResult> GetLocalsAsync(CancellationToken cancellationToken);
     Task<EvaluateExpressionResult> EvaluateAsync(EvaluateExpressionRequest request, CancellationToken cancellationToken);
@@ -95,6 +97,12 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         return GetDebuggerState(debugger);
     }
 
+    public async Task<DebuggerStateInfo> GetStatusAsync(CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        return GetDebuggerState(await GetDebuggerAsync());
+    }
+
     public async Task<BreakpointInfo> SetBreakpointAsync(BreakpointSetRequest request, CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
@@ -145,23 +153,56 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
     public async Task<BreakpointRemoveResult> RemoveBreakpointAsync(BreakpointRemoveRequest request, CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var dte = await GetDteAsync();
         var debugger = await GetDebuggerAsync();
+        var resolvedDocumentPath = ResolveOptionalDocumentPath(dte, request.DocumentPath);
         var removed = 0;
+        var matches = new List<Breakpoint>();
 
         foreach (Breakpoint breakpoint in debugger.Breakpoints)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (!MatchesBreakpoint(breakpoint, request))
+            if (MatchesBreakpoint(breakpoint, request.Name, resolvedDocumentPath, request.Line))
             {
-                continue;
+                matches.Add(breakpoint);
             }
+        }
 
+        foreach (var breakpoint in matches)
+        {
             breakpoint.Delete();
             removed++;
         }
 
         return new BreakpointRemoveResult(removed);
+    }
+
+    public async Task<BreakpointEnableResult> SetBreakpointEnabledAsync(BreakpointEnableRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDteAsync();
+        var debugger = await GetDebuggerAsync();
+        var resolvedDocumentPath = ResolveOptionalDocumentPath(dte, request.DocumentPath);
+        var updated = 0;
+        var breakpoints = new List<BreakpointInfo>();
+
+        foreach (Breakpoint breakpoint in debugger.Breakpoints)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!MatchesBreakpoint(breakpoint, request.Name, resolvedDocumentPath, request.Line))
+            {
+                continue;
+            }
+
+            breakpoint.Enabled = request.Enabled;
+            updated++;
+            breakpoints.Add(BreakpointInfo.FromBreakpoint(breakpoint));
+        }
+
+        return new BreakpointEnableResult(updated, breakpoints);
     }
 
     public async Task<CallStackResult> GetCallStackAsync(CancellationToken cancellationToken)
@@ -257,20 +298,34 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         return Path.GetFullPath(Path.Combine(solutionDirectory, documentPath));
     }
 
-    private static bool MatchesBreakpoint(Breakpoint breakpoint, BreakpointRemoveRequest request)
+    private static string? ResolveOptionalDocumentPath(DTE dte, string? documentPath)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
 
-        if (!string.IsNullOrWhiteSpace(request.Name)
-            && string.Equals(breakpoint.Name, request.Name, StringComparison.OrdinalIgnoreCase))
+        if (documentPath is not string path || string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        var nonEmptyDocumentPath = path.Trim();
+        return ResolveDocumentPath(dte, nonEmptyDocumentPath);
+    }
+
+    private static bool MatchesBreakpoint(Breakpoint breakpoint, string? name, string? resolvedDocumentPath, int line)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        if (!string.IsNullOrWhiteSpace(name)
+            && string.Equals(breakpoint.Name, name, StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
 
-        if (!string.IsNullOrWhiteSpace(request.DocumentPath)
-            && request.Line > 0
-            && string.Equals(Path.GetFullPath(breakpoint.File), Path.GetFullPath(request.DocumentPath), StringComparison.OrdinalIgnoreCase)
-            && breakpoint.FileLine == request.Line)
+        if (!string.IsNullOrWhiteSpace(resolvedDocumentPath)
+            && line > 0
+            && !string.IsNullOrWhiteSpace(breakpoint.File)
+            && string.Equals(Path.GetFullPath(breakpoint.File), resolvedDocumentPath, StringComparison.OrdinalIgnoreCase)
+            && breakpoint.FileLine == line)
         {
             return true;
         }

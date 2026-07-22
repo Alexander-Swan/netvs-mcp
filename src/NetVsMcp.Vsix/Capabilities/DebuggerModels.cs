@@ -44,6 +44,26 @@ internal sealed class BreakpointRemoveResult
     public int Removed { get; }
 }
 
+internal sealed class BreakpointEnableRequest
+{
+    public string? Name { get; set; }
+    public string? DocumentPath { get; set; }
+    public int Line { get; set; }
+    public bool Enabled { get; set; } = true;
+}
+
+internal sealed class BreakpointEnableResult
+{
+    public BreakpointEnableResult(int updated, IReadOnlyCollection<BreakpointInfo> breakpoints)
+    {
+        Updated = updated;
+        Breakpoints = breakpoints;
+    }
+
+    public int Updated { get; }
+    public IReadOnlyCollection<BreakpointInfo> Breakpoints { get; }
+}
+
 internal sealed class BreakpointListResult
 {
     public BreakpointListResult(IReadOnlyCollection<BreakpointInfo> breakpoints)

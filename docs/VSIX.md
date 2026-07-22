@@ -464,9 +464,12 @@ DebugStopAsync(CancellationToken cancellationToken)
 DebugContinueAsync(CancellationToken cancellationToken)
 DebugBreakAsync(CancellationToken cancellationToken)
 DebugStepAsync(DebugStepRequest request, CancellationToken cancellationToken)
+DebugStatusAsync(CancellationToken cancellationToken)
+DebugGetModeAsync(CancellationToken cancellationToken)
 BreakpointSetAsync(BreakpointSetRequest request, CancellationToken cancellationToken)
 BreakpointListAsync(CancellationToken cancellationToken)
 BreakpointRemoveAsync(BreakpointRemoveRequest request, CancellationToken cancellationToken)
+BreakpointEnableAsync(BreakpointEnableRequest request, CancellationToken cancellationToken)
 DebugGetCallstackAsync(CancellationToken cancellationToken)
 DebugGetLocalsAsync(CancellationToken cancellationToken)
 DebugEvaluateAsync(EvaluateExpressionRequest request, CancellationToken cancellationToken)
@@ -480,9 +483,12 @@ debug_stop          -> DebugStopAsync
 debug_continue      -> DebugContinueAsync
 debug_break         -> DebugBreakAsync
 debug_step          -> DebugStepAsync
+debug_status        -> DebugStatusAsync
+debug_get_mode      -> DebugGetModeAsync
 breakpoint_set      -> BreakpointSetAsync
 breakpoint_list     -> BreakpointListAsync
 breakpoint_remove   -> BreakpointRemoveAsync
+breakpoint_enable   -> BreakpointEnableAsync
 debug_get_callstack -> DebugGetCallstackAsync
 debug_get_locals    -> DebugGetLocalsAsync
 debug_evaluate      -> DebugEvaluateAsync
@@ -495,6 +501,8 @@ Debugger state response:
   "mode": "dbgBreakMode"
 }
 ```
+
+`debug_status` and `debug_get_mode` are no-op status tools. They return the same state payload without changing debugger execution.
 
 `debug_step` request:
 
@@ -541,7 +549,37 @@ Supported step kinds are `Into`, `Over`, and `Out`.
 }
 ```
 
-The VSIX removes breakpoints by exact name match or by exact file and line match.
+`breakpoint_enable` request:
+
+```json
+{
+  "name": "Program.cs, line 42",
+  "documentPath": "src\\App\\Program.cs",
+  "line": 42,
+  "enabled": false
+}
+```
+
+`breakpoint_enable` returns:
+
+```json
+{
+  "updated": 1,
+  "breakpoints": [
+    {
+      "name": "Program.cs, line 42",
+      "file": "D:\\Work\\App\\Program.cs",
+      "line": 42,
+      "column": 1,
+      "functionName": null,
+      "condition": "count > 3",
+      "enabled": false
+    }
+  ]
+}
+```
+
+The VSIX removes and enables/disables breakpoints by exact name match or by exact file and line match. Relative breakpoint paths are resolved against the active solution directory, matching `breakpoint_set` behavior.
 
 `debug_get_callstack` returns:
 
