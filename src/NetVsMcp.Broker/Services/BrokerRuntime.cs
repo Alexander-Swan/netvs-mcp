@@ -6,20 +6,26 @@ namespace NetVsMcp.Broker.Services;
 
 public sealed class BrokerRuntime
 {
+    private readonly LocalMcpHttpHost _httpHost;
+
     public BrokerRuntime(BrokerOptions options, SessionRegistry sessions)
     {
         Options = options;
         Sessions = sessions;
         StartedUtc = DateTimeOffset.UtcNow;
+        Tools = new BrokerToolService(this);
+        _httpHost = new LocalMcpHttpHost(options, Tools);
     }
 
     public BrokerOptions Options { get; }
 
     public SessionRegistry Sessions { get; }
 
+    public BrokerToolService Tools { get; }
+
     public DateTimeOffset StartedUtc { get; }
 
-    public bool IsHttpEndpointRunning { get; private set; }
+    public bool IsHttpEndpointRunning => _httpHost.IsRunning;
 
     public string Version =>
         Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.0.0";
@@ -32,20 +38,16 @@ public sealed class BrokerRuntime
         Version,
         Sessions.ListSessionStatuses());
 
-    public Task StartAsync(CancellationToken cancellationToken)
+    public async Task StartAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        // Placeholder until the MCP HTTP host is wired in. Keeping the runtime
-        // boundary now makes it easy to replace with the real server later.
-        IsHttpEndpointRunning = true;
-        Trace.WriteLine($"NetVsMcp broker endpoint reserved at {Options.McpEndpoint}.");
-        return Task.CompletedTask;
+        await _httpHost.StartAsync(cancellationToken);
+        Trace.WriteLine($"NetVsMcp broker endpoint listening at {Options.McpEndpoint}.");
     }
 
-    public Task StopAsync()
+    public async Task StopAsync()
     {
-        IsHttpEndpointRunning = false;
-        return Task.CompletedTask;
+        await _httpHost.StopAsync();
     }
 }

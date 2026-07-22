@@ -4,4 +4,7 @@
     <Project Path="src/NetVsMcp.Contracts/NetVsMcp.Contracts.csproj" />
     <Project Path="src/NetVsMcp.Vsix/NetVsMcp.Vsix.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NetVsMcp.Broker.Tests/NetVsMcp.Broker.Tests.csproj" />
+  </Folder>
 </Solution>

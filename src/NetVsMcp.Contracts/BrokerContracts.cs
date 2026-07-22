@@ -89,6 +89,16 @@ public sealed record BrokerStatus(
     string Version,
     IReadOnlyCollection<VsSessionStatus> Sessions);
 
+public sealed record BrokerToolDescriptor(
+    string Name,
+    string Description,
+    bool RequiresVisualStudioSession);
+
+public sealed record BrokerCapabilities(
+    string McpEndpoint,
+    IReadOnlyCollection<BrokerToolDescriptor> Tools,
+    IReadOnlyCollection<VsCapability> VisualStudioCapabilities);
+
 public sealed record RouteResult(
     bool Success,
     VsSessionInfo? Session,
