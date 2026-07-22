@@ -66,6 +66,26 @@ internal sealed class EditorRpcTarget
     {
         return editor.CleanupDocumentAsync(request, cancellationToken);
     }
+
+    public Task<EditPreviewResult> EditPreviewAsync(EditPreviewRequest request, CancellationToken cancellationToken)
+    {
+        return editor.PreviewEditAsync(request, cancellationToken);
+    }
+
+    public Task<EditDecisionResult> EditApproveAsync(EditDecisionRequest request, CancellationToken cancellationToken)
+    {
+        return editor.ApproveEditAsync(request, cancellationToken);
+    }
+
+    public Task<EditDecisionResult> EditRejectAsync(EditDecisionRequest request, CancellationToken cancellationToken)
+    {
+        return editor.RejectEditAsync(request, cancellationToken);
+    }
+
+    public Task<PendingEditListResult> EditListPendingAsync(CancellationToken cancellationToken)
+    {
+        return editor.ListPendingEditsAsync(cancellationToken);
+    }
 }
 
 internal sealed class DocumentReadRequest

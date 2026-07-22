@@ -174,6 +174,10 @@ EditorReplaceAsync(EditorReplaceRequest request, CancellationToken cancellationT
 EditorGotoLineAsync(EditorGotoLineRequest request, CancellationToken cancellationToken)
 SelectionSetAsync(SelectionSetRequest request, CancellationToken cancellationToken)
 DocumentCleanupAsync(DocumentCleanupRequest request, CancellationToken cancellationToken)
+EditPreviewAsync(EditPreviewRequest request, CancellationToken cancellationToken)
+EditApproveAsync(EditDecisionRequest request, CancellationToken cancellationToken)
+EditRejectAsync(EditDecisionRequest request, CancellationToken cancellationToken)
+EditListPendingAsync(CancellationToken cancellationToken)
 ```
 
 Broker-facing MCP tool mapping:
@@ -190,6 +194,10 @@ editor_replace  -> EditorReplaceAsync
 editor_goto_line -> EditorGotoLineAsync
 selection_set   -> SelectionSetAsync
 document_cleanup -> DocumentCleanupAsync
+edit_preview   -> EditPreviewAsync
+edit_approve   -> EditApproveAsync
+edit_reject    -> EditRejectAsync
+edit_list_pending -> EditListPendingAsync
 ```
 
 `document_read` request:
@@ -355,6 +363,123 @@ Mutation methods return:
 ```
 
 Mutation tools are intentionally conservative: unsupported non-text documents, unresolved paths, and invalid ranges return structured errors instead of writing directly through ad hoc disk parsing.
+
+Safe edit previews are kept in memory inside the running VSIX package. They do not persist across Visual Studio restarts, extension reloads, or process crashes.
+
+`edit_preview` captures a pending `write`, `insert`, or `replace` operation without applying it:
+
+```json
+{
+  "operation": "replace",
+  "path": "src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+  "text": "replacement text",
+  "startLine": 10,
+  "startColumn": 5,
+  "endLine": 10,
+  "endColumn": 18,
+  "saveAfterEdit": false
+}
+```
+
+For `write`, `text` is the full proposed document content and `createIfMissing` may be set. For `insert`, use `line` and `column`. For `replace`, use `startLine`, `startColumn`, `endLine`, and `endColumn`. All line and column values follow Visual Studio DTE conventions and are 1-based.
+
+`edit_preview` returns:
+
+```json
+{
+  "success": true,
+  "message": null,
+  "pendingEdit": {
+    "editId": "edit-000001",
+    "operation": "replace",
+    "path": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+    "summary": "Replace range 10:5-10:18 in NetVsMcpPackage.cs (13 -> 16 chars).",
+    "originalText": "old text",
+    "proposedText": "replacement text",
+    "startLine": 10,
+    "startColumn": 5,
+    "endLine": 10,
+    "endColumn": 18,
+    "originalLength": 13,
+    "proposedLength": 16,
+    "createdUtc": "2026-07-22T15:00:00Z"
+  }
+}
+```
+
+`edit_approve` applies the pending edit through the same VS editor-buffer mutation path used by `document_write`, `editor_insert`, and `editor_replace`, then removes it from the queue:
+
+```json
+{
+  "editId": "edit-000001",
+  "saveAfterApply": false
+}
+```
+
+`edit_reject` removes a pending edit without applying it and uses the same request shape. `edit_approve` and `edit_reject` return:
+
+```json
+{
+  "success": true,
+  "message": null,
+  "editId": "edit-000001",
+  "applied": true,
+  "pendingEdit": {
+    "editId": "edit-000001",
+    "operation": "replace",
+    "path": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+    "summary": "Replace range 10:5-10:18 in NetVsMcpPackage.cs (13 -> 16 chars).",
+    "originalText": "old text",
+    "proposedText": "replacement text",
+    "startLine": 10,
+    "startColumn": 5,
+    "endLine": 10,
+    "endColumn": 18,
+    "originalLength": 13,
+    "proposedLength": 16,
+    "createdUtc": "2026-07-22T15:00:00Z"
+  },
+  "mutation": {
+    "success": true,
+    "message": null,
+    "document": {
+      "name": "NetVsMcpPackage.cs",
+      "path": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+      "language": "CSharp",
+      "isOpen": true,
+      "isSaved": false
+    },
+    "saved": false,
+    "charactersChanged": 16
+  }
+}
+```
+
+`edit_list_pending` returns:
+
+```json
+{
+  "pendingEdits": [
+    {
+      "editId": "edit-000001",
+      "operation": "replace",
+      "path": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+      "summary": "Replace range 10:5-10:18 in NetVsMcpPackage.cs (13 -> 16 chars).",
+      "originalText": "old text",
+      "proposedText": "replacement text",
+      "startLine": 10,
+      "startColumn": 5,
+      "endLine": 10,
+      "endColumn": 18,
+      "originalLength": 13,
+      "proposedLength": 16,
+      "createdUtc": "2026-07-22T15:00:00Z"
+    }
+  ]
+}
+```
+
+Preview approval does not currently re-check that the live buffer still matches the captured `originalText`; that should be added before treating this as a conflict-safe edit protocol.
 
 `selection_get` returns:
 

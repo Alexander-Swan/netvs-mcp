@@ -108,6 +108,18 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<DocumentCleanupResult> DocumentCleanupAsync(DocumentCleanupRequest request, CancellationToken cancellationToken) =>
         editor.DocumentCleanupAsync(request, cancellationToken);
 
+    public Task<EditPreviewResult> EditPreviewAsync(EditPreviewRequest request, CancellationToken cancellationToken) =>
+        editor.EditPreviewAsync(request, cancellationToken);
+
+    public Task<EditDecisionResult> EditApproveAsync(EditDecisionRequest request, CancellationToken cancellationToken) =>
+        editor.EditApproveAsync(request, cancellationToken);
+
+    public Task<EditDecisionResult> EditRejectAsync(EditDecisionRequest request, CancellationToken cancellationToken) =>
+        editor.EditRejectAsync(request, cancellationToken);
+
+    public Task<PendingEditListResult> EditListPendingAsync(CancellationToken cancellationToken) =>
+        editor.EditListPendingAsync(cancellationToken);
+
     public Task<DocumentSymbolsResult> CodeDocumentSymbolsAsync(DocumentSymbolsRequest request, CancellationToken cancellationToken) =>
         navigation.CodeDocumentSymbolsAsync(request, cancellationToken);
 

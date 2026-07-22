@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnvDTE;
@@ -21,11 +23,18 @@ internal interface IEditorCapabilityService
     Task<EditorDocumentInfo> GoToLineAsync(EditorGotoLineRequest request, CancellationToken cancellationToken);
     Task<SelectionInfo> SetSelectionAsync(SelectionSetRequest request, CancellationToken cancellationToken);
     Task<DocumentCleanupResult> CleanupDocumentAsync(DocumentCleanupRequest request, CancellationToken cancellationToken);
+    Task<EditPreviewResult> PreviewEditAsync(EditPreviewRequest request, CancellationToken cancellationToken);
+    Task<EditDecisionResult> ApproveEditAsync(EditDecisionRequest request, CancellationToken cancellationToken);
+    Task<EditDecisionResult> RejectEditAsync(EditDecisionRequest request, CancellationToken cancellationToken);
+    Task<PendingEditListResult> ListPendingEditsAsync(CancellationToken cancellationToken);
 }
 
 internal sealed class EditorCapabilityService : IEditorCapabilityService
 {
+    private readonly object pendingEditLock = new();
+    private readonly Dictionary<string, PendingEdit> pendingEdits = new(StringComparer.OrdinalIgnoreCase);
     private readonly AsyncPackage package;
+    private int nextPendingEditId;
 
     public EditorCapabilityService(AsyncPackage package)
     {
@@ -292,6 +301,133 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
         }
     }
 
+    public async Task<EditPreviewResult> PreviewEditAsync(EditPreviewRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        try
+        {
+            var dte = await GetDteAsync() ?? throw new InvalidOperationException("Visual Studio DTE service is unavailable.");
+            var operation = NormalizeEditOperation(request.Operation);
+            var resolvedPath = ResolveDocumentPath(dte, request.Path);
+            var originalText = CaptureOriginalText(dte, request, operation, resolvedPath);
+            var info = CreatePendingEditInfo(
+                NextPendingEditId(),
+                operation,
+                resolvedPath,
+                originalText,
+                request);
+            var pendingEdit = new PendingEdit(info, ClonePreviewRequest(request, resolvedPath, operation));
+
+            lock (pendingEditLock)
+            {
+                pendingEdits[info.EditId] = pendingEdit;
+            }
+
+            return new EditPreviewResult(true, null, info);
+        }
+        catch (Exception ex)
+        {
+            return new EditPreviewResult(false, ex.Message, null);
+        }
+    }
+
+    public async Task<EditDecisionResult> ApproveEditAsync(EditDecisionRequest request, CancellationToken cancellationToken)
+    {
+        if (!TryRemovePendingEdit(request.EditId, out var pendingEdit))
+        {
+            return new EditDecisionResult(false, "Pending edit was not found.", request.EditId, false, null, null);
+        }
+
+        var preview = pendingEdit.Request;
+        DocumentMutationResult mutation;
+        switch (pendingEdit.Info.Operation)
+        {
+            case "write":
+                mutation = await WriteDocumentAsync(
+                    new DocumentWriteRequest
+                    {
+                        Path = preview.Path,
+                        Text = preview.Text,
+                        CreateIfMissing = preview.CreateIfMissing,
+                        SaveAfterWrite = request.SaveAfterApply || preview.SaveAfterEdit
+                    },
+                    cancellationToken);
+                break;
+            case "insert":
+                mutation = await InsertAsync(
+                    new EditorInsertRequest
+                    {
+                        Path = preview.Path,
+                        Line = preview.Line,
+                        Column = preview.Column,
+                        Text = preview.Text,
+                        SaveAfterEdit = request.SaveAfterApply || preview.SaveAfterEdit
+                    },
+                    cancellationToken);
+                break;
+            case "replace":
+                mutation = await ReplaceAsync(
+                    new EditorReplaceRequest
+                    {
+                        Path = preview.Path,
+                        StartLine = preview.StartLine,
+                        StartColumn = preview.StartColumn,
+                        EndLine = preview.EndLine,
+                        EndColumn = preview.EndColumn,
+                        Text = preview.Text,
+                        SaveAfterEdit = request.SaveAfterApply || preview.SaveAfterEdit
+                    },
+                    cancellationToken);
+                break;
+            default:
+                mutation = new DocumentMutationResult(false, "Unsupported pending edit operation.", null, false, 0);
+                break;
+        }
+
+        return new EditDecisionResult(
+            mutation.Success,
+            mutation.Message,
+            pendingEdit.Info.EditId,
+            mutation.Success,
+            pendingEdit.Info,
+            mutation);
+    }
+
+    public Task<EditDecisionResult> RejectEditAsync(EditDecisionRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!TryRemovePendingEdit(request.EditId, out var pendingEdit))
+        {
+            return Task.FromResult(new EditDecisionResult(false, "Pending edit was not found.", request.EditId, false, null, null));
+        }
+
+        return Task.FromResult(new EditDecisionResult(
+            true,
+            "Pending edit rejected.",
+            pendingEdit.Info.EditId,
+            false,
+            pendingEdit.Info,
+            null));
+    }
+
+    public Task<PendingEditListResult> ListPendingEditsAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        PendingEditInfo[] edits;
+        lock (pendingEditLock)
+        {
+            edits = pendingEdits.Values
+                .OrderBy(edit => edit.Info.CreatedUtc)
+                .Select(edit => edit.Info)
+                .ToArray();
+        }
+
+        return Task.FromResult(new PendingEditListResult(edits));
+    }
+
     private async Task<DTE?> GetDteAsync()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
@@ -332,6 +468,47 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
         var editPoint = textDocument.StartPoint.CreateEditPoint();
         text = editPoint.GetText(textDocument.EndPoint);
         return true;
+    }
+
+    private static string CaptureOriginalText(DTE dte, EditPreviewRequest request, string operation, string resolvedPath)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        if (operation == "write")
+        {
+            var document = FindOpenDocument(dte, resolvedPath);
+            if (document is not null && TryReadTextDocument(document, out var liveText))
+            {
+                return liveText;
+            }
+
+            if (File.Exists(resolvedPath))
+            {
+                return File.ReadAllText(resolvedPath);
+            }
+
+            if (request.CreateIfMissing)
+            {
+                return string.Empty;
+            }
+
+            throw new FileNotFoundException("Document was not found for edit preview.", resolvedPath);
+        }
+
+        if (operation == "insert")
+        {
+            ValidatePosition(request.Line, request.Column);
+            OpenTextDocument(dte, resolvedPath, createIfMissing: false, out _);
+            return string.Empty;
+        }
+
+        ValidateRange(request.StartLine, request.StartColumn, request.EndLine, request.EndColumn);
+        OpenTextDocument(dte, resolvedPath, createIfMissing: false, out var textDocument);
+        var startPoint = textDocument.StartPoint.CreateEditPoint();
+        var endPoint = textDocument.StartPoint.CreateEditPoint();
+        startPoint.MoveToLineAndOffset(request.StartLine, request.StartColumn);
+        endPoint.MoveToLineAndOffset(request.EndLine, request.EndColumn);
+        return startPoint.GetText(endPoint);
     }
 
     private static Document OpenTextDocument(DTE dte, string path, bool createIfMissing, out TextDocument textDocument)
@@ -435,6 +612,89 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
         }
     }
 
+    private static string NormalizeEditOperation(string operation)
+    {
+        var normalized = (operation ?? string.Empty).Trim().ToLowerInvariant();
+        if (normalized is "write" or "insert" or "replace")
+        {
+            return normalized;
+        }
+
+        throw new ArgumentException("Edit operation must be one of: write, insert, replace.", nameof(operation));
+    }
+
+    private string NextPendingEditId()
+    {
+        var id = Interlocked.Increment(ref nextPendingEditId);
+        return $"edit-{id:000000}";
+    }
+
+    private bool TryRemovePendingEdit(string editId, out PendingEdit pendingEdit)
+    {
+        var key = editId ?? string.Empty;
+        lock (pendingEditLock)
+        {
+            if (pendingEdits.TryGetValue(key, out pendingEdit))
+            {
+                pendingEdits.Remove(key);
+                return true;
+            }
+        }
+
+        pendingEdit = null!;
+        return false;
+    }
+
+    private static PendingEditInfo CreatePendingEditInfo(
+        string editId,
+        string operation,
+        string resolvedPath,
+        string originalText,
+        EditPreviewRequest request)
+    {
+        var proposedText = request.Text ?? string.Empty;
+        var summary = operation switch
+        {
+            "write" => $"Replace full document text in {Path.GetFileName(resolvedPath)} ({originalText.Length} -> {proposedText.Length} chars).",
+            "insert" => $"Insert {proposedText.Length} chars at {request.Line}:{request.Column} in {Path.GetFileName(resolvedPath)}.",
+            "replace" => $"Replace range {request.StartLine}:{request.StartColumn}-{request.EndLine}:{request.EndColumn} in {Path.GetFileName(resolvedPath)} ({originalText.Length} -> {proposedText.Length} chars).",
+            _ => $"Edit {Path.GetFileName(resolvedPath)}."
+        };
+
+        return new PendingEditInfo(
+            editId,
+            operation,
+            resolvedPath,
+            summary,
+            originalText,
+            proposedText,
+            operation == "write" ? null : operation == "insert" ? request.Line : request.StartLine,
+            operation == "write" ? null : operation == "insert" ? request.Column : request.StartColumn,
+            operation == "replace" ? request.EndLine : null,
+            operation == "replace" ? request.EndColumn : null,
+            originalText.Length,
+            proposedText.Length,
+            DateTimeOffset.UtcNow);
+    }
+
+    private static EditPreviewRequest ClonePreviewRequest(EditPreviewRequest request, string resolvedPath, string operation)
+    {
+        return new EditPreviewRequest
+        {
+            Operation = operation,
+            Path = resolvedPath,
+            Text = request.Text ?? string.Empty,
+            CreateIfMissing = request.CreateIfMissing,
+            SaveAfterEdit = request.SaveAfterEdit,
+            Line = request.Line,
+            Column = request.Column,
+            StartLine = request.StartLine,
+            StartColumn = request.StartColumn,
+            EndLine = request.EndLine,
+            EndColumn = request.EndColumn
+        };
+    }
+
     private static string ResolveDocumentPath(DTE? dte, string path)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -457,5 +717,17 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
 
         var solutionDirectory = Path.GetDirectoryName(solutionPath);
         return Path.GetFullPath(Path.Combine(solutionDirectory ?? Environment.CurrentDirectory, path));
+    }
+
+    private sealed class PendingEdit
+    {
+        public PendingEdit(PendingEditInfo info, EditPreviewRequest request)
+        {
+            Info = info;
+            Request = request;
+        }
+
+        public PendingEditInfo Info { get; }
+        public EditPreviewRequest Request { get; }
     }
 }

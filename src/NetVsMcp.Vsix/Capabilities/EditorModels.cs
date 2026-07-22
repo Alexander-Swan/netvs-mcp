@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Microsoft.VisualStudio.Shell;
 
 namespace NetVsMcp.Vsix;
@@ -188,4 +190,122 @@ internal sealed class DocumentCleanupResult
     public EditorDocumentInfo? Document { get; }
     public bool Saved { get; }
     public string? Command { get; }
+}
+
+internal sealed class EditPreviewRequest
+{
+    public string Operation { get; set; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
+    public string Text { get; set; } = string.Empty;
+    public bool CreateIfMissing { get; set; }
+    public bool SaveAfterEdit { get; set; }
+    public int Line { get; set; }
+    public int Column { get; set; }
+    public int StartLine { get; set; }
+    public int StartColumn { get; set; }
+    public int EndLine { get; set; }
+    public int EndColumn { get; set; }
+}
+
+internal sealed class EditDecisionRequest
+{
+    public string EditId { get; set; } = string.Empty;
+    public bool SaveAfterApply { get; set; }
+}
+
+internal sealed class PendingEditInfo
+{
+    public PendingEditInfo(
+        string editId,
+        string operation,
+        string path,
+        string summary,
+        string? originalText,
+        string proposedText,
+        int? startLine,
+        int? startColumn,
+        int? endLine,
+        int? endColumn,
+        int originalLength,
+        int proposedLength,
+        DateTimeOffset createdUtc)
+    {
+        EditId = editId;
+        Operation = operation;
+        Path = path;
+        Summary = summary;
+        OriginalText = originalText;
+        ProposedText = proposedText;
+        StartLine = startLine;
+        StartColumn = startColumn;
+        EndLine = endLine;
+        EndColumn = endColumn;
+        OriginalLength = originalLength;
+        ProposedLength = proposedLength;
+        CreatedUtc = createdUtc;
+    }
+
+    public string EditId { get; }
+    public string Operation { get; }
+    public string Path { get; }
+    public string Summary { get; }
+    public string? OriginalText { get; }
+    public string ProposedText { get; }
+    public int? StartLine { get; }
+    public int? StartColumn { get; }
+    public int? EndLine { get; }
+    public int? EndColumn { get; }
+    public int OriginalLength { get; }
+    public int ProposedLength { get; }
+    public DateTimeOffset CreatedUtc { get; }
+}
+
+internal sealed class EditPreviewResult
+{
+    public EditPreviewResult(bool success, string? message, PendingEditInfo? pendingEdit)
+    {
+        Success = success;
+        Message = message;
+        PendingEdit = pendingEdit;
+    }
+
+    public bool Success { get; }
+    public string? Message { get; }
+    public PendingEditInfo? PendingEdit { get; }
+}
+
+internal sealed class EditDecisionResult
+{
+    public EditDecisionResult(
+        bool success,
+        string? message,
+        string editId,
+        bool applied,
+        PendingEditInfo? pendingEdit,
+        DocumentMutationResult? mutation)
+    {
+        Success = success;
+        Message = message;
+        EditId = editId;
+        Applied = applied;
+        PendingEdit = pendingEdit;
+        Mutation = mutation;
+    }
+
+    public bool Success { get; }
+    public string? Message { get; }
+    public string EditId { get; }
+    public bool Applied { get; }
+    public PendingEditInfo? PendingEdit { get; }
+    public DocumentMutationResult? Mutation { get; }
+}
+
+internal sealed class PendingEditListResult
+{
+    public PendingEditListResult(IReadOnlyCollection<PendingEditInfo> pendingEdits)
+    {
+        PendingEdits = pendingEdits;
+    }
+
+    public IReadOnlyCollection<PendingEditInfo> PendingEdits { get; }
 }
