@@ -12,8 +12,8 @@ This file tracks agent orchestration so work can be resumed later.
 
 | Agent | ID | Current Status | Current Task | Last Reported Commit |
 | --- | --- | --- | --- | --- |
-| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Awaiting final message | Broker named-pipe VSIX registration endpoint | `0364eda` observed on `master` |
-| Lagrange | `019f8874-fa4c-7e02-875a-d00332883073` | Running | First VSIX editor tools | `9f9ccd5` from prior VSIX lifecycle task |
+| Jason | `019f8874-afb5-7030-b0f4-7afd147b1c97` | Running | Normalize solution path routing | `0364eda` observed on `master` |
+| Locke | `019f88e1-5257-7683-b382-205bbf1c935e` | Running | VSIX document symbols navigation service | Pending |
 
 ## Completed Agent Tasks
 
@@ -84,19 +84,36 @@ This file tracks agent orchestration so work can be resumed later.
   - `src/NetVsMcp.Vsix/BrokerRegistrationLifecycle.cs`
   - `src/NetVsMcp.Vsix/VisualStudioStateChangeMonitor.cs`
 
+### Lagrange: First VSIX Editor Tools
+
+- Status: Integrated on `master`
+- Commit: `3c1ec57` - `Add VSIX editor tool services`
+- Local solution build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors on retry
+- Review status: Reviewed, follow-up issues tracked below
+- Files:
+  - `docs/VSIX.md`
+  - `src/NetVsMcp.Vsix/Capabilities/EditorCapabilityService.cs`
+  - `src/NetVsMcp.Vsix/Capabilities/EditorModels.cs`
+  - `src/NetVsMcp.Vsix/Capabilities/EditorRpcTarget.cs`
+
 ## Current Agent Tasks
 
-### Jason: Pending
+### Jason: Normalize Solution Path Routing
 
 Write scope:
 
-- none queued until final message/review completes
+- `src/NetVsMcp.Broker/**`
+- `src/NetVsMcp.Contracts/**` only if needed
+- `tests/NetVsMcp.Broker.Tests/**`
 
 Expected output:
 
-- next task likely: normalize session routing paths or replace placeholder HTTP routes with real MCP transport
+- normalized solution paths at registration/update and target resolution
+- expanded routing tests
+- build/test result
+- commit hash
 
-### Lagrange: First VSIX Editor Tools
+### Locke: VSIX Document Symbols Navigation Service
 
 Write scope:
 
@@ -105,8 +122,8 @@ Write scope:
 
 Expected output:
 
-- VSIX-side methods/interfaces for `document_active`, `document_read`, `document_open`, `selection_get`
-- live editor/document state where practical
+- VSIX-side method/interface for `code_document_symbols`
+- symbol name, kind, file, line/column, containing type/namespace where practical
 - docs update with expected RPC method names/inputs/outputs
 - build result
 - commit hash
@@ -153,6 +170,14 @@ Expected output:
 - Issue: solution path routing compares raw strings without path normalization.
 - Impact: equivalent paths with different slash style, casing, or relative segments may fail to route.
 - Follow-up: normalize solution paths at registration/update and target resolution.
+
+### VSIX Editor RPC Wiring
+
+- File: `src/NetVsMcp.Vsix/Capabilities/EditorRpcTarget.cs`
+- Commit: `3c1ec57`
+- Issue: editor methods exist behind `EditorRpcTarget`, but that target is not yet attached to a broker-facing JSON-RPC server/client path.
+- Impact: service code is ready for broker invocation but not reachable end-to-end.
+- Follow-up: when bidirectional VSIX session RPC is added, expose `document_active`, `document_read`, `document_open`, and `selection_get` through the shared broker routing path.
 
 ## Next Tasks
 

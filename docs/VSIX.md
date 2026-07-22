@@ -121,6 +121,97 @@ The skeleton defines service interfaces for the future VS-side command handlers:
 
 Once `NetVsMcp.Contracts` lands, replace the placeholder registration models with shared DTOs and add the StreamJsonRpc command dispatcher here.
 
+## Editor RPC Contract Expectation
+
+The VSIX-side editor capability service now supports the first broker-routed editor tools. These method names are the expected StreamJsonRpc surface once the broker starts dispatching commands into the VSIX:
+
+```text
+DocumentActiveAsync(CancellationToken cancellationToken)
+DocumentReadAsync(DocumentReadRequest request, CancellationToken cancellationToken)
+DocumentOpenAsync(DocumentOpenRequest request, CancellationToken cancellationToken)
+SelectionGetAsync(CancellationToken cancellationToken)
+```
+
+Broker-facing MCP tool mapping:
+
+```text
+document_active -> DocumentActiveAsync
+document_read   -> DocumentReadAsync
+document_open   -> DocumentOpenAsync
+selection_get   -> SelectionGetAsync
+```
+
+`document_read` request:
+
+```json
+{
+  "path": "src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs"
+}
+```
+
+`document_open` request:
+
+```json
+{
+  "path": "src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs"
+}
+```
+
+Relative paths are resolved against the active solution directory. Absolute paths are used as-is.
+
+`document_active` and `document_open` return:
+
+```json
+{
+  "name": "NetVsMcpPackage.cs",
+  "path": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+  "language": "CSharp",
+  "isOpen": true,
+  "isSaved": true
+}
+```
+
+`document_read` returns:
+
+```json
+{
+  "document": {
+    "name": "NetVsMcpPackage.cs",
+    "path": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+    "language": "CSharp",
+    "isOpen": true,
+    "isSaved": false
+  },
+  "text": "...",
+  "source": "live",
+  "usedLiveBuffer": true
+}
+```
+
+`document_read` prefers the live Visual Studio text buffer for open documents, so unsaved edits are visible to the agent. If the document is not open, it falls back to disk.
+
+`selection_get` returns:
+
+```json
+{
+  "document": {
+    "name": "NetVsMcpPackage.cs",
+    "path": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcpPackage.cs",
+    "language": "CSharp",
+    "isOpen": true,
+    "isSaved": true
+  },
+  "text": "selected text",
+  "anchorLine": 10,
+  "anchorColumn": 5,
+  "activeLine": 12,
+  "activeColumn": 18,
+  "isEmpty": false
+}
+```
+
+Line and column values follow Visual Studio DTE conventions and are 1-based.
+
 ## Open Packaging Notes
 
 - Verify the VSIX builds on a machine with the Visual Studio extension development workload.

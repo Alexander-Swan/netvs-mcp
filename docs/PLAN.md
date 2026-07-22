@@ -374,6 +374,58 @@ MVP tools:
 - `debug_get_locals`
 - `debug_evaluate`
 
+## Near-Term Follow-Ups
+
+These items were identified during the first broker/VSIX skeleton review and should be handled before expanding the tool surface too far.
+
+### Replace Placeholder HTTP Routes With MCP
+
+The broker currently has local HTTP JSON routes for early status/tool smoke testing. Replace these with the actual MCP HTTP transport so MCP clients can register the broker directly at:
+
+```text
+http://127.0.0.1:5050
+```
+
+Acceptance criteria:
+
+- broker exposes real MCP initialize/tools/call behavior over local HTTP
+- `vs_list_sessions`, `vs_get_status`, and `vs_get_capabilities` are available as MCP tools
+- status window MCP config works against the running broker
+- endpoint remains bound to loopback only
+
+### Validate Broker/VSIX Named Pipe End To End
+
+The broker has a named-pipe registration listener and the VSIX has a registration lifecycle. Validate the full path with a running broker and experimental Visual Studio instance.
+
+Acceptance criteria:
+
+- VSIX connects to broker pipe
+- VSIX registers session
+- broker status window shows the Visual Studio instance and solution name
+- heartbeat updates `LastSeenUtc`
+- VS close/unload unregisters or eventually marks session stale
+- reconnect works if broker starts after Visual Studio
+
+### Normalize Solution Path Routing
+
+Session routing should normalize solution paths at registration/update and target resolution.
+
+Acceptance criteria:
+
+- equivalent paths match despite slash style, casing, and relative segments
+- solution-name routing still reports ambiguity when multiple sessions share a solution file name
+- tests cover exact session id, normalized solution path, solution name, active instance, only instance, and ambiguity
+
+### Align VSIX RPC Methods With Shared Contracts
+
+The VSIX lifecycle uses broker method names documented during the skeleton phase. Align the VSIX client calls with `NetVsMcp.Contracts` once the broker registration endpoint is stable.
+
+Acceptance criteria:
+
+- VSIX uses shared contract DTOs where compatible with VSIX target framework constraints
+- method names match broker registration service
+- broker and VSIX can exchange register/update/heartbeat/unregister calls without adapter-only placeholders
+
 ## Implementation Phases
 
 1. Broker and registration
