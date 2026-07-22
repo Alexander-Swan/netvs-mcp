@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Http.Json;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using ModelContextProtocol.AspNetCore;
+using ModelContextProtocol.Server;
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -48,6 +50,14 @@ public sealed class LocalMcpHttpHost : IAsyncDisposable
             json.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
             json.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
         });
+        builder.Services.AddSingleton(_tools);
+        builder.Services
+            .AddMcpServer()
+            .WithHttpTransport(options =>
+            {
+                options.Stateless = true;
+            })
+            .WithTools<BrokerToolService>(_tools);
 
         var app = builder.Build();
         MapRoutes(app);
@@ -75,24 +85,13 @@ public sealed class LocalMcpHttpHost : IAsyncDisposable
 
     private void MapRoutes(WebApplication app)
     {
-        var tools = app.MapGroup("/mcp/tools");
-
-        tools.MapGet("/vs_list_sessions", () => Results.Ok(_tools.VsListSessions()));
-        tools.MapGet("/vs_get_status", () => Results.Ok(_tools.VsGetStatus()));
-        tools.MapGet("/vs_get_capabilities", () => Results.Ok(_tools.VsGetCapabilities()));
-
         app.MapGet("/", () => Results.Ok(new
         {
             name = "NetVsMcp Broker",
-            transport = "HTTP MCP placeholder",
+            transport = "MCP Streamable HTTP",
             endpoint = _options.McpEndpoint,
-            tools = new[]
-            {
-                "vs_list_sessions",
-                "vs_get_status",
-                "vs_get_capabilities"
-            },
-            todo = "Replace placeholder JSON routes with the Model Context Protocol HTTP transport."
+            mcp = "/mcp",
+            health = "/health"
         }));
 
         app.MapGet("/health", () => Results.Ok(new
@@ -100,6 +99,8 @@ public sealed class LocalMcpHttpHost : IAsyncDisposable
             status = "running",
             endpoint = _options.McpEndpoint
         }));
+
+        app.MapMcp("/mcp");
     }
 
     private static Uri ParseEndpoint(string endpoint)
