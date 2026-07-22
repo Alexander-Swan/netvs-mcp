@@ -12,6 +12,7 @@ internal sealed class VisualStudioCapabilityRpcTarget
     private readonly NavigationRpcTarget navigation;
     private readonly BuildRpcTarget build;
     private readonly DebuggerRpcTarget debugger;
+    private readonly SolutionRpcTarget solution;
     private readonly IVisualStudioSessionSnapshotProvider snapshotProvider;
     private readonly IVisualStudioCapabilityCatalog capabilities;
 
@@ -25,6 +26,7 @@ internal sealed class VisualStudioCapabilityRpcTarget
         navigation = new NavigationRpcTarget(capabilities.Navigation);
         build = new BuildRpcTarget(capabilities.Build);
         debugger = new DebuggerRpcTarget(capabilities.Debugger);
+        solution = new SolutionRpcTarget(capabilities.Solution);
     }
 
     public async Task<ToolResponseWire<VsSessionInfoWire>> GetStatusAsync(CancellationToken cancellationToken)
@@ -147,6 +149,30 @@ internal sealed class VisualStudioCapabilityRpcTarget
 
     public Task<EvaluateExpressionResult> DebugEvaluateAsync(EvaluateExpressionRequest request, CancellationToken cancellationToken) =>
         debugger.DebugEvaluateAsync(request, cancellationToken);
+
+    public Task<SolutionInfoResult> SolutionInfoAsync(CancellationToken cancellationToken) =>
+        solution.SolutionInfoAsync(cancellationToken);
+
+    public Task<ProjectListResult> ProjectListAsync(CancellationToken cancellationToken) =>
+        solution.ProjectListAsync(cancellationToken);
+
+    public Task<ProjectInfo?> ProjectInfoAsync(ProjectInfoRequest request, CancellationToken cancellationToken) =>
+        solution.ProjectInfoAsync(request, cancellationToken);
+
+    public Task<StartupProjectResult> StartupProjectGetAsync(CancellationToken cancellationToken) =>
+        solution.StartupProjectGetAsync(cancellationToken);
+
+    public Task<StartupProjectResult> StartupProjectSetAsync(StartupProjectSetRequest request, CancellationToken cancellationToken) =>
+        solution.StartupProjectSetAsync(request, cancellationToken);
+
+    public Task<TestOperationResult> TestDiscoverAsync(TestDiscoverRequest request, CancellationToken cancellationToken) =>
+        solution.TestDiscoverAsync(request, cancellationToken);
+
+    public Task<TestOperationResult> TestRunAsync(TestRunRequest request, CancellationToken cancellationToken) =>
+        solution.TestRunAsync(request, cancellationToken);
+
+    public Task<TestOperationResult> TestResultsAsync(TestResultsRequest request, CancellationToken cancellationToken) =>
+        solution.TestResultsAsync(request, cancellationToken);
 
     private static string FormatSymbolLabel(DocumentSymbolInfo symbol)
     {

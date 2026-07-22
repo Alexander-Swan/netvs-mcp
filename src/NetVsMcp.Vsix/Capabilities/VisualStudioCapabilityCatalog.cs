@@ -9,6 +9,7 @@ internal interface IVisualStudioCapabilityCatalog
     INavigationCapabilityService Navigation { get; }
     IBuildCapabilityService Build { get; }
     IDebuggerCapabilityService Debugger { get; }
+    ISolutionCapabilityService Solution { get; }
 }
 
 internal sealed class VisualStudioCapabilityCatalog : IVisualStudioCapabilityCatalog
@@ -17,12 +18,14 @@ internal sealed class VisualStudioCapabilityCatalog : IVisualStudioCapabilityCat
         IEditorCapabilityService editor,
         INavigationCapabilityService navigation,
         IBuildCapabilityService build,
-        IDebuggerCapabilityService debugger)
+        IDebuggerCapabilityService debugger,
+        ISolutionCapabilityService solution)
     {
         Editor = editor;
         Navigation = navigation;
         Build = build;
         Debugger = debugger;
+        Solution = solution;
     }
 
     public IReadOnlyCollection<string> CapabilityNames { get; } =
@@ -30,11 +33,14 @@ internal sealed class VisualStudioCapabilityCatalog : IVisualStudioCapabilityCat
         "editor",
         "navigation",
         "build",
-        "debugger"
+        "debugger",
+        "projectSystem",
+        "tests"
     ];
 
     public IEditorCapabilityService Editor { get; }
     public INavigationCapabilityService Navigation { get; }
     public IBuildCapabilityService Build { get; }
     public IDebuggerCapabilityService Debugger { get; }
+    public ISolutionCapabilityService Solution { get; }
 }

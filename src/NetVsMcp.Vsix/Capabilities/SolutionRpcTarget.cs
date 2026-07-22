@@ -1,0 +1,54 @@
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace NetVsMcp.Vsix;
+
+internal sealed class SolutionRpcTarget
+{
+    private readonly ISolutionCapabilityService solution;
+
+    public SolutionRpcTarget(ISolutionCapabilityService solution)
+    {
+        this.solution = solution;
+    }
+
+    public Task<SolutionInfoResult> SolutionInfoAsync(CancellationToken cancellationToken)
+    {
+        return solution.GetSolutionInfoAsync(cancellationToken);
+    }
+
+    public Task<ProjectListResult> ProjectListAsync(CancellationToken cancellationToken)
+    {
+        return solution.ListProjectsAsync(cancellationToken);
+    }
+
+    public Task<ProjectInfo?> ProjectInfoAsync(ProjectInfoRequest request, CancellationToken cancellationToken)
+    {
+        return solution.GetProjectInfoAsync(request, cancellationToken);
+    }
+
+    public Task<StartupProjectResult> StartupProjectGetAsync(CancellationToken cancellationToken)
+    {
+        return solution.GetStartupProjectAsync(cancellationToken);
+    }
+
+    public Task<StartupProjectResult> StartupProjectSetAsync(StartupProjectSetRequest request, CancellationToken cancellationToken)
+    {
+        return solution.SetStartupProjectAsync(request, cancellationToken);
+    }
+
+    public Task<TestOperationResult> TestDiscoverAsync(TestDiscoverRequest request, CancellationToken cancellationToken)
+    {
+        return solution.DiscoverTestsAsync(request, cancellationToken);
+    }
+
+    public Task<TestOperationResult> TestRunAsync(TestRunRequest request, CancellationToken cancellationToken)
+    {
+        return solution.RunTestsAsync(request, cancellationToken);
+    }
+
+    public Task<TestOperationResult> TestResultsAsync(TestResultsRequest request, CancellationToken cancellationToken)
+    {
+        return solution.GetTestResultsAsync(request, cancellationToken);
+    }
+}

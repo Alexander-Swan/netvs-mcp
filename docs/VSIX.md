@@ -681,6 +681,119 @@ The EnvDTE `StackFrame` API available to this project exposes function names and
 }
 ```
 
+## Solution, Project, And Test RPC Contract Expectation
+
+The VSIX-side solution capability service now supports broker-routed solution and project metadata operations through Visual Studio DTE. Test operations are intentionally conservative skeletons until Visual Studio Test Platform integration is wired.
+
+Expected StreamJsonRpc methods:
+
+```text
+SolutionInfoAsync(CancellationToken cancellationToken)
+ProjectListAsync(CancellationToken cancellationToken)
+ProjectInfoAsync(ProjectInfoRequest request, CancellationToken cancellationToken)
+StartupProjectGetAsync(CancellationToken cancellationToken)
+StartupProjectSetAsync(StartupProjectSetRequest request, CancellationToken cancellationToken)
+TestDiscoverAsync(TestDiscoverRequest request, CancellationToken cancellationToken)
+TestRunAsync(TestRunRequest request, CancellationToken cancellationToken)
+TestResultsAsync(TestResultsRequest request, CancellationToken cancellationToken)
+```
+
+Broker-facing MCP tool mapping:
+
+```text
+solution_info       -> SolutionInfoAsync
+project_list        -> ProjectListAsync
+project_info        -> ProjectInfoAsync
+startup_project_get -> StartupProjectGetAsync
+startup_project_set -> StartupProjectSetAsync
+test_discover       -> TestDiscoverAsync
+test_run            -> TestRunAsync
+test_results        -> TestResultsAsync
+```
+
+`solution_info` returns:
+
+```json
+{
+  "name": "NetVsMcp",
+  "path": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\NetVsMcp.slnx",
+  "isOpen": true,
+  "projectCount": 4,
+  "startupProject": "src\\NetVsMcp.Broker\\NetVsMcp.Broker.csproj"
+}
+```
+
+`project_list` returns:
+
+```json
+{
+  "projects": [
+    {
+      "name": "NetVsMcp.Vsix",
+      "uniqueName": "src\\NetVsMcp.Vsix\\NetVsMcp.Vsix.csproj",
+      "fullName": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\src\\NetVsMcp.Vsix\\NetVsMcp.Vsix.csproj",
+      "kind": "{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}",
+      "isLoaded": true,
+      "language": "CSharp",
+      "outputFileName": "NetVsMcp.Vsix.dll"
+    }
+  ]
+}
+```
+
+`project_info` request:
+
+```json
+{
+  "projectName": "NetVsMcp.Vsix"
+}
+```
+
+`project_info` returns a single project object or `null` when the project is not found or cannot be read through DTE.
+
+`startup_project_get` returns:
+
+```json
+{
+  "projects": [
+    "src\\NetVsMcp.Broker\\NetVsMcp.Broker.csproj"
+  ],
+  "isMultiStartup": false
+}
+```
+
+`startup_project_set` request:
+
+```json
+{
+  "projectName": "NetVsMcp.Broker"
+}
+```
+
+`startup_project_set` resolves by project name, unique name, or full path and sets a single startup project through DTE.
+
+Test operation requests:
+
+```json
+{
+  "projectName": "NetVsMcp.Broker.Tests",
+  "filter": "FullyQualifiedName~SessionRegistry"
+}
+```
+
+`test_discover`, `test_run`, and `test_results` return:
+
+```json
+{
+  "supported": false,
+  "message": "Visual Studio Test Platform integration is not wired in this VSIX slice yet.",
+  "tests": [],
+  "results": []
+}
+```
+
+Follow-up: startup project handling currently supports the common single-startup project path. Multi-startup project profiles need runtime validation and a richer request model before `startup_project_set` can safely edit them.
+
 ## Open Packaging Notes
 
 - Verify the VSIX builds on a machine with the Visual Studio extension development workload.

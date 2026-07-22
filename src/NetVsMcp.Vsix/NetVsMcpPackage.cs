@@ -30,7 +30,8 @@ public sealed class NetVsMcpPackage : AsyncPackage
             new EditorCapabilityService(this),
             new NavigationCapabilityService(this),
             new BuildCapabilityService(this),
-            new DebuggerCapabilityService(this));
+            new DebuggerCapabilityService(this),
+            new SolutionCapabilityService(this));
         var capabilityRpcTarget = new VisualStudioCapabilityRpcTarget(capabilities, snapshotProvider);
 
         lifecycle = new BrokerRegistrationLifecycle(
