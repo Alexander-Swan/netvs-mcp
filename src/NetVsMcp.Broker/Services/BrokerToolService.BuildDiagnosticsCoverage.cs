@@ -107,7 +107,20 @@ public sealed partial class BrokerToolService
     }
 
     [McpServerTool(Name = "diagnostics_binding_errors")]
-    [Description("Planned: returns binding diagnostics.")]
-    public Task<ToolResponse<UnsupportedToolResult>> DiagnosticsBindingErrors(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Diagnostics", "Implement WPF/XAML binding diagnostic collection.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Returns binding diagnostics when a VSIX diagnostics backend is available.")]
+    public Task<ToolResponse<AutomationResult>> DiagnosticsBindingErrors(string? target = null, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (timeoutMilliseconds <= 0)
+        {
+            return Task.FromResult(FailWithCode<AutomationResult>("Timeout must be greater than zero.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new AutomationRequest
+        {
+            ToolName = "diagnostics_binding_errors",
+            Target = target,
+            TimeoutMilliseconds = timeoutMilliseconds
+        };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.DiagnosticsBindingErrorsAsync(request, ct), cancellationToken);
+    }
 }

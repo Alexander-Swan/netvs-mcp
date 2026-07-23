@@ -1,6 +1,7 @@
 using NetVsMcp.Contracts;
 using ModelContextProtocol.Server;
 using System.ComponentModel;
+using System.IO;
 
 namespace NetVsMcp.Broker.Services;
 
@@ -141,9 +142,37 @@ public sealed partial class BrokerToolService
         DispatchNugetMutation(projectName, packageId, null, sessionId, solutionName, solutionPath, (connection, request, ct) => connection.NugetUninstallAsync(request, ct), cancellationToken);
 
     [McpServerTool(Name = "vs_get_logs")]
-    [Description("Planned: returns broker log information.")]
-    public Task<ToolResponse<UnsupportedToolResult>> VsGetLogs(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Broker", "Implement bounded broker log retrieval.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Returns recent broker log files with bounded tail text.")]
+    public ToolResponse<BrokerLogResult> VsGetLogs(int maxFiles = 5, int maxCharsPerFile = 20000)
+    {
+        if (maxFiles <= 0)
+        {
+            return FailWithCode<BrokerLogResult>("Max files must be greater than zero.", ToolErrorCodes.InvalidRequest);
+        }
+
+        if (maxCharsPerFile <= 0)
+        {
+            return FailWithCode<BrokerLogResult>("Max chars per file must be greater than zero.", ToolErrorCodes.InvalidRequest);
+        }
+
+        var logsDirectory = _runtime.Options.EffectiveLogsDirectory;
+        if (!Directory.Exists(logsDirectory))
+        {
+            var empty = ToolResponse<BrokerLogResult>.Ok(new BrokerLogResult(logsDirectory, []));
+            AuditToolResult(nameof(VsGetLogs), null, empty.Success, null, empty.Message);
+            return empty;
+        }
+
+        var files = Directory.EnumerateFiles(logsDirectory)
+            .Select(path => new FileInfo(path))
+            .OrderByDescending(file => file.LastWriteTimeUtc)
+            .Take(maxFiles)
+            .Select(file => ReadBrokerLogEntry(file, maxCharsPerFile))
+            .ToArray();
+        var response = ToolResponse<BrokerLogResult>.Ok(new BrokerLogResult(logsDirectory, files));
+        AuditToolResult(nameof(VsGetLogs), null, response.Success, null, response.Message);
+        return response;
+    }
 
     private static string? ValidateProjectReference(string? projectName, string? reference)
     {
@@ -185,5 +214,23 @@ public sealed partial class BrokerToolService
         };
 
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => operation(connection, request, ct), cancellationToken);
+    }
+
+    private static BrokerLogEntry ReadBrokerLogEntry(FileInfo file, int maxChars)
+    {
+        var text = File.ReadAllText(file.FullName);
+        var truncated = text.Length > maxChars;
+        if (truncated)
+        {
+            text = text.Substring(text.Length - maxChars, maxChars);
+        }
+
+        return new BrokerLogEntry(
+            file.FullName,
+            file.Name,
+            new DateTimeOffset(file.LastWriteTimeUtc, TimeSpan.Zero),
+            file.Length,
+            text,
+            truncated);
     }
 }

@@ -764,6 +764,18 @@ public sealed record ProcessDetachResult(
     DebuggedProcessInfo? Process,
     DebuggerStateInfo State);
 
+public sealed class ProcessTerminateRequest
+{
+    public int? ProcessId { get; set; }
+    public string? ProcessName { get; set; }
+}
+
+public sealed record ProcessTerminateResult(
+    bool Success,
+    string? Message,
+    DebuggedProcessInfo? Process,
+    DebuggerStateInfo State);
+
 public sealed class WatchAddRequest
 {
     public string Expression { get; set; } = string.Empty;
@@ -800,11 +812,47 @@ public sealed class ThreadSwitchRequest
     public int ThreadId { get; set; }
 }
 
+public sealed class DebugSetVariableRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
+    public int TimeoutMilliseconds { get; set; } = 5000;
+}
+
+public sealed record DebugSetVariableResult(
+    bool Success,
+    string? Message,
+    EvaluateExpressionResult? Evaluation);
+
+public sealed class ThreadSetFrozenRequest
+{
+    public int ThreadId { get; set; }
+    public bool Frozen { get; set; }
+}
+
 public sealed record ThreadSwitchResult(
     bool Supported,
     bool Success,
     string? Message,
     DebugThreadInfo? Thread);
+
+public sealed record ThreadSetFrozenResult(
+    bool Supported,
+    bool Success,
+    string? Message,
+    DebugThreadInfo? Thread,
+    bool Frozen);
+
+public sealed class ThreadCallStackRequest
+{
+    public int ThreadId { get; set; }
+}
+
+public sealed record ThreadCallStackResult(
+    bool Supported,
+    string? Message,
+    DebugThreadInfo? Thread,
+    IReadOnlyCollection<CallStackFrameInfo> Frames);
 
 public sealed record DebugModuleInfo(
     string? Name,
@@ -1188,12 +1236,6 @@ public sealed record ToolResponse<T>(
     public static ToolResponse<T> Fail(string message) => new(false, default, message);
 }
 
-public sealed record UnsupportedToolResult(
-    string ToolName,
-    string Category,
-    string Message,
-    string? NextImplementationHint = null);
-
 public sealed class AutomationRequest
 {
     public string ToolName { get; set; } = string.Empty;
@@ -1215,14 +1257,17 @@ public sealed record AutomationResult(
     string? Text = null,
     IReadOnlyDictionary<string, string>? Metadata = null);
 
-public sealed class PlannedToolRequest
-{
-    public string ToolName { get; set; } = string.Empty;
+public sealed record BrokerLogEntry(
+    string Path,
+    string Name,
+    DateTimeOffset LastWriteUtc,
+    long Length,
+    string Text,
+    bool Truncated);
 
-    public string Category { get; set; } = string.Empty;
-
-    public string? ImplementationHint { get; set; }
-}
+public sealed record BrokerLogResult(
+    string LogsDirectory,
+    IReadOnlyCollection<BrokerLogEntry> Files);
 
 public interface IBrokerRegistrationRpc
 {
@@ -1238,10 +1283,6 @@ public interface IBrokerRegistrationRpc
 public interface IVisualStudioSessionRpc
 {
     Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken);
-
-    Task<UnsupportedToolResult> PlannedToolAsync(
-        PlannedToolRequest request,
-        CancellationToken cancellationToken);
 
     Task<ExecuteCommandResult> ExecuteCommandAsync(
         ExecuteCommandRequest request,
@@ -1521,12 +1562,20 @@ public interface IVisualStudioSessionRpc
 
     Task<LocalProcessListResult> ProcessListLocalAsync(CancellationToken cancellationToken);
 
+    Task<DebugSetVariableResult> DebugSetVariableAsync(
+        DebugSetVariableRequest request,
+        CancellationToken cancellationToken);
+
     Task<DebugAttachResult> DebugAttachAsync(
         DebugAttachRequest request,
         CancellationToken cancellationToken);
 
     Task<ProcessDetachResult> ProcessDetachAsync(
         ProcessDetachRequest request,
+        CancellationToken cancellationToken);
+
+    Task<ProcessTerminateResult> ProcessTerminateAsync(
+        ProcessTerminateRequest request,
         CancellationToken cancellationToken);
 
     Task<WatchOperationResult> WatchAddAsync(
@@ -1543,6 +1592,14 @@ public interface IVisualStudioSessionRpc
 
     Task<ThreadSwitchResult> ThreadSwitchAsync(
         ThreadSwitchRequest request,
+        CancellationToken cancellationToken);
+
+    Task<ThreadSetFrozenResult> ThreadSetFrozenAsync(
+        ThreadSetFrozenRequest request,
+        CancellationToken cancellationToken);
+
+    Task<ThreadCallStackResult> ThreadGetCallstackAsync(
+        ThreadCallStackRequest request,
         CancellationToken cancellationToken);
 
     Task<ModuleListResult> ModuleListAsync(CancellationToken cancellationToken);
@@ -1576,6 +1633,10 @@ public interface IVisualStudioSessionRpc
     Task<ParallelTasksResult> ParallelTasksListAsync(CancellationToken cancellationToken);
 
     Task<AutomationResult> ConsoleReadAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> DiagnosticsBindingErrorsAsync(
         AutomationRequest request,
         CancellationToken cancellationToken);
 

@@ -1,7 +1,6 @@
 using NetVsMcp.Contracts;
 using ModelContextProtocol.Server;
 using System.ComponentModel;
-using System.Runtime.CompilerServices;
 
 namespace NetVsMcp.Broker.Services;
 
@@ -175,31 +174,5 @@ public sealed partial class BrokerToolService
 
         var request = new CodeWorkspaceSymbolsRequest { Query = query, MaxResults = maxResults };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.CodeWorkspaceSymbolsAsync(request, ct), cancellationToken);
-    }
-
-    private Task<ToolResponse<UnsupportedToolResult>> PlannedTool(
-        string category,
-        string implementationHint,
-        string? sessionId = null,
-        string? solutionName = null,
-        string? solutionPath = null,
-        CancellationToken cancellationToken = default,
-        [CallerMemberName] string toolName = "")
-    {
-        var mcpToolName = ToMcpToolName(toolName);
-        var request = new PlannedToolRequest
-        {
-            ToolName = mcpToolName,
-            Category = category,
-            ImplementationHint = implementationHint
-        };
-
-        return DispatchValueAsync(
-            sessionId,
-            solutionName,
-            solutionPath,
-            (connection, ct) => connection.PlannedToolAsync(request, ct),
-            cancellationToken,
-            toolName);
     }
 }

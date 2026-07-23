@@ -115,22 +115,22 @@ public sealed partial class BrokerToolService
         new("output_list_panes", "Lists Visual Studio output panes.", true),
         new("output_write", "Writes text to a Visual Studio output pane.", true),
         new("output_clear", "Clears a Visual Studio output pane.", true),
-        new("diagnostics_binding_errors", "Planned: returns binding diagnostics.", true),
+        new("diagnostics_binding_errors", "Returns binding diagnostics when a VSIX diagnostics backend is available.", true),
         new("debug_start_without_debugging", "Starts the current startup project without debugging.", true),
         new("debug_restart", "Restarts the active debug session.", true),
         new("debug_attach", "Attaches the Visual Studio debugger to a local process by id or name.", true),
         new("debug_get_threads", "Lists debugger threads for the current debug program.", true),
-        new("debug_set_variable", "Planned: sets a debugger variable.", true),
+        new("debug_set_variable", "Sets a debugger variable by evaluating an assignment expression.", true),
         new("watch_add", "Adds a debugger watch expression when supported by the VSIX debugger service.", true),
         new("watch_remove", "Removes a debugger watch expression when supported by the VSIX debugger service.", true),
         new("watch_list", "Lists debugger watch expressions when supported by the VSIX debugger service.", true),
         new("thread_switch", "Switches the active debugger thread.", true),
-        new("thread_set_frozen", "Planned: freezes or thaws a debugger thread.", true),
-        new("thread_get_callstack", "Planned: returns call stack for a debugger thread.", true),
+        new("thread_set_frozen", "Freezes or thaws a debugger thread when supported by the active debug engine.", true),
+        new("thread_get_callstack", "Returns the call stack for a debugger thread when supported by the active debug engine.", true),
         new("process_list_debugged", "Lists processes currently being debugged by Visual Studio.", true),
         new("process_list_local", "Lists local processes visible to Visual Studio for debugger attach workflows.", true),
         new("process_detach", "Detaches the Visual Studio debugger from a debugged process by id or name.", true),
-        new("process_terminate", "Planned: terminates a process.", true),
+        new("process_terminate", "Terminates a debugged process by id or name when supported by the active debug engine.", true),
         new("immediate_execute", "Executes text in the immediate window when supported by the VSIX debugger service.", true),
         new("module_list", "Lists debugger modules when supported by the VSIX debugger service.", true),
         new("exception_settings_get", "Returns debugger exception settings when supported by the VSIX debugger service.", true),
@@ -176,7 +176,7 @@ public sealed partial class BrokerToolService
         new("nuget_install", "Installs a NuGet package into a project.", true),
         new("nuget_update", "Updates a NuGet package in a project.", true),
         new("nuget_uninstall", "Uninstalls a NuGet package from a project.", true),
-        new("vs_get_logs", "Planned: returns broker log information.", false)
+        new("vs_get_logs", "Returns recent broker log files with bounded tail text.", false)
     ];
 
     private static readonly VsCapability[] VisualStudioCapabilities =

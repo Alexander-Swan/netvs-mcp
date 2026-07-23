@@ -235,11 +235,6 @@ public sealed class BrokerRegistrationRpcServiceTests
 
     private sealed class FakeVisualStudioSessionRpc : IVisualStudioSessionRpc
     {
-        public Task<UnsupportedToolResult> PlannedToolAsync(PlannedToolRequest request, CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException();
-        }
-
         public Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
@@ -471,9 +466,13 @@ public sealed class BrokerRegistrationRpcServiceTests
 
         public Task<LocalProcessListResult> ProcessListLocalAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<DebugSetVariableResult> DebugSetVariableAsync(DebugSetVariableRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<DebugAttachResult> DebugAttachAsync(DebugAttachRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<ProcessDetachResult> ProcessDetachAsync(ProcessDetachRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ProcessTerminateResult> ProcessTerminateAsync(ProcessTerminateRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<NugetSearchResult> NugetSearchAsync(NugetSearchRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
@@ -503,6 +502,10 @@ public sealed class BrokerRegistrationRpcServiceTests
 
         public Task<ThreadSwitchResult> ThreadSwitchAsync(ThreadSwitchRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<ThreadSetFrozenResult> ThreadSetFrozenAsync(ThreadSetFrozenRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ThreadCallStackResult> ThreadGetCallstackAsync(ThreadCallStackRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<ModuleListResult> ModuleListAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<ImmediateExecuteResult> ImmediateExecuteAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -524,6 +527,7 @@ public sealed class BrokerRegistrationRpcServiceTests
         public Task<ParallelTasksResult> ParallelTasksListAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<AutomationResult> ConsoleReadAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> DiagnosticsBindingErrorsAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<AutomationResult> ConsoleSendAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<AutomationResult> ConsoleGetInfoAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<AutomationResult> UiCaptureWindowAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();

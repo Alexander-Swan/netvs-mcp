@@ -49,8 +49,27 @@ public sealed partial class BrokerToolService
         DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.DebugGetThreadsAsync(ct), cancellationToken);
 
     [McpServerTool(Name = "debug_set_variable")]
-    [Description("Planned: sets a debugger variable.")]
-    public Task<ToolResponse<UnsupportedToolResult>> DebugSetVariable(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Debugger", "Implement debugger expression assignment with engine acceptance reporting.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Sets a debugger variable by evaluating an assignment expression.")]
+    public Task<ToolResponse<DebugSetVariableResult>> DebugSetVariable(string name, string value, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return Task.FromResult(FailWithCode<DebugSetVariableResult>("Variable name is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        if (value is null)
+        {
+            return Task.FromResult(FailWithCode<DebugSetVariableResult>("Value is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        if (timeoutMilliseconds <= 0)
+        {
+            return Task.FromResult(FailWithCode<DebugSetVariableResult>("Timeout must be greater than zero.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new DebugSetVariableRequest { Name = name, Value = value, TimeoutMilliseconds = timeoutMilliseconds };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.DebugSetVariableAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "watch_add")]
     [Description("Adds a debugger watch expression when supported by the VSIX debugger service.")]
@@ -97,12 +116,30 @@ public sealed partial class BrokerToolService
     }
 
     [McpServerTool(Name = "thread_set_frozen")]
-    [Description("Planned: freezes or thaws a debugger thread.")]
-    public Task<ToolResponse<UnsupportedToolResult>> ThreadSetFrozen(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement thread freeze/thaw support.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Freezes or thaws a debugger thread when supported by the active debug engine.")]
+    public Task<ToolResponse<ThreadSetFrozenResult>> ThreadSetFrozen(int threadId, bool frozen, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (threadId <= 0)
+        {
+            return Task.FromResult(FailWithCode<ThreadSetFrozenResult>("Thread id must be greater than zero.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new ThreadSetFrozenRequest { ThreadId = threadId, Frozen = frozen };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ThreadSetFrozenAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "thread_get_callstack")]
-    [Description("Planned: returns call stack for a debugger thread.")]
-    public Task<ToolResponse<UnsupportedToolResult>> ThreadGetCallstack(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement per-thread call stack retrieval.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Returns the call stack for a debugger thread when supported by the active debug engine.")]
+    public Task<ToolResponse<ThreadCallStackResult>> ThreadGetCallstack(int threadId, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (threadId <= 0)
+        {
+            return Task.FromResult(FailWithCode<ThreadCallStackResult>("Thread id must be greater than zero.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new ThreadCallStackRequest { ThreadId = threadId };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ThreadGetCallstackAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "process_list_debugged")]
     [Description("Lists processes currently being debugged by Visual Studio.")]
@@ -142,8 +179,21 @@ public sealed partial class BrokerToolService
     }
 
     [McpServerTool(Name = "process_terminate")]
-    [Description("Planned: terminates a process.")]
-    public Task<ToolResponse<UnsupportedToolResult>> ProcessTerminate(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement admin-gated process termination.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Terminates a debugged process by id or name when supported by the active debug engine.")]
+    public Task<ToolResponse<ProcessTerminateResult>> ProcessTerminate(int? processId = null, string? processName = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (processId is null && string.IsNullOrWhiteSpace(processName))
+        {
+            return Task.FromResult(FailWithCode<ProcessTerminateResult>("Process id or process name is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new ProcessTerminateRequest
+        {
+            ProcessId = processId,
+            ProcessName = NormalizeOptional(processName)
+        };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ProcessTerminateAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "immediate_execute")]
     [Description("Executes text in the immediate window when supported by the VSIX debugger service.")]

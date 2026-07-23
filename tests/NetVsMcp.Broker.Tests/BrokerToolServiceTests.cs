@@ -931,6 +931,28 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task FormerPlannedDebuggerTools_RouteToConnectedSession()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.Admin);
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var variable = await runtime.Tools.DebugSetVariable("count", "43", sessionId: "vs-1");
+        var frozen = await runtime.Tools.ThreadSetFrozen(1, true, sessionId: "vs-1");
+        var callstack = await runtime.Tools.ThreadGetCallstack(1, sessionId: "vs-1");
+        var terminated = await runtime.Tools.ProcessTerminate(processId: 1234, sessionId: "vs-1");
+
+        Assert.True(variable.Success);
+        Assert.True(variable.Value!.Success);
+        Assert.True(frozen.Success);
+        Assert.True(frozen.Value!.Frozen);
+        Assert.True(callstack.Success);
+        Assert.Single(callstack.Value!.Frames);
+        Assert.True(terminated.Success);
+        Assert.True(terminated.Value!.Success);
+    }
+
+    [Fact]
     public async Task CodeDocumentSymbols_RequiresDocumentPath()
     {
         var runtime = CreateRuntime();
@@ -1995,6 +2017,34 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task DiagnosticsBindingErrors_RoutesThroughVsixSession()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.Admin);
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.DiagnosticsBindingErrors(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("diagnostics_binding_errors", response.Value!.Metadata!["toolName"]);
+    }
+
+    [Fact]
+    public void VsGetLogs_ReturnsBoundedLogText()
+    {
+        var runtime = CreateRuntime();
+        Directory.CreateDirectory(runtime.Options.EffectiveLogsDirectory);
+        File.WriteAllText(Path.Combine(runtime.Options.EffectiveLogsDirectory, "broker.log"), "abcdef");
+
+        var response = runtime.Tools.VsGetLogs(maxFiles: 1, maxCharsPerFile: 3);
+
+        Assert.True(response.Success);
+        var entry = Assert.Single(response.Value!.Files);
+        Assert.Equal("def", entry.Text);
+        Assert.True(entry.Truncated);
+    }
+
+    [Fact]
     public async Task BuildStatus_ReturnsMissingConnectionFailure()
     {
         var runtime = CreateRuntime();
@@ -2161,8 +2211,6 @@ public sealed class BrokerToolServiceTests
 
         public MemoryReadRequest? LastMemoryReadRequest { get; private set; }
 
-        public PlannedToolRequest? LastPlannedToolRequest { get; private set; }
-
         public bool DocumentListCalled { get; private set; }
 
         public EditorFindRequest? LastEditorFindRequest { get; private set; }
@@ -2176,18 +2224,6 @@ public sealed class BrokerToolServiceTests
         public ProjectReferenceRequest? LastProjectRemoveReferenceRequest { get; private set; }
 
         public NugetListRequest? LastNugetListRequest { get; private set; }
-
-        public Task<UnsupportedToolResult> PlannedToolAsync(
-            PlannedToolRequest request,
-            CancellationToken cancellationToken)
-        {
-            LastPlannedToolRequest = request;
-            return Task.FromResult(new UnsupportedToolResult(
-                request.ToolName,
-                request.Category,
-                $"Tool '{request.ToolName}' reached fake VSIX.",
-                request.ImplementationHint));
-        }
 
         public Task<DocumentListResult> DocumentListAsync(CancellationToken cancellationToken)
         {
@@ -2898,6 +2934,14 @@ public sealed class BrokerToolServiceTests
             return Task.FromResult(new DebuggedProcessListResult(processes));
         }
 
+        public Task<DebugSetVariableResult> DebugSetVariableAsync(DebugSetVariableRequest request, CancellationToken cancellationToken)
+        {
+            var evaluation = new EvaluateExpressionResult(
+                new DebuggerStateInfo("Break"),
+                new DebugExpressionInfo(request.Name, request.Value, "string", true));
+            return Task.FromResult(new DebugSetVariableResult(true, null, evaluation));
+        }
+
         public Task<LocalProcessListResult> ProcessListLocalAsync(CancellationToken cancellationToken)
         {
             IReadOnlyCollection<LocalProcessInfo> processes = [new(1234, "NetVsMcp.Broker.exe", "Default", "alex", true)];
@@ -2915,6 +2959,9 @@ public sealed class BrokerToolServiceTests
             LastProcessDetachRequest = request;
             return Task.FromResult(new ProcessDetachResult(true, null, new DebuggedProcessInfo(request.ProcessId ?? 1234, request.ProcessName ?? "NetVsMcp.Broker.exe", "Default", "alex"), new DebuggerStateInfo("Break")));
         }
+
+        public Task<ProcessTerminateResult> ProcessTerminateAsync(ProcessTerminateRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(new ProcessTerminateResult(true, null, new DebuggedProcessInfo(request.ProcessId ?? 1234, request.ProcessName ?? "NetVsMcp.Broker.exe", "Default", "alex"), new DebuggerStateInfo("Break")));
 
         public Task<WatchOperationResult> WatchAddAsync(WatchAddRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(new WatchOperationResult(true, true, "Added.", new DebugExpressionInfo(request.Expression, "1", "int", true)));
@@ -2936,6 +2983,15 @@ public sealed class BrokerToolServiceTests
 
         public Task<ThreadSwitchResult> ThreadSwitchAsync(ThreadSwitchRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(new ThreadSwitchResult(true, true, null, new DebugThreadInfo(request.ThreadId, "Main Thread", true)));
+
+        public Task<ThreadSetFrozenResult> ThreadSetFrozenAsync(ThreadSetFrozenRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(new ThreadSetFrozenResult(true, true, null, new DebugThreadInfo(request.ThreadId, "Main Thread", true), request.Frozen));
+
+        public Task<ThreadCallStackResult> ThreadGetCallstackAsync(ThreadCallStackRequest request, CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<CallStackFrameInfo> frames = [new("Program.Main", "Program.cs", 42, 1)];
+            return Task.FromResult(new ThreadCallStackResult(true, null, new DebugThreadInfo(request.ThreadId, "Main Thread", true), frames));
+        }
 
         public Task<ModuleListResult> ModuleListAsync(CancellationToken cancellationToken)
         {
@@ -2986,6 +3042,7 @@ public sealed class BrokerToolServiceTests
         }
 
         public Task<AutomationResult> ConsoleReadAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> DiagnosticsBindingErrorsAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
         public Task<AutomationResult> ConsoleSendAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
         public Task<AutomationResult> ConsoleGetInfoAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
         public Task<AutomationResult> UiCaptureWindowAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);

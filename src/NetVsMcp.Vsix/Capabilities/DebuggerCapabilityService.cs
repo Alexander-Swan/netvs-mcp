@@ -27,6 +27,7 @@ internal interface IDebuggerCapabilityService
     Task<CallStackResult> GetCallStackAsync(CancellationToken cancellationToken);
     Task<LocalsResult> GetLocalsAsync(CancellationToken cancellationToken);
     Task<EvaluateExpressionResult> EvaluateAsync(EvaluateExpressionRequest request, CancellationToken cancellationToken);
+    Task<DebugSetVariableResult> SetVariableAsync(DebugSetVariableRequest request, CancellationToken cancellationToken);
     Task<WatchOperationResult> AddWatchAsync(WatchAddRequest request, CancellationToken cancellationToken);
     Task<WatchOperationResult> RemoveWatchAsync(WatchRemoveRequest request, CancellationToken cancellationToken);
     Task<WatchListResult> ListWatchesAsync(CancellationToken cancellationToken);
@@ -35,7 +36,10 @@ internal interface IDebuggerCapabilityService
     Task<LocalProcessListResult> ListLocalProcessesAsync(CancellationToken cancellationToken);
     Task<DebugAttachResult> AttachAsync(DebugAttachRequest request, CancellationToken cancellationToken);
     Task<ProcessDetachResult> DetachAsync(ProcessDetachRequest request, CancellationToken cancellationToken);
+    Task<ProcessTerminateResult> TerminateAsync(ProcessTerminateRequest request, CancellationToken cancellationToken);
     Task<ThreadSwitchResult> SwitchThreadAsync(ThreadSwitchRequest request, CancellationToken cancellationToken);
+    Task<ThreadSetFrozenResult> SetThreadFrozenAsync(ThreadSetFrozenRequest request, CancellationToken cancellationToken);
+    Task<ThreadCallStackResult> GetThreadCallStackAsync(ThreadCallStackRequest request, CancellationToken cancellationToken);
     Task<ModuleListResult> ListModulesAsync(CancellationToken cancellationToken);
     Task<ImmediateExecuteResult> ExecuteImmediateAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken);
     Task<ExceptionSettingsResult> GetExceptionSettingsAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken);
@@ -297,6 +301,29 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         return new EvaluateExpressionResult(GetDebuggerState(debugger), DebugExpressionInfo.FromExpression(expression));
     }
 
+    public async Task<DebugSetVariableResult> SetVariableAsync(DebugSetVariableRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return new DebugSetVariableResult(false, "Variable name is required.", null);
+        }
+
+        var expressionText = $"{request.Name} = {request.Value}";
+        var evaluation = await EvaluateAsync(
+            new EvaluateExpressionRequest
+            {
+                Expression = expressionText,
+                TimeoutMilliseconds = request.TimeoutMilliseconds
+            },
+            cancellationToken);
+        return new DebugSetVariableResult(
+            evaluation.Expression.IsValidValue,
+            evaluation.Expression.IsValidValue ? null : "Debugger rejected the assignment expression.",
+            evaluation);
+    }
+
     public async Task<WatchOperationResult> AddWatchAsync(WatchAddRequest request, CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
@@ -440,6 +467,32 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         return new ProcessDetachResult(true, null, info, GetDebuggerState(debugger));
     }
 
+    public async Task<ProcessTerminateResult> TerminateAsync(ProcessTerminateRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var debugger = await GetDebuggerAsync();
+        var matches = FindProcesses(debugger.DebuggedProcesses, request.ProcessId, request.ProcessName);
+
+        if (matches.Count == 0)
+        {
+            return new ProcessTerminateResult(false, "No matching debugged process was found.", null, GetDebuggerState(debugger));
+        }
+
+        if (matches.Count > 1)
+        {
+            return new ProcessTerminateResult(false, $"Process selector matched {matches.Count} debugged processes; use processId.", null, GetDebuggerState(debugger));
+        }
+
+        var process = matches[0];
+        var info = DebuggedProcessInfo.FromProcess(process);
+        if (!TryInvoke(process, "Terminate", false) && !TryInvoke(process, "Terminate"))
+        {
+            return new ProcessTerminateResult(false, "The active Visual Studio debug engine does not expose process termination through EnvDTE.", info, GetDebuggerState(debugger));
+        }
+
+        return new ProcessTerminateResult(true, null, info, GetDebuggerState(debugger));
+    }
+
     public async Task<ThreadSwitchResult> SwitchThreadAsync(ThreadSwitchRequest request, CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
@@ -464,6 +517,52 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
 
         return new ThreadSwitchResult(true, false, "Thread was not found.", null);
     }
+
+    public async Task<ThreadSetFrozenResult> SetThreadFrozenAsync(ThreadSetFrozenRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var debugger = await GetDebuggerAsync();
+        var thread = FindThread(debugger, request.ThreadId);
+        if (thread is null)
+        {
+            return new ThreadSetFrozenResult(true, false, "Thread was not found.", null, request.Frozen);
+        }
+
+        var method = request.Frozen ? "Freeze" : "Thaw";
+        if (!TryInvoke(thread, method))
+        {
+            return new ThreadSetFrozenResult(false, false, "The active Visual Studio debug engine does not expose thread freeze/thaw through EnvDTE.", DebugThreadInfo.FromThread(thread, debugger.CurrentThread), request.Frozen);
+        }
+
+        return new ThreadSetFrozenResult(true, true, null, DebugThreadInfo.FromThread(thread, debugger.CurrentThread), request.Frozen);
+    }
+
+    public async Task<ThreadCallStackResult> GetThreadCallStackAsync(ThreadCallStackRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var debugger = await GetDebuggerAsync();
+        var thread = FindThread(debugger, request.ThreadId);
+        if (thread is null)
+        {
+            return new ThreadCallStackResult(true, "Thread was not found.", null, Array.Empty<CallStackFrameInfo>());
+        }
+
+        var stackFrames = TryGetThreadStackFrames(thread);
+        if (stackFrames is null)
+        {
+            return new ThreadCallStackResult(false, "The active Visual Studio debug engine did not expose stack frames for this thread.", DebugThreadInfo.FromThread(thread, debugger.CurrentThread), Array.Empty<CallStackFrameInfo>());
+        }
+
+        var frames = new List<CallStackFrameInfo>();
+        foreach (StackFrame frame in stackFrames)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            frames.Add(CallStackFrameInfo.FromStackFrame(frame));
+        }
+
+        return new ThreadCallStackResult(true, null, DebugThreadInfo.FromThread(thread, debugger.CurrentThread), frames);
+    }
+
 
     public async Task<ModuleListResult> ListModulesAsync(CancellationToken cancellationToken)
     {
@@ -679,6 +778,44 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         }
 
         return matches;
+    }
+
+    private static EnvDTE.Thread? FindThread(Debugger debugger, int threadId)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var currentProgram = debugger.CurrentProgram;
+        if (currentProgram?.Threads is not Threads threads)
+        {
+            return null;
+        }
+
+        foreach (EnvDTE.Thread thread in threads)
+        {
+            if (thread.ID == threadId)
+            {
+                return thread;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool TryInvoke(object target, string methodName, params object[] arguments)
+    {
+        try
+        {
+            target.GetType().InvokeMember(
+                methodName,
+                System.Reflection.BindingFlags.InvokeMethod,
+                null,
+                target,
+                arguments);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static StackFrames? TryGetThreadStackFrames(EnvDTE.Thread thread)

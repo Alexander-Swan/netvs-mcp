@@ -137,6 +137,28 @@ internal sealed class ProcessDetachResult
     public DebuggerStateInfo State { get; }
 }
 
+internal sealed class ProcessTerminateRequest
+{
+    public int? ProcessId { get; set; }
+    public string? ProcessName { get; set; }
+}
+
+internal sealed class ProcessTerminateResult
+{
+    public ProcessTerminateResult(bool success, string? message, DebuggedProcessInfo? process, DebuggerStateInfo state)
+    {
+        Success = success;
+        Message = message;
+        Process = process;
+        State = state;
+    }
+
+    public bool Success { get; }
+    public string? Message { get; }
+    public DebuggedProcessInfo? Process { get; }
+    public DebuggerStateInfo State { get; }
+}
+
 internal sealed class BreakpointSetRequest
 {
     public string DocumentPath { get; set; } = string.Empty;
@@ -567,6 +589,33 @@ internal sealed class ThreadSwitchRequest
     public int ThreadId { get; set; }
 }
 
+internal sealed class DebugSetVariableRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
+    public int TimeoutMilliseconds { get; set; } = 5000;
+}
+
+internal sealed class DebugSetVariableResult
+{
+    public DebugSetVariableResult(bool success, string? message, EvaluateExpressionResult? evaluation)
+    {
+        Success = success;
+        Message = message;
+        Evaluation = evaluation;
+    }
+
+    public bool Success { get; }
+    public string? Message { get; }
+    public EvaluateExpressionResult? Evaluation { get; }
+}
+
+internal sealed class ThreadSetFrozenRequest
+{
+    public int ThreadId { get; set; }
+    public bool Frozen { get; set; }
+}
+
 internal sealed class ThreadSwitchResult
 {
     public ThreadSwitchResult(bool supported, bool success, string? message, DebugThreadInfo? thread)
@@ -581,6 +630,45 @@ internal sealed class ThreadSwitchResult
     public bool Success { get; }
     public string? Message { get; }
     public DebugThreadInfo? Thread { get; }
+}
+
+internal sealed class ThreadSetFrozenResult
+{
+    public ThreadSetFrozenResult(bool supported, bool success, string? message, DebugThreadInfo? thread, bool frozen)
+    {
+        Supported = supported;
+        Success = success;
+        Message = message;
+        Thread = thread;
+        Frozen = frozen;
+    }
+
+    public bool Supported { get; }
+    public bool Success { get; }
+    public string? Message { get; }
+    public DebugThreadInfo? Thread { get; }
+    public bool Frozen { get; }
+}
+
+internal sealed class ThreadCallStackRequest
+{
+    public int ThreadId { get; set; }
+}
+
+internal sealed class ThreadCallStackResult
+{
+    public ThreadCallStackResult(bool supported, string? message, DebugThreadInfo? thread, IReadOnlyCollection<CallStackFrameInfo> frames)
+    {
+        Supported = supported;
+        Message = message;
+        Thread = thread;
+        Frames = frames;
+    }
+
+    public bool Supported { get; }
+    public string? Message { get; }
+    public DebugThreadInfo? Thread { get; }
+    public IReadOnlyCollection<CallStackFrameInfo> Frames { get; }
 }
 
 internal sealed class DebugModuleInfo

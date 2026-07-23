@@ -296,31 +296,6 @@ internal sealed class ToolResponseWire<T>
     public static ToolResponseWire<T> Fail(string message) => new(false, default, message);
 }
 
-internal sealed class PlannedToolRequest
-{
-    public string ToolName { get; set; } = string.Empty;
-
-    public string Category { get; set; } = string.Empty;
-
-    public string? ImplementationHint { get; set; }
-}
-
-internal sealed class UnsupportedToolResult
-{
-    public UnsupportedToolResult(string toolName, string category, string message, string? nextImplementationHint)
-    {
-        ToolName = toolName;
-        Category = category;
-        Message = message;
-        NextImplementationHint = nextImplementationHint;
-    }
-
-    public string ToolName { get; }
-    public string Category { get; }
-    public string Message { get; }
-    public string? NextImplementationHint { get; }
-}
-
 internal static class VsContractWire
 {
     public static DebuggerModeWire ToDebuggerMode(string? debuggerMode)

@@ -57,25 +57,6 @@ internal sealed class VisualStudioCapabilityRpcTarget
         }
     }
 
-    public Task<UnsupportedToolResult> PlannedToolAsync(
-        PlannedToolRequest request,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var toolName = string.IsNullOrWhiteSpace(request.ToolName)
-            ? "unknown"
-            : request.ToolName.Trim();
-        var category = string.IsNullOrWhiteSpace(request.Category)
-            ? "Visual Studio"
-            : request.Category.Trim();
-        return Task.FromResult(new UnsupportedToolResult(
-            toolName,
-            category,
-            $"Tool '{toolName}' reached the Visual Studio extension, but the VSIX implementation is still pending.",
-            request.ImplementationHint));
-    }
-
     public async Task<ToolResponseWire<IReadOnlyCollection<string>>> ListDocumentSymbolsAsync(
         string documentPath,
         CancellationToken cancellationToken)
@@ -273,6 +254,9 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<EvaluateExpressionResult> DebugEvaluateAsync(EvaluateExpressionRequest request, CancellationToken cancellationToken) =>
         debugger.DebugEvaluateAsync(request, cancellationToken);
 
+    public Task<DebugSetVariableResult> DebugSetVariableAsync(DebugSetVariableRequest request, CancellationToken cancellationToken) =>
+        debugger.DebugSetVariableAsync(request, cancellationToken);
+
     public Task<WatchOperationResult> WatchAddAsync(WatchAddRequest request, CancellationToken cancellationToken) =>
         debugger.WatchAddAsync(request, cancellationToken);
 
@@ -297,8 +281,17 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<ProcessDetachResult> ProcessDetachAsync(ProcessDetachRequest request, CancellationToken cancellationToken) =>
         debugger.ProcessDetachAsync(request, cancellationToken);
 
+    public Task<ProcessTerminateResult> ProcessTerminateAsync(ProcessTerminateRequest request, CancellationToken cancellationToken) =>
+        debugger.ProcessTerminateAsync(request, cancellationToken);
+
     public Task<ThreadSwitchResult> ThreadSwitchAsync(ThreadSwitchRequest request, CancellationToken cancellationToken) =>
         debugger.ThreadSwitchAsync(request, cancellationToken);
+
+    public Task<ThreadSetFrozenResult> ThreadSetFrozenAsync(ThreadSetFrozenRequest request, CancellationToken cancellationToken) =>
+        debugger.ThreadSetFrozenAsync(request, cancellationToken);
+
+    public Task<ThreadCallStackResult> ThreadGetCallstackAsync(ThreadCallStackRequest request, CancellationToken cancellationToken) =>
+        debugger.ThreadGetCallstackAsync(request, cancellationToken);
 
     public Task<ModuleListResult> ModuleListAsync(CancellationToken cancellationToken) =>
         debugger.ModuleListAsync(cancellationToken);
@@ -332,6 +325,9 @@ internal sealed class VisualStudioCapabilityRpcTarget
 
     public Task<AutomationResult> ConsoleReadAsync(AutomationRequest request, CancellationToken cancellationToken) =>
         UnsupportedAutomationAsync(request, "Debuggee console output capture requires an explicit console transport; Visual Studio DTE does not expose debuggee stdin/stdout streams.");
+
+    public Task<AutomationResult> DiagnosticsBindingErrorsAsync(AutomationRequest request, CancellationToken cancellationToken) =>
+        UnsupportedAutomationAsync(request, "Binding diagnostics require a WPF/XAML diagnostics backend; Visual Studio DTE does not expose binding failure events.");
 
     public Task<AutomationResult> ConsoleSendAsync(AutomationRequest request, CancellationToken cancellationToken) =>
         UnsupportedAutomationAsync(request, "Debuggee console input requires an explicit console transport; Visual Studio DTE does not expose debuggee stdin/stdout streams.");

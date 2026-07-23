@@ -92,6 +92,11 @@ internal sealed class DebuggerRpcTarget
         return debugger.EvaluateAsync(request, cancellationToken);
     }
 
+    public Task<DebugSetVariableResult> DebugSetVariableAsync(DebugSetVariableRequest request, CancellationToken cancellationToken)
+    {
+        return debugger.SetVariableAsync(request, cancellationToken);
+    }
+
     public Task<WatchOperationResult> WatchAddAsync(WatchAddRequest request, CancellationToken cancellationToken)
     {
         return debugger.AddWatchAsync(request, cancellationToken);
@@ -132,9 +137,24 @@ internal sealed class DebuggerRpcTarget
         return debugger.DetachAsync(request, cancellationToken);
     }
 
+    public Task<ProcessTerminateResult> ProcessTerminateAsync(ProcessTerminateRequest request, CancellationToken cancellationToken)
+    {
+        return debugger.TerminateAsync(request, cancellationToken);
+    }
+
     public Task<ThreadSwitchResult> ThreadSwitchAsync(ThreadSwitchRequest request, CancellationToken cancellationToken)
     {
         return debugger.SwitchThreadAsync(request, cancellationToken);
+    }
+
+    public Task<ThreadSetFrozenResult> ThreadSetFrozenAsync(ThreadSetFrozenRequest request, CancellationToken cancellationToken)
+    {
+        return debugger.SetThreadFrozenAsync(request, cancellationToken);
+    }
+
+    public Task<ThreadCallStackResult> ThreadGetCallstackAsync(ThreadCallStackRequest request, CancellationToken cancellationToken)
+    {
+        return debugger.GetThreadCallStackAsync(request, cancellationToken);
     }
 
     public Task<ModuleListResult> ModuleListAsync(CancellationToken cancellationToken)
