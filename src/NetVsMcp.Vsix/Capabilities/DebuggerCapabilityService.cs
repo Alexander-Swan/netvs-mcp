@@ -62,6 +62,7 @@ internal enum DebugStepKind
 internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
 {
     private readonly AsyncPackage package;
+    private readonly List<string> watchExpressions = new();
 
     public DebuggerCapabilityService(AsyncPackage package)
     {
@@ -334,11 +335,16 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
             return new WatchOperationResult(true, false, "Watch expression is required.", null);
         }
 
-        return new WatchOperationResult(
-            false,
-            false,
-            "Watch expressions are not exposed through this VSIX skeleton yet.",
-            null);
+        var expressionText = request.Expression.Trim();
+        if (!watchExpressions.Contains(expressionText, StringComparer.OrdinalIgnoreCase))
+        {
+            watchExpressions.Add(expressionText);
+        }
+
+        var evaluation = await EvaluateAsync(
+            new EvaluateExpressionRequest { Expression = expressionText },
+            cancellationToken);
+        return new WatchOperationResult(true, true, null, evaluation.Expression);
     }
 
     public async Task<WatchOperationResult> RemoveWatchAsync(WatchRemoveRequest request, CancellationToken cancellationToken)
@@ -351,20 +357,38 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
             return new WatchOperationResult(true, false, "Watch expression is required.", null);
         }
 
+        var expressionText = request.Expression.Trim();
+        var existingExpression = watchExpressions.FirstOrDefault(expression =>
+            string.Equals(expression, expressionText, StringComparison.OrdinalIgnoreCase));
+        var removed = existingExpression is not null && watchExpressions.Remove(existingExpression);
         return new WatchOperationResult(
-            false,
-            false,
-            "Watch expressions are not exposed through this VSIX skeleton yet.",
-            null);
+            true,
+            removed,
+            removed ? null : "Watch expression was not found.",
+            new DebugExpressionInfo(expressionText, null, null, false));
     }
 
     public async Task<WatchListResult> ListWatchesAsync(CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-        return new WatchListResult(
-            false,
-            "Watch expressions are not exposed through this VSIX skeleton yet.",
-            Array.Empty<DebugExpressionInfo>());
+        var watches = new List<DebugExpressionInfo>();
+        foreach (var expressionText in watchExpressions.ToArray())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var evaluation = await EvaluateAsync(
+                    new EvaluateExpressionRequest { Expression = expressionText },
+                    cancellationToken);
+                watches.Add(evaluation.Expression);
+            }
+            catch (Exception ex)
+            {
+                watches.Add(new DebugExpressionInfo(expressionText, ex.Message, null, false));
+            }
+        }
+
+        return new WatchListResult(true, null, watches);
     }
 
     public async Task<DebugThreadListResult> GetThreadsAsync(CancellationToken cancellationToken)
