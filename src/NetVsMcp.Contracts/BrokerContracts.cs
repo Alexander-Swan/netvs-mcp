@@ -827,6 +827,21 @@ public sealed record ToolResponse<T>(
     public static ToolResponse<T> Fail(string message) => new(false, default, message);
 }
 
+public sealed record UnsupportedToolResult(
+    string ToolName,
+    string Category,
+    string Message,
+    string? NextImplementationHint = null);
+
+public sealed class PlannedToolRequest
+{
+    public string ToolName { get; set; } = string.Empty;
+
+    public string Category { get; set; } = string.Empty;
+
+    public string? ImplementationHint { get; set; }
+}
+
 public interface IBrokerRegistrationRpc
 {
     Task<ToolResponse> RegisterAsync(VsSessionRegistration registration, CancellationToken cancellationToken);
@@ -841,6 +856,10 @@ public interface IBrokerRegistrationRpc
 public interface IVisualStudioSessionRpc
 {
     Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken);
+
+    Task<UnsupportedToolResult> PlannedToolAsync(
+        PlannedToolRequest request,
+        CancellationToken cancellationToken);
 
     Task<ExecuteCommandResult> ExecuteCommandAsync(
         ExecuteCommandRequest request,

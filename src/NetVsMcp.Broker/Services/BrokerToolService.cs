@@ -9,7 +9,7 @@ using System.Xml.Linq;
 namespace NetVsMcp.Broker.Services;
 
 [McpServerToolType]
-public sealed class BrokerToolService
+public sealed partial class BrokerToolService
 {
     private static readonly BrokerToolDescriptor[] ToolDescriptors =
     [
@@ -92,11 +92,91 @@ public sealed class BrokerToolService
         new("project_list", "Lists projects from a routed Visual Studio session.", true),
         new("project_info", "Returns project metadata from a routed Visual Studio session.", true),
         new("project_add_file", "Adds an existing file to a project in the routed Visual Studio solution.", true),
+        new("project_remove_file", "Planned: removes a file from a project in the routed Visual Studio solution.", true),
+        new("project_add_reference", "Planned: adds a reference to a project in the routed Visual Studio solution.", true),
+        new("project_remove_reference", "Planned: removes a reference from a project in the routed Visual Studio solution.", true),
         new("startup_project_get", "Returns startup project metadata from a routed Visual Studio session.", true),
         new("startup_project_set", "Sets the startup project in a routed Visual Studio session.", true),
         new("test_discover", "Discovers tests through a routed Visual Studio session.", true),
         new("test_run", "Runs tests through a routed Visual Studio session.", true),
-        new("test_results", "Returns test results through a routed Visual Studio session.", true)
+        new("test_results", "Returns test results through a routed Visual Studio session.", true),
+        new("document_list", "Planned: lists open documents in a routed Visual Studio session.", true),
+        new("document_close", "Planned: closes a document in a routed Visual Studio session.", true),
+        new("editor_find", "Planned: finds text in an editor document.", true),
+        new("find_in_files", "Planned: searches files through Visual Studio find-in-files.", true),
+        new("code_go_to_implementation", "Planned: navigates to implementation for a code position.", true),
+        new("code_workspace_symbols", "Planned: searches workspace symbols.", true),
+        new("build_project", "Planned: builds a project in the routed Visual Studio session.", true),
+        new("build_cancel", "Planned: cancels an active build.", true),
+        new("clean_solution", "Planned: cleans the routed Visual Studio solution.", true),
+        new("rebuild_solution", "Planned: rebuilds the routed Visual Studio solution.", true),
+        new("build_configuration_get", "Planned: returns solution build configuration.", true),
+        new("build_configuration_set", "Planned: sets solution build configuration.", true),
+        new("output_list_panes", "Planned: lists Visual Studio output panes.", true),
+        new("output_write", "Planned: writes to a Visual Studio output pane.", true),
+        new("output_clear", "Planned: clears a Visual Studio output pane.", true),
+        new("diagnostics_binding_errors", "Planned: returns binding diagnostics.", true),
+        new("debug_start_without_debugging", "Planned: starts without debugging.", true),
+        new("debug_restart", "Planned: restarts debugging.", true),
+        new("debug_attach", "Planned: attaches the debugger to a process.", true),
+        new("debug_get_threads", "Planned: lists debugger threads.", true),
+        new("debug_set_variable", "Planned: sets a debugger variable.", true),
+        new("watch_add", "Planned: adds a debugger watch expression.", true),
+        new("watch_remove", "Planned: removes a debugger watch expression.", true),
+        new("watch_list", "Planned: lists debugger watch expressions.", true),
+        new("thread_switch", "Planned: switches debugger thread.", true),
+        new("thread_set_frozen", "Planned: freezes or thaws a debugger thread.", true),
+        new("thread_get_callstack", "Planned: returns call stack for a debugger thread.", true),
+        new("process_list_debugged", "Planned: lists debugged processes.", true),
+        new("process_list_local", "Planned: lists local processes for attach workflows.", true),
+        new("process_detach", "Planned: detaches from a debugged process.", true),
+        new("process_terminate", "Planned: terminates a process.", true),
+        new("immediate_execute", "Planned: executes text in the immediate window.", true),
+        new("module_list", "Planned: lists debugger modules.", true),
+        new("exception_settings_get", "Planned: returns debugger exception settings.", true),
+        new("exception_settings_set", "Planned: sets debugger exception settings.", true),
+        new("memory_read", "Planned: reads debugger memory.", true),
+        new("register_list", "Planned: lists debugger registers.", true),
+        new("register_get", "Planned: returns one debugger register.", true),
+        new("parallel_stacks", "Planned: returns parallel stacks data.", true),
+        new("parallel_watch", "Planned: returns parallel watch data.", true),
+        new("parallel_tasks_list", "Planned: lists parallel tasks.", true),
+        new("console_read", "Planned: reads debuggee console output.", true),
+        new("console_send", "Planned: sends debuggee console input.", true),
+        new("console_get_info", "Planned: returns debuggee console metadata.", true),
+        new("ui_capture_window", "Planned: captures a debuggee window.", true),
+        new("ui_capture_region", "Planned: captures a debuggee screen region.", true),
+        new("ui_snapshot", "Planned: returns UI automation snapshot data.", true),
+        new("ui_get_tree", "Planned: returns debuggee UI automation tree.", true),
+        new("ui_find_elements", "Planned: finds UI automation elements.", true),
+        new("ui_get_element", "Planned: returns one UI automation element.", true),
+        new("ui_click", "Planned: clicks a UI automation element.", true),
+        new("ui_double_click", "Planned: double-clicks a UI automation element.", true),
+        new("ui_right_click", "Planned: right-clicks a UI automation element.", true),
+        new("ui_drag", "Planned: drags a UI automation element.", true),
+        new("ui_set_value", "Planned: sets a UI automation value.", true),
+        new("ui_invoke", "Planned: invokes a UI automation element.", true),
+        new("ui_send_keys", "Planned: sends keys to the debuggee UI.", true),
+        new("ui_wait_for_element", "Planned: waits for a UI automation element.", true),
+        new("ui_wait_idle", "Planned: waits for debuggee UI idle.", true),
+        new("web_connect", "Planned: connects browser debugging.", true),
+        new("web_disconnect", "Planned: disconnects browser debugging.", true),
+        new("web_status", "Planned: returns browser debugging status.", true),
+        new("web_navigate", "Planned: navigates a connected browser.", true),
+        new("web_screenshot", "Planned: captures a browser screenshot.", true),
+        new("web_dom_get", "Planned: returns browser DOM data.", true),
+        new("web_dom_query", "Planned: queries browser DOM elements.", true),
+        new("web_console", "Planned: returns browser console entries.", true),
+        new("web_js_execute", "Planned: executes JavaScript in a connected browser.", true),
+        new("web_network", "Planned: returns browser network events.", true),
+        new("web_element_click", "Planned: clicks a browser element.", true),
+        new("web_element_set_value", "Planned: sets a browser element value.", true),
+        new("nuget_list", "Planned: lists NuGet packages.", true),
+        new("nuget_search", "Planned: searches NuGet packages.", true),
+        new("nuget_install", "Planned: installs a NuGet package.", true),
+        new("nuget_update", "Planned: updates a NuGet package.", true),
+        new("nuget_uninstall", "Planned: uninstalls a NuGet package.", true),
+        new("vs_get_logs", "Planned: returns broker log information.", false)
     ];
 
     private static readonly VsCapability[] VisualStudioCapabilities =
@@ -3034,9 +3114,76 @@ public sealed class BrokerToolService
             return BrokerToolCategory.Broker;
         }
 
+        if (toolName.StartsWith("ui_", StringComparison.Ordinal) ||
+            toolName.StartsWith("web_", StringComparison.Ordinal))
+        {
+            return BrokerToolCategory.Admin;
+        }
+
+        if (toolName.StartsWith("console_", StringComparison.Ordinal) ||
+            toolName.StartsWith("watch_", StringComparison.Ordinal) ||
+            toolName.StartsWith("thread_", StringComparison.Ordinal) ||
+            toolName.StartsWith("parallel_", StringComparison.Ordinal) ||
+            toolName.StartsWith("register_", StringComparison.Ordinal) ||
+            toolName is "debug_attach" or
+                "debug_get_threads" or
+                "debug_restart" or
+                "debug_set_variable" or
+                "debug_start_without_debugging" or
+                "exception_settings_get" or
+                "exception_settings_set" or
+                "immediate_execute" or
+                "memory_read" or
+                "module_list" or
+                "process_detach" or
+                "process_list_debugged" or
+                "process_list_local" or
+                "process_terminate")
+        {
+            return toolName is "process_terminate" or "immediate_execute"
+                ? BrokerToolCategory.Admin
+                : BrokerToolCategory.Debug;
+        }
+
+        if (toolName is "build_cancel" or
+            "build_configuration_set" or
+            "build_project" or
+            "clean_solution" or
+            "rebuild_solution")
+        {
+            return BrokerToolCategory.Build;
+        }
+
+        if (toolName is "project_remove_file" or
+            "project_add_reference" or
+            "project_remove_reference" or
+            "nuget_install" or
+            "nuget_update" or
+            "nuget_uninstall" or
+            "output_write" or
+            "output_clear")
+        {
+            return BrokerToolCategory.Admin;
+        }
+
+        if (toolName is "document_close")
+        {
+            return BrokerToolCategory.EditDirect;
+        }
+
         return toolName switch
         {
             "document_active" or
+            "document_list" or
+            "editor_find" or
+            "find_in_files" or
+            "code_go_to_implementation" or
+            "code_workspace_symbols" or
+            "diagnostics_binding_errors" or
+            "build_configuration_get" or
+            "output_list_panes" or
+            "nuget_list" or
+            "nuget_search" or
             "get_status" or
             "get_help" or
             "window_list" or

@@ -57,6 +57,25 @@ internal sealed class VisualStudioCapabilityRpcTarget
         }
     }
 
+    public Task<UnsupportedToolResult> PlannedToolAsync(
+        PlannedToolRequest request,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var toolName = string.IsNullOrWhiteSpace(request.ToolName)
+            ? "unknown"
+            : request.ToolName.Trim();
+        var category = string.IsNullOrWhiteSpace(request.Category)
+            ? "Visual Studio"
+            : request.Category.Trim();
+        return Task.FromResult(new UnsupportedToolResult(
+            toolName,
+            category,
+            $"Tool '{toolName}' reached the Visual Studio extension, but the VSIX implementation is still pending.",
+            request.ImplementationHint));
+    }
+
     public async Task<ToolResponseWire<IReadOnlyCollection<string>>> ListDocumentSymbolsAsync(
         string documentPath,
         CancellationToken cancellationToken)

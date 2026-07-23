@@ -220,6 +220,11 @@ public sealed class BrokerRegistrationRpcServiceTests
 
     private sealed class FakeVisualStudioSessionRpc : IVisualStudioSessionRpc
     {
+        public Task<UnsupportedToolResult> PlannedToolAsync(PlannedToolRequest request, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
         public Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken)
         {
             throw new NotSupportedException();

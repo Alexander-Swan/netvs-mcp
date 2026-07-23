@@ -106,6 +106,23 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task PlannedCoverageTool_RoutesThroughVsixSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DocumentList(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.NotNull(session.LastPlannedToolRequest);
+        Assert.Equal("document_list", session.LastPlannedToolRequest.ToolName);
+        Assert.Equal("Documents", session.LastPlannedToolRequest.Category);
+        Assert.Contains("reached fake VSIX", response.Value!.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GetHelp_FiltersBySessionRequirement()
     {
         var runtime = CreateRuntime();
@@ -1917,6 +1934,20 @@ public sealed class BrokerToolServiceTests
         public BreakpointEnableRequest? LastBreakpointEnableRequest { get; private set; }
 
         public EvaluateExpressionRequest? LastEvaluateExpressionRequest { get; private set; }
+
+        public PlannedToolRequest? LastPlannedToolRequest { get; private set; }
+
+        public Task<UnsupportedToolResult> PlannedToolAsync(
+            PlannedToolRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastPlannedToolRequest = request;
+            return Task.FromResult(new UnsupportedToolResult(
+                request.ToolName,
+                request.Category,
+                $"Tool '{request.ToolName}' reached fake VSIX.",
+                request.ImplementationHint));
+        }
 
         public Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken)
         {

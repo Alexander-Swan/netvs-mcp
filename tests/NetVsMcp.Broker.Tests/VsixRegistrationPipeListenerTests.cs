@@ -91,6 +91,11 @@ public sealed class VsixRegistrationPipeListenerTests
             _activeDocument = activeDocument;
         }
 
+        public Task<UnsupportedToolResult> PlannedToolAsync(PlannedToolRequest request, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
         public Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
