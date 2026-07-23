@@ -6,8 +6,10 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.WebSockets;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -65,7 +67,9 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
 
     private readonly AsyncPackage package;
     private readonly Dictionary<string, ElementRef> elements = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object consoleLock = new();
     private int nextElementId;
+    private CdpClient? cdp;
     private string? connectedWebTarget;
     private string? connectedWebUrl;
 
@@ -78,8 +82,15 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var dte = await GetDteAsync();
+        var processId = ResolveConsoleProcessId(dte, request);
+        string? consoleMessage = null;
+        if (processId is not null && TryReadConsoleBuffer(processId.Value, out var consoleText, out consoleMessage))
+        {
+            return Success(request, consoleText, ("backend", "windows-console"), ("source", "debuggee-console"), ("processId", processId.Value.ToString()));
+        }
+
         var text = ReadOutputPane(dte, request.Target, ["Debug", "Tests", "Build"]);
-        return Success(request, text, ("backend", "visual-studio-output"), ("source", "output-window"));
+        return Success(request, text, ("backend", "visual-studio-output"), ("source", "output-window"), ("consoleMessage", consoleMessage ?? string.Empty));
     }
 
     public async Task<AutomationResult> DiagnosticsBindingErrorsAsync(AutomationRequest request, CancellationToken cancellationToken)
@@ -97,10 +108,19 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
 
     public async Task<AutomationResult> ConsoleSendAsync(AutomationRequest request, CancellationToken cancellationToken)
     {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var dte = await GetDteAsync();
+        var processId = ResolveConsoleProcessId(dte, request);
+        string? consoleMessage = null;
+        if (processId is not null && TryWriteConsoleInput(processId.Value, request.Text ?? string.Empty, out consoleMessage))
+        {
+            return Success(request, null, ("backend", "windows-console"), ("processId", processId.Value.ToString()));
+        }
+
         var target = await ResolveTargetWindowAsync(request, cancellationToken);
         if (target is null)
         {
-            return Failure(request, "No target window was found for console input.", ("backend", "sendkeys"));
+            return Failure(request, "No target window was found for console input.", ("backend", "sendkeys"), ("consoleMessage", consoleMessage ?? string.Empty));
         }
 
         if (!TrySetForegroundWindow(target.Value.WindowHandle))
@@ -109,7 +129,7 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
         }
 
         SendKeys.SendWait(request.Text ?? string.Empty);
-        return Success(request, null, ("backend", "sendkeys"), ("windowHandle", target.Value.WindowHandle.ToString()));
+        return Success(request, null, ("backend", "sendkeys"), ("windowHandle", target.Value.WindowHandle.ToString()), ("consoleMessage", consoleMessage ?? string.Empty));
     }
 
     public async Task<AutomationResult> ConsoleGetInfoAsync(AutomationRequest request, CancellationToken cancellationToken)
@@ -295,9 +315,28 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
         return Success(request, null, ("backend", "process-input-idle"), ("windowCount", windows.Count.ToString()));
     }
 
-    public Task<AutomationResult> WebConnectAsync(AutomationRequest request, CancellationToken cancellationToken)
+    public async Task<AutomationResult> WebConnectAsync(AutomationRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        DisposeCdp();
+        var endpoint = ResolveCdpEndpoint(request.Target);
+        if (endpoint is not null)
+        {
+            try
+            {
+                cdp = await CdpClient.ConnectAsync(endpoint, request.Url, cancellationToken);
+                connectedWebTarget = endpoint.ToString();
+                connectedWebUrl = cdp.TargetUrl;
+                return Success(request, null, ("backend", "cdp"), ("endpoint", endpoint.ToString()), ("url", connectedWebUrl ?? string.Empty));
+            }
+            catch (Exception ex) when (ex is WebException or WebSocketException or JsonException or InvalidOperationException)
+            {
+                connectedWebTarget = request.Target;
+                connectedWebUrl = request.Url ?? connectedWebUrl;
+                return Success(request, null, ("backend", "browser-shell-uia"), ("cdpMessage", ex.Message), ("url", connectedWebUrl ?? string.Empty));
+            }
+        }
+
         connectedWebTarget = request.Target;
         connectedWebUrl = request.Url ?? connectedWebUrl;
         if (!string.IsNullOrWhiteSpace(request.Url))
@@ -305,92 +344,216 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
             DiagnosticsProcess.Start(request.Url);
         }
 
-        return Task.FromResult(Success(request, null, ("backend", "browser-shell-uia"), ("url", connectedWebUrl ?? string.Empty)));
+        return Success(request, null, ("backend", "browser-shell-uia"), ("url", connectedWebUrl ?? string.Empty));
     }
 
     public Task<AutomationResult> WebDisconnectAsync(AutomationRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        DisposeCdp();
         connectedWebTarget = null;
         connectedWebUrl = null;
-        return Task.FromResult(Success(request, null, ("backend", "browser-shell-uia")));
+        return Task.FromResult(Success(request, null, ("backend", "cdp")));
     }
 
     public Task<AutomationResult> WebStatusAsync(AutomationRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var text = $"connected={connectedWebTarget is not null || connectedWebUrl is not null}; target={connectedWebTarget}; url={connectedWebUrl}";
-        return Task.FromResult(Success(request, text, ("backend", "browser-shell-uia")));
+        var cdpClient = cdp;
+        var text = cdpClient is not null
+            ? $"connected=true; backend=cdp; target={connectedWebTarget}; url={connectedWebUrl}; websocket={cdpClient.WebSocketUri}"
+            : $"connected={connectedWebTarget is not null || connectedWebUrl is not null}; backend=browser-shell-uia; target={connectedWebTarget}; url={connectedWebUrl}";
+        return Task.FromResult(Success(request, text, ("backend", cdpClient is null ? "browser-shell-uia" : "cdp")));
     }
 
-    public Task<AutomationResult> WebNavigateAsync(AutomationRequest request, CancellationToken cancellationToken)
+    public async Task<AutomationResult> WebNavigateAsync(AutomationRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(request.Url))
         {
-            return Task.FromResult(Failure(request, "URL is required for browser navigation.", ("backend", "browser-shell")));
+            return Failure(request, "URL is required for browser navigation.", ("backend", "browser-shell"));
         }
 
         connectedWebUrl = request.Url;
+        if (cdp is not null)
+        {
+            await cdp.NavigateAsync(request.Url!, cancellationToken);
+            return Success(request, null, ("backend", "cdp"), ("url", request.Url ?? string.Empty));
+        }
+
         DiagnosticsProcess.Start(request.Url);
-        return Task.FromResult(Success(request, null, ("backend", "browser-shell"), ("url", request.Url ?? string.Empty)));
+        return Success(request, null, ("backend", "browser-shell"), ("url", request.Url ?? string.Empty));
     }
 
-    public Task<AutomationResult> WebScreenshotAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UiCaptureWindowAsync(WithWebTarget(request), cancellationToken);
+    public async Task<AutomationResult> WebScreenshotAsync(AutomationRequest request, CancellationToken cancellationToken)
+    {
+        if (cdp is not null)
+        {
+            var image = await cdp.CaptureScreenshotAsync(cancellationToken);
+            return Success(request, image, ("backend", "cdp"), ("encoding", "base64"), ("format", "png"));
+        }
 
-    public Task<AutomationResult> WebDomGetAsync(AutomationRequest request, CancellationToken cancellationToken)
+        return await UiCaptureWindowAsync(WithWebTarget(request), cancellationToken);
+    }
+
+    public async Task<AutomationResult> WebDomGetAsync(AutomationRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (cdp is not null)
+        {
+            var liveHtml = await cdp.EvaluateStringAsync("document.documentElement ? document.documentElement.outerHTML : ''", cancellationToken);
+            return Success(request, Truncate(liveHtml), ("backend", "cdp"), ("url", connectedWebUrl ?? string.Empty));
+        }
+
         var url = request.Url ?? connectedWebUrl;
         if (string.IsNullOrWhiteSpace(url))
         {
-            return Task.FromResult(Failure(request, "A URL is required before DOM fetch.", ("backend", "http-fetch")));
+            return Failure(request, "A URL is required before DOM fetch.", ("backend", "http-fetch"));
         }
 
         var resolvedUrl = url ?? string.Empty;
         var html = DownloadText(resolvedUrl);
-        return Task.FromResult(Success(request, Truncate(html), ("backend", "http-fetch"), ("url", resolvedUrl)));
+        return Success(request, Truncate(html), ("backend", "http-fetch"), ("url", resolvedUrl));
     }
 
-    public Task<AutomationResult> WebDomQueryAsync(AutomationRequest request, CancellationToken cancellationToken)
+    public async Task<AutomationResult> WebDomQueryAsync(AutomationRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (cdp is not null)
+        {
+            var selectorJson = JsonSerializer.Serialize(request.Selector ?? string.Empty);
+            var expression = $"Array.from(document.querySelectorAll({selectorJson})).map(e => e.outerHTML).join('\\n')";
+            var result = await cdp.EvaluateStringAsync(expression, cancellationToken);
+            var count = string.IsNullOrEmpty(result) ? 0 : result.Split('\n').Length;
+            return Success(request, Truncate(result), ("backend", "cdp"), ("matchCount", count.ToString()));
+        }
+
         var url = request.Url ?? connectedWebUrl;
         if (string.IsNullOrWhiteSpace(url))
         {
-            return Task.FromResult(Failure(request, "A URL is required before DOM query.", ("backend", "http-fetch")));
+            return Failure(request, "A URL is required before DOM query.", ("backend", "http-fetch"));
         }
 
         var resolvedUrl = url ?? string.Empty;
         var html = DownloadText(resolvedUrl);
         var matches = QueryHtml(html, request.Selector).ToArray();
-        return Task.FromResult(Success(request, string.Join(Environment.NewLine, matches), ("backend", "http-fetch"), ("matchCount", matches.Length.ToString())));
+        return Success(request, string.Join(Environment.NewLine, matches), ("backend", "http-fetch"), ("matchCount", matches.Length.ToString()));
     }
 
-    public Task<AutomationResult> WebConsoleAsync(AutomationRequest request, CancellationToken cancellationToken)
+    public async Task<AutomationResult> WebConsoleAsync(AutomationRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(Success(request, string.Empty, ("backend", "browser-shell-uia"), ("message", "Browser console capture requires CDP; no console entries are available from the shell backend.")));
+        if (cdp is not null)
+        {
+            await cdp.FlushEventsAsync(cancellationToken);
+            var entries = cdp.GetConsoleEntries();
+            return Success(request, string.Join(Environment.NewLine, entries), ("backend", "cdp"), ("entryCount", entries.Count.ToString()));
+        }
+
+        return Success(request, string.Empty, ("backend", "browser-shell-uia"), ("message", "Browser console capture requires CDP; no console entries are available from the shell backend."));
     }
 
-    public Task<AutomationResult> WebJsExecuteAsync(AutomationRequest request, CancellationToken cancellationToken)
+    public async Task<AutomationResult> WebJsExecuteAsync(AutomationRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(Failure(request, "JavaScript execution requires a connected browser debug protocol backend; the current shell/UIA backend cannot execute scripts.", ("backend", "browser-shell-uia")));
+        if (cdp is null)
+        {
+            return Failure(request, "JavaScript execution requires a connected browser debug protocol backend; call web_connect with a CDP endpoint first.", ("backend", "browser-shell-uia"));
+        }
+
+        var result = await cdp.EvaluateAsync(request.Text ?? string.Empty, cancellationToken);
+        return Success(request, result, ("backend", "cdp"));
     }
 
-    public Task<AutomationResult> WebNetworkAsync(AutomationRequest request, CancellationToken cancellationToken)
+    public async Task<AutomationResult> WebNetworkAsync(AutomationRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(Success(request, string.Empty, ("backend", "browser-shell-uia"), ("message", "Network capture requires CDP; no network events are available from the shell backend.")));
+        if (cdp is not null)
+        {
+            await cdp.FlushEventsAsync(cancellationToken);
+            var entries = cdp.GetNetworkEntries();
+            return Success(request, string.Join(Environment.NewLine, entries), ("backend", "cdp"), ("entryCount", entries.Count.ToString()));
+        }
+
+        return Success(request, string.Empty, ("backend", "browser-shell-uia"), ("message", "Network capture requires CDP; no network events are available from the shell backend."));
     }
 
-    public Task<AutomationResult> WebElementClickAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UiClickAsync(WithWebTarget(request), cancellationToken);
+    public async Task<AutomationResult> WebElementClickAsync(AutomationRequest request, CancellationToken cancellationToken)
+    {
+        if (cdp is not null)
+        {
+            var selectorJson = JsonSerializer.Serialize(request.Selector ?? string.Empty);
+            var result = await cdp.EvaluateAsync($"(() => {{ const e = document.querySelector({selectorJson}); if (!e) return false; e.click(); return true; }})()", cancellationToken);
+            return Success(request, result, ("backend", "cdp"));
+        }
 
-    public Task<AutomationResult> WebElementSetValueAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UiSetValueAsync(WithWebTarget(request), cancellationToken);
+        return await UiClickAsync(WithWebTarget(request), cancellationToken);
+    }
+
+    public async Task<AutomationResult> WebElementSetValueAsync(AutomationRequest request, CancellationToken cancellationToken)
+    {
+        if (cdp is not null)
+        {
+            var selectorJson = JsonSerializer.Serialize(request.Selector ?? string.Empty);
+            var valueJson = JsonSerializer.Serialize(request.Text ?? string.Empty);
+            var expression = $"(() => {{ const e = document.querySelector({selectorJson}); if (!e) return false; e.value = {valueJson}; e.dispatchEvent(new Event('input', {{ bubbles: true }})); e.dispatchEvent(new Event('change', {{ bubbles: true }})); return true; }})()";
+            var result = await cdp.EvaluateAsync(expression, cancellationToken);
+            return Success(request, result, ("backend", "cdp"));
+        }
+
+        return await UiSetValueAsync(WithWebTarget(request), cancellationToken);
+    }
+
+    private static Uri? ResolveCdpEndpoint(string? target)
+    {
+        if (string.IsNullOrWhiteSpace(target))
+        {
+            return null;
+        }
+
+        var value = target!.Trim();
+        if (int.TryParse(value, out var port) && port > 0)
+        {
+            return new Uri($"http://127.0.0.1:{port}");
+        }
+
+        if (Uri.TryCreate(value, UriKind.Absolute, out var absolute) &&
+            (absolute.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+             absolute.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
+        {
+            return absolute!;
+        }
+
+        return value.Contains(":")
+            ? new Uri($"http://{value}")
+            : null;
+    }
+
+    private void DisposeCdp()
+    {
+        cdp?.Dispose();
+        cdp = null;
+    }
+
+    private static int? ResolveConsoleProcessId(DTE dte, AutomationRequest request)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        if (int.TryParse(request.Target, out var targetProcessId) && targetProcessId > 0)
+        {
+            return targetProcessId;
+        }
+
+        foreach (VsProcess process in dte.Debugger.DebuggedProcesses)
+        {
+            if (string.IsNullOrWhiteSpace(request.Target) ||
+                process.Name.IndexOf(request.Target ?? string.Empty, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return process.ProcessID;
+            }
+        }
+
+        return null;
+    }
 
     private async Task<DTE> GetDteAsync()
     {
@@ -806,6 +969,121 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
         return client.DownloadString(url);
     }
 
+    private bool TryReadConsoleBuffer(int processId, out string text, out string? message)
+    {
+        lock (consoleLock)
+        {
+            text = string.Empty;
+            message = null;
+            FreeConsole();
+            if (!AttachConsole(processId))
+            {
+                message = $"AttachConsole failed: {Marshal.GetLastWin32Error()}";
+                return false;
+            }
+
+            try
+            {
+                var output = GetStdHandle(StdOutputHandle);
+                if (output == IntPtr.Zero || output == InvalidHandleValue)
+                {
+                    message = "The attached process does not expose a console output handle.";
+                    return false;
+                }
+
+                if (!GetConsoleScreenBufferInfo(output, out var info))
+                {
+                    message = $"GetConsoleScreenBufferInfo failed: {Marshal.GetLastWin32Error()}";
+                    return false;
+                }
+
+                var width = Math.Max(1, (int)info.Size.X);
+                var height = Math.Max(1, (int)info.Size.Y);
+                var startY = Math.Max(0, info.CursorPosition.Y - Math.Min(height, 200) + 1);
+                var length = (uint)Math.Min(width * (info.CursorPosition.Y - startY + 1), MaxTextChars);
+                var builder = new StringBuilder((int)length);
+                if (!ReadConsoleOutputCharacter(output, builder, length, new ConsoleCoord(0, (short)startY), out var read))
+                {
+                    message = $"ReadConsoleOutputCharacter failed: {Marshal.GetLastWin32Error()}";
+                    return false;
+                }
+
+                text = FormatConsoleBuffer(builder.ToString(0, (int)read), width);
+                return true;
+            }
+            finally
+            {
+                FreeConsole();
+            }
+        }
+    }
+
+    private bool TryWriteConsoleInput(int processId, string text, out string? message)
+    {
+        lock (consoleLock)
+        {
+            message = null;
+            FreeConsole();
+            if (!AttachConsole(processId))
+            {
+                message = $"AttachConsole failed: {Marshal.GetLastWin32Error()}";
+                return false;
+            }
+
+            try
+            {
+                var input = GetStdHandle(StdInputHandle);
+                if (input == IntPtr.Zero || input == InvalidHandleValue)
+                {
+                    message = "The attached process does not expose a console input handle.";
+                    return false;
+                }
+
+                var records = BuildConsoleInputRecords(text);
+                if (records.Length == 0)
+                {
+                    return true;
+                }
+
+                if (!WriteConsoleInput(input, records, (uint)records.Length, out var written) || written != records.Length)
+                {
+                    message = $"WriteConsoleInput failed: {Marshal.GetLastWin32Error()}";
+                    return false;
+                }
+
+                return true;
+            }
+            finally
+            {
+                FreeConsole();
+            }
+        }
+    }
+
+    private static ConsoleInputRecord[] BuildConsoleInputRecords(string text)
+    {
+        var records = new List<ConsoleInputRecord>(text.Length * 2);
+        foreach (var ch in text)
+        {
+            records.Add(ConsoleInputRecord.Key(ch, keyDown: true));
+            records.Add(ConsoleInputRecord.Key(ch, keyDown: false));
+        }
+
+        return records.ToArray();
+    }
+
+    private static string FormatConsoleBuffer(string raw, int width)
+    {
+        var lines = new List<string>();
+        for (var index = 0; index < raw.Length; index += width)
+        {
+            var length = Math.Min(width, raw.Length - index);
+            lines.Add(raw.Substring(index, length).TrimEnd());
+        }
+
+        return Truncate(string.Join(Environment.NewLine, lines).TrimEnd());
+    }
+
     private static string Truncate(string text) =>
         text.Length <= MaxTextChars ? text : text.Substring(text.Length - MaxTextChars, MaxTextChars);
 
@@ -901,7 +1179,393 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
     [DllImport("user32.dll")]
     private static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extraInfo);
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool AttachConsole(int processId);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool FreeConsole();
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr GetStdHandle(int nStdHandle);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetConsoleScreenBufferInfo(IntPtr consoleOutput, out ConsoleScreenBufferInfo consoleScreenBufferInfo);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool ReadConsoleOutputCharacter(
+        IntPtr consoleOutput,
+        StringBuilder character,
+        uint length,
+        ConsoleCoord readCoordinate,
+        out uint numberOfCharsRead);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool WriteConsoleInput(
+        IntPtr consoleInput,
+        ConsoleInputRecord[] buffer,
+        uint length,
+        out uint numberOfEventsWritten);
+
     private delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
+
+    private const int StdInputHandle = -10;
+    private const int StdOutputHandle = -11;
+    private const short KeyEvent = 0x0001;
+    private static readonly IntPtr InvalidHandleValue = new(-1);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ConsoleCoord
+    {
+        public ConsoleCoord(short x, short y)
+        {
+            X = x;
+            Y = y;
+        }
+
+        public short X;
+        public short Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ConsoleSmallRect
+    {
+        public short Left;
+        public short Top;
+        public short Right;
+        public short Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ConsoleScreenBufferInfo
+    {
+        public ConsoleCoord Size;
+        public ConsoleCoord CursorPosition;
+        public short Attributes;
+        public ConsoleSmallRect Window;
+        public ConsoleCoord MaximumWindowSize;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct ConsoleKeyEventRecord
+    {
+        [MarshalAs(UnmanagedType.Bool)]
+        public bool KeyDown;
+        public ushort RepeatCount;
+        public ushort VirtualKeyCode;
+        public ushort VirtualScanCode;
+        public char UnicodeChar;
+        public uint ControlKeyState;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct ConsoleInputRecord
+    {
+        public short EventType;
+        public ConsoleKeyEventRecord KeyEvent;
+
+        public static ConsoleInputRecord Key(char character, bool keyDown) =>
+            new()
+            {
+                EventType = AutomationCapabilityService.KeyEvent,
+                KeyEvent = new ConsoleKeyEventRecord
+                {
+                    KeyDown = keyDown,
+                    RepeatCount = 1,
+                    UnicodeChar = character
+                }
+            };
+    }
+
+    private sealed class CdpClient : IDisposable
+    {
+        private readonly ClientWebSocket socket;
+        private readonly SemaphoreSlim commandLock = new(1, 1);
+        private readonly List<string> consoleEntries = new();
+        private readonly List<string> networkEntries = new();
+        private int nextId;
+
+        private CdpClient(Uri endpoint, Uri webSocketUri, string? targetUrl, ClientWebSocket socket)
+        {
+            Endpoint = endpoint;
+            WebSocketUri = webSocketUri;
+            TargetUrl = targetUrl;
+            this.socket = socket;
+        }
+
+        public Uri Endpoint { get; }
+        public Uri WebSocketUri { get; }
+        public string? TargetUrl { get; private set; }
+
+        public static async Task<CdpClient> ConnectAsync(Uri endpoint, string? requestedUrl, CancellationToken cancellationToken)
+        {
+            var target = await ResolveTargetAsync(endpoint, requestedUrl, cancellationToken);
+            var websocket = new ClientWebSocket();
+            await websocket.ConnectAsync(target.WebSocketUri, cancellationToken);
+            var client = new CdpClient(endpoint, target.WebSocketUri, target.Url, websocket);
+            await client.SendCommandAsync("Runtime.enable", null, cancellationToken);
+            await client.SendCommandAsync("Network.enable", null, cancellationToken);
+            await client.SendCommandAsync("Page.enable", null, cancellationToken);
+            return client;
+        }
+
+        public async Task NavigateAsync(string url, CancellationToken cancellationToken)
+        {
+            await SendCommandAsync("Page.navigate", "{\"url\":" + JsonSerializer.Serialize(url) + "}", cancellationToken);
+            TargetUrl = url;
+        }
+
+        public async Task<string> CaptureScreenshotAsync(CancellationToken cancellationToken)
+        {
+            using var document = await SendCommandAsync("Page.captureScreenshot", "{\"format\":\"png\",\"fromSurface\":true}", cancellationToken);
+            return document.RootElement.GetProperty("result").GetProperty("data").GetString() ?? string.Empty;
+        }
+
+        public async Task<string> EvaluateStringAsync(string expression, CancellationToken cancellationToken)
+        {
+            var result = await EvaluateAsync(expression, cancellationToken);
+            return result;
+        }
+
+        public async Task<string> EvaluateAsync(string expression, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(expression))
+            {
+                return string.Empty;
+            }
+
+            var parameters = "{\"expression\":" + JsonSerializer.Serialize(expression) + ",\"returnByValue\":true,\"awaitPromise\":true}";
+            using var document = await SendCommandAsync("Runtime.evaluate", parameters, cancellationToken);
+            var root = document.RootElement;
+            if (root.TryGetProperty("result", out var commandResult) &&
+                commandResult.TryGetProperty("exceptionDetails", out var exception))
+            {
+                return JsonSerializer.Serialize(exception);
+            }
+
+            if (!root.TryGetProperty("result", out commandResult) ||
+                !commandResult.TryGetProperty("result", out var evaluation))
+            {
+                return string.Empty;
+            }
+
+            if (evaluation.TryGetProperty("value", out var value))
+            {
+                return value.ValueKind == JsonValueKind.String
+                    ? value.GetString() ?? string.Empty
+                    : value.GetRawText();
+            }
+
+            if (evaluation.TryGetProperty("description", out var description))
+            {
+                return description.GetString() ?? string.Empty;
+            }
+
+            return evaluation.GetRawText();
+        }
+
+        public async Task FlushEventsAsync(CancellationToken cancellationToken)
+        {
+            await EvaluateAsync("undefined", cancellationToken);
+        }
+
+        public IReadOnlyCollection<string> GetConsoleEntries() => consoleEntries.ToArray();
+
+        public IReadOnlyCollection<string> GetNetworkEntries() => networkEntries.ToArray();
+
+        public void Dispose()
+        {
+            commandLock.Dispose();
+            socket.Dispose();
+        }
+
+        private async Task<JsonDocument> SendCommandAsync(string method, string? parametersJson, CancellationToken cancellationToken)
+        {
+            await commandLock.WaitAsync(cancellationToken);
+            try
+            {
+                var id = Interlocked.Increment(ref nextId);
+                var payload = parametersJson is null
+                    ? "{\"id\":" + id + ",\"method\":" + JsonSerializer.Serialize(method) + "}"
+                    : "{\"id\":" + id + ",\"method\":" + JsonSerializer.Serialize(method) + ",\"params\":" + parametersJson + "}";
+                var bytes = Encoding.UTF8.GetBytes(payload);
+                await socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cancellationToken);
+
+                while (true)
+                {
+                    var document = await ReceiveDocumentAsync(cancellationToken);
+                    var root = document.RootElement;
+                    if (root.TryGetProperty("id", out var responseId) && responseId.GetInt32() == id)
+                    {
+                        return document;
+                    }
+
+                    ProcessEvent(root);
+                    document.Dispose();
+                }
+            }
+            finally
+            {
+                commandLock.Release();
+            }
+        }
+
+        private async Task<JsonDocument> ReceiveDocumentAsync(CancellationToken cancellationToken)
+        {
+            using var stream = new MemoryStream();
+            var buffer = new byte[8192];
+            WebSocketReceiveResult result;
+            do
+            {
+                result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+                if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    throw new WebSocketException("The browser debug protocol connection closed.");
+                }
+
+                await stream.WriteAsync(buffer, 0, result.Count, cancellationToken);
+            }
+            while (!result.EndOfMessage);
+
+            return JsonDocument.Parse(stream.ToArray());
+        }
+
+        private void ProcessEvent(JsonElement root)
+        {
+            if (!root.TryGetProperty("method", out var methodProperty))
+            {
+                return;
+            }
+
+            var method = methodProperty.GetString() ?? string.Empty;
+            if (method.Equals("Runtime.consoleAPICalled", StringComparison.OrdinalIgnoreCase))
+            {
+                consoleEntries.Add(FormatConsoleEvent(root));
+            }
+            else if (method.Equals("Runtime.exceptionThrown", StringComparison.OrdinalIgnoreCase))
+            {
+                consoleEntries.Add(FormatExceptionEvent(root));
+            }
+            else if (method.Equals("Network.requestWillBeSent", StringComparison.OrdinalIgnoreCase) ||
+                     method.Equals("Network.responseReceived", StringComparison.OrdinalIgnoreCase))
+            {
+                networkEntries.Add(FormatNetworkEvent(root));
+            }
+        }
+
+        private static async Task<CdpTarget> ResolveTargetAsync(Uri endpoint, string? requestedUrl, CancellationToken cancellationToken)
+        {
+            using var client = new WebClient { Encoding = Encoding.UTF8 };
+            using var registration = cancellationToken.Register(client.CancelAsync);
+            var listUri = new Uri(endpoint, "/json/list");
+            var text = await client.DownloadStringTaskAsync(listUri);
+            using var document = JsonDocument.Parse(text);
+            var targets = document.RootElement.EnumerateArray()
+                .Select(element => new CdpTarget(
+                    GetJsonString(element, "url"),
+                    GetJsonString(element, "title"),
+                    GetJsonString(element, "type"),
+                    new Uri(GetJsonString(element, "webSocketDebuggerUrl") ?? throw new InvalidOperationException("CDP target is missing webSocketDebuggerUrl."))))
+                .ToArray();
+
+            var selected = SelectTarget(targets, requestedUrl);
+            if (selected is null)
+            {
+                throw new InvalidOperationException("No page target was available from the browser debug protocol endpoint.");
+            }
+
+            return selected;
+        }
+
+        private static CdpTarget? SelectTarget(IReadOnlyCollection<CdpTarget> targets, string? requestedUrl)
+        {
+            if (!string.IsNullOrWhiteSpace(requestedUrl))
+            {
+                var expected = requestedUrl!;
+                var matching = targets.FirstOrDefault(target =>
+                    ContainsOrdinalIgnoreCase(target.Url, expected) ||
+                    ContainsOrdinalIgnoreCase(target.Title, expected));
+                if (matching is not null)
+                {
+                    return matching;
+                }
+            }
+
+            return targets.FirstOrDefault(target => string.Equals(target.Type, "page", StringComparison.OrdinalIgnoreCase))
+                ?? targets.FirstOrDefault();
+        }
+
+        private static string FormatConsoleEvent(JsonElement root)
+        {
+            var parameters = root.GetProperty("params");
+            var kind = GetJsonString(parameters, "type") ?? "log";
+            var args = parameters.TryGetProperty("args", out var argsElement)
+                ? argsElement.EnumerateArray().Select(FormatRemoteObject)
+                : Enumerable.Empty<string>();
+            return $"{kind}: {string.Join(" ", args)}";
+        }
+
+        private static string FormatExceptionEvent(JsonElement root)
+        {
+            var parameters = root.GetProperty("params");
+            if (parameters.TryGetProperty("exceptionDetails", out var details))
+            {
+                return "exception: " + (GetJsonString(details, "text") ?? details.GetRawText());
+            }
+
+            return "exception";
+        }
+
+        private static string FormatNetworkEvent(JsonElement root)
+        {
+            var method = GetJsonString(root, "method") ?? "Network";
+            var parameters = root.GetProperty("params");
+            if (parameters.TryGetProperty("request", out var request))
+            {
+                return $"{method}: {GetJsonString(request, "method")} {GetJsonString(request, "url")}";
+            }
+
+            if (parameters.TryGetProperty("response", out var response))
+            {
+                return $"{method}: {GetJsonString(response, "status")} {GetJsonString(response, "url")}";
+            }
+
+            return method;
+        }
+
+        private static string FormatRemoteObject(JsonElement element)
+        {
+            if (element.TryGetProperty("value", out var value))
+            {
+                return value.ValueKind == JsonValueKind.String
+                    ? value.GetString() ?? string.Empty
+                    : value.GetRawText();
+            }
+
+            return GetJsonString(element, "description") ?? element.GetRawText();
+        }
+
+        private static bool ContainsOrdinalIgnoreCase(string? value, string expected) =>
+            value?.IndexOf(expected, StringComparison.OrdinalIgnoreCase) >= 0;
+
+        private static string? GetJsonString(JsonElement element, string propertyName) =>
+            element.TryGetProperty(propertyName, out var property) ? property.ToString() : null;
+    }
+
+    private sealed class CdpTarget
+    {
+        public CdpTarget(string? url, string? title, string? type, Uri webSocketUri)
+        {
+            Url = url;
+            Title = title;
+            Type = type;
+            WebSocketUri = webSocketUri;
+        }
+
+        public string? Url { get; }
+        public string? Title { get; }
+        public string? Type { get; }
+        public Uri WebSocketUri { get; }
+    }
 
     private readonly struct TargetWindow
     {
