@@ -32,6 +32,11 @@ internal sealed class NavigationRpcTarget
         return navigation.FindImplementationsAsync(request.DocumentPath, request.Line, request.Column, cancellationToken);
     }
 
+    public Task<CodeWorkspaceSymbolsResult> CodeWorkspaceSymbolsAsync(CodeWorkspaceSymbolsRequest request, CancellationToken cancellationToken)
+    {
+        return navigation.WorkspaceSymbolsAsync(request, cancellationToken);
+    }
+
     public Task<RenameSymbolPreviewResult> CodeRenameSymbolPreviewAsync(RenameSymbolRequest request, CancellationToken cancellationToken)
     {
         return navigation.RenameSymbolPreviewAsync(request, cancellationToken);

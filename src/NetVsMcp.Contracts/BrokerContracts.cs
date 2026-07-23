@@ -456,6 +456,12 @@ public sealed class ProjectFileRequest
     public string FilePath { get; set; } = string.Empty;
 }
 
+public sealed record ProjectFileResult(
+    bool Success,
+    string? Message,
+    ProjectInfo? Project,
+    string FilePath);
+
 public sealed record ProjectInfo(
     string? Name,
     string? UniqueName,
@@ -571,6 +577,12 @@ public sealed class CodePositionRequest
     public int Column { get; set; }
 }
 
+public sealed class CodeWorkspaceSymbolsRequest
+{
+    public string Query { get; set; } = string.Empty;
+    public int MaxResults { get; set; } = 100;
+}
+
 public sealed record DocumentSymbolInfo(
     string Name,
     string Kind,
@@ -601,6 +613,12 @@ public sealed record GoToDefinitionResult(
 public sealed record FindReferencesResult(
     DocumentSymbolInfo? Symbol,
     IReadOnlyCollection<CodeReferenceInfo> References);
+
+public sealed record CodeWorkspaceSymbolsResult(
+    string Query,
+    int MatchCount,
+    bool Truncated,
+    IReadOnlyCollection<DocumentSymbolInfo> Symbols);
 
 public sealed class RenameSymbolRequest
 {
@@ -693,6 +711,13 @@ public sealed record OutputPaneListResult(
 public sealed class OutputPaneRequest
 {
     public string? PaneName { get; set; }
+}
+
+public sealed class OutputWriteRequest
+{
+    public string? PaneName { get; set; }
+    public string Text { get; set; } = string.Empty;
+    public bool Activate { get; set; }
 }
 
 public sealed record DebuggerStateInfo(string Mode);
@@ -1313,6 +1338,10 @@ public interface IVisualStudioSessionRpc
         ProjectFileRequest request,
         CancellationToken cancellationToken);
 
+    Task<ProjectFileResult> ProjectRemoveFileAsync(
+        ProjectFileRequest request,
+        CancellationToken cancellationToken);
+
     Task<ProjectReferenceResult> ProjectAddReferenceAsync(
         ProjectReferenceRequest request,
         CancellationToken cancellationToken);
@@ -1349,6 +1378,10 @@ public interface IVisualStudioSessionRpc
 
     Task<FindImplementationsResult> CodeFindImplementationsAsync(
         CodePositionRequest request,
+        CancellationToken cancellationToken);
+
+    Task<CodeWorkspaceSymbolsResult> CodeWorkspaceSymbolsAsync(
+        CodeWorkspaceSymbolsRequest request,
         CancellationToken cancellationToken);
 
     Task<RenameSymbolPreviewResult> CodeRenameSymbolPreviewAsync(
@@ -1415,6 +1448,10 @@ public interface IVisualStudioSessionRpc
 
     Task<OutputReadResult> OutputClearAsync(
         OutputPaneRequest request,
+        CancellationToken cancellationToken);
+
+    Task<OutputReadResult> OutputWriteAsync(
+        OutputWriteRequest request,
         CancellationToken cancellationToken);
 
     Task<DebuggerStateInfo> DebugStatusAsync(CancellationToken cancellationToken);

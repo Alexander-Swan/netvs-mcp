@@ -130,14 +130,52 @@ public sealed partial class BrokerToolService
     }
 
     [McpServerTool(Name = "code_go_to_implementation")]
-    [Description("Planned: navigates to implementation for a code position.")]
-    public Task<ToolResponse<UnsupportedToolResult>> CodeGoToImplementation(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Navigation", "Implement Roslyn-backed implementation lookup and optional navigation.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Finds implementation locations for a symbol at a code position.")]
+    public Task<ToolResponse<FindImplementationsResult>> CodeGoToImplementation(
+        string documentPath,
+        int line,
+        int column,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateCodePosition(documentPath, line, column) is { } validation)
+        {
+            return Task.FromResult(FailWithCode<FindImplementationsResult>(validation, ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new CodePositionRequest
+        {
+            DocumentPath = documentPath,
+            Line = line,
+            Column = column
+        };
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.CodeFindImplementationsAsync(request, ct),
+            cancellationToken);
+    }
 
     [McpServerTool(Name = "code_workspace_symbols")]
-    [Description("Planned: searches workspace symbols.")]
-    public Task<ToolResponse<UnsupportedToolResult>> CodeWorkspaceSymbols(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Navigation", "Implement Roslyn workspace symbol search with result limits.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Searches symbols in the live Visual Studio workspace.")]
+    public Task<ToolResponse<CodeWorkspaceSymbolsResult>> CodeWorkspaceSymbols(string query, int maxResults = 100, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return Task.FromResult(FailWithCode<CodeWorkspaceSymbolsResult>("Query is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        if (maxResults <= 0)
+        {
+            return Task.FromResult(FailWithCode<CodeWorkspaceSymbolsResult>("Max results must be greater than zero.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new CodeWorkspaceSymbolsRequest { Query = query, MaxResults = maxResults };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.CodeWorkspaceSymbolsAsync(request, ct), cancellationToken);
+    }
 
     private Task<ToolResponse<UnsupportedToolResult>> PlannedTool(
         string category,

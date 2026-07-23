@@ -71,4 +71,9 @@ internal sealed class BuildRpcTarget
     {
         return build.ClearOutputAsync(request, cancellationToken);
     }
+
+    public Task<OutputReadResult> OutputWriteAsync(OutputWriteRequest request, CancellationToken cancellationToken)
+    {
+        return build.WriteOutputAsync(request, cancellationToken);
+    }
 }

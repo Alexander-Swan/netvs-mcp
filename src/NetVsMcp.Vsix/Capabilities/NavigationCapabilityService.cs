@@ -20,6 +20,7 @@ internal interface INavigationCapabilityService
     Task<GoToDefinitionResult> GoToDefinitionAsync(string documentPath, int line, int column, CancellationToken cancellationToken);
     Task<FindReferencesResult> FindReferencesAsync(string documentPath, int line, int column, CancellationToken cancellationToken);
     Task<FindImplementationsResult> FindImplementationsAsync(string documentPath, int line, int column, CancellationToken cancellationToken);
+    Task<CodeWorkspaceSymbolsResult> WorkspaceSymbolsAsync(CodeWorkspaceSymbolsRequest request, CancellationToken cancellationToken);
     Task<RenameSymbolPreviewResult> RenameSymbolPreviewAsync(RenameSymbolRequest request, CancellationToken cancellationToken);
     Task<DocumentSymbolsResult> ListDocumentSymbolsAsync(string? documentPath, CancellationToken cancellationToken);
 }
@@ -129,6 +130,57 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
             $"Found {locations.Length} implementation location(s).",
             position,
             locations);
+    }
+
+    public async Task<CodeWorkspaceSymbolsResult> WorkspaceSymbolsAsync(CodeWorkspaceSymbolsRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Query))
+        {
+            throw new ArgumentException("Query is required.", nameof(request));
+        }
+
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var workspace = await GetVisualStudioWorkspaceAsync(cancellationToken);
+        if (workspace is null)
+        {
+            throw new InvalidOperationException("Visual Studio Roslyn workspace service is unavailable.");
+        }
+
+        var query = request.Query.Trim();
+        var maxResults = request.MaxResults <= 0 ? 100 : Math.Min(request.MaxResults, 1000);
+        var symbols = new List<DocumentSymbolInfo>();
+        foreach (var document in workspace.CurrentSolution.Projects.SelectMany(project => project.Documents))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var documentSymbols = await ReadDeclaredSymbolsAsync(document, cancellationToken);
+            foreach (var symbol in documentSymbols)
+            {
+                if (symbol.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    continue;
+                }
+
+                symbols.Add(symbol);
+                if (symbols.Count > maxResults)
+                {
+                    break;
+                }
+            }
+
+            if (symbols.Count > maxResults)
+            {
+                break;
+            }
+        }
+
+        var truncated = symbols.Count > maxResults;
+        var result = symbols
+            .Take(maxResults)
+            .OrderBy(symbol => symbol.File, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(symbol => symbol.Line)
+            .ThenBy(symbol => symbol.Column)
+            .ToArray();
+        return new CodeWorkspaceSymbolsResult(query, result.Length, truncated, result);
     }
 
     public async Task<RenameSymbolPreviewResult> RenameSymbolPreviewAsync(RenameSymbolRequest request, CancellationToken cancellationToken)

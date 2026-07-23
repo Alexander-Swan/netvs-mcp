@@ -52,6 +52,22 @@ internal sealed class ProjectFileRequest
     public string FilePath { get; set; } = string.Empty;
 }
 
+internal sealed class ProjectFileResult
+{
+    public ProjectFileResult(bool success, string? message, ProjectInfo? project, string filePath)
+    {
+        Success = success;
+        Message = message;
+        Project = project;
+        FilePath = filePath;
+    }
+
+    public bool Success { get; }
+    public string? Message { get; }
+    public ProjectInfo? Project { get; }
+    public string FilePath { get; }
+}
+
 internal sealed class ProjectReferenceRequest
 {
     public string ProjectName { get; set; } = string.Empty;

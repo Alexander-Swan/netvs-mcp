@@ -15,6 +15,12 @@ internal sealed class CodePositionRequest
     public int Column { get; set; }
 }
 
+internal sealed class CodeWorkspaceSymbolsRequest
+{
+    public string Query { get; set; } = string.Empty;
+    public int MaxResults { get; set; } = 100;
+}
+
 internal sealed class RenameSymbolRequest
 {
     public string DocumentPath { get; set; } = string.Empty;
@@ -130,6 +136,22 @@ internal sealed class FindReferencesResult
 
     public DocumentSymbolInfo? Symbol { get; }
     public IReadOnlyCollection<CodeReferenceInfo> References { get; }
+}
+
+internal sealed class CodeWorkspaceSymbolsResult
+{
+    public CodeWorkspaceSymbolsResult(string query, int matchCount, bool truncated, IReadOnlyCollection<DocumentSymbolInfo> symbols)
+    {
+        Query = query;
+        MatchCount = matchCount;
+        Truncated = truncated;
+        Symbols = symbols;
+    }
+
+    public string Query { get; }
+    public int MatchCount { get; }
+    public bool Truncated { get; }
+    public IReadOnlyCollection<DocumentSymbolInfo> Symbols { get; }
 }
 
 internal sealed class FindImplementationsResult

@@ -180,6 +180,9 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<FindImplementationsResult> CodeFindImplementationsAsync(CodePositionRequest request, CancellationToken cancellationToken) =>
         navigation.CodeFindImplementationsAsync(request, cancellationToken);
 
+    public Task<CodeWorkspaceSymbolsResult> CodeWorkspaceSymbolsAsync(CodeWorkspaceSymbolsRequest request, CancellationToken cancellationToken) =>
+        navigation.CodeWorkspaceSymbolsAsync(request, cancellationToken);
+
     public Task<RenameSymbolPreviewResult> CodeRenameSymbolPreviewAsync(RenameSymbolRequest request, CancellationToken cancellationToken) =>
         navigation.CodeRenameSymbolPreviewAsync(request, cancellationToken);
 
@@ -218,6 +221,9 @@ internal sealed class VisualStudioCapabilityRpcTarget
 
     public Task<OutputReadResult> OutputClearAsync(OutputPaneRequest request, CancellationToken cancellationToken) =>
         build.OutputClearAsync(request, cancellationToken);
+
+    public Task<OutputReadResult> OutputWriteAsync(OutputWriteRequest request, CancellationToken cancellationToken) =>
+        build.OutputWriteAsync(request, cancellationToken);
 
     public Task<DebuggerStateInfo> DebugStatusAsync(CancellationToken cancellationToken) =>
         debugger.DebugStatusAsync(cancellationToken);
@@ -347,6 +353,9 @@ internal sealed class VisualStudioCapabilityRpcTarget
 
     public Task<ProjectInfo> ProjectAddFileAsync(ProjectFileRequest request, CancellationToken cancellationToken) =>
         solution.ProjectAddFileAsync(request, cancellationToken);
+
+    public Task<ProjectFileResult> ProjectRemoveFileAsync(ProjectFileRequest request, CancellationToken cancellationToken) =>
+        solution.ProjectRemoveFileAsync(request, cancellationToken);
 
     public Task<ProjectReferenceResult> ProjectAddReferenceAsync(ProjectReferenceRequest request, CancellationToken cancellationToken) =>
         solution.ProjectAddReferenceAsync(request, cancellationToken);

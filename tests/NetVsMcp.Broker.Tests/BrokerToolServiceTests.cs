@@ -1048,6 +1048,37 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task CodeGoToImplementation_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.CodeGoToImplementation("Program.cs", 1, 1, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.True(response.Value!.Supported);
+        Assert.Equal("Program.cs", session.LastCodeFindImplementationsRequest!.DocumentPath);
+    }
+
+    [Fact]
+    public async Task CodeWorkspaceSymbols_RoutesQueryToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.CodeWorkspaceSymbols("Run", maxResults: 25, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("Run", session.LastCodeWorkspaceSymbolsRequest!.Query);
+        Assert.Equal(25, session.LastCodeWorkspaceSymbolsRequest.MaxResults);
+        Assert.Equal("Run", Assert.Single(response.Value!.Symbols).Name);
+    }
+
+    [Fact]
     public async Task RenameSymbolPreview_RoutesToConnectedSession()
     {
         var runtime = CreateRuntime();
@@ -1607,6 +1638,25 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task ProjectRemoveFile_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.Admin);
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.ProjectRemoveFile(
+            "NetVsMcp.Broker",
+            @"C:\Code\NetVsMcp\OldFile.cs",
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.True(response.Value!.Success);
+        Assert.Equal("NetVsMcp.Broker", session.LastProjectRemoveFileRequest!.ProjectName);
+        Assert.Equal(@"C:\Code\NetVsMcp\OldFile.cs", response.Value.FilePath);
+    }
+
+    [Fact]
     public async Task ProjectAddFile_RequiresInputs()
     {
         var runtime = CreateRuntime();
@@ -1910,6 +1960,22 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task OutputWrite_RoutesTextToConnectedSession()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.Admin);
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.OutputWrite("hello", paneName: "NetVsMcp", activate: true, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("NetVsMcp", session.LastOutputWriteRequest!.PaneName);
+        Assert.True(session.LastOutputWriteRequest.Activate);
+        Assert.Contains("hello", response.Value!.Text);
+    }
+
+    [Fact]
     public async Task BuildStatus_ReturnsMissingConnectionFailure()
     {
         var runtime = CreateRuntime();
@@ -1994,6 +2060,8 @@ public sealed class BrokerToolServiceTests
 
         public CodePositionRequest? LastCodeFindImplementationsRequest { get; private set; }
 
+        public CodeWorkspaceSymbolsRequest? LastCodeWorkspaceSymbolsRequest { get; private set; }
+
         public RenameSymbolRequest? LastRenameSymbolRequest { get; private set; }
 
         public ExecuteCommandRequest? LastExecuteCommandRequest { get; private set; }
@@ -2011,6 +2079,8 @@ public sealed class BrokerToolServiceTests
         public ProjectInfoRequest? LastSolutionRemoveProjectRequest { get; private set; }
 
         public ProjectFileRequest? LastProjectAddFileRequest { get; private set; }
+
+        public ProjectFileRequest? LastProjectRemoveFileRequest { get; private set; }
 
         public bool SolutionClosed { get; private set; }
 
@@ -2053,6 +2123,8 @@ public sealed class BrokerToolServiceTests
         public ErrorListRequest? LastErrorListRequest { get; private set; }
 
         public OutputReadRequest? LastOutputReadRequest { get; private set; }
+
+        public OutputWriteRequest? LastOutputWriteRequest { get; private set; }
 
         public DebugStepRequest? LastDebugStepRequest { get; private set; }
 
@@ -2303,6 +2375,19 @@ public sealed class BrokerToolServiceTests
             return Task.FromResult(new FindImplementationsResult(true, "Found implementations.", request, implementations));
         }
 
+        public Task<CodeWorkspaceSymbolsResult> CodeWorkspaceSymbolsAsync(
+            CodeWorkspaceSymbolsRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastCodeWorkspaceSymbolsRequest = request;
+            IReadOnlyCollection<DocumentSymbolInfo> symbols =
+            [
+                CreateSymbol(new CodePositionRequest { DocumentPath = "Program.cs", Line = 10, Column = 5 })
+            ];
+
+            return Task.FromResult(new CodeWorkspaceSymbolsResult(request.Query, symbols.Count, false, symbols));
+        }
+
         public Task<RenameSymbolPreviewResult> CodeRenameSymbolPreviewAsync(
             RenameSymbolRequest request,
             CancellationToken cancellationToken)
@@ -2519,6 +2604,14 @@ public sealed class BrokerToolServiceTests
             return Task.FromResult(CreateProject(request.ProjectName));
         }
 
+        public Task<ProjectFileResult> ProjectRemoveFileAsync(
+            ProjectFileRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastProjectRemoveFileRequest = request;
+            return Task.FromResult(new ProjectFileResult(true, "File removed from project.", CreateProject(request.ProjectName), request.FilePath));
+        }
+
         public Task<StartupProjectResult> StartupProjectGetAsync(CancellationToken cancellationToken)
         {
             IReadOnlyCollection<string> projects = [@"src\NetVsMcp.Broker\NetVsMcp.Broker.csproj"];
@@ -2662,6 +2755,14 @@ public sealed class BrokerToolServiceTests
             CancellationToken cancellationToken)
         {
             return Task.FromResult(new OutputReadResult(request.PaneName ?? "Build", string.Empty, false));
+        }
+
+        public Task<OutputReadResult> OutputWriteAsync(
+            OutputWriteRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastOutputWriteRequest = request;
+            return Task.FromResult(new OutputReadResult(request.PaneName ?? "NetVsMcp", $"Build output{Environment.NewLine}{request.Text}", false));
         }
 
         public Task<DebuggerStateInfo> DebugStatusAsync(CancellationToken cancellationToken)

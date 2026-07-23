@@ -23,6 +23,7 @@ internal interface IBuildCapabilityService
     Task<OutputReadResult> ReadOutputAsync(OutputReadRequest request, CancellationToken cancellationToken);
     Task<OutputPaneListResult> ListOutputPanesAsync(CancellationToken cancellationToken);
     Task<OutputReadResult> ClearOutputAsync(OutputPaneRequest request, CancellationToken cancellationToken);
+    Task<OutputReadResult> WriteOutputAsync(OutputWriteRequest request, CancellationToken cancellationToken);
 }
 
 internal sealed class BuildCapabilityService : IBuildCapabilityService
@@ -271,6 +272,24 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
         return new OutputReadResult(pane.Name, string.Empty, false);
     }
 
+    public async Task<OutputReadResult> WriteOutputAsync(OutputWriteRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDte2Async()
+            ?? throw new InvalidOperationException("Visual Studio DTE2 service is unavailable.");
+        var panes = dte.ToolWindows?.OutputWindow?.OutputWindowPanes
+            ?? throw new InvalidOperationException("Visual Studio output window is unavailable.");
+        var pane = FindOrCreateOutputPane(panes, request.PaneName);
+        if (request.Activate)
+        {
+            pane.Activate();
+        }
+
+        pane.OutputString(request.Text ?? string.Empty);
+        return new OutputReadResult(pane.Name, ReadOutputPaneText(pane), false);
+    }
+
     private async Task<DTE?> GetDteAsync()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
@@ -335,6 +354,19 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
         }
 
         return firstPane;
+    }
+
+    private static OutputWindowPane FindOrCreateOutputPane(OutputWindowPanes panes, string? paneName)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        var pane = FindOutputPane(panes, paneName);
+        if (pane is not null)
+        {
+            return pane;
+        }
+
+        return panes.Add(string.IsNullOrWhiteSpace(paneName) ? "NetVsMcp" : paneName);
     }
 
     private static string ReadOutputPaneText(OutputWindowPane pane)

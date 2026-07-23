@@ -71,9 +71,27 @@ public sealed partial class BrokerToolService
             cancellationToken);
 
     [McpServerTool(Name = "output_write")]
-    [Description("Planned: writes to a Visual Studio output pane.")]
-    public Task<ToolResponse<UnsupportedToolResult>> OutputWrite(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Output", "Implement profile-gated output pane writes.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Writes text to a Visual Studio output pane.")]
+    public Task<ToolResponse<OutputReadResult>> OutputWrite(string text, string? paneName = null, bool activate = false, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (text is null)
+        {
+            return Task.FromResult(FailWithCode<OutputReadResult>("Text is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new OutputWriteRequest
+        {
+            PaneName = paneName,
+            Text = text,
+            Activate = activate
+        };
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.OutputWriteAsync(request, ct),
+            cancellationToken);
+    }
 
     [McpServerTool(Name = "output_clear")]
     [Description("Clears a Visual Studio output pane.")]

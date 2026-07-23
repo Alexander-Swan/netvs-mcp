@@ -25,6 +25,7 @@ internal interface ISolutionCapabilityService
     Task<ProjectInfo> RemoveProjectAsync(ProjectInfoRequest request, CancellationToken cancellationToken);
     Task<ProjectInfo?> GetProjectInfoAsync(ProjectInfoRequest request, CancellationToken cancellationToken);
     Task<ProjectInfo> AddFileAsync(ProjectFileRequest request, CancellationToken cancellationToken);
+    Task<ProjectFileResult> RemoveFileAsync(ProjectFileRequest request, CancellationToken cancellationToken);
     Task<ProjectReferenceResult> AddReferenceAsync(ProjectReferenceRequest request, CancellationToken cancellationToken);
     Task<ProjectReferenceResult> RemoveReferenceAsync(ProjectReferenceRequest request, CancellationToken cancellationToken);
     Task<NugetListResult> ListNugetPackagesAsync(NugetListRequest request, CancellationToken cancellationToken);
@@ -190,6 +191,35 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
             ?? throw new InvalidOperationException($"Project '{request.ProjectName}' was not found or is unsupported.");
         project.ProjectItems.AddFromFile(filePath);
         return ProjectInfoFromProject(project);
+    }
+
+    public async Task<ProjectFileResult> RemoveFileAsync(ProjectFileRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(request.ProjectName))
+        {
+            throw new ArgumentException("Project name is required.", nameof(request));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.FilePath))
+        {
+            throw new ArgumentException("File path is required.", nameof(request));
+        }
+
+        var dte = await GetDteAsync();
+        var project = FindProject(dte.Solution, request.ProjectName)
+            ?? throw new InvalidOperationException($"Project '{request.ProjectName}' was not found or is unsupported.");
+        var item = FindProjectItem(project.ProjectItems, request.FilePath.Trim());
+        if (item is null)
+        {
+            return new ProjectFileResult(false, "File was not found in the project.", ProjectInfoFromProject(project), request.FilePath);
+        }
+
+        var itemPath = GetProjectItemPath(item) ?? request.FilePath;
+        item.Remove();
+        TrySaveProject(project);
+        return new ProjectFileResult(true, "File removed from project.", ProjectInfoFromProject(project), itemPath);
     }
 
     public async Task<ProjectReferenceResult> AddReferenceAsync(ProjectReferenceRequest request, CancellationToken cancellationToken)
@@ -727,6 +757,60 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
         }
 
         return null;
+    }
+
+    private static ProjectItem? FindProjectItem(ProjectItems? items, string filePath)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        if (items is null)
+        {
+            return null;
+        }
+
+        foreach (ProjectItem item in items)
+        {
+            if (ProjectItemMatches(item, filePath))
+            {
+                return item;
+            }
+
+            var child = FindProjectItem(item.ProjectItems, filePath);
+            if (child is not null)
+            {
+                return child;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool ProjectItemMatches(ProjectItem item, string filePath)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        var itemPath = GetProjectItemPath(item);
+        if (itemPath is null)
+        {
+            return string.Equals(item.Name, filePath, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return string.Equals(itemPath, filePath, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(Path.GetFileName(itemPath), filePath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? GetProjectItemPath(ProjectItem item)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        try
+        {
+            return item.FileCount > 0 ? EmptyToNull(item.FileNames[1]) : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static ProjectInfo ProjectInfoFromProject(Project project)

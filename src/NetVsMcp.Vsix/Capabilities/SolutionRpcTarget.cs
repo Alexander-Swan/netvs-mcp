@@ -52,6 +52,11 @@ internal sealed class SolutionRpcTarget
         return solution.AddFileAsync(request, cancellationToken);
     }
 
+    public Task<ProjectFileResult> ProjectRemoveFileAsync(ProjectFileRequest request, CancellationToken cancellationToken)
+    {
+        return solution.RemoveFileAsync(request, cancellationToken);
+    }
+
     public Task<ProjectReferenceResult> ProjectAddReferenceAsync(ProjectReferenceRequest request, CancellationToken cancellationToken)
     {
         return solution.AddReferenceAsync(request, cancellationToken);

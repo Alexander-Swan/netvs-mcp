@@ -157,3 +157,10 @@ internal sealed class OutputPaneRequest
 {
     public string PaneName { get; set; } = string.Empty;
 }
+
+internal sealed class OutputWriteRequest
+{
+    public string PaneName { get; set; } = string.Empty;
+    public string Text { get; set; } = string.Empty;
+    public bool Activate { get; set; }
+}

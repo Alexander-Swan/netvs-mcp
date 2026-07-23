@@ -7,9 +7,26 @@ namespace NetVsMcp.Broker.Services;
 public sealed partial class BrokerToolService
 {
     [McpServerTool(Name = "project_remove_file")]
-    [Description("Planned: removes a file from a project in the routed Visual Studio solution.")]
-    public Task<ToolResponse<UnsupportedToolResult>> ProjectRemoveFile(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Project System", "Implement project item lookup and removal with profile checks.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Removes a file item from a project in the routed Visual Studio solution without deleting it from disk.")]
+    public Task<ToolResponse<ProjectFileResult>> ProjectRemoveFile(string projectName, string filePath, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectName))
+        {
+            return Task.FromResult(FailWithCode<ProjectFileResult>("Project name is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return Task.FromResult(FailWithCode<ProjectFileResult>("File path is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new ProjectFileRequest
+        {
+            ProjectName = projectName,
+            FilePath = filePath
+        };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ProjectRemoveFileAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "project_add_reference")]
     [Description("Adds an assembly or project reference to a project in the routed Visual Studio solution.")]
