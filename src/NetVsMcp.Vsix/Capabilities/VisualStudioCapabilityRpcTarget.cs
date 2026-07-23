@@ -13,6 +13,7 @@ internal sealed class VisualStudioCapabilityRpcTarget
     private readonly NavigationRpcTarget navigation;
     private readonly BuildRpcTarget build;
     private readonly DebuggerRpcTarget debugger;
+    private readonly IAutomationCapabilityService automation;
     private readonly SolutionRpcTarget solution;
     private readonly IVisualStudioSessionSnapshotProvider snapshotProvider;
     private readonly IVisualStudioCapabilityCatalog capabilities;
@@ -28,6 +29,7 @@ internal sealed class VisualStudioCapabilityRpcTarget
         navigation = new NavigationRpcTarget(capabilities.Navigation);
         build = new BuildRpcTarget(capabilities.Build);
         debugger = new DebuggerRpcTarget(capabilities.Debugger);
+        automation = capabilities.Automation;
         solution = new SolutionRpcTarget(capabilities.Solution);
     }
 
@@ -324,97 +326,97 @@ internal sealed class VisualStudioCapabilityRpcTarget
         debugger.ParallelTasksListAsync(cancellationToken);
 
     public Task<AutomationResult> ConsoleReadAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Debuggee console output capture requires an explicit console transport; Visual Studio DTE does not expose debuggee stdin/stdout streams.");
+        automation.ConsoleReadAsync(request, cancellationToken);
 
     public Task<AutomationResult> DiagnosticsBindingErrorsAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Binding diagnostics require a WPF/XAML diagnostics backend; Visual Studio DTE does not expose binding failure events.");
+        automation.DiagnosticsBindingErrorsAsync(request, cancellationToken);
 
     public Task<AutomationResult> ConsoleSendAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Debuggee console input requires an explicit console transport; Visual Studio DTE does not expose debuggee stdin/stdout streams.");
+        automation.ConsoleSendAsync(request, cancellationToken);
 
     public Task<AutomationResult> ConsoleGetInfoAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Debuggee console metadata discovery requires process/window correlation outside the DTE debugger API.");
+        automation.ConsoleGetInfoAsync(request, cancellationToken);
 
     public Task<AutomationResult> UiCaptureWindowAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Debuggee window capture requires a scoped UI automation and screen-capture backend.");
+        automation.UiCaptureWindowAsync(request, cancellationToken);
 
     public Task<AutomationResult> UiCaptureRegionAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Screen-region capture requires a scoped screen-capture backend.");
+        automation.UiCaptureRegionAsync(request, cancellationToken);
 
     public Task<AutomationResult> UiSnapshotAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "UI snapshots require a UI Automation backend scoped to debugged process windows.");
+        automation.UiSnapshotAsync(request, cancellationToken);
 
     public Task<AutomationResult> UiGetTreeAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "UI tree extraction requires a UI Automation backend scoped to debugged process windows.");
+        automation.UiGetTreeAsync(request, cancellationToken);
 
     public Task<AutomationResult> UiFindElementsAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "UI element search requires a UI Automation backend scoped to debugged process windows.");
+        automation.UiFindElementsAsync(request, cancellationToken);
 
     public Task<AutomationResult> UiGetElementAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Stable UI element lookup requires a UI Automation backend with element identity caching.");
+        automation.UiGetElementAsync(request, cancellationToken);
 
     public Task<AutomationResult> UiClickAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "UI clicks require a scoped input-injection backend and debuggee window targeting.");
+        automation.UiClickAsync(request, cancellationToken);
 
     public Task<AutomationResult> UiDoubleClickAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "UI double-clicks require a scoped input-injection backend and debuggee window targeting.");
+        automation.UiDoubleClickAsync(request, cancellationToken);
 
     public Task<AutomationResult> UiRightClickAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "UI right-clicks require a scoped input-injection backend and debuggee window targeting.");
+        automation.UiRightClickAsync(request, cancellationToken);
 
     public Task<AutomationResult> UiDragAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "UI drag operations require a scoped input-injection backend and debuggee window targeting.");
+        automation.UiDragAsync(request, cancellationToken);
 
     public Task<AutomationResult> UiSetValueAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "UI value mutation requires a UI Automation backend scoped to debugged process windows.");
+        automation.UiSetValueAsync(request, cancellationToken);
 
     public Task<AutomationResult> UiInvokeAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "UI invoke requires a UI Automation backend scoped to debugged process windows.");
+        automation.UiInvokeAsync(request, cancellationToken);
 
     public Task<AutomationResult> UiSendKeysAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Sending keys requires scoped input injection and debuggee window targeting.");
+        automation.UiSendKeysAsync(request, cancellationToken);
 
     public Task<AutomationResult> UiWaitForElementAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Waiting for UI elements requires a UI Automation backend scoped to debugged process windows.");
+        automation.UiWaitForElementAsync(request, cancellationToken);
 
     public Task<AutomationResult> UiWaitIdleAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Waiting for debuggee UI idle requires debugged-process window handles and UI Automation wait support.");
+        automation.UiWaitIdleAsync(request, cancellationToken);
 
     public Task<AutomationResult> WebConnectAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Browser debugging requires a Chrome DevTools Protocol connection manager.");
+        automation.WebConnectAsync(request, cancellationToken);
 
     public Task<AutomationResult> WebDisconnectAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Browser debugging requires a Chrome DevTools Protocol connection manager.");
+        automation.WebDisconnectAsync(request, cancellationToken);
 
     public Task<AutomationResult> WebStatusAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Browser debugging status requires a Chrome DevTools Protocol connection manager.");
+        automation.WebStatusAsync(request, cancellationToken);
 
     public Task<AutomationResult> WebNavigateAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Browser navigation requires a connected Chrome DevTools Protocol target.");
+        automation.WebNavigateAsync(request, cancellationToken);
 
     public Task<AutomationResult> WebScreenshotAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Browser screenshots require a connected Chrome DevTools Protocol target.");
+        automation.WebScreenshotAsync(request, cancellationToken);
 
     public Task<AutomationResult> WebDomGetAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "DOM snapshots require a connected Chrome DevTools Protocol target.");
+        automation.WebDomGetAsync(request, cancellationToken);
 
     public Task<AutomationResult> WebDomQueryAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "DOM queries require a connected Chrome DevTools Protocol target.");
+        automation.WebDomQueryAsync(request, cancellationToken);
 
     public Task<AutomationResult> WebConsoleAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Browser console collection requires a connected Chrome DevTools Protocol target.");
+        automation.WebConsoleAsync(request, cancellationToken);
 
     public Task<AutomationResult> WebJsExecuteAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "JavaScript execution requires a connected Chrome DevTools Protocol target.");
+        automation.WebJsExecuteAsync(request, cancellationToken);
 
     public Task<AutomationResult> WebNetworkAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Network event capture requires a connected Chrome DevTools Protocol target.");
+        automation.WebNetworkAsync(request, cancellationToken);
 
     public Task<AutomationResult> WebElementClickAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Browser element clicks require a connected Chrome DevTools Protocol target.");
+        automation.WebElementClickAsync(request, cancellationToken);
 
     public Task<AutomationResult> WebElementSetValueAsync(AutomationRequest request, CancellationToken cancellationToken) =>
-        UnsupportedAutomationAsync(request, "Browser element value mutation requires a connected Chrome DevTools Protocol target.");
+        automation.WebElementSetValueAsync(request, cancellationToken);
 
     public Task<SolutionInfoResult> SolutionInfoAsync(CancellationToken cancellationToken) =>
         solution.SolutionInfoAsync(cancellationToken);
@@ -492,16 +494,4 @@ internal sealed class VisualStudioCapabilityRpcTarget
         return $"{qualifiedName} ({symbol.Kind}) {symbol.File}:{symbol.Line}:{symbol.Column}";
     }
 
-    private static Task<AutomationResult> UnsupportedAutomationAsync(AutomationRequest request, string message)
-    {
-        var toolName = string.IsNullOrWhiteSpace(request.ToolName) ? "automation" : request.ToolName.Trim();
-        IReadOnlyDictionary<string, string> metadata = new Dictionary<string, string>
-        {
-            ["toolName"] = toolName,
-            ["implementation"] = "vsix-routed",
-            ["backend"] = "pending"
-        };
-
-        return Task.FromResult(new AutomationResult(false, false, message, null, metadata));
-    }
 }

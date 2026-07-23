@@ -10,6 +10,7 @@ internal interface IVisualStudioCapabilityCatalog
     INavigationCapabilityService Navigation { get; }
     IBuildCapabilityService Build { get; }
     IDebuggerCapabilityService Debugger { get; }
+    IAutomationCapabilityService Automation { get; }
     ISolutionCapabilityService Solution { get; }
 }
 
@@ -21,6 +22,7 @@ internal sealed class VisualStudioCapabilityCatalog : IVisualStudioCapabilityCat
         INavigationCapabilityService navigation,
         IBuildCapabilityService build,
         IDebuggerCapabilityService debugger,
+        IAutomationCapabilityService automation,
         ISolutionCapabilityService solution)
     {
         GeneralIde = generalIde;
@@ -28,6 +30,7 @@ internal sealed class VisualStudioCapabilityCatalog : IVisualStudioCapabilityCat
         Navigation = navigation;
         Build = build;
         Debugger = debugger;
+        Automation = automation;
         Solution = solution;
     }
 
@@ -39,6 +42,7 @@ internal sealed class VisualStudioCapabilityCatalog : IVisualStudioCapabilityCat
         "navigation",
         "build",
         "debugger",
+        "automation",
         "projectSystem",
         "tests"
     ];
@@ -48,5 +52,6 @@ internal sealed class VisualStudioCapabilityCatalog : IVisualStudioCapabilityCat
     public INavigationCapabilityService Navigation { get; }
     public IBuildCapabilityService Build { get; }
     public IDebuggerCapabilityService Debugger { get; }
+    public IAutomationCapabilityService Automation { get; }
     public ISolutionCapabilityService Solution { get; }
 }
