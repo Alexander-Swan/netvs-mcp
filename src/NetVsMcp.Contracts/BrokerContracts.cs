@@ -466,6 +466,20 @@ public sealed class BreakpointSetRequest
     public int Column { get; set; } = 1;
 
     public string? Condition { get; set; }
+
+    public string? Action { get; set; }
+
+    public string? ActionMessage { get; set; }
+
+    public bool ContinueAfterAction { get; set; }
+
+    public int? HitCount { get; set; }
+
+    public string? HitCountType { get; set; }
+
+    public string? DependsOnBreakpointName { get; set; }
+
+    public string? GroupName { get; set; }
 }
 
 public sealed class BreakpointRemoveRequest
@@ -504,7 +518,24 @@ public sealed record BreakpointInfo(
     int Column,
     string? FunctionName,
     string? Condition,
-    bool Enabled);
+    bool Enabled,
+    string? Action = null,
+    string? ActionMessage = null,
+    bool ContinueAfterAction = false,
+    int? HitCount = null,
+    string? HitCountType = null,
+    string? DependsOnBreakpointName = null,
+    string? GroupName = null);
+
+public sealed record BreakpointGroupListResult(
+    IReadOnlyCollection<string> Groups,
+    IReadOnlyCollection<BreakpointInfo> Breakpoints);
+
+public sealed record BreakpointGroupOperationResult(
+    string GroupName,
+    int Matched,
+    int Updated,
+    IReadOnlyCollection<BreakpointInfo> Breakpoints);
 
 public sealed record CallStackResult(
     DebuggerStateInfo State,
@@ -536,6 +567,114 @@ public sealed record DebugExpressionInfo(
     string? Value,
     string? Type,
     bool IsValidValue);
+
+public sealed record VsContextSnapshotResult(
+    VsSessionInfo? Session,
+    SolutionInfoResult? Solution,
+    string? ActiveDocument,
+    SelectionInfo? Selection,
+    DebuggerStateInfo? Debugger,
+    BuildStatusInfo? Build,
+    ErrorListResult? Errors,
+    PendingEditListResult? PendingEdits);
+
+public sealed record SolutionOverviewResult(
+    SolutionInfoResult Solution,
+    ProjectListResult Projects,
+    StartupProjectResult StartupProject,
+    IReadOnlyCollection<ProjectInfo> TestProjects);
+
+public sealed record ProjectDependenciesResult(
+    ProjectInfo? Project,
+    IReadOnlyCollection<string> TargetFrameworks,
+    IReadOnlyCollection<ProjectDependencyInfo> ProjectReferences,
+    IReadOnlyCollection<ProjectDependencyInfo> PackageReferences);
+
+public sealed record ProjectDependencyInfo(
+    string Name,
+    string? Version,
+    string? Path);
+
+public sealed record BuildAndGetErrorsResult(
+    BuildSolutionResult Build,
+    ErrorListResult Errors);
+
+public sealed record TestRunAndGetResultsResult(
+    TestOperationResult Run,
+    TestOperationResult Results);
+
+public sealed record SymbolContextResult(
+    DocumentReadResult Document,
+    GoToDefinitionResult Definition,
+    FindReferencesResult References,
+    string Snippet);
+
+public sealed record OpenRelevantFilesResult(
+    IReadOnlyCollection<EditorDocumentInfo> Documents);
+
+public sealed record PrepareSafeEditResult(
+    DocumentReadResult Original,
+    EditPreviewResult Preview);
+
+public sealed record ApplySafeEditAndBuildResult(
+    EditDecisionResult Edit,
+    BuildSolutionResult Build,
+    ErrorListResult Errors);
+
+public sealed record DebugSnapshotResult(
+    DebuggerStateInfo State,
+    CallStackResult? CallStack,
+    LocalsResult? Locals,
+    BreakpointListResult? Breakpoints);
+
+public sealed record DebugEvalManyResult(
+    DebuggerStateInfo State,
+    IReadOnlyCollection<EvaluateExpressionResult> Results);
+
+public sealed record WorkspaceSearchResult(
+    string RootPath,
+    IReadOnlyCollection<WorkspaceSearchMatch> Matches,
+    bool Truncated);
+
+public sealed record WorkspaceSearchMatch(
+    string Path,
+    int? Line,
+    string? Preview);
+
+public sealed record DocumentOutlineResult(
+    string DocumentPath,
+    IReadOnlyCollection<string> Symbols);
+
+public sealed record RenameSymbolPreviewResult(
+    bool Supported,
+    string Message,
+    CodePositionRequest Position,
+    string NewName);
+
+public sealed record FindImplementationsResult(
+    bool Supported,
+    string Message,
+    CodePositionRequest Position,
+    IReadOnlyCollection<CodeLocationInfo> Implementations);
+
+public sealed record FormatAndOrganizeResult(
+    DocumentCleanupResult Cleanup,
+    string Message);
+
+public sealed record DiagnosticsForDocumentResult(
+    string DocumentPath,
+    IReadOnlyCollection<ErrorListItemInfo> Items);
+
+public sealed record PackageRestoreResult(
+    bool Supported,
+    string Message,
+    ProjectInfo? Project);
+
+public sealed record GitContextResult(
+    bool Supported,
+    string Message,
+    string? RootPath,
+    IReadOnlyCollection<string> ChangedFiles);
 
 public sealed record BrokerStatus(
     bool IsRunning,

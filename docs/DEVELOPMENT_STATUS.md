@@ -727,6 +727,13 @@ Recommended next workstreams:
 - Impact: removing a breakpoint by relative file path may fail even when setting the same relative path succeeded.
 - Follow-up: Locke is fixing this in the debugger polish slice.
 
+### VSIX Advanced Breakpoint Metadata
+
+- File: `src/NetVsMcp.Vsix/Capabilities/DebuggerCapabilityService.cs`
+- Issue: broker/contracts now carry breakpoint action, hit-count, dependent-breakpoint, and group metadata, but the VSIX debugger service still only applies basic condition/enable/remove fields.
+- Impact: broker tools can route and preserve the advanced wire shape, but Visual Studio will not enforce these advanced breakpoint behaviors until the VSIX maps them onto debugger APIs.
+- Follow-up: add VSIX support for tracepoint actions, hit count modes, dependent breakpoints, and group metadata.
+
 ## Next Tasks
 
 Highest-value next tasks:

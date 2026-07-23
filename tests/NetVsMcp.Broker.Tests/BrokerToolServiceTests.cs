@@ -34,31 +34,48 @@ public sealed class BrokerToolServiceTests
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_get_session", RequiresVisualStudioSession: false });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_select_session", RequiresVisualStudioSession: false });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_ping", RequiresVisualStudioSession: false });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_context_snapshot", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "document_active", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "code_document_symbols", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "code_go_to_definition", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "code_find_references", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "symbol_context", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "workspace_search", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "open_relevant_files", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "build_solution", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "build_and_get_errors", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "build_status", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "errors_list", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "output_read", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "debug_status", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "debug_snapshot", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "debug_eval_many", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "debug_step", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "breakpoint_set", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "breakpoint_group_list", Category: BrokerToolCategory.Read, MinimumProfile: BrokerCapabilityProfile.ReadOnly });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "breakpoint_group_enable", Category: BrokerToolCategory.Debug, MinimumProfile: BrokerCapabilityProfile.Debug });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "breakpoint_group_remove", Category: BrokerToolCategory.Debug, MinimumProfile: BrokerCapabilityProfile.Debug });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "debug_evaluate", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "document_read", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "document_write", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "prepare_safe_edit", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "edit_preview", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "edit_list_pending", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "apply_safe_edit_and_build", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "solution_info", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "solution_overview", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "project_list", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "project_info", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "project_dependencies", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "startup_project_set", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "test_run", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "test_run_and_get_results", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "document_write", Category: BrokerToolCategory.EditDirect, MinimumProfile: BrokerCapabilityProfile.EditDirect });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "prepare_safe_edit", Category: BrokerToolCategory.EditPreview, MinimumProfile: BrokerCapabilityProfile.EditPreview });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "build_and_get_errors", Category: BrokerToolCategory.Build, MinimumProfile: BrokerCapabilityProfile.Debug });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "debug_start", Category: BrokerToolCategory.Debug, MinimumProfile: BrokerCapabilityProfile.Debug });
         Assert.All(
-            response.Value.Tools.Where(tool => tool.Name.StartsWith("vs_", StringComparison.Ordinal)),
+            response.Value.Tools.Where(tool => tool.Name.StartsWith("vs_", StringComparison.Ordinal) && tool.Name != "vs_context_snapshot"),
             tool => Assert.False(tool.RequiresVisualStudioSession));
     }
 
@@ -179,6 +196,24 @@ public sealed class BrokerToolServiceTests
 
         Assert.True(response.Success);
         Assert.Equal("vs-1", response.Value!.TargetSession!.Session.SessionId);
+    }
+
+    [Fact]
+    public async Task VsContextSnapshot_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.VsContextSnapshot(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("vs-fake", response.Value!.Session!.SessionId);
+        Assert.Equal("Editor.cs", response.Value.ActiveDocument);
+        Assert.Equal("NetVsMcp", response.Value.Solution!.Name);
+        Assert.Equal("Break", response.Value.Debugger!.Mode);
+        Assert.Single(response.Value.Errors!.Items);
+        Assert.Single(response.Value.PendingEdits!.PendingEdits);
     }
 
     [Fact]
@@ -368,12 +403,27 @@ public sealed class BrokerToolServiceTests
             line: 42,
             column: 3,
             condition: "count > 0",
+            action: "log",
+            actionMessage: "count is {count}",
+            continueAfterAction: true,
+            hitCount: 5,
+            hitCountType: "equals",
+            dependsOnBreakpointName: "bp-prereq",
+            groupName: "critical",
             sessionId: "vs-1");
 
         Assert.True(response.Success);
         Assert.Equal(42, session.LastBreakpointSetRequest!.Line);
         Assert.Equal("count > 0", session.LastBreakpointSetRequest.Condition);
+        Assert.Equal("log", session.LastBreakpointSetRequest.Action);
+        Assert.Equal("count is {count}", session.LastBreakpointSetRequest.ActionMessage);
+        Assert.True(session.LastBreakpointSetRequest.ContinueAfterAction);
+        Assert.Equal(5, session.LastBreakpointSetRequest.HitCount);
+        Assert.Equal("equals", session.LastBreakpointSetRequest.HitCountType);
+        Assert.Equal("bp-prereq", session.LastBreakpointSetRequest.DependsOnBreakpointName);
+        Assert.Equal("critical", session.LastBreakpointSetRequest.GroupName);
         Assert.Equal("bp-1", response.Value!.Name);
+        Assert.Equal("critical", response.Value.GroupName);
     }
 
     [Fact]
@@ -387,6 +437,20 @@ public sealed class BrokerToolServiceTests
 
         Assert.True(response.Success);
         Assert.Equal("bp-1", Assert.Single(response.Value!.Breakpoints).Name);
+    }
+
+    [Fact]
+    public async Task BreakpointGroupList_ReturnsGroupsFromBreakpoints()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.BreakpointGroupList(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("critical", Assert.Single(response.Value!.Groups));
+        Assert.Equal("critical", Assert.Single(response.Value.Breakpoints).GroupName);
     }
 
     [Fact]
@@ -405,6 +469,23 @@ public sealed class BrokerToolServiceTests
         Assert.True(response.Success);
         Assert.False(session.LastBreakpointEnableRequest!.Enabled);
         Assert.Equal(1, response.Value!.Updated);
+    }
+
+    [Fact]
+    public async Task BreakpointGroupEnable_EnablesMatchingGroup()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.BreakpointGroupEnable("critical", enabled: false, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("bp-1", session.LastBreakpointEnableRequest!.Name);
+        Assert.False(session.LastBreakpointEnableRequest.Enabled);
+        Assert.Equal(1, response.Value!.Matched);
+        Assert.Equal(1, response.Value.Updated);
     }
 
     [Fact]
@@ -431,6 +512,22 @@ public sealed class BrokerToolServiceTests
         Assert.True(response.Success);
         Assert.Equal("bp-1", session.LastBreakpointRemoveRequest!.Name);
         Assert.Equal(1, response.Value!.Removed);
+    }
+
+    [Fact]
+    public async Task BreakpointGroupRemove_RemovesMatchingGroup()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.BreakpointGroupRemove("critical", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("bp-1", session.LastBreakpointRemoveRequest!.Name);
+        Assert.Equal(1, response.Value!.Matched);
+        Assert.Equal(1, response.Value.Updated);
     }
 
     [Fact]
@@ -487,6 +584,37 @@ public sealed class BrokerToolServiceTests
         Assert.True(response.Success);
         Assert.Equal("count + 1", session.LastEvaluateExpressionRequest!.Expression);
         Assert.Equal("43", response.Value!.Expression.Value);
+    }
+
+    [Fact]
+    public async Task DebugSnapshot_ReturnsCompositeDebuggerState()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.DebugSnapshot(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("Break", response.Value!.State.Mode);
+        Assert.Single(response.Value.CallStack!.Frames);
+        Assert.Single(response.Value.Locals!.Locals);
+        Assert.Single(response.Value.Breakpoints!.Breakpoints);
+    }
+
+    [Fact]
+    public async Task DebugEvalMany_EvaluatesExpressions()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DebugEvalMany(["count", "count"], sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Single(response.Value!.Results);
+        Assert.Equal("count", session.LastEvaluateExpressionRequest!.Expression);
     }
 
     [Fact]
@@ -554,6 +682,65 @@ public sealed class BrokerToolServiceTests
         var reference = Assert.Single(response.Value!.References);
         Assert.False(reference.IsImplicit);
         Assert.Equal("Run", reference.Symbol.Name);
+    }
+
+    [Fact]
+    public async Task SymbolContext_RoutesDocumentAndNavigationCalls()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.SymbolContext("Program.cs", 1, 5, contextLines: 1, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("Program.cs", session.LastDocumentReadRequest!.Path);
+        Assert.Equal("Program.cs", session.LastCodeGoToDefinitionRequest!.DocumentPath);
+        Assert.Equal("Program.cs", session.LastCodeFindReferencesRequest!.DocumentPath);
+        Assert.Contains("1: class Program {}", response.Value!.Snippet, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DocumentOutline_RoutesToDocumentSymbols()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DocumentOutline("Program.cs", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("Program.cs", session.LastSymbolsDocumentPath);
+        Assert.Contains("Editor.Run", response.Value!.Symbols);
+    }
+
+    [Fact]
+    public async Task OpenRelevantFiles_DeduplicatesAndRoutesFiles()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.OpenRelevantFiles(["Program.cs", "Program.cs", "Other.cs"], sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal(2, response.Value!.Documents.Count);
+        Assert.Equal("Other.cs", session.LastDocumentOpenRequest!.Path);
+    }
+
+    [Fact]
+    public async Task RenameSymbolPreview_ReturnsStructuredUnsupportedResult()
+    {
+        var runtime = CreateRuntime();
+
+        var response = await runtime.Tools.RenameSymbolPreview("Program.cs", 1, 1, "NewName");
+
+        Assert.True(response.Success);
+        Assert.False(response.Value!.Supported);
+        Assert.Equal("NewName", response.Value.NewName);
     }
 
     [Fact]
@@ -763,6 +950,42 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task PrepareSafeEdit_ReadsOriginalAndPreviewsEdit()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.PrepareSafeEdit(
+            operation: "write",
+            path: "Program.cs",
+            text: "replacement",
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("Program.cs", session.LastDocumentReadRequest!.Path);
+        Assert.Equal("write", session.LastEditPreviewRequest!.Operation);
+        Assert.Equal("class Program {}", response.Value!.Original.Text);
+        Assert.Equal("edit-1", response.Value.Preview.PendingEdit!.EditId);
+    }
+
+    [Fact]
+    public async Task FormatAndOrganize_RoutesCleanup()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.FormatAndOrganize("Program.cs", saveAfterCleanup: true, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.True(session.LastDocumentCleanupRequest!.SaveAfterCleanup);
+        Assert.Equal("Edit.FormatDocument", response.Value!.Cleanup.Command);
+    }
+
+    [Fact]
     public async Task EditApprove_RequiresEditId()
     {
         var runtime = CreateRuntime();
@@ -786,6 +1009,22 @@ public sealed class BrokerToolServiceTests
         Assert.True(response.Success);
         Assert.True(session.LastEditApproveRequest!.SaveAfterApply);
         Assert.True(response.Value!.Applied);
+    }
+
+    [Fact]
+    public async Task ApplySafeEditAndBuild_ApprovesBuildsAndReturnsErrors()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.ApplySafeEditAndBuild("edit-1", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("edit-1", session.LastEditApproveRequest!.EditId);
+        Assert.True(session.LastBuildSolutionRequest!.WaitForBuildToFinish);
+        Assert.Single(response.Value!.Errors.Items);
     }
 
     [Fact]
@@ -882,6 +1121,51 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task SolutionOverview_ReturnsTestProjects()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.SolutionOverview(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("NetVsMcp", response.Value!.Solution.Name);
+        Assert.Contains(response.Value.TestProjects, project => project.Name == "NetVsMcp.Broker.Tests");
+    }
+
+    [Fact]
+    public async Task ProjectDependencies_RoutesProjectLookup()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.ProjectDependencies("NetVsMcp.Broker", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("NetVsMcp.Broker", session.LastProjectInfoRequest!.ProjectName);
+        Assert.Equal("NetVsMcp.Broker", response.Value!.Project!.Name);
+        Assert.Empty(response.Value.PackageReferences);
+    }
+
+    [Fact]
+    public async Task PackageRestore_ReturnsStructuredUnsupportedResult()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.PackageRestore("NetVsMcp.Broker", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.False(response.Value!.Supported);
+        Assert.Equal("NetVsMcp.Broker", response.Value.Project!.Name);
+    }
+
+    [Fact]
     public async Task StartupProjectGet_RoutesToConnectedSession()
     {
         var runtime = CreateRuntime();
@@ -959,6 +1243,26 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task TestRunAndGetResults_RoutesRunAndResults()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.TestRunAndGetResults(
+            projectName: "NetVsMcp.Broker.Tests",
+            filter: "Name~ProjectList",
+            runId: "run-1",
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("Name~ProjectList", session.LastTestRunRequest!.Filter);
+        Assert.Equal("run-1", session.LastTestResultsRequest!.RunId);
+        Assert.Equal("Passed", Assert.Single(response.Value!.Results.Results).Outcome);
+    }
+
+    [Fact]
     public async Task ProjectList_ReturnsMissingConnectionFailure()
     {
         var runtime = CreateRuntime();
@@ -986,6 +1290,23 @@ public sealed class BrokerToolServiceTests
         Assert.True(session.LastBuildSolutionRequest!.WaitForBuildToFinish);
         Assert.Equal("Done", response.Value!.Status.State);
         Assert.Equal(0, response.Value.LastBuildInfo);
+    }
+
+    [Fact]
+    public async Task BuildAndGetErrors_BuildsAndReturnsDiagnostics()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.BuildAndGetErrors(includeWarnings: false, maxItems: 10, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.True(session.LastBuildSolutionRequest!.WaitForBuildToFinish);
+        Assert.False(session.LastErrorListRequest!.IncludeWarnings);
+        Assert.Equal(10, session.LastErrorListRequest.MaxItems);
+        Assert.Single(response.Value!.Errors.Items);
     }
 
     [Fact]
@@ -1020,6 +1341,37 @@ public sealed class BrokerToolServiceTests
         var item = Assert.Single(response.Value!.Items);
         Assert.Equal("Build failed.", item.Description);
         Assert.Equal("Error", item.Level);
+    }
+
+    [Fact]
+    public async Task DiagnosticsForDocument_FiltersErrorsByDocument()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.DiagnosticsForDocument(@"C:\Code\NetVsMcp\Program.cs", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Single(response.Value!.Items);
+    }
+
+    [Fact]
+    public async Task WorkspaceSearch_SearchesExplicitRoot()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+        var root = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"))).FullName;
+        var file = Path.Combine(root, "Program.cs");
+        await File.WriteAllTextAsync(file, "class Program { void Run() {} }");
+
+        var response = await runtime.Tools.WorkspaceSearch("Run", "*.cs", root, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        var match = Assert.Single(response.Value!.Matches);
+        Assert.Equal(file, match.Path);
+        Assert.Equal(1, match.Line);
     }
 
     [Fact]
@@ -1174,7 +1526,18 @@ public sealed class BrokerToolServiceTests
 
         public Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken)
         {
-            throw new NotSupportedException();
+            return Task.FromResult(ToolResponse<VsSessionInfo>.Ok(new VsSessionInfo(
+                SessionId: "vs-fake",
+                ProcessId: 1234,
+                VisualStudioVersion: "18.0",
+                Edition: "Enterprise",
+                SolutionName: "NetVsMcp",
+                SolutionPath: @"C:\Code\NetVsMcp\NetVsMcp.slnx",
+                ActiveDocument: _activeDocument,
+                DebuggerMode: DebuggerMode.Break,
+                IsActiveWindow: true,
+                LastSeenUtc: DateTimeOffset.Parse("2026-07-22T15:00:00Z"),
+                Capabilities: [VsCapability.Editor, VsCapability.Navigation])));
         }
 
         public Task<ToolResponse<string?>> GetActiveDocumentAsync(CancellationToken cancellationToken)
@@ -1501,7 +1864,7 @@ public sealed class BrokerToolServiceTests
             CancellationToken cancellationToken)
         {
             LastBreakpointSetRequest = request;
-            return Task.FromResult(CreateBreakpoint(request.Condition));
+            return Task.FromResult(CreateBreakpoint(request.Condition, request));
         }
 
         public Task<BreakpointListResult> BreakpointListAsync(CancellationToken cancellationToken)
@@ -1556,7 +1919,7 @@ public sealed class BrokerToolServiceTests
             return Task.FromResult(new EvaluateExpressionResult(new DebuggerStateInfo("Break"), expression));
         }
 
-        private static BreakpointInfo CreateBreakpoint(string? condition)
+        private static BreakpointInfo CreateBreakpoint(string? condition, BreakpointSetRequest? request = null)
         {
             return new BreakpointInfo(
                 Name: "bp-1",
@@ -1565,7 +1928,14 @@ public sealed class BrokerToolServiceTests
                 Column: 3,
                 FunctionName: null,
                 Condition: condition,
-                Enabled: true);
+                Enabled: true,
+                Action: request?.Action,
+                ActionMessage: request?.ActionMessage,
+                ContinueAfterAction: request?.ContinueAfterAction ?? false,
+                HitCount: request?.HitCount,
+                HitCountType: request?.HitCountType,
+                DependsOnBreakpointName: request?.DependsOnBreakpointName,
+                GroupName: request?.GroupName ?? "critical");
         }
 
         private static EditorDocumentInfo CreateDocument(string path)

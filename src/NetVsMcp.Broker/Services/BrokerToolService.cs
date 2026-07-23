@@ -2,7 +2,9 @@ using NetVsMcp.Contracts;
 using ModelContextProtocol.Server;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.CompilerServices;
+using System.Xml.Linq;
 
 namespace NetVsMcp.Broker.Services;
 
@@ -17,15 +19,31 @@ public sealed class BrokerToolService
         new("vs_get_session", "Resolves a Visual Studio session and returns its current broker status.", false),
         new("vs_select_session", "Resolves a Visual Studio session using broker routing rules without persisting selection.", false),
         new("vs_ping", "Returns lightweight broker health and optional routed Visual Studio session status.", false),
+        new("vs_context_snapshot", "Returns a compact routed Visual Studio context snapshot.", true),
         new("document_active", "Returns the active document for a routed Visual Studio session.", true),
         new("code_document_symbols", "Lists document symbols through a routed Visual Studio session.", true),
         new("code_go_to_definition", "Finds and navigates to a symbol definition through a routed Visual Studio session.", true),
         new("code_find_references", "Finds symbol references through a routed Visual Studio session.", true),
+        new("symbol_context", "Returns document text, nearby snippet, definition, and references for a code position.", true),
+        new("document_outline", "Returns document symbol outline information.", true),
+        new("find_implementations", "Returns best-effort implementation lookup status for a code position.", true),
+        new("rename_symbol_preview", "Returns a safe rename preview status for a code position.", true),
+        new("diagnostics_for_document", "Filters routed diagnostics to one document.", true),
+        new("workspace_search", "Searches files under the routed solution root.", true),
+        new("git_context", "Returns best-effort git status for the routed solution root.", true),
+        new("open_relevant_files", "Opens a set of relevant files in the routed Visual Studio session.", true),
         new("build_solution", "Starts a solution build in a routed Visual Studio session.", true),
         new("build_status", "Returns build status from a routed Visual Studio session.", true),
+        new("build_and_get_errors", "Builds the routed solution and returns diagnostics.", true),
         new("errors_list", "Lists errors and warnings from a routed Visual Studio session.", true),
         new("output_read", "Reads an output pane from a routed Visual Studio session.", true),
+        new("solution_overview", "Returns solution, project, startup, and test-project summary.", true),
+        new("project_dependencies", "Returns project/package references parsed from a project file when available.", true),
+        new("package_restore", "Returns package restore support status for a routed project.", true),
+        new("test_run_and_get_results", "Runs tests and returns captured results.", true),
         new("debug_status", "Returns debugger status from a routed Visual Studio session.", true),
+        new("debug_snapshot", "Returns debugger state, call stack, locals, and breakpoints.", true),
+        new("debug_eval_many", "Evaluates multiple debugger expressions.", true),
         new("debug_get_mode", "Returns debugger mode from a routed Visual Studio session.", true),
         new("debug_start", "Starts debugging in a routed Visual Studio session.", true),
         new("debug_stop", "Stops debugging in a routed Visual Studio session.", true),
@@ -34,8 +52,11 @@ public sealed class BrokerToolService
         new("debug_step", "Steps the debugger in a routed Visual Studio session.", true),
         new("breakpoint_set", "Sets a breakpoint in a routed Visual Studio session.", true),
         new("breakpoint_list", "Lists breakpoints from a routed Visual Studio session.", true),
+        new("breakpoint_group_list", "Lists breakpoint groups from a routed Visual Studio session.", true),
         new("breakpoint_remove", "Removes breakpoints in a routed Visual Studio session.", true),
         new("breakpoint_enable", "Enables or disables breakpoints in a routed Visual Studio session.", true),
+        new("breakpoint_group_enable", "Enables or disables all breakpoints in a group.", true),
+        new("breakpoint_group_remove", "Removes all breakpoints in a group.", true),
         new("debug_get_callstack", "Returns the current call stack from a routed Visual Studio session.", true),
         new("debug_get_locals", "Returns locals from a routed Visual Studio session.", true),
         new("debug_evaluate", "Evaluates an expression in a routed Visual Studio session.", true),
@@ -49,8 +70,11 @@ public sealed class BrokerToolService
         new("editor_goto_line", "Moves the caret through a routed Visual Studio session.", true),
         new("selection_set", "Sets the editor selection through a routed Visual Studio session.", true),
         new("document_cleanup", "Formats/cleans up a document through a routed Visual Studio session.", true),
+        new("format_and_organize", "Formats/cleans up a document and reports organize-import status.", true),
         new("edit_preview", "Creates a pending safe-edit preview through a routed Visual Studio session.", true),
+        new("prepare_safe_edit", "Reads a document and creates a safe-edit preview.", true),
         new("edit_approve", "Approves a pending safe edit through a routed Visual Studio session.", true),
+        new("apply_safe_edit_and_build", "Approves a pending edit, builds, and returns errors.", true),
         new("edit_reject", "Rejects a pending safe edit through a routed Visual Studio session.", true),
         new("edit_list_pending", "Lists pending safe edits through a routed Visual Studio session.", true),
         new("solution_info", "Returns solution metadata from a routed Visual Studio session.", true),
@@ -209,6 +233,35 @@ public sealed class BrokerToolService
         return response;
     }
 
+    [McpServerTool(Name = "vs_context_snapshot")]
+    [Description("Returns active session, solution, document, selection, debugger, build, errors, and pending edit context.")]
+    public Task<ToolResponse<VsContextSnapshotResult>> VsContextSnapshot(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var status = await connection.GetStatusAsync(ct);
+                var activeDocument = await connection.GetActiveDocumentAsync(ct);
+                return new VsContextSnapshotResult(
+                    status.Value,
+                    await connection.SolutionInfoAsync(ct),
+                    activeDocument.Value,
+                    await connection.SelectionGetAsync(ct),
+                    await connection.DebugStatusAsync(ct),
+                    await connection.BuildStatusAsync(ct),
+                    await connection.ErrorsListAsync(new ErrorListRequest { IncludeWarnings = true, MaxItems = 50 }, ct),
+                    await connection.EditListPendingAsync(ct));
+            },
+            cancellationToken);
+    }
+
     [McpServerTool(Name = "document_active")]
     [Description("Returns the active document for a routed Visual Studio session.")]
     public async Task<ToolResponse<string?>> DocumentActive(
@@ -313,6 +366,126 @@ public sealed class BrokerToolService
             cancellationToken);
     }
 
+    [McpServerTool(Name = "symbol_context")]
+    [Description("Returns document text, nearby snippet, definition, and references for a code position.")]
+    public Task<ToolResponse<SymbolContextResult>> SymbolContext(
+        string documentPath,
+        int line,
+        int column,
+        int contextLines = 4,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateCodePosition(documentPath, line, column) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<SymbolContextResult>.Fail(validation));
+        }
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var position = new CodePositionRequest { DocumentPath = documentPath.Trim(), Line = line, Column = column };
+                var document = await connection.DocumentReadAsync(new DocumentReadRequest { Path = position.DocumentPath }, ct);
+                return new SymbolContextResult(
+                    document,
+                    await connection.CodeGoToDefinitionAsync(position, ct),
+                    await connection.CodeFindReferencesAsync(position, ct),
+                    ExtractSnippet(document.Text, line, Math.Max(0, contextLines)));
+            },
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "document_outline")]
+    [Description("Returns document symbol outline information.")]
+    public async Task<ToolResponse<DocumentOutlineResult>> DocumentOutline(
+        string documentPath,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(documentPath))
+        {
+            return ToolResponse<DocumentOutlineResult>.Fail("Document path is required.");
+        }
+
+        var dispatch = await _runtime.Dispatcher.DispatchAsync(
+            CreateTarget(sessionId, solutionName, solutionPath),
+            async (connection, ct) =>
+            {
+                var response = await connection.ListDocumentSymbolsAsync(documentPath.Trim(), ct);
+                return new DocumentOutlineResult(documentPath.Trim(), response.Value ?? []);
+            },
+            cancellationToken);
+
+        var response = ToValueToolResponse(dispatch);
+        AuditToolResult(nameof(DocumentOutline), CreateTarget(sessionId, solutionName, solutionPath), response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
+        return response;
+    }
+
+    [McpServerTool(Name = "find_implementations")]
+    [Description("Returns best-effort implementation lookup status for a code position.")]
+    public Task<ToolResponse<FindImplementationsResult>> FindImplementations(
+        string documentPath,
+        int line,
+        int column,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateCodePosition(documentPath, line, column) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<FindImplementationsResult>.Fail(validation));
+        }
+
+        var position = new CodePositionRequest { DocumentPath = documentPath.Trim(), Line = line, Column = column };
+        return Task.FromResult(ToolResponse<FindImplementationsResult>.Ok(new FindImplementationsResult(
+            false,
+            "Dedicated implementation lookup requires a VSIX Roslyn endpoint; use code_find_references as a fallback.",
+            position,
+            [])));
+    }
+
+    [McpServerTool(Name = "rename_symbol_preview")]
+    [Description("Returns safe rename preview status for a code position.")]
+    public Task<ToolResponse<RenameSymbolPreviewResult>> RenameSymbolPreview(
+        string documentPath,
+        int line,
+        int column,
+        string newName,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        _ = sessionId;
+        _ = solutionName;
+        _ = solutionPath;
+        _ = cancellationToken;
+        if (ValidateCodePosition(documentPath, line, column) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<RenameSymbolPreviewResult>.Fail(validation));
+        }
+
+        if (string.IsNullOrWhiteSpace(newName))
+        {
+            return Task.FromResult(ToolResponse<RenameSymbolPreviewResult>.Fail("New name is required."));
+        }
+
+        var position = new CodePositionRequest { DocumentPath = documentPath.Trim(), Line = line, Column = column };
+        return Task.FromResult(ToolResponse<RenameSymbolPreviewResult>.Ok(new RenameSymbolPreviewResult(
+            false,
+            "Dedicated rename preview requires a VSIX Roslyn workspace endpoint before edits can be safely produced.",
+            position,
+            newName.Trim())));
+    }
+
     [McpServerTool(Name = "document_read")]
     [Description("Reads a document through a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentReadResult>> DocumentRead(
@@ -356,6 +529,47 @@ public sealed class BrokerToolService
             solutionName,
             solutionPath,
             (connection, ct) => connection.DocumentOpenAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "open_relevant_files")]
+    [Description("Opens a set of relevant files in the routed Visual Studio session.")]
+    public Task<ToolResponse<OpenRelevantFilesResult>> OpenRelevantFiles(
+        string[] paths,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (paths is null || paths.Length == 0)
+        {
+            return Task.FromResult(ToolResponse<OpenRelevantFilesResult>.Fail("At least one path is required."));
+        }
+
+        var normalizedPaths = paths
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(path => path.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (normalizedPaths.Length == 0)
+        {
+            return Task.FromResult(ToolResponse<OpenRelevantFilesResult>.Fail("At least one path is required."));
+        }
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var documents = new List<EditorDocumentInfo>();
+                foreach (var path in normalizedPaths)
+                {
+                    documents.Add(await connection.DocumentOpenAsync(new DocumentOpenRequest { Path = path }, ct));
+                }
+
+                return new OpenRelevantFilesResult(documents);
+            },
             cancellationToken);
     }
 
@@ -630,6 +844,42 @@ public sealed class BrokerToolService
             cancellationToken);
     }
 
+    [McpServerTool(Name = "format_and_organize")]
+    [Description("Formats/cleans up a document and reports organize-import status.")]
+    public Task<ToolResponse<FormatAndOrganizeResult>> FormatAndOrganize(
+        string path,
+        bool saveAfterCleanup = false,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateRequiredPath(path) is { } pathValidation)
+        {
+            return Task.FromResult(ToolResponse<FormatAndOrganizeResult>.Fail(pathValidation));
+        }
+
+        var request = new DocumentCleanupRequest
+        {
+            Path = path.Trim(),
+            SaveAfterCleanup = saveAfterCleanup
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var cleanup = await connection.DocumentCleanupAsync(request, ct);
+                var message = cleanup.Command is null
+                    ? "Document cleanup completed; organize imports command was not reported by the VSIX."
+                    : $"Document cleanup completed with command '{cleanup.Command}'.";
+                return new FormatAndOrganizeResult(cleanup, message);
+            },
+            cancellationToken);
+    }
+
     [McpServerTool(Name = "edit_preview")]
     [Description("Creates a pending safe-edit preview through a routed Visual Studio session.")]
     public Task<ToolResponse<EditPreviewResult>> EditPreview(
@@ -678,6 +928,59 @@ public sealed class BrokerToolService
             cancellationToken);
     }
 
+    [McpServerTool(Name = "prepare_safe_edit")]
+    [Description("Reads a document and creates a safe-edit preview through a routed Visual Studio session.")]
+    public Task<ToolResponse<PrepareSafeEditResult>> PrepareSafeEdit(
+        string operation,
+        string path,
+        string text,
+        bool createIfMissing = false,
+        bool saveAfterEdit = false,
+        int line = 0,
+        int column = 0,
+        int startLine = 0,
+        int startColumn = 0,
+        int endLine = 0,
+        int endColumn = 0,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateEditPreview(operation, path, text, line, column, startLine, startColumn, endLine, endColumn) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<PrepareSafeEditResult>.Fail(validation));
+        }
+
+        var normalizedPath = path.Trim();
+        var request = new EditPreviewRequest
+        {
+            Operation = operation.Trim().ToLowerInvariant(),
+            Path = normalizedPath,
+            Text = text,
+            CreateIfMissing = createIfMissing,
+            SaveAfterEdit = saveAfterEdit,
+            Line = line,
+            Column = column,
+            StartLine = startLine,
+            StartColumn = startColumn,
+            EndLine = endLine,
+            EndColumn = endColumn
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var original = await connection.DocumentReadAsync(new DocumentReadRequest { Path = normalizedPath }, ct);
+                var preview = await connection.EditPreviewAsync(request, ct);
+                return new PrepareSafeEditResult(original, preview);
+            },
+            cancellationToken);
+    }
+
     [McpServerTool(Name = "edit_approve")]
     [Description("Approves a pending safe edit through a routed Visual Studio session.")]
     public Task<ToolResponse<EditDecisionResult>> EditApprove(
@@ -704,6 +1007,54 @@ public sealed class BrokerToolService
             solutionName,
             solutionPath,
             (connection, ct) => connection.EditApproveAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "apply_safe_edit_and_build")]
+    [Description("Approves a pending safe edit, builds the routed solution, and returns diagnostics.")]
+    public Task<ToolResponse<ApplySafeEditAndBuildResult>> ApplySafeEditAndBuild(
+        string editId,
+        bool saveAfterApply = true,
+        bool includeWarnings = true,
+        int maxItems = 200,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateEditId(editId) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<ApplySafeEditAndBuildResult>.Fail(validation));
+        }
+
+        if (maxItems < 1)
+        {
+            return Task.FromResult(ToolResponse<ApplySafeEditAndBuildResult>.Fail("Max items must be greater than zero."));
+        }
+
+        var editRequest = new EditDecisionRequest
+        {
+            EditId = editId.Trim(),
+            SaveAfterApply = saveAfterApply
+        };
+
+        var errorsRequest = new ErrorListRequest
+        {
+            IncludeWarnings = includeWarnings,
+            MaxItems = maxItems
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var edit = await connection.EditApproveAsync(editRequest, ct);
+                var build = await connection.BuildSolutionAsync(new BuildSolutionRequest { WaitForBuildToFinish = true }, ct);
+                var errors = await connection.ErrorsListAsync(errorsRequest, ct);
+                return new ApplySafeEditAndBuildResult(edit, build, errors);
+            },
             cancellationToken);
     }
 
@@ -817,6 +1168,98 @@ public sealed class BrokerToolService
             cancellationToken);
     }
 
+    [McpServerTool(Name = "solution_overview")]
+    [Description("Returns solution, project, startup-project, and test-project summary.")]
+    public Task<ToolResponse<SolutionOverviewResult>> SolutionOverview(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var solution = await connection.SolutionInfoAsync(ct);
+                var projects = await connection.ProjectListAsync(ct);
+                var startup = await connection.StartupProjectGetAsync(ct);
+                var testProjects = projects.Projects
+                    .Where(project => IsLikelyTestProject(project.Name) || IsLikelyTestProject(project.UniqueName) || IsLikelyTestProject(project.FullName))
+                    .ToArray();
+                return new SolutionOverviewResult(solution, projects, startup, testProjects);
+            },
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "project_dependencies")]
+    [Description("Returns project/package references parsed from a project file when available.")]
+    public Task<ToolResponse<ProjectDependenciesResult>> ProjectDependencies(
+        string projectName,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateProjectName(projectName) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<ProjectDependenciesResult>.Fail(validation));
+        }
+
+        var request = new ProjectInfoRequest { ProjectName = projectName.Trim() };
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var project = await connection.ProjectInfoAsync(request, ct);
+                var projectPath = project?.FullName;
+                if (string.IsNullOrWhiteSpace(projectPath) || !File.Exists(projectPath))
+                {
+                    return new ProjectDependenciesResult(project, [], [], []);
+                }
+
+                var dependencies = ReadProjectDependencies(projectPath!);
+                return new ProjectDependenciesResult(
+                    project,
+                    dependencies.TargetFrameworks,
+                    dependencies.ProjectReferences,
+                    dependencies.PackageReferences);
+            },
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "package_restore")]
+    [Description("Returns package restore support status for a routed project.")]
+    public Task<ToolResponse<PackageRestoreResult>> PackageRestore(
+        string? projectName = null,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                ProjectInfo? project = null;
+                if (!string.IsNullOrWhiteSpace(projectName))
+                {
+                    project = await connection.ProjectInfoAsync(new ProjectInfoRequest { ProjectName = projectName.Trim() }, ct);
+                }
+
+                return new PackageRestoreResult(
+                    false,
+                    "Package restore requires a dedicated VSIX project-system endpoint before the broker can route it safely.",
+                    project);
+            },
+            cancellationToken);
+    }
+
     [McpServerTool(Name = "startup_project_set")]
     [Description("Sets the startup project in a routed Visual Studio session.")]
     public Task<ToolResponse<StartupProjectResult>> StartupProjectSet(
@@ -900,6 +1343,37 @@ public sealed class BrokerToolService
             cancellationToken);
     }
 
+    [McpServerTool(Name = "test_run_and_get_results")]
+    [Description("Runs tests and then returns captured test results through a routed Visual Studio session.")]
+    public Task<ToolResponse<TestRunAndGetResultsResult>> TestRunAndGetResults(
+        string? projectName = null,
+        string? filter = null,
+        string? runId = null,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        var runRequest = new TestRunRequest
+        {
+            ProjectName = NormalizeOptional(projectName),
+            Filter = NormalizeOptional(filter)
+        };
+        var resultsRequest = new TestResultsRequest { RunId = NormalizeOptional(runId) };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var run = await connection.TestRunAsync(runRequest, ct);
+                var results = await connection.TestResultsAsync(resultsRequest, ct);
+                return new TestRunAndGetResultsResult(run, results);
+            },
+            cancellationToken);
+    }
+
     [McpServerTool(Name = "build_solution")]
     [Description("Starts a solution build in a routed Visual Studio session.")]
     public async Task<ToolResponse<BuildSolutionResult>> BuildSolution(
@@ -979,6 +1453,83 @@ public sealed class BrokerToolService
         return response;
     }
 
+    [McpServerTool(Name = "build_and_get_errors")]
+    [Description("Builds the routed solution and returns errors/warnings.")]
+    public Task<ToolResponse<BuildAndGetErrorsResult>> BuildAndGetErrors(
+        bool includeWarnings = true,
+        int maxItems = 200,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (maxItems < 1)
+        {
+            return Task.FromResult(ToolResponse<BuildAndGetErrorsResult>.Fail("Max items must be greater than zero."));
+        }
+
+        var errorsRequest = new ErrorListRequest
+        {
+            IncludeWarnings = includeWarnings,
+            MaxItems = maxItems
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var build = await connection.BuildSolutionAsync(new BuildSolutionRequest { WaitForBuildToFinish = true }, ct);
+                var errors = await connection.ErrorsListAsync(errorsRequest, ct);
+                return new BuildAndGetErrorsResult(build, errors);
+            },
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "diagnostics_for_document")]
+    [Description("Filters routed diagnostics to one document path.")]
+    public Task<ToolResponse<DiagnosticsForDocumentResult>> DiagnosticsForDocument(
+        string documentPath,
+        bool includeWarnings = true,
+        int maxItems = 200,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateRequiredPath(documentPath) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<DiagnosticsForDocumentResult>.Fail(validation));
+        }
+
+        if (maxItems < 1)
+        {
+            return Task.FromResult(ToolResponse<DiagnosticsForDocumentResult>.Fail("Max items must be greater than zero."));
+        }
+
+        var normalizedPath = documentPath.Trim();
+        var request = new ErrorListRequest
+        {
+            IncludeWarnings = includeWarnings,
+            MaxItems = maxItems
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var errors = await connection.ErrorsListAsync(request, ct);
+                var items = errors.Items
+                    .Where(item => PathsEqual(item.File, normalizedPath))
+                    .ToArray();
+                return new DiagnosticsForDocumentResult(normalizedPath, items);
+            },
+            cancellationToken);
+    }
+
     [McpServerTool(Name = "output_read")]
     [Description("Reads an output pane from a routed Visual Studio session.")]
     public async Task<ToolResponse<OutputReadResult>> OutputRead(
@@ -1008,6 +1559,42 @@ public sealed class BrokerToolService
         var response = ToValueToolResponse(dispatch);
         AuditToolResult(nameof(OutputRead), CreateTarget(sessionId, solutionName, solutionPath), response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
         return response;
+    }
+
+    [McpServerTool(Name = "workspace_search")]
+    [Description("Searches files under the routed solution root.")]
+    public Task<ToolResponse<WorkspaceSearchResult>> WorkspaceSearch(
+        string query,
+        string filePattern = "*.*",
+        string? rootPath = null,
+        int maxMatches = 100,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return Task.FromResult(ToolResponse<WorkspaceSearchResult>.Fail("Query is required."));
+        }
+
+        if (maxMatches < 1)
+        {
+            return Task.FromResult(ToolResponse<WorkspaceSearchResult>.Fail("Max matches must be greater than zero."));
+        }
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var solution = await connection.SolutionInfoAsync(ct);
+                var searchRoot = ResolveSearchRoot(rootPath, solution);
+                var result = SearchWorkspace(searchRoot, query.Trim(), string.IsNullOrWhiteSpace(filePattern) ? "*.*" : filePattern.Trim(), maxMatches, ct);
+                return result;
+            },
+            cancellationToken);
     }
 
     [McpServerTool(Name = "debug_status")]
@@ -1140,6 +1727,13 @@ public sealed class BrokerToolService
         int line,
         int column = 1,
         string? condition = null,
+        string? action = null,
+        string? actionMessage = null,
+        bool continueAfterAction = false,
+        int? hitCount = null,
+        string? hitCountType = null,
+        string? dependsOnBreakpointName = null,
+        string? groupName = null,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
@@ -1160,12 +1754,24 @@ public sealed class BrokerToolService
             return Task.FromResult(ToolResponse<BreakpointInfo>.Fail("Breakpoint column must be greater than zero."));
         }
 
+        if (hitCount is < 0)
+        {
+            return Task.FromResult(ToolResponse<BreakpointInfo>.Fail("Breakpoint hit count must be zero or greater."));
+        }
+
         var request = new BreakpointSetRequest
         {
             DocumentPath = documentPath.Trim(),
             Line = line,
             Column = column,
-            Condition = NormalizeOptional(condition)
+            Condition = NormalizeOptional(condition),
+            Action = NormalizeOptional(action),
+            ActionMessage = NormalizeOptional(actionMessage),
+            ContinueAfterAction = continueAfterAction,
+            HitCount = hitCount,
+            HitCountType = NormalizeOptional(hitCountType),
+            DependsOnBreakpointName = NormalizeOptional(dependsOnBreakpointName),
+            GroupName = NormalizeOptional(groupName)
         };
 
         return DispatchValueAsync(
@@ -1189,6 +1795,32 @@ public sealed class BrokerToolService
             solutionName,
             solutionPath,
             static (connection, ct) => connection.BreakpointListAsync(ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "breakpoint_group_list")]
+    [Description("Lists breakpoint groups from a routed Visual Studio session.")]
+    public Task<ToolResponse<BreakpointGroupListResult>> BreakpointGroupList(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var breakpoints = await connection.BreakpointListAsync(ct);
+                var groups = breakpoints.Breakpoints
+                    .Select(breakpoint => NormalizeOptional(breakpoint.GroupName))
+                    .Where(group => group is not null)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Select(group => group!)
+                    .ToArray();
+                return new BreakpointGroupListResult(groups, breakpoints.Breakpoints);
+            },
             cancellationToken);
     }
 
@@ -1258,6 +1890,91 @@ public sealed class BrokerToolService
             cancellationToken);
     }
 
+    [McpServerTool(Name = "breakpoint_group_enable")]
+    [Description("Enables or disables all breakpoints in a group through a routed Visual Studio session.")]
+    public Task<ToolResponse<BreakpointGroupOperationResult>> BreakpointGroupEnable(
+        string groupName,
+        bool enabled,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(groupName))
+        {
+            return Task.FromResult(ToolResponse<BreakpointGroupOperationResult>.Fail("Breakpoint group name is required."));
+        }
+
+        var normalizedGroupName = groupName.Trim();
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var list = await connection.BreakpointListAsync(ct);
+                var matches = BreakpointsInGroup(list.Breakpoints, normalizedGroupName).ToArray();
+                var updated = 0;
+                var updatedBreakpoints = new List<BreakpointInfo>();
+                foreach (var breakpoint in matches)
+                {
+                    var request = new BreakpointEnableRequest
+                    {
+                        Name = breakpoint.Name,
+                        DocumentPath = breakpoint.File,
+                        Line = breakpoint.Line,
+                        Enabled = enabled
+                    };
+                    var result = await connection.BreakpointEnableAsync(request, ct);
+                    updated += result.Updated;
+                    updatedBreakpoints.AddRange(result.Breakpoints);
+                }
+
+                return new BreakpointGroupOperationResult(normalizedGroupName, matches.Length, updated, updatedBreakpoints);
+            },
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "breakpoint_group_remove")]
+    [Description("Removes all breakpoints in a group through a routed Visual Studio session.")]
+    public Task<ToolResponse<BreakpointGroupOperationResult>> BreakpointGroupRemove(
+        string groupName,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(groupName))
+        {
+            return Task.FromResult(ToolResponse<BreakpointGroupOperationResult>.Fail("Breakpoint group name is required."));
+        }
+
+        var normalizedGroupName = groupName.Trim();
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var list = await connection.BreakpointListAsync(ct);
+                var matches = BreakpointsInGroup(list.Breakpoints, normalizedGroupName).ToArray();
+                var removed = 0;
+                foreach (var breakpoint in matches)
+                {
+                    var request = new BreakpointRemoveRequest
+                    {
+                        Name = breakpoint.Name,
+                        DocumentPath = breakpoint.File,
+                        Line = breakpoint.Line
+                    };
+                    removed += (await connection.BreakpointRemoveAsync(request, ct)).Removed;
+                }
+
+                return new BreakpointGroupOperationResult(normalizedGroupName, matches.Length, removed, []);
+            },
+            cancellationToken);
+    }
+
     [McpServerTool(Name = "debug_get_callstack")]
     [Description("Returns the current call stack from a routed Visual Studio session.")]
     public Task<ToolResponse<CallStackResult>> DebugGetCallstack(
@@ -1324,6 +2041,112 @@ public sealed class BrokerToolService
             cancellationToken);
     }
 
+    [McpServerTool(Name = "debug_snapshot")]
+    [Description("Returns debugger state, call stack, locals, and breakpoints.")]
+    public Task<ToolResponse<DebugSnapshotResult>> DebugSnapshot(
+        bool includeCallStack = true,
+        bool includeLocals = true,
+        bool includeBreakpoints = true,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var state = await connection.DebugStatusAsync(ct);
+                var callStack = includeCallStack ? await connection.DebugGetCallstackAsync(ct) : null;
+                var locals = includeLocals ? await connection.DebugGetLocalsAsync(ct) : null;
+                var breakpoints = includeBreakpoints ? await connection.BreakpointListAsync(ct) : null;
+                return new DebugSnapshotResult(state, callStack, locals, breakpoints);
+            },
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "debug_eval_many")]
+    [Description("Evaluates multiple debugger expressions through a routed Visual Studio session.")]
+    public Task<ToolResponse<DebugEvalManyResult>> DebugEvalMany(
+        string[] expressions,
+        int timeoutMilliseconds = 5000,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (expressions is null || expressions.Length == 0)
+        {
+            return Task.FromResult(ToolResponse<DebugEvalManyResult>.Fail("At least one expression is required."));
+        }
+
+        if (timeoutMilliseconds < 1)
+        {
+            return Task.FromResult(ToolResponse<DebugEvalManyResult>.Fail("Timeout milliseconds must be greater than zero."));
+        }
+
+        var normalizedExpressions = expressions
+            .Where(expression => !string.IsNullOrWhiteSpace(expression))
+            .Select(expression => expression.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (normalizedExpressions.Length == 0)
+        {
+            return Task.FromResult(ToolResponse<DebugEvalManyResult>.Fail("At least one expression is required."));
+        }
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var state = await connection.DebugStatusAsync(ct);
+                var results = new List<EvaluateExpressionResult>();
+                foreach (var expression in normalizedExpressions)
+                {
+                    results.Add(await connection.DebugEvaluateAsync(new EvaluateExpressionRequest
+                    {
+                        Expression = expression,
+                        TimeoutMilliseconds = timeoutMilliseconds
+                    }, ct));
+                }
+
+                return new DebugEvalManyResult(state, results);
+            },
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "git_context")]
+    [Description("Returns best-effort git status for the routed solution root.")]
+    public Task<ToolResponse<GitContextResult>> GitContext(
+        string? rootPath = null,
+        int maxFiles = 100,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (maxFiles < 1)
+        {
+            return Task.FromResult(ToolResponse<GitContextResult>.Fail("Max files must be greater than zero."));
+        }
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var solution = await connection.SolutionInfoAsync(ct);
+                var searchRoot = ResolveSearchRoot(rootPath, solution);
+                return ReadGitContext(searchRoot, maxFiles);
+            },
+            cancellationToken);
+    }
+
     private static RoutingTarget? CreateTarget(
         string? sessionId,
         string? solutionName,
@@ -1355,6 +2178,235 @@ public sealed class BrokerToolService
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
+
+    private static bool IsLikelyTestProject(string? value)
+    {
+        return !string.IsNullOrWhiteSpace(value) &&
+            (value.Contains(".Tests", StringComparison.OrdinalIgnoreCase) ||
+             value.Contains("Test", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static ProjectDependencyReadResult ReadProjectDependencies(string projectPath)
+    {
+        var document = XDocument.Load(projectPath);
+        var targetFrameworks = document.Descendants()
+            .Where(element => element.Name.LocalName is "TargetFramework" or "TargetFrameworks")
+            .SelectMany(element => (element.Value ?? string.Empty).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var projectReferences = document.Descendants()
+            .Where(element => element.Name.LocalName == "ProjectReference")
+            .Select(element =>
+            {
+                var include = element.Attribute("Include")?.Value ?? string.Empty;
+                var name = Path.GetFileNameWithoutExtension(include);
+                return new ProjectDependencyInfo(
+                    string.IsNullOrWhiteSpace(name) ? include : name,
+                    null,
+                    include);
+            })
+            .Where(reference => !string.IsNullOrWhiteSpace(reference.Name))
+            .ToArray();
+
+        var packageReferences = document.Descendants()
+            .Where(element => element.Name.LocalName == "PackageReference")
+            .Select(element =>
+            {
+                var include = element.Attribute("Include")?.Value ?? string.Empty;
+                var version = element.Attribute("Version")?.Value ??
+                    element.Elements().FirstOrDefault(child => child.Name.LocalName == "Version")?.Value;
+                return new ProjectDependencyInfo(include, version, null);
+            })
+            .Where(reference => !string.IsNullOrWhiteSpace(reference.Name))
+            .ToArray();
+
+        return new ProjectDependencyReadResult(targetFrameworks, projectReferences, packageReferences);
+    }
+
+    private static string ResolveSearchRoot(string? rootPath, SolutionInfoResult solution)
+    {
+        var candidate = NormalizeOptional(rootPath);
+        if (candidate is null && !string.IsNullOrWhiteSpace(solution.Path))
+        {
+            candidate = Path.GetDirectoryName(solution.Path);
+        }
+
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            throw new DirectoryNotFoundException("A root path or routed solution path is required.");
+        }
+
+        var fullPath = Path.GetFullPath(candidate);
+        if (!Directory.Exists(fullPath))
+        {
+            throw new DirectoryNotFoundException($"Root path '{fullPath}' does not exist.");
+        }
+
+        return fullPath;
+    }
+
+    private static WorkspaceSearchResult SearchWorkspace(
+        string rootPath,
+        string query,
+        string filePattern,
+        int maxMatches,
+        CancellationToken cancellationToken)
+    {
+        var matches = new List<WorkspaceSearchMatch>();
+        foreach (var file in EnumerateWorkspaceFiles(rootPath, filePattern))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var lineNumber = 0;
+            foreach (var line in File.ReadLines(file))
+            {
+                lineNumber++;
+                if (line.Contains(query, StringComparison.OrdinalIgnoreCase))
+                {
+                    matches.Add(new WorkspaceSearchMatch(file, lineNumber, line.Trim()));
+                    if (matches.Count >= maxMatches)
+                    {
+                        return new WorkspaceSearchResult(rootPath, matches, true);
+                    }
+                }
+            }
+        }
+
+        return new WorkspaceSearchResult(rootPath, matches, false);
+    }
+
+    private static IEnumerable<string> EnumerateWorkspaceFiles(string rootPath, string filePattern)
+    {
+        var options = new EnumerationOptions
+        {
+            IgnoreInaccessible = true,
+            RecurseSubdirectories = false
+        };
+
+        foreach (var file in Directory.EnumerateFiles(rootPath, filePattern, options))
+        {
+            yield return file;
+        }
+
+        foreach (var directory in Directory.EnumerateDirectories(rootPath, "*", options))
+        {
+            var name = Path.GetFileName(directory);
+            if (name is ".git" or ".vs" or "bin" or "obj" or "node_modules")
+            {
+                continue;
+            }
+
+            foreach (var file in EnumerateWorkspaceFiles(directory, filePattern))
+            {
+                yield return file;
+            }
+        }
+    }
+
+    private static GitContextResult ReadGitContext(string rootPath, int maxFiles)
+    {
+        try
+        {
+            using var process = new Process();
+            process.StartInfo = new ProcessStartInfo
+            {
+                FileName = "git",
+                Arguments = $"-C \"{rootPath}\" status --short",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            if (!process.Start())
+            {
+                return new GitContextResult(false, "Unable to start git.", rootPath, []);
+            }
+
+            if (!process.WaitForExit(5000))
+            {
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch (InvalidOperationException)
+                {
+                }
+
+                return new GitContextResult(false, "git status timed out.", rootPath, []);
+            }
+
+            var output = process.StandardOutput.ReadToEnd();
+            var error = process.StandardError.ReadToEnd();
+            if (process.ExitCode != 0)
+            {
+                return new GitContextResult(false, string.IsNullOrWhiteSpace(error) ? "git status failed." : error.Trim(), rootPath, []);
+            }
+
+            var changedFiles = output.Split([Environment.NewLine], StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.Length > 3 ? line[3..].Trim() : line.Trim())
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .Take(maxFiles)
+                .ToArray();
+
+            return new GitContextResult(true, "git status completed.", rootPath, changedFiles);
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException)
+        {
+            return new GitContextResult(false, ex.Message, rootPath, []);
+        }
+    }
+
+    private static IEnumerable<BreakpointInfo> BreakpointsInGroup(
+        IEnumerable<BreakpointInfo> breakpoints,
+        string groupName)
+    {
+        return breakpoints.Where(breakpoint =>
+            string.Equals(breakpoint.GroupName, groupName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool PathsEqual(string? left, string right)
+    {
+        if (string.IsNullOrWhiteSpace(left))
+        {
+            return false;
+        }
+
+        try
+        {
+            if (Path.IsPathRooted(left) && Path.IsPathRooted(right))
+            {
+                return string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), StringComparison.OrdinalIgnoreCase);
+            }
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+        }
+
+        return string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(Path.GetFileName(left), Path.GetFileName(right), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ExtractSnippet(string text, int centerLine, int contextLines)
+    {
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+        if (lines.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        var start = Math.Max(1, centerLine - contextLines);
+        var end = Math.Min(lines.Length, centerLine + contextLines);
+        return string.Join(
+            Environment.NewLine,
+            Enumerable.Range(start, end - start + 1)
+                .Select(lineNumber => $"{lineNumber}: {lines[lineNumber - 1]}"));
+    }
+
+    private sealed record ProjectDependencyReadResult(
+        IReadOnlyCollection<string> TargetFrameworks,
+        IReadOnlyCollection<ProjectDependencyInfo> ProjectReferences,
+        IReadOnlyCollection<ProjectDependencyInfo> PackageReferences);
 
     private VsSessionStatus? GetSessionStatus(VsSessionInfo session)
     {
@@ -1675,7 +2727,8 @@ public sealed class BrokerToolService
 
     private static BrokerToolCategory CategorizeTool(string toolName)
     {
-        if (toolName.StartsWith("vs_", StringComparison.Ordinal))
+        if (toolName.StartsWith("vs_", StringComparison.Ordinal) &&
+            toolName is not "vs_context_snapshot")
         {
             return BrokerToolCategory.Broker;
         }
@@ -1689,9 +2742,20 @@ public sealed class BrokerToolService
             "code_document_symbols" or
             "code_go_to_definition" or
             "code_find_references" or
+            "symbol_context" or
+            "document_outline" or
+            "find_implementations" or
+            "rename_symbol_preview" or
+            "diagnostics_for_document" or
+            "workspace_search" or
+            "git_context" or
+            "open_relevant_files" or
             "solution_info" or
             "project_list" or
             "project_info" or
+            "solution_overview" or
+            "project_dependencies" or
+            "package_restore" or
             "startup_project_get" or
             "build_status" or
             "errors_list" or
@@ -1700,10 +2764,13 @@ public sealed class BrokerToolService
             "debug_get_mode" or
             "debug_get_callstack" or
             "debug_get_locals" or
+            "debug_snapshot" or
             "breakpoint_list" or
+            "breakpoint_group_list" or
             "edit_list_pending" => BrokerToolCategory.Read,
 
             "edit_preview" or
+            "prepare_safe_edit" or
             "edit_reject" => BrokerToolCategory.EditPreview,
 
             "document_write" or
@@ -1713,9 +2780,12 @@ public sealed class BrokerToolService
             "editor_goto_line" or
             "selection_set" or
             "document_cleanup" or
+            "format_and_organize" or
             "edit_approve" => BrokerToolCategory.EditDirect,
 
-            "build_solution" => BrokerToolCategory.Build,
+            "build_solution" or
+            "build_and_get_errors" or
+            "apply_safe_edit_and_build" => BrokerToolCategory.Build,
 
             "debug_start" or
             "debug_stop" or
@@ -1723,15 +2793,19 @@ public sealed class BrokerToolService
             "debug_break" or
             "debug_step" or
             "debug_evaluate" or
+            "debug_eval_many" or
             "breakpoint_set" or
             "breakpoint_remove" or
-            "breakpoint_enable" => BrokerToolCategory.Debug,
+            "breakpoint_enable" or
+            "breakpoint_group_enable" or
+            "breakpoint_group_remove" => BrokerToolCategory.Debug,
 
             "startup_project_set" => BrokerToolCategory.Admin,
 
             "test_discover" or
             "test_run" or
-            "test_results" => BrokerToolCategory.Test,
+            "test_results" or
+            "test_run_and_get_results" => BrokerToolCategory.Test,
 
             _ => BrokerToolCategory.Admin
         };
