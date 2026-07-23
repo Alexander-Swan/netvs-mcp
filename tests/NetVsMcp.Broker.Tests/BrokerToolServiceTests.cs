@@ -106,7 +106,7 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
-    public async Task PlannedCoverageTool_RoutesThroughVsixSession()
+    public async Task DocumentList_RoutesThroughVsixSession()
     {
         var runtime = CreateRuntime();
         var session = new FakeVisualStudioSessionRpc("Editor.cs");
@@ -116,10 +116,42 @@ public sealed class BrokerToolServiceTests
         var response = await runtime.Tools.DocumentList(sessionId: "vs-1");
 
         Assert.True(response.Success);
-        Assert.NotNull(session.LastPlannedToolRequest);
-        Assert.Equal("document_list", session.LastPlannedToolRequest.ToolName);
-        Assert.Equal("Documents", session.LastPlannedToolRequest.Category);
-        Assert.Contains("reached fake VSIX", response.Value!.Message, StringComparison.Ordinal);
+        Assert.True(session.DocumentListCalled);
+        Assert.Single(response.Value!.Documents);
+        Assert.Equal("Editor.cs", response.Value.ActiveDocument);
+    }
+
+    [Fact]
+    public async Task EditorFind_RoutesQueryThroughVsixSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.EditorFind("needle", path: "Editor.cs", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("needle", session.LastEditorFindRequest!.Query);
+        Assert.Equal("Editor.cs", session.LastEditorFindRequest.Path);
+        Assert.Single(response.Value!.Matches);
+    }
+
+    [Fact]
+    public async Task FindInFiles_RoutesQueryThroughVsixSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.FindInFiles("needle", rootPath: @"C:\Code\NetVsMcp", filePattern: "*.cs", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("needle", session.LastFindInFilesRequest!.Query);
+        Assert.Equal(@"C:\Code\NetVsMcp", session.LastFindInFilesRequest.RootPath);
+        Assert.Equal("*.cs", session.LastFindInFilesRequest.FilePattern);
+        Assert.Single(response.Value!.Matches);
     }
 
     [Fact]
@@ -1937,6 +1969,12 @@ public sealed class BrokerToolServiceTests
 
         public PlannedToolRequest? LastPlannedToolRequest { get; private set; }
 
+        public bool DocumentListCalled { get; private set; }
+
+        public EditorFindRequest? LastEditorFindRequest { get; private set; }
+
+        public FindInFilesRequest? LastFindInFilesRequest { get; private set; }
+
         public Task<UnsupportedToolResult> PlannedToolAsync(
             PlannedToolRequest request,
             CancellationToken cancellationToken)
@@ -1947,6 +1985,33 @@ public sealed class BrokerToolServiceTests
                 request.Category,
                 $"Tool '{request.ToolName}' reached fake VSIX.",
                 request.ImplementationHint));
+        }
+
+        public Task<DocumentListResult> DocumentListAsync(CancellationToken cancellationToken)
+        {
+            DocumentListCalled = true;
+            IReadOnlyCollection<EditorDocumentInfo> documents =
+            [
+                CreateDocument(_activeDocument)
+            ];
+
+            return Task.FromResult(new DocumentListResult(documents, _activeDocument));
+        }
+
+        public Task<TextSearchResult> EditorFindAsync(
+            EditorFindRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastEditorFindRequest = request;
+            return Task.FromResult(CreateTextSearchResult(request.Query, request.Path));
+        }
+
+        public Task<TextSearchResult> FindInFilesAsync(
+            FindInFilesRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastFindInFilesRequest = request;
+            return Task.FromResult(CreateTextSearchResult(request.Query, @"C:\Code\NetVsMcp\Editor.cs"));
         }
 
         public Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken)
@@ -2509,6 +2574,16 @@ public sealed class BrokerToolServiceTests
                 Language: "CSharp",
                 IsOpen: true,
                 IsSaved: false);
+        }
+
+        private static TextSearchResult CreateTextSearchResult(string query, string path)
+        {
+            IReadOnlyCollection<TextSearchMatch> matches =
+            [
+                new(path, 3, 9, "var value = needle;", query)
+            ];
+
+            return new TextSearchResult(query, matches.Count, false, matches);
         }
 
         private static SelectionInfo CreateSelection()

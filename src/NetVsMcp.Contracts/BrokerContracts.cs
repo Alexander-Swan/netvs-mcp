@@ -68,6 +68,23 @@ public enum BrokerToolCategory
     Admin
 }
 
+public static class VsRpcProtocol
+{
+    public const string CurrentVersion = "1.1";
+    public const int CurrentMajorVersion = 1;
+}
+
+public static class ToolErrorCodes
+{
+    public const string InvalidRequest = "invalid_request";
+    public const string SessionRoutingFailed = "session_routing_failed";
+    public const string SessionNotConnected = "session_not_connected";
+    public const string RpcFailure = "rpc_failure";
+    public const string ProtocolMismatch = "protocol_mismatch";
+    public const string ToolNotImplemented = "tool_not_implemented";
+    public const string VisualStudioError = "visual_studio_error";
+}
+
 public sealed record RoutingTarget(
     string? SessionId = null,
     string? SolutionName = null,
@@ -146,7 +163,8 @@ public sealed record VsSessionRegistration(
     string? ActiveDocument,
     DebuggerMode DebuggerMode,
     bool IsActiveWindow,
-    IReadOnlyCollection<VsCapability> Capabilities);
+    IReadOnlyCollection<VsCapability> Capabilities,
+    string? ProtocolVersion = VsRpcProtocol.CurrentVersion);
 
 public sealed record VsSessionUpdate(
     string SessionId,
@@ -155,7 +173,8 @@ public sealed record VsSessionUpdate(
     string? ActiveDocument,
     DebuggerMode DebuggerMode,
     bool IsActiveWindow,
-    IReadOnlyCollection<VsCapability>? Capabilities = null);
+    IReadOnlyCollection<VsCapability>? Capabilities = null,
+    string? ProtocolVersion = VsRpcProtocol.CurrentVersion);
 
 public sealed record VsSessionStatus(
     VsSessionInfo Session,
@@ -168,6 +187,44 @@ public sealed record EditorDocumentInfo(
     string? Language,
     bool IsOpen,
     bool IsSaved);
+
+public sealed record DocumentListResult(
+    IReadOnlyCollection<EditorDocumentInfo> Documents,
+    string? ActiveDocument);
+
+public sealed class EditorFindRequest
+{
+    public string Path { get; set; } = string.Empty;
+    public string Query { get; set; } = string.Empty;
+    public bool MatchCase { get; set; }
+    public bool WholeWord { get; set; }
+    public bool UseRegex { get; set; }
+    public int MaxResults { get; set; } = 100;
+}
+
+public sealed class FindInFilesRequest
+{
+    public string Query { get; set; } = string.Empty;
+    public string? RootPath { get; set; }
+    public string? FilePattern { get; set; }
+    public bool MatchCase { get; set; }
+    public bool WholeWord { get; set; }
+    public bool UseRegex { get; set; }
+    public int MaxResults { get; set; } = 100;
+}
+
+public sealed record TextSearchMatch(
+    string Path,
+    int Line,
+    int Column,
+    string LineText,
+    string MatchText);
+
+public sealed record TextSearchResult(
+    string Query,
+    int MatchCount,
+    bool Truncated,
+    IReadOnlyCollection<TextSearchMatch> Matches);
 
 public sealed class DocumentReadRequest
 {
@@ -883,6 +940,16 @@ public interface IVisualStudioSessionRpc
 
     Task<ToolResponse<IReadOnlyCollection<string>>> ListDocumentSymbolsAsync(
         string documentPath,
+        CancellationToken cancellationToken);
+
+    Task<DocumentListResult> DocumentListAsync(CancellationToken cancellationToken);
+
+    Task<TextSearchResult> EditorFindAsync(
+        EditorFindRequest request,
+        CancellationToken cancellationToken);
+
+    Task<TextSearchResult> FindInFilesAsync(
+        FindInFilesRequest request,
         CancellationToken cancellationToken);
 
     Task<DocumentReadResult> DocumentReadAsync(

@@ -96,6 +96,11 @@ internal enum DebuggerModeWire
     Break
 }
 
+internal static class VsRpcProtocolWire
+{
+    public const string CurrentVersion = "1.1";
+}
+
 internal sealed class VsSessionRegistrationWire
 {
     public VsSessionRegistrationWire(
@@ -108,7 +113,8 @@ internal sealed class VsSessionRegistrationWire
         string? activeDocument,
         DebuggerModeWire debuggerMode,
         bool isActiveWindow,
-        IReadOnlyCollection<VsCapabilityWire> capabilities)
+        IReadOnlyCollection<VsCapabilityWire> capabilities,
+        string protocolVersion)
     {
         SessionId = sessionId;
         ProcessId = processId;
@@ -120,6 +126,7 @@ internal sealed class VsSessionRegistrationWire
         DebuggerMode = debuggerMode;
         IsActiveWindow = isActiveWindow;
         Capabilities = capabilities;
+        ProtocolVersion = protocolVersion;
     }
 
     public string SessionId { get; }
@@ -132,6 +139,7 @@ internal sealed class VsSessionRegistrationWire
     public DebuggerModeWire DebuggerMode { get; }
     public bool IsActiveWindow { get; }
     public IReadOnlyCollection<VsCapabilityWire> Capabilities { get; }
+    public string ProtocolVersion { get; }
 
     public static VsSessionRegistrationWire FromRequest(VsRegistrationRequest request)
     {
@@ -146,7 +154,8 @@ internal sealed class VsSessionRegistrationWire
             session.ActiveDocument,
             VsContractWire.ToDebuggerMode(session.DebuggerMode),
             session.IsActiveWindow,
-            VsContractWire.ToCapabilities(request.Capabilities));
+            VsContractWire.ToCapabilities(request.Capabilities),
+            VsRpcProtocolWire.CurrentVersion);
     }
 }
 
@@ -159,7 +168,8 @@ internal sealed class VsSessionUpdateWire
         string? activeDocument,
         DebuggerModeWire debuggerMode,
         bool isActiveWindow,
-        IReadOnlyCollection<VsCapabilityWire>? capabilities)
+        IReadOnlyCollection<VsCapabilityWire>? capabilities,
+        string protocolVersion)
     {
         SessionId = sessionId;
         SolutionName = solutionName;
@@ -168,6 +178,7 @@ internal sealed class VsSessionUpdateWire
         DebuggerMode = debuggerMode;
         IsActiveWindow = isActiveWindow;
         Capabilities = capabilities;
+        ProtocolVersion = protocolVersion;
     }
 
     public string SessionId { get; }
@@ -177,6 +188,7 @@ internal sealed class VsSessionUpdateWire
     public DebuggerModeWire DebuggerMode { get; }
     public bool IsActiveWindow { get; }
     public IReadOnlyCollection<VsCapabilityWire>? Capabilities { get; }
+    public string ProtocolVersion { get; }
 
     public static VsSessionUpdateWire FromRequest(VsHeartbeatRequest request)
     {
@@ -188,7 +200,8 @@ internal sealed class VsSessionUpdateWire
             session.ActiveDocument,
             VsContractWire.ToDebuggerMode(session.DebuggerMode),
             session.IsActiveWindow,
-            VsContractWire.ToCapabilities(request.Capabilities));
+            VsContractWire.ToCapabilities(request.Capabilities),
+            VsRpcProtocolWire.CurrentVersion);
     }
 }
 

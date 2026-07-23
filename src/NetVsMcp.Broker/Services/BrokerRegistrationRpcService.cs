@@ -36,6 +36,11 @@ public sealed class BrokerRegistrationRpcService : IBrokerRegistrationRpc
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (!IsCompatibleProtocol(registration.ProtocolVersion))
+        {
+            return Task.FromResult(ProtocolMismatch(registration.ProtocolVersion));
+        }
+
         var response = _sessions.Register(registration);
 
         if (response.Success)
@@ -59,6 +64,11 @@ public sealed class BrokerRegistrationRpcService : IBrokerRegistrationRpc
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (!IsCompatibleProtocol(update.ProtocolVersion))
+        {
+            return Task.FromResult(ProtocolMismatch(update.ProtocolVersion));
+        }
+
         return Task.FromResult(_sessions.Update(update));
     }
 
@@ -101,5 +111,29 @@ public sealed class BrokerRegistrationRpcService : IBrokerRegistrationRpc
         }
 
         _connections?.Remove(sessionId);
+    }
+
+    private static bool IsCompatibleProtocol(string? protocolVersion)
+    {
+        if (string.IsNullOrWhiteSpace(protocolVersion))
+        {
+            return false;
+        }
+
+        var majorText = protocolVersion.Split('.')[0];
+        return int.TryParse(majorText, out var major) && major == VsRpcProtocol.CurrentMajorVersion;
+    }
+
+    private static ToolResponse ProtocolMismatch(string? protocolVersion)
+    {
+        return new ToolResponse(
+            false,
+            $"Visual Studio extension RPC protocol '{protocolVersion ?? "unknown"}' is not compatible with broker protocol '{VsRpcProtocol.CurrentVersion}'.",
+            new Dictionary<string, string>
+            {
+                ["error_code"] = ToolErrorCodes.ProtocolMismatch,
+                ["vsix_protocol"] = protocolVersion ?? string.Empty,
+                ["broker_protocol"] = VsRpcProtocol.CurrentVersion
+            });
     }
 }

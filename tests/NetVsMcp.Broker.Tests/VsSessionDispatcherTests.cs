@@ -149,6 +149,12 @@ public sealed class VsSessionDispatcherTests
             throw new NotSupportedException();
         }
 
+        public Task<DocumentListResult> DocumentListAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<TextSearchResult> EditorFindAsync(EditorFindRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<TextSearchResult> FindInFilesAsync(FindInFilesRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<ExecuteCommandResult> ExecuteCommandAsync(ExecuteCommandRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<WindowListResult> WindowListAsync(CancellationToken cancellationToken) => throw new NotSupportedException();

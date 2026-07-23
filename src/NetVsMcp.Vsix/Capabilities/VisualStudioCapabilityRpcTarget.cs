@@ -99,6 +99,9 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<EditorDocumentInfo?> DocumentActiveAsync(CancellationToken cancellationToken) =>
         editor.DocumentActiveAsync(cancellationToken);
 
+    public Task<DocumentListResult> DocumentListAsync(CancellationToken cancellationToken) =>
+        editor.DocumentListAsync(cancellationToken);
+
     public Task<ExecuteCommandResult> ExecuteCommandAsync(ExecuteCommandRequest request, CancellationToken cancellationToken) =>
         generalIde.ExecuteCommandAsync(request, cancellationToken);
 
@@ -116,6 +119,12 @@ internal sealed class VisualStudioCapabilityRpcTarget
 
     public Task<DocumentReadResult> DocumentReadAsync(DocumentReadRequest request, CancellationToken cancellationToken) =>
         editor.DocumentReadAsync(request, cancellationToken);
+
+    public Task<TextSearchResult> EditorFindAsync(EditorFindRequest request, CancellationToken cancellationToken) =>
+        editor.EditorFindAsync(request, cancellationToken);
+
+    public Task<TextSearchResult> FindInFilesAsync(FindInFilesRequest request, CancellationToken cancellationToken) =>
+        editor.FindInFilesAsync(request, cancellationToken);
 
     public Task<EditorDocumentInfo> DocumentOpenAsync(DocumentOpenRequest request, CancellationToken cancellationToken) =>
         editor.DocumentOpenAsync(request, cancellationToken);

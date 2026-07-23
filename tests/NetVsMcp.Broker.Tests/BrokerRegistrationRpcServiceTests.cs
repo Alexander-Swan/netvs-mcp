@@ -38,6 +38,21 @@ public sealed class BrokerRegistrationRpcServiceTests
     }
 
     [Fact]
+    public async Task RegisterAsync_RejectsIncompatibleProtocolVersion()
+    {
+        var registry = new SessionRegistry();
+        var service = new BrokerRegistrationRpcService(registry);
+
+        var response = await service.RegisterAsync(
+            CreateRegistration("vs-1", "NetVsMcp") with { ProtocolVersion = "2.0" },
+            CancellationToken.None);
+
+        Assert.False(response.Success);
+        Assert.Equal(ToolErrorCodes.ProtocolMismatch, response.Metadata!["error_code"]);
+        Assert.Empty(registry.ListSessions());
+    }
+
+    [Fact]
     public async Task UpdateAsync_UpdatesExistingSession()
     {
         var registry = new SessionRegistry();
@@ -241,6 +256,12 @@ public sealed class BrokerRegistrationRpcServiceTests
         {
             throw new NotSupportedException();
         }
+
+        public Task<DocumentListResult> DocumentListAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<TextSearchResult> EditorFindAsync(EditorFindRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<TextSearchResult> FindInFilesAsync(FindInFilesRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<ExecuteCommandResult> ExecuteCommandAsync(ExecuteCommandRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 

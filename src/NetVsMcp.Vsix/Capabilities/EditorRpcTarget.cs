@@ -17,9 +17,24 @@ internal sealed class EditorRpcTarget
         return editor.GetActiveDocumentAsync(cancellationToken);
     }
 
+    public Task<DocumentListResult> DocumentListAsync(CancellationToken cancellationToken)
+    {
+        return editor.ListDocumentsAsync(cancellationToken);
+    }
+
     public Task<DocumentReadResult> DocumentReadAsync(DocumentReadRequest request, CancellationToken cancellationToken)
     {
         return editor.ReadDocumentAsync(request.Path, cancellationToken);
+    }
+
+    public Task<TextSearchResult> EditorFindAsync(EditorFindRequest request, CancellationToken cancellationToken)
+    {
+        return editor.FindInDocumentAsync(request, cancellationToken);
+    }
+
+    public Task<TextSearchResult> FindInFilesAsync(FindInFilesRequest request, CancellationToken cancellationToken)
+    {
+        return editor.FindInFilesAsync(request, cancellationToken);
     }
 
     public Task<EditorDocumentInfo> DocumentOpenAsync(DocumentOpenRequest request, CancellationToken cancellationToken)

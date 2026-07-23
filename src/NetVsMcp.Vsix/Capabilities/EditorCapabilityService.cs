@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnvDTE;
@@ -13,7 +14,10 @@ namespace NetVsMcp.Vsix;
 internal interface IEditorCapabilityService
 {
     Task<EditorDocumentInfo?> GetActiveDocumentAsync(CancellationToken cancellationToken);
+    Task<DocumentListResult> ListDocumentsAsync(CancellationToken cancellationToken);
     Task<DocumentReadResult> ReadDocumentAsync(string path, CancellationToken cancellationToken);
+    Task<TextSearchResult> FindInDocumentAsync(EditorFindRequest request, CancellationToken cancellationToken);
+    Task<TextSearchResult> FindInFilesAsync(FindInFilesRequest request, CancellationToken cancellationToken);
     Task<EditorDocumentInfo> OpenDocumentAsync(string path, CancellationToken cancellationToken);
     Task<SelectionInfo?> GetSelectionAsync(CancellationToken cancellationToken);
     Task<DocumentMutationResult> WriteDocumentAsync(DocumentWriteRequest request, CancellationToken cancellationToken);
@@ -50,6 +54,22 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
         return document is null ? null : EditorDocumentInfo.FromDocument(document);
     }
 
+    public async Task<DocumentListResult> ListDocumentsAsync(CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDteAsync() ?? throw new InvalidOperationException("Visual Studio DTE service is unavailable.");
+        var documents = new List<EditorDocumentInfo>();
+        foreach (Document document in dte.Documents)
+        {
+            documents.Add(EditorDocumentInfo.FromDocument(document));
+        }
+
+        return new DocumentListResult(
+            documents,
+            dte.ActiveDocument?.FullName ?? dte.ActiveDocument?.Name ?? string.Empty);
+    }
+
     public async Task<DocumentReadResult> ReadDocumentAsync(string path, CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
@@ -82,6 +102,83 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
             diskText,
             "disk",
             false);
+    }
+
+    public async Task<TextSearchResult> FindInDocumentAsync(EditorFindRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Query))
+        {
+            throw new ArgumentException("Query is required.", nameof(request));
+        }
+
+        var maxResults = NormalizeMaxResults(request.MaxResults);
+        var read = await ReadDocumentAsync(request.Path, cancellationToken);
+        var matches = FindMatches(
+            read.Document.Path ?? read.Document.Name ?? request.Path,
+            read.Text,
+            request.Query,
+            request.MatchCase,
+            request.WholeWord,
+            request.UseRegex,
+            maxResults,
+            cancellationToken,
+            out var truncated);
+
+        return new TextSearchResult(request.Query, matches.Count, truncated, matches);
+    }
+
+    public async Task<TextSearchResult> FindInFilesAsync(FindInFilesRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Query))
+        {
+            throw new ArgumentException("Query is required.", nameof(request));
+        }
+
+        var maxResults = NormalizeMaxResults(request.MaxResults);
+        string rootPath;
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var dte = await GetDteAsync();
+        rootPath = ResolveSearchRoot(dte, request.RootPath);
+
+        var files = await Task.Run(
+            () => EnumerateSearchFiles(rootPath, request.FilePattern).ToArray(),
+            cancellationToken);
+        var allMatches = new List<TextSearchMatch>();
+        var truncated = false;
+
+        foreach (var file in files)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            string text;
+            try
+            {
+                text = await Task.Run(() => File.ReadAllText(file), cancellationToken);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                continue;
+            }
+
+            var remaining = maxResults - allMatches.Count;
+            var fileMatches = FindMatches(
+                file,
+                text,
+                request.Query,
+                request.MatchCase,
+                request.WholeWord,
+                request.UseRegex,
+                remaining,
+                cancellationToken,
+                out var fileTruncated);
+            allMatches.AddRange(fileMatches);
+            if (fileTruncated || allMatches.Count >= maxResults)
+            {
+                truncated = true;
+                break;
+            }
+        }
+
+        return new TextSearchResult(request.Query, allMatches.Count, truncated, allMatches);
     }
 
     public async Task<EditorDocumentInfo> OpenDocumentAsync(string path, CancellationToken cancellationToken)
@@ -468,6 +565,113 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
         var editPoint = textDocument.StartPoint.CreateEditPoint();
         text = editPoint.GetText(textDocument.EndPoint);
         return true;
+    }
+
+    private static IReadOnlyCollection<TextSearchMatch> FindMatches(
+        string path,
+        string text,
+        string query,
+        bool matchCase,
+        bool wholeWord,
+        bool useRegex,
+        int maxResults,
+        CancellationToken cancellationToken,
+        out bool truncated)
+    {
+        truncated = false;
+        var matches = new List<TextSearchMatch>();
+        var regex = CreateSearchRegex(query, matchCase, wholeWord, useRegex);
+        var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (Match match in regex.Matches(lines[i]))
+            {
+                if (matches.Count >= maxResults)
+                {
+                    truncated = true;
+                    return matches;
+                }
+
+                matches.Add(new TextSearchMatch(
+                    path,
+                    i + 1,
+                    match.Index + 1,
+                    lines[i],
+                    match.Value));
+            }
+        }
+
+        return matches;
+    }
+
+    private static Regex CreateSearchRegex(string query, bool matchCase, bool wholeWord, bool useRegex)
+    {
+        var pattern = useRegex ? query : Regex.Escape(query);
+        if (wholeWord)
+        {
+            pattern = $@"\b(?:{pattern})\b";
+        }
+
+        var options = RegexOptions.CultureInvariant;
+        if (!matchCase)
+        {
+            options |= RegexOptions.IgnoreCase;
+        }
+
+        return new Regex(pattern, options, TimeSpan.FromSeconds(2));
+    }
+
+    private static int NormalizeMaxResults(int maxResults)
+    {
+        if (maxResults <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxResults), "Max results must be greater than zero.");
+        }
+
+        return Math.Min(maxResults, 1000);
+    }
+
+    private static string ResolveSearchRoot(DTE? dte, string rootPath)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        if (!string.IsNullOrWhiteSpace(rootPath))
+        {
+            return Path.GetFullPath(rootPath);
+        }
+
+        var solutionPath = dte?.Solution?.FullName;
+        if (!string.IsNullOrWhiteSpace(solutionPath))
+        {
+            return Path.GetDirectoryName(solutionPath) ?? Environment.CurrentDirectory;
+        }
+
+        var activeDocument = dte?.ActiveDocument?.FullName;
+        if (!string.IsNullOrWhiteSpace(activeDocument))
+        {
+            return Path.GetDirectoryName(activeDocument) ?? Environment.CurrentDirectory;
+        }
+
+        return Environment.CurrentDirectory;
+    }
+
+    private static IEnumerable<string> EnumerateSearchFiles(string rootPath, string filePattern)
+    {
+        if (!Directory.Exists(rootPath))
+        {
+            throw new DirectoryNotFoundException($"Search root was not found: {rootPath}");
+        }
+
+        var patterns = string.IsNullOrWhiteSpace(filePattern)
+            ? new[] { "*.cs", "*.cshtml", "*.razor", "*.xaml", "*.xml", "*.json", "*.props", "*.targets", "*.sln", "*.slnx", "*.csproj" }
+            : filePattern.Split([';', ','], StringSplitOptions.RemoveEmptyEntries).Select(pattern => pattern.Trim()).ToArray();
+
+        return patterns.SelectMany(pattern => Directory.EnumerateFiles(rootPath, pattern, SearchOption.AllDirectories))
+            .Where(path => !path.Contains(@"\bin\", StringComparison.OrdinalIgnoreCase) &&
+                !path.Contains(@"\obj\", StringComparison.OrdinalIgnoreCase) &&
+                !path.Contains(@"\.git\", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
     private static string CaptureOriginalText(DTE dte, EditPreviewRequest request, string operation, string resolvedPath)

@@ -100,10 +100,10 @@ public sealed partial class BrokerToolService
         new("test_discover", "Discovers tests through a routed Visual Studio session.", true),
         new("test_run", "Runs tests through a routed Visual Studio session.", true),
         new("test_results", "Returns test results through a routed Visual Studio session.", true),
-        new("document_list", "Planned: lists open documents in a routed Visual Studio session.", true),
+        new("document_list", "Lists open documents in a routed Visual Studio session.", true),
         new("document_close", "Planned: closes a document in a routed Visual Studio session.", true),
-        new("editor_find", "Planned: finds text in an editor document.", true),
-        new("find_in_files", "Planned: searches files through Visual Studio find-in-files.", true),
+        new("editor_find", "Finds text in one editor document.", true),
+        new("find_in_files", "Searches files under a Visual Studio solution or root path.", true),
         new("code_go_to_implementation", "Planned: navigates to implementation for a code position.", true),
         new("code_workspace_symbols", "Planned: searches workspace symbols.", true),
         new("build_project", "Planned: builds a project in the routed Visual Studio session.", true),
@@ -2966,6 +2966,12 @@ public sealed partial class BrokerToolService
         return dispatch.Value ?? ToolResponse<T>.Fail("Visual Studio session returned no response.");
     }
 
+    private static ToolResponse<T> FailWithCode<T>(string message, string errorCode) =>
+        new(false, default, message, new Dictionary<string, string>
+        {
+            ["error_code"] = errorCode
+        });
+
     private static ToolResponse<T> ToValueToolResponse<T>(
         VsSessionDispatchResult<T> dispatch)
     {
@@ -3023,6 +3029,7 @@ public sealed partial class BrokerToolService
         AuditToolResult(toolName, target, false, null, message, "CapabilityProfileDenied");
         return new ToolAccessDenied(message, new Dictionary<string, string>
         {
+            ["error_code"] = ToolErrorCodes.InvalidRequest,
             ["failureReason"] = "CapabilityProfileDenied",
             ["activeProfile"] = _runtime.Options.CapabilityProfile.ToString(),
             ["requiredProfile"] = BrokerToolAccessPolicy.MinimumProfile(category).ToString(),
@@ -3276,6 +3283,7 @@ public sealed partial class BrokerToolService
     {
         var metadata = new Dictionary<string, string>
         {
+            ["error_code"] = ToolErrorCodes.SessionRoutingFailed,
             ["failureReason"] = route.FailureReason.ToString()
         };
 
@@ -3288,6 +3296,7 @@ public sealed partial class BrokerToolService
     {
         var metadata = new Dictionary<string, string>
         {
+            ["error_code"] = MapDispatchFailureToErrorCode(dispatch.FailureReason),
             ["failureReason"] = dispatch.FailureReason.ToString()
         };
 
@@ -3302,6 +3311,17 @@ public sealed partial class BrokerToolService
         }
 
         return metadata;
+    }
+
+    private static string MapDispatchFailureToErrorCode(VsSessionDispatchFailureReason reason)
+    {
+        return reason switch
+        {
+            VsSessionDispatchFailureReason.StaleSession or
+            VsSessionDispatchFailureReason.MissingConnection => ToolErrorCodes.SessionNotConnected,
+            VsSessionDispatchFailureReason.RpcFailure => ToolErrorCodes.RpcFailure,
+            _ => ToolErrorCodes.SessionRoutingFailed
+        };
     }
 
     private static void AddCandidateMetadata(

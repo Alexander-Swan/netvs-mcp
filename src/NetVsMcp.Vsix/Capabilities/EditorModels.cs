@@ -59,6 +59,73 @@ internal sealed class DocumentReadResult
     public bool UsedLiveBuffer { get; }
 }
 
+internal sealed class DocumentListResult
+{
+    public DocumentListResult(IReadOnlyCollection<EditorDocumentInfo> documents, string activeDocument)
+    {
+        Documents = documents;
+        ActiveDocument = activeDocument;
+    }
+
+    public IReadOnlyCollection<EditorDocumentInfo> Documents { get; }
+    public string ActiveDocument { get; }
+}
+
+internal sealed class EditorFindRequest
+{
+    public string Path { get; set; } = string.Empty;
+    public string Query { get; set; } = string.Empty;
+    public bool MatchCase { get; set; }
+    public bool WholeWord { get; set; }
+    public bool UseRegex { get; set; }
+    public int MaxResults { get; set; } = 100;
+}
+
+internal sealed class FindInFilesRequest
+{
+    public string Query { get; set; } = string.Empty;
+    public string RootPath { get; set; } = string.Empty;
+    public string FilePattern { get; set; } = string.Empty;
+    public bool MatchCase { get; set; }
+    public bool WholeWord { get; set; }
+    public bool UseRegex { get; set; }
+    public int MaxResults { get; set; } = 100;
+}
+
+internal sealed class TextSearchMatch
+{
+    public TextSearchMatch(string path, int line, int column, string lineText, string matchText)
+    {
+        Path = path;
+        Line = line;
+        Column = column;
+        LineText = lineText;
+        MatchText = matchText;
+    }
+
+    public string Path { get; }
+    public int Line { get; }
+    public int Column { get; }
+    public string LineText { get; }
+    public string MatchText { get; }
+}
+
+internal sealed class TextSearchResult
+{
+    public TextSearchResult(string query, int matchCount, bool truncated, IReadOnlyCollection<TextSearchMatch> matches)
+    {
+        Query = query;
+        MatchCount = matchCount;
+        Truncated = truncated;
+        Matches = matches;
+    }
+
+    public string Query { get; }
+    public int MatchCount { get; }
+    public bool Truncated { get; }
+    public IReadOnlyCollection<TextSearchMatch> Matches { get; }
+}
+
 internal sealed class SelectionInfo
 {
     public SelectionInfo(

@@ -8,9 +8,14 @@ namespace NetVsMcp.Broker.Services;
 public sealed partial class BrokerToolService
 {
     [McpServerTool(Name = "document_list")]
-    [Description("Planned: lists open documents in a routed Visual Studio session.")]
-    public Task<ToolResponse<UnsupportedToolResult>> DocumentList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Documents", "Implement VSIX document enumeration and dirty/active metadata.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Lists open documents in a routed Visual Studio session.")]
+    public Task<ToolResponse<DocumentListResult>> DocumentList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.DocumentListAsync(ct),
+            cancellationToken);
 
     [McpServerTool(Name = "document_close")]
     [Description("Planned: closes a document in a routed Visual Studio session.")]
@@ -18,14 +23,90 @@ public sealed partial class BrokerToolService
         PlannedTool("Documents", "Implement VSIX document close with save/discard policy.", sessionId, solutionName, solutionPath, cancellationToken);
 
     [McpServerTool(Name = "editor_find")]
-    [Description("Planned: finds text in an editor document.")]
-    public Task<ToolResponse<UnsupportedToolResult>> EditorFind(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Editor", "Implement text search with case, whole-word, regex, and result limits.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Finds text in one editor document.")]
+    public Task<ToolResponse<TextSearchResult>> EditorFind(
+        string query,
+        string path = "",
+        bool matchCase = false,
+        bool wholeWord = false,
+        bool useRegex = false,
+        int maxResults = 100,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return Task.FromResult(FailWithCode<TextSearchResult>("Query is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        if (maxResults <= 0)
+        {
+            return Task.FromResult(FailWithCode<TextSearchResult>("Max results must be greater than zero.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new EditorFindRequest
+        {
+            Path = path,
+            Query = query,
+            MatchCase = matchCase,
+            WholeWord = wholeWord,
+            UseRegex = useRegex,
+            MaxResults = maxResults
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.EditorFindAsync(request, ct),
+            cancellationToken);
+    }
 
     [McpServerTool(Name = "find_in_files")]
-    [Description("Planned: searches files through Visual Studio find-in-files.")]
-    public Task<ToolResponse<UnsupportedToolResult>> FindInFiles(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Editor", "Implement solution-scoped find-in-files with bounded results.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Searches files under a Visual Studio solution or root path.")]
+    public Task<ToolResponse<TextSearchResult>> FindInFiles(
+        string query,
+        string? rootPath = null,
+        string? filePattern = null,
+        bool matchCase = false,
+        bool wholeWord = false,
+        bool useRegex = false,
+        int maxResults = 100,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return Task.FromResult(FailWithCode<TextSearchResult>("Query is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        if (maxResults <= 0)
+        {
+            return Task.FromResult(FailWithCode<TextSearchResult>("Max results must be greater than zero.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new FindInFilesRequest
+        {
+            Query = query,
+            RootPath = rootPath,
+            FilePattern = filePattern,
+            MatchCase = matchCase,
+            WholeWord = wholeWord,
+            UseRegex = useRegex,
+            MaxResults = maxResults
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.FindInFilesAsync(request, ct),
+            cancellationToken);
+    }
 
     [McpServerTool(Name = "code_go_to_implementation")]
     [Description("Planned: navigates to implementation for a code position.")]
