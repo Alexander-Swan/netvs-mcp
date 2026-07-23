@@ -39,20 +39,21 @@ This is especially important for debugger and editing tools because routing a re
 
 ## Broker Token And Audit Expectations
 
-Future broker hardening should include:
+Current broker hardening includes a local JSONL audit log for tool calls. Each entry records time, tool name, success/failure, selected session when known, routing fields, failure reason, and a short message. The audit log intentionally does not dump full source code, full locals, full expression results, or large output panes by default.
+
+Future broker hardening should still include:
 
 - A per-user broker token stored under `%LOCALAPPDATA%\NetVsMcp`.
 - Token validation for broker-facing requests that need authentication.
 - VSIX authentication to the broker before registration or command execution.
-- A local audit log for MCP tool calls, including time, tool name, selected session, routing input, routing result, and success/failure.
 
-Audit logging should avoid dumping full source code, full locals, full expression results, or large output panes by default. Log enough metadata to explain what happened without creating a second sensitive data store.
+Log enough metadata to explain what happened without creating a second sensitive data store.
 
 ## Known MVP Gaps
 
 - Real end-to-end validation with a running broker and an experimental Visual Studio instance is still required.
 - Authentication token handling is not complete unless the current code proves otherwise.
-- Local audit logging is not complete unless the current code proves otherwise.
+- Audit logging exists for broker tool calls, but retention/rotation policy and UI log viewing are still minimal.
 - Debugger and editor tools should be reviewed carefully before being treated as safe for unattended client use.
 
 Until those gaps are closed, use NetVsMcp only with trusted local clients and keep high-impact operations human-visible.

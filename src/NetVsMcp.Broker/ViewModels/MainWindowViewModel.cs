@@ -88,10 +88,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public string McpRegistrationJson => _runtime.Options.McpRegistrationJson;
 
-    public string LogsFolder => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "NetVsMcp",
-        "Logs");
+    public string LogsFolder => _runtime.Options.EffectiveLogsDirectory;
 
     public void Refresh()
     {

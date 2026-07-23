@@ -1,6 +1,8 @@
 using NetVsMcp.Contracts;
 using ModelContextProtocol.Server;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace NetVsMcp.Broker.Services;
 
@@ -83,14 +85,18 @@ public sealed class BrokerToolService
     [Description("Lists Visual Studio instances registered with the local NetVsMcp broker.")]
     public ToolResponse<IReadOnlyCollection<VsSessionInfo>> VsListSessions()
     {
-        return ToolResponse<IReadOnlyCollection<VsSessionInfo>>.Ok(_runtime.Sessions.ListSessions());
+        var response = ToolResponse<IReadOnlyCollection<VsSessionInfo>>.Ok(_runtime.Sessions.ListSessions());
+        AuditToolResult(nameof(VsListSessions), null, response.Success, null, response.Message);
+        return response;
     }
 
     [McpServerTool(Name = "vs_get_status")]
     [Description("Returns local broker endpoint, uptime, registration pipe, and registered Visual Studio session status.")]
     public ToolResponse<BrokerStatus> VsGetStatus()
     {
-        return ToolResponse<BrokerStatus>.Ok(_runtime.GetStatus());
+        var response = ToolResponse<BrokerStatus>.Ok(_runtime.GetStatus());
+        AuditToolResult(nameof(VsGetStatus), null, response.Success, null, response.Message);
+        return response;
     }
 
     [McpServerTool(Name = "vs_get_capabilities")]
@@ -102,7 +108,9 @@ public sealed class BrokerToolService
             ToolDescriptors,
             VisualStudioCapabilities);
 
-        return ToolResponse<BrokerCapabilities>.Ok(capabilities);
+        var response = ToolResponse<BrokerCapabilities>.Ok(capabilities);
+        AuditToolResult(nameof(VsGetCapabilities), null, response.Success, null, response.Message);
+        return response;
     }
 
     [McpServerTool(Name = "vs_get_session")]
@@ -115,17 +123,21 @@ public sealed class BrokerToolService
         var route = _runtime.Sessions.Resolve(CreateTarget(sessionId, solutionName, solutionPath));
         if (!route.Success || route.Session is null)
         {
-            return new ToolResponse<VsSessionStatus>(
+            var failure = new ToolResponse<VsSessionStatus>(
                 false,
                 default,
                 route.Message,
                 CreateRouteFailureMetadata(route));
+            AuditToolResult(nameof(VsGetSession), CreateTarget(sessionId, solutionName, solutionPath), failure.Success, null, failure.Message, route.FailureReason.ToString());
+            return failure;
         }
 
         var status = GetSessionStatus(route.Session);
-        return status is null
+        var response = status is null
             ? ToolResponse<VsSessionStatus>.Fail($"Visual Studio session '{route.Session.SessionId}' is no longer registered.")
             : ToolResponse<VsSessionStatus>.Ok(status);
+        AuditToolResult(nameof(VsGetSession), CreateTarget(sessionId, solutionName, solutionPath), response.Success, route.Session.SessionId, response.Message);
+        return response;
     }
 
     [McpServerTool(Name = "vs_select_session")]
@@ -138,14 +150,18 @@ public sealed class BrokerToolService
         var route = _runtime.Sessions.Resolve(CreateTarget(sessionId, solutionName, solutionPath));
         if (!route.Success || route.Session is null)
         {
-            return new ToolResponse<VsSessionInfo>(
+            var failure = new ToolResponse<VsSessionInfo>(
                 false,
                 default,
                 route.Message,
                 CreateRouteFailureMetadata(route));
+            AuditToolResult(nameof(VsSelectSession), CreateTarget(sessionId, solutionName, solutionPath), failure.Success, null, failure.Message, route.FailureReason.ToString());
+            return failure;
         }
 
-        return ToolResponse<VsSessionInfo>.Ok(route.Session);
+        var response = ToolResponse<VsSessionInfo>.Ok(route.Session);
+        AuditToolResult(nameof(VsSelectSession), CreateTarget(sessionId, solutionName, solutionPath), response.Success, route.Session.SessionId, response.Message);
+        return response;
     }
 
     [McpServerTool(Name = "vs_ping")]
@@ -157,21 +173,27 @@ public sealed class BrokerToolService
     {
         if (!HasRoutingFields(sessionId, solutionName, solutionPath))
         {
-            return ToolResponse<BrokerPing>.Ok(CreatePing(null));
+            var brokerOnlyResponse = ToolResponse<BrokerPing>.Ok(CreatePing(null));
+            AuditToolResult(nameof(VsPing), null, brokerOnlyResponse.Success, null, brokerOnlyResponse.Message);
+            return brokerOnlyResponse;
         }
 
         var route = _runtime.Sessions.Resolve(CreateTarget(sessionId, solutionName, solutionPath));
         if (!route.Success || route.Session is null)
         {
-            return new ToolResponse<BrokerPing>(
+            var failure = new ToolResponse<BrokerPing>(
                 false,
                 default,
                 route.Message,
                 CreateRouteFailureMetadata(route));
+            AuditToolResult(nameof(VsPing), CreateTarget(sessionId, solutionName, solutionPath), failure.Success, null, failure.Message, route.FailureReason.ToString());
+            return failure;
         }
 
         var status = GetSessionStatus(route.Session);
-        return ToolResponse<BrokerPing>.Ok(CreatePing(status));
+        var response = ToolResponse<BrokerPing>.Ok(CreatePing(status));
+        AuditToolResult(nameof(VsPing), CreateTarget(sessionId, solutionName, solutionPath), response.Success, route.Session.SessionId, response.Message);
+        return response;
     }
 
     [McpServerTool(Name = "document_active")]
@@ -187,7 +209,9 @@ public sealed class BrokerToolService
             static (connection, ct) => connection.GetActiveDocumentAsync(ct),
             cancellationToken);
 
-        return ToToolResponse(dispatch);
+        var response = ToToolResponse(dispatch);
+        AuditToolResult(nameof(DocumentActive), CreateTarget(sessionId, solutionName, solutionPath), response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
+        return response;
     }
 
     [McpServerTool(Name = "code_document_symbols")]
@@ -209,7 +233,9 @@ public sealed class BrokerToolService
             (connection, ct) => connection.ListDocumentSymbolsAsync(documentPath, ct),
             cancellationToken);
 
-        return ToToolResponse(dispatch);
+        var response = ToToolResponse(dispatch);
+        AuditToolResult(nameof(CodeDocumentSymbols), CreateTarget(sessionId, solutionName, solutionPath), response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
+        return response;
     }
 
     [McpServerTool(Name = "code_go_to_definition")]
@@ -880,7 +906,9 @@ public sealed class BrokerToolService
             (connection, ct) => connection.BuildSolutionAsync(request, ct),
             cancellationToken);
 
-        return ToValueToolResponse(dispatch);
+        var response = ToValueToolResponse(dispatch);
+        AuditToolResult(nameof(BuildSolution), CreateTarget(sessionId, solutionName, solutionPath), response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
+        return response;
     }
 
     [McpServerTool(Name = "build_status")]
@@ -896,7 +924,9 @@ public sealed class BrokerToolService
             static (connection, ct) => connection.BuildStatusAsync(ct),
             cancellationToken);
 
-        return ToValueToolResponse(dispatch);
+        var response = ToValueToolResponse(dispatch);
+        AuditToolResult(nameof(BuildStatus), CreateTarget(sessionId, solutionName, solutionPath), response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
+        return response;
     }
 
     [McpServerTool(Name = "errors_list")]
@@ -925,7 +955,9 @@ public sealed class BrokerToolService
             (connection, ct) => connection.ErrorsListAsync(request, ct),
             cancellationToken);
 
-        return ToValueToolResponse(dispatch);
+        var response = ToValueToolResponse(dispatch);
+        AuditToolResult(nameof(ErrorsList), CreateTarget(sessionId, solutionName, solutionPath), response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
+        return response;
     }
 
     [McpServerTool(Name = "output_read")]
@@ -954,7 +986,9 @@ public sealed class BrokerToolService
             (connection, ct) => connection.OutputReadAsync(request, ct),
             cancellationToken);
 
-        return ToValueToolResponse(dispatch);
+        var response = ToValueToolResponse(dispatch);
+        AuditToolResult(nameof(OutputRead), CreateTarget(sessionId, solutionName, solutionPath), response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
+        return response;
     }
 
     [McpServerTool(Name = "debug_status")]
@@ -1490,14 +1524,84 @@ public sealed class BrokerToolService
         string? solutionName,
         string? solutionPath,
         Func<IVisualStudioSessionRpc, CancellationToken, Task<T>> operation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        [CallerMemberName] string toolName = "")
     {
+        var target = CreateTarget(sessionId, solutionName, solutionPath);
         var dispatch = await _runtime.Dispatcher.DispatchAsync(
-            CreateTarget(sessionId, solutionName, solutionPath),
+            target,
             operation,
             cancellationToken);
 
-        return ToValueToolResponse(dispatch);
+        var response = ToValueToolResponse(dispatch);
+        AuditToolResult(toolName, target, response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
+        return response;
+    }
+
+    private void AuditToolResult(
+        string toolName,
+        RoutingTarget? target,
+        bool success,
+        string? selectedSessionId,
+        string? message,
+        string? failureReason = null)
+    {
+        try
+        {
+            _runtime.AuditLog.RecordToolCall(new AuditToolCall(
+                TimestampUtc: DateTimeOffset.UtcNow,
+                ToolName: ToMcpToolName(toolName),
+                Success: success,
+                SessionId: selectedSessionId ?? target?.SessionId,
+                SolutionName: target?.SolutionName,
+                SolutionPath: target?.SolutionPath,
+                FailureReason: success ? null : NormalizeFailureReason(failureReason),
+                Message: TruncateAuditMessage(message)));
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine($"NetVsMcp audit logging failed: {ex}");
+        }
+    }
+
+    private static string? NormalizeFailureReason(string? failureReason)
+    {
+        return string.IsNullOrWhiteSpace(failureReason) || failureReason == "None"
+            ? null
+            : failureReason;
+    }
+
+    private static string? TruncateAuditMessage(string? message)
+    {
+        const int maxLength = 500;
+        if (string.IsNullOrEmpty(message) || message.Length <= maxLength)
+        {
+            return message;
+        }
+
+        return message[..maxLength];
+    }
+
+    private static string ToMcpToolName(string methodName)
+    {
+        if (string.IsNullOrWhiteSpace(methodName))
+        {
+            return "unknown";
+        }
+
+        var chars = new List<char>(methodName.Length + 8);
+        for (var index = 0; index < methodName.Length; index++)
+        {
+            var character = methodName[index];
+            if (char.IsUpper(character) && index > 0)
+            {
+                chars.Add('_');
+            }
+
+            chars.Add(char.ToLowerInvariant(character));
+        }
+
+        return new string([.. chars]);
     }
 
     private static IReadOnlyDictionary<string, string> CreateRouteFailureMetadata(RouteResult route)

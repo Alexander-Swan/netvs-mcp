@@ -1,5 +1,6 @@
 using NetVsMcp.Broker.Services;
 using NetVsMcp.Contracts;
+using System.Text.Json;
 
 namespace NetVsMcp.Broker.Tests;
 
@@ -139,6 +140,20 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public void VsPing_WritesAuditEntry()
+    {
+        var runtime = CreateRuntime();
+
+        var response = runtime.Tools.VsPing();
+
+        Assert.True(response.Success);
+        var audit = ReadSingleAuditEntry(runtime);
+        Assert.Equal("vs_ping", audit.GetProperty("toolName").GetString());
+        Assert.True(audit.GetProperty("success").GetBoolean());
+        Assert.False(audit.TryGetProperty("failureReason", out _));
+    }
+
+    [Fact]
     public void VsPing_ReturnsTargetStatus_WhenTargetIsSupplied()
     {
         var runtime = CreateRuntime();
@@ -161,6 +176,22 @@ public sealed class BrokerToolServiceTests
 
         Assert.True(response.Success);
         Assert.Equal("Editor.cs", response.Value);
+    }
+
+    [Fact]
+    public async Task DocumentRead_WritesRoutedAuditEntry()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.DocumentRead("Editor.cs", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        var audit = ReadSingleAuditEntry(runtime);
+        Assert.Equal("document_read", audit.GetProperty("toolName").GetString());
+        Assert.True(audit.GetProperty("success").GetBoolean());
+        Assert.Equal("vs-1", audit.GetProperty("sessionId").GetString());
     }
 
     [Fact]
@@ -948,7 +979,20 @@ public sealed class BrokerToolServiceTests
 
     private static BrokerRuntime CreateRuntime()
     {
-        return new BrokerRuntime(BrokerOptions.LocalDefault, new SessionRegistry());
+        var options = BrokerOptions.LocalDefault with
+        {
+            LogsDirectory = Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"))
+        };
+
+        return new BrokerRuntime(options, new SessionRegistry());
+    }
+
+    private static JsonElement ReadSingleAuditEntry(BrokerRuntime runtime)
+    {
+        var auditFile = Directory.GetFiles(runtime.AuditLog.LogsDirectory, "audit-*.jsonl").Single();
+        var line = File.ReadLines(auditFile).Single();
+        using var document = JsonDocument.Parse(line);
+        return document.RootElement.Clone();
     }
 
     private static VsSessionRegistration CreateRegistration(string sessionId, string solutionName)

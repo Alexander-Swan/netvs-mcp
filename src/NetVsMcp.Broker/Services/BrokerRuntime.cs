@@ -17,6 +17,7 @@ public sealed class BrokerRuntime
         Connections = new VsSessionConnectionMap();
         Dispatcher = new VsSessionDispatcher(sessions, Connections);
         Registration = new BrokerRegistrationRpcService(sessions);
+        AuditLog = new AuditLogService(options.EffectiveLogsDirectory);
         Tools = new BrokerToolService(this);
         _httpHost = new LocalMcpHttpHost(options, Tools);
         _registrationPipeListener = new VsixRegistrationPipeListener(options, sessions, Connections);
@@ -33,6 +34,8 @@ public sealed class BrokerRuntime
     public BrokerToolService Tools { get; }
 
     public BrokerRegistrationRpcService Registration { get; }
+
+    public IAuditLogService AuditLog { get; }
 
     public DateTimeOffset StartedUtc { get; }
 

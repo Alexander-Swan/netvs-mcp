@@ -409,6 +409,24 @@ This file tracks agent orchestration so work can be resumed later.
   - `src/NetVsMcp.Broker/Services/TrayIconController.cs`
   - `src/NetVsMcp.Broker/ViewModels/MainWindowViewModel.cs`
 
+### Orchestrator: Broker Tool Audit Logging
+
+- Status: Integrated on `master`
+- Commit: `f655549` - `Add broker tool audit logging`
+- Local solution build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors
+- Local broker tests: `dotnet test .\tests\NetVsMcp.Broker.Tests\NetVsMcp.Broker.Tests.csproj` passed with 99 tests
+- Review status: Reviewed
+- Files:
+  - `docs/BROKER_UX.md`
+  - `docs/SECURITY.md`
+  - `src/NetVsMcp.Broker/Services/AuditLogService.cs`
+  - `src/NetVsMcp.Broker/Services/BrokerOptions.cs`
+  - `src/NetVsMcp.Broker/Services/BrokerRuntime.cs`
+  - `src/NetVsMcp.Broker/Services/BrokerToolService.cs`
+  - `src/NetVsMcp.Broker/ViewModels/MainWindowViewModel.cs`
+  - `tests/NetVsMcp.Broker.Tests/AuditLogServiceTests.cs`
+  - `tests/NetVsMcp.Broker.Tests/BrokerToolServiceTests.cs`
+
 ### Locke: VSIX Safe Editor Mutation Tools
 
 - Status: Integrated on `master`
@@ -608,6 +626,24 @@ Status:
 - Review public API shape in `NetVsMcp.Contracts` before wiring VSIX to broker.
 - Keep references to external example projects out of public docs.
 
+## Product Direction Follow-Ups
+
+Saved in `docs/PLAN.md`:
+
+- local broker remains the primary MCP server and routing authority
+- standout direction is reliability, trust, Roslyn-native intelligence, safe edits, debugger snapshots, and visible broker control
+- practical patterns to adopt include workspace/root-path auto-selection, optional local session manifests, stale-session cleanup, capability profiles, and clearer ambiguous-session responses
+- patterns to avoid include per-VS MCP servers, required stdio bridges, and port files as the primary transport
+
+Recommended next workstreams:
+
+1. Complete local token authentication for HTTP MCP and VSIX registration.
+2. Improve session selection with process id and workspace/root-path routing.
+3. Add optional session manifest files under `%LOCALAPPDATA%\NetVsMcp\Sessions`.
+4. Add capability profiles: `read-only`, `edit-preview`, `edit-direct`, `debug`, and `admin`.
+5. Add agent-friendly snapshot tools: `vs_context_snapshot`, `solution_overview`, `debug_snapshot`, `symbol_context`, `prepare_safe_edit`, `build_and_get_errors`, and `open_relevant_files`.
+6. Validate and document runtime demos inside Visual Studio.
+
 ## Review Findings
 
 ### Broker Runtime Status
@@ -677,10 +713,10 @@ Status:
 
 ## Next Tasks
 
-After current tasks are integrated:
+Highest-value next tasks:
 
-1. Wire broker named-pipe endpoint to VSIX registration contract.
-2. Add broker HTTP MCP skeleton and `vs_list_sessions`.
-3. Add broker tray status window session list.
-4. Add VSIX `document_active` implementation.
-5. Add `code_document_symbols` through Visual Studio workspace/language services.
+1. Decide whether to complete or revert the current uncommitted broker token-path prep in `src/NetVsMcp.Broker/Services/BrokerOptions.cs`.
+2. Complete local token authentication and update broker UI/config output.
+3. Implement process id and workspace/root-path session routing.
+4. Add optional session manifests and stale cleanup.
+5. Start runtime validation with the broker plus a Visual Studio experimental instance.

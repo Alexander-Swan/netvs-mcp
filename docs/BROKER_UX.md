@@ -44,4 +44,10 @@ The UI opens this folder for logs:
 %LOCALAPPDATA%\NetVsMcp\Logs
 ```
 
-The folder is created on demand. Structured broker file logging is still a follow-up; current runtime diagnostics primarily use trace output.
+The folder is created on demand. Broker tool calls are written as newline-delimited JSON files named like:
+
+```text
+audit-20260722.jsonl
+```
+
+Audit entries keep metadata such as timestamp, tool name, success/failure, selected session, routing fields, failure reason, and a short message. Runtime diagnostics outside tool calls still primarily use trace output.

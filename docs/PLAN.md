@@ -374,6 +374,67 @@ MVP tools:
 - `debug_get_locals`
 - `debug_evaluate`
 
+## Standout Direction
+
+The project should compete on reliability, trust, and Visual Studio-native intelligence rather than only tool count.
+
+Positioning:
+
+```text
+One local Visual Studio agent control plane:
+one broker, many VS instances, Roslyn-native navigation,
+safe edits, debugger snapshots, and visible user control.
+```
+
+Primary differentiators:
+
+- one local broker endpoint configured once by the MCP client
+- dynamic Visual Studio instance registration through the VSIX
+- best-in-class session selection by session id, solution path, solution name, process id, active VS instance, workspace/root path, or explicit default
+- Roslyn-first code intelligence for navigation, symbol search, references, semantic diagnostics, and refactoring previews
+- safe editing workflow with preview, approve/reject, pending edit visibility, and audit logging
+- debugger workflows shaped around snapshots, break reasons, locals, call stack, breakpoints, and current source location
+- tray/status app that makes the invisible broker visible and trustworthy
+- local-only security with loopback binding, per-user authentication, approval gates, and audit logs
+- capability profiles such as `read-only`, `edit-preview`, `edit-direct`, `debug`, and `admin`
+- agent-friendly high-level tools that return useful context in one call
+
+High-level tools to add after the current routed surface is stable:
+
+- `vs_context_snapshot`
+- `solution_overview`
+- `debug_snapshot`
+- `symbol_context`
+- `prepare_safe_edit`
+- `build_and_get_errors`
+- `open_relevant_files`
+
+Demo scenarios that should drive polish:
+
+- agent fixes a compile error in the active Visual Studio solution
+- agent finds references and explains symbol context using Roslyn
+- agent previews an edit and the user approves it from Visual Studio or broker UI
+- agent sets a conditional breakpoint, starts debugging, and inspects locals
+- multiple Visual Studio instances are open and the broker routes to the intended solution without confusion
+
+## Patterns To Borrow From Analog Tools
+
+Keep the central local broker as the primary architecture, but borrow practical usability patterns seen in other Visual Studio MCP approaches.
+
+Patterns to adopt:
+
+- workspace/root-path based auto-selection, including walking upward from a client-provided path to find a solution
+- optional per-session manifest files under `%LOCALAPPDATA%\NetVsMcp\Sessions` for debugging, recovery, and manual inspection
+- stale-session cleanup for both broker registry entries and optional manifest files
+- tool category filtering or capability profiles so users can expose only read, edit, debug, or admin-grade tools
+- clear ambiguous-session responses with candidate sessions and selection hints
+
+Patterns not to adopt:
+
+- making every Visual Studio extension instance its own MCP server
+- requiring a stdio bridge
+- using port files as the primary routing or discovery transport
+
 ## Near-Term Follow-Ups
 
 These items were identified during the first broker/VSIX skeleton review and should be handled before expanding the tool surface too far.
@@ -426,6 +487,77 @@ Acceptance criteria:
 - method names match broker registration service
 - broker and VSIX can exchange register/update/heartbeat/unregister calls without adapter-only placeholders
 
+### Add Local Authentication
+
+The broker already tracks the token file path shape, but token generation and enforcement still need to be completed.
+
+Acceptance criteria:
+
+- broker creates or loads a per-user token under `%LOCALAPPDATA%\NetVsMcp`
+- HTTP MCP endpoint requires the token for tool calls
+- VSIX named-pipe registration authenticates to the broker
+- tray/status window shows token/auth status and copyable MCP config
+- tests cover missing, invalid, and valid token behavior
+
+### Improve Session Selection
+
+Make session routing a product strength.
+
+Acceptance criteria:
+
+- tools can route by `sessionId`, `solutionPath`, `solutionName`, `processId`, and client-provided `workspacePath` or `rootPath`
+- workspace path matching walks upward to find `.sln` or `.slnx`
+- ambiguous routing returns candidate sessions with process id, solution path, active-window state, and last-seen time
+- broker UI shows the currently selected/default session
+- tests cover process id, workspace path, ambiguity, stale sessions, and active/default fallbacks
+
+### Add Optional Session Manifests
+
+The broker registry remains authoritative, but manifest files can make troubleshooting and recovery easier.
+
+Acceptance criteria:
+
+- VSIX or broker writes one manifest per registered Visual Studio instance under `%LOCALAPPDATA%\NetVsMcp\Sessions`
+- manifest includes process id, session id, solution path/name, broker pipe, capabilities, last seen, and extension version
+- stale manifests are cleaned when the process exits or last-seen exceeds the configured threshold
+- broker status window can open the session manifest folder
+
+### Add Capability Profiles
+
+Users should be able to constrain what agents can do.
+
+Acceptance criteria:
+
+- broker supports at least `read-only`, `edit-preview`, `edit-direct`, `debug`, and `admin` profiles
+- status window displays active profile
+- dangerous tools are rejected when the current profile does not allow them
+- audit logs record the active profile and whether a call was allowed or denied
+- docs show recommended profiles for everyday use and development/debugging
+
+### Add Agent-Friendly Snapshot Tools
+
+Reduce the number of calls an agent needs for common workflows.
+
+Acceptance criteria:
+
+- `vs_context_snapshot` returns selected session, active document, selection, build/debug status, and recent diagnostics
+- `solution_overview` returns solution/project structure and startup project
+- `debug_snapshot` returns debugger mode, stopped location, reason when available, call stack, thread summary, locals summary, and active exception when available
+- `symbol_context` returns symbol declaration, containing type/member, references summary, and diagnostics near the symbol
+- snapshot tools use size limits and truncation metadata to avoid oversized responses
+
+### Polish Runtime Demos
+
+Before treating the project as public-ready, validate real workflows inside Visual Studio.
+
+Acceptance criteria:
+
+- documented demo for fixing a compile error
+- documented demo for Roslyn symbol/reference navigation
+- documented demo for safe edit preview approval
+- documented demo for conditional breakpoint plus locals inspection
+- documented demo for multiple Visual Studio instances and correct solution routing
+
 ## Implementation Phases
 
 1. Broker and registration
@@ -434,8 +566,10 @@ Acceptance criteria:
 4. Safe editing
 5. Debugging
 6. Tests and project operations
-7. Advanced debug, UI automation, and web debugging
-8. Autostart and polish
+7. Authentication, capability profiles, and audit polish
+8. Session selection, optional manifests, and stale cleanup
+9. Snapshot tools and product demos
+10. Advanced debug, UI automation, and web debugging
 
 ## Security
 
