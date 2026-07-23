@@ -105,7 +105,8 @@ public sealed class BrokerToolService
     {
         var capabilities = new BrokerCapabilities(
             _runtime.Options.McpEndpoint,
-            ToolDescriptors,
+            _runtime.Options.CapabilityProfile,
+            ToolDescriptors.Select(WithAccessMetadata).ToArray(),
             VisualStudioCapabilities);
 
         var response = ToolResponse<BrokerCapabilities>.Ok(capabilities);
@@ -118,9 +119,13 @@ public sealed class BrokerToolService
     public ToolResponse<VsSessionStatus> VsGetSession(
         string? sessionId = null,
         string? solutionName = null,
-        string? solutionPath = null)
+        string? solutionPath = null,
+        int? processId = null,
+        string? workspacePath = null,
+        string? rootPath = null)
     {
-        var route = _runtime.Sessions.Resolve(CreateTarget(sessionId, solutionName, solutionPath));
+        var target = CreateTarget(sessionId, solutionName, solutionPath, processId, workspacePath, rootPath);
+        var route = _runtime.Sessions.Resolve(target);
         if (!route.Success || route.Session is null)
         {
             var failure = new ToolResponse<VsSessionStatus>(
@@ -128,7 +133,7 @@ public sealed class BrokerToolService
                 default,
                 route.Message,
                 CreateRouteFailureMetadata(route));
-            AuditToolResult(nameof(VsGetSession), CreateTarget(sessionId, solutionName, solutionPath), failure.Success, null, failure.Message, route.FailureReason.ToString());
+            AuditToolResult(nameof(VsGetSession), target, failure.Success, null, failure.Message, route.FailureReason.ToString());
             return failure;
         }
 
@@ -136,7 +141,7 @@ public sealed class BrokerToolService
         var response = status is null
             ? ToolResponse<VsSessionStatus>.Fail($"Visual Studio session '{route.Session.SessionId}' is no longer registered.")
             : ToolResponse<VsSessionStatus>.Ok(status);
-        AuditToolResult(nameof(VsGetSession), CreateTarget(sessionId, solutionName, solutionPath), response.Success, route.Session.SessionId, response.Message);
+        AuditToolResult(nameof(VsGetSession), target, response.Success, route.Session.SessionId, response.Message);
         return response;
     }
 
@@ -145,9 +150,13 @@ public sealed class BrokerToolService
     public ToolResponse<VsSessionInfo> VsSelectSession(
         string? sessionId = null,
         string? solutionName = null,
-        string? solutionPath = null)
+        string? solutionPath = null,
+        int? processId = null,
+        string? workspacePath = null,
+        string? rootPath = null)
     {
-        var route = _runtime.Sessions.Resolve(CreateTarget(sessionId, solutionName, solutionPath));
+        var target = CreateTarget(sessionId, solutionName, solutionPath, processId, workspacePath, rootPath);
+        var route = _runtime.Sessions.Resolve(target);
         if (!route.Success || route.Session is null)
         {
             var failure = new ToolResponse<VsSessionInfo>(
@@ -155,12 +164,12 @@ public sealed class BrokerToolService
                 default,
                 route.Message,
                 CreateRouteFailureMetadata(route));
-            AuditToolResult(nameof(VsSelectSession), CreateTarget(sessionId, solutionName, solutionPath), failure.Success, null, failure.Message, route.FailureReason.ToString());
+            AuditToolResult(nameof(VsSelectSession), target, failure.Success, null, failure.Message, route.FailureReason.ToString());
             return failure;
         }
 
         var response = ToolResponse<VsSessionInfo>.Ok(route.Session);
-        AuditToolResult(nameof(VsSelectSession), CreateTarget(sessionId, solutionName, solutionPath), response.Success, route.Session.SessionId, response.Message);
+        AuditToolResult(nameof(VsSelectSession), target, response.Success, route.Session.SessionId, response.Message);
         return response;
     }
 
@@ -169,16 +178,20 @@ public sealed class BrokerToolService
     public ToolResponse<BrokerPing> VsPing(
         string? sessionId = null,
         string? solutionName = null,
-        string? solutionPath = null)
+        string? solutionPath = null,
+        int? processId = null,
+        string? workspacePath = null,
+        string? rootPath = null)
     {
-        if (!HasRoutingFields(sessionId, solutionName, solutionPath))
+        if (!HasRoutingFields(sessionId, solutionName, solutionPath, processId, workspacePath, rootPath))
         {
             var brokerOnlyResponse = ToolResponse<BrokerPing>.Ok(CreatePing(null));
             AuditToolResult(nameof(VsPing), null, brokerOnlyResponse.Success, null, brokerOnlyResponse.Message);
             return brokerOnlyResponse;
         }
 
-        var route = _runtime.Sessions.Resolve(CreateTarget(sessionId, solutionName, solutionPath));
+        var target = CreateTarget(sessionId, solutionName, solutionPath, processId, workspacePath, rootPath);
+        var route = _runtime.Sessions.Resolve(target);
         if (!route.Success || route.Session is null)
         {
             var failure = new ToolResponse<BrokerPing>(
@@ -186,13 +199,13 @@ public sealed class BrokerToolService
                 default,
                 route.Message,
                 CreateRouteFailureMetadata(route));
-            AuditToolResult(nameof(VsPing), CreateTarget(sessionId, solutionName, solutionPath), failure.Success, null, failure.Message, route.FailureReason.ToString());
+            AuditToolResult(nameof(VsPing), target, failure.Success, null, failure.Message, route.FailureReason.ToString());
             return failure;
         }
 
         var status = GetSessionStatus(route.Session);
         var response = ToolResponse<BrokerPing>.Ok(CreatePing(status));
-        AuditToolResult(nameof(VsPing), CreateTarget(sessionId, solutionName, solutionPath), response.Success, route.Session.SessionId, response.Message);
+        AuditToolResult(nameof(VsPing), target, response.Success, route.Session.SessionId, response.Message);
         return response;
     }
 
@@ -896,18 +909,24 @@ public sealed class BrokerToolService
         string? solutionPath = null,
         CancellationToken cancellationToken = default)
     {
+        var target = CreateTarget(sessionId, solutionName, solutionPath);
+        if (ValidateToolAccess(nameof(BuildSolution), target) is { } denied)
+        {
+            return denied.As<BuildSolutionResult>();
+        }
+
         var request = new BuildSolutionRequest
         {
             WaitForBuildToFinish = waitForBuildToFinish
         };
 
         var dispatch = await _runtime.Dispatcher.DispatchAsync(
-            CreateTarget(sessionId, solutionName, solutionPath),
+            target,
             (connection, ct) => connection.BuildSolutionAsync(request, ct),
             cancellationToken);
 
         var response = ToValueToolResponse(dispatch);
-        AuditToolResult(nameof(BuildSolution), CreateTarget(sessionId, solutionName, solutionPath), response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
+        AuditToolResult(nameof(BuildSolution), target, response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
         return response;
     }
 
@@ -1308,11 +1327,17 @@ public sealed class BrokerToolService
     private static RoutingTarget? CreateTarget(
         string? sessionId,
         string? solutionName,
-        string? solutionPath)
+        string? solutionPath,
+        int? processId = null,
+        string? workspacePath = null,
+        string? rootPath = null)
     {
         if (string.IsNullOrWhiteSpace(sessionId) &&
             string.IsNullOrWhiteSpace(solutionName) &&
-            string.IsNullOrWhiteSpace(solutionPath))
+            string.IsNullOrWhiteSpace(solutionPath) &&
+            processId is null &&
+            string.IsNullOrWhiteSpace(workspacePath) &&
+            string.IsNullOrWhiteSpace(rootPath))
         {
             return null;
         }
@@ -1320,7 +1345,10 @@ public sealed class BrokerToolService
         return new RoutingTarget(
             NormalizeOptional(sessionId),
             NormalizeOptional(solutionName),
-            NormalizeOptional(solutionPath));
+            NormalizeOptional(solutionPath),
+            processId,
+            NormalizeOptional(workspacePath),
+            NormalizeOptional(rootPath));
     }
 
     private static string? NormalizeOptional(string? value)
@@ -1352,11 +1380,17 @@ public sealed class BrokerToolService
     private static bool HasRoutingFields(
         string? sessionId,
         string? solutionName,
-        string? solutionPath)
+        string? solutionPath,
+        int? processId = null,
+        string? workspacePath = null,
+        string? rootPath = null)
     {
         return !string.IsNullOrWhiteSpace(sessionId) ||
             !string.IsNullOrWhiteSpace(solutionName) ||
-            !string.IsNullOrWhiteSpace(solutionPath);
+            !string.IsNullOrWhiteSpace(solutionPath) ||
+            processId is not null ||
+            !string.IsNullOrWhiteSpace(workspacePath) ||
+            !string.IsNullOrWhiteSpace(rootPath);
     }
 
     private static string? ValidateBreakpointLookup(
@@ -1528,6 +1562,11 @@ public sealed class BrokerToolService
         [CallerMemberName] string toolName = "")
     {
         var target = CreateTarget(sessionId, solutionName, solutionPath);
+        if (ValidateToolAccess(toolName, target) is { } denied)
+        {
+            return denied.As<T>();
+        }
+
         var dispatch = await _runtime.Dispatcher.DispatchAsync(
             target,
             operation,
@@ -1536,6 +1575,26 @@ public sealed class BrokerToolService
         var response = ToValueToolResponse(dispatch);
         AuditToolResult(toolName, target, response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
         return response;
+    }
+
+    private ToolAccessDenied? ValidateToolAccess(string toolName, RoutingTarget? target)
+    {
+        var mcpToolName = ToMcpToolName(toolName);
+        var category = CategorizeTool(mcpToolName);
+        if (BrokerToolAccessPolicy.IsAllowed(_runtime.Options.CapabilityProfile, category))
+        {
+            return null;
+        }
+
+        var message = $"Tool '{mcpToolName}' requires profile '{BrokerToolAccessPolicy.MinimumProfile(category)}' or higher; active profile is '{_runtime.Options.CapabilityProfile}'.";
+        AuditToolResult(toolName, target, false, null, message, "CapabilityProfileDenied");
+        return new ToolAccessDenied(message, new Dictionary<string, string>
+        {
+            ["failureReason"] = "CapabilityProfileDenied",
+            ["activeProfile"] = _runtime.Options.CapabilityProfile.ToString(),
+            ["requiredProfile"] = BrokerToolAccessPolicy.MinimumProfile(category).ToString(),
+            ["category"] = category.ToString()
+        });
     }
 
     private void AuditToolResult(
@@ -1604,6 +1663,80 @@ public sealed class BrokerToolService
         return new string([.. chars]);
     }
 
+    private static BrokerToolDescriptor WithAccessMetadata(BrokerToolDescriptor descriptor)
+    {
+        var category = CategorizeTool(descriptor.Name);
+        return descriptor with
+        {
+            Category = category,
+            MinimumProfile = BrokerToolAccessPolicy.MinimumProfile(category)
+        };
+    }
+
+    private static BrokerToolCategory CategorizeTool(string toolName)
+    {
+        if (toolName.StartsWith("vs_", StringComparison.Ordinal))
+        {
+            return BrokerToolCategory.Broker;
+        }
+
+        return toolName switch
+        {
+            "document_active" or
+            "document_read" or
+            "document_open" or
+            "selection_get" or
+            "code_document_symbols" or
+            "code_go_to_definition" or
+            "code_find_references" or
+            "solution_info" or
+            "project_list" or
+            "project_info" or
+            "startup_project_get" or
+            "build_status" or
+            "errors_list" or
+            "output_read" or
+            "debug_status" or
+            "debug_get_mode" or
+            "debug_get_callstack" or
+            "debug_get_locals" or
+            "breakpoint_list" or
+            "edit_list_pending" => BrokerToolCategory.Read,
+
+            "edit_preview" or
+            "edit_reject" => BrokerToolCategory.EditPreview,
+
+            "document_write" or
+            "document_save" or
+            "editor_insert" or
+            "editor_replace" or
+            "editor_goto_line" or
+            "selection_set" or
+            "document_cleanup" or
+            "edit_approve" => BrokerToolCategory.EditDirect,
+
+            "build_solution" => BrokerToolCategory.Build,
+
+            "debug_start" or
+            "debug_stop" or
+            "debug_continue" or
+            "debug_break" or
+            "debug_step" or
+            "debug_evaluate" or
+            "breakpoint_set" or
+            "breakpoint_remove" or
+            "breakpoint_enable" => BrokerToolCategory.Debug,
+
+            "startup_project_set" => BrokerToolCategory.Admin,
+
+            "test_discover" or
+            "test_run" or
+            "test_results" => BrokerToolCategory.Test,
+
+            _ => BrokerToolCategory.Admin
+        };
+    }
+
     private static IReadOnlyDictionary<string, string> CreateRouteFailureMetadata(RouteResult route)
     {
         var metadata = new Dictionary<string, string>
@@ -1647,7 +1780,19 @@ public sealed class BrokerToolService
 
         metadata["candidateCount"] = candidates.Count.ToString();
         metadata["candidateSessionIds"] = string.Join(",", candidates.Select(candidate => candidate.SessionId));
+        metadata["candidateProcessIds"] = string.Join(",", candidates.Select(candidate => candidate.ProcessId));
+        metadata["candidateSolutionNames"] = string.Join(",", candidates.Select(candidate => candidate.SolutionName ?? string.Empty));
+        metadata["candidateSolutionPaths"] = string.Join("|", candidates.Select(candidate => candidate.SolutionPath ?? string.Empty));
+        metadata["candidateActiveWindow"] = string.Join(",", candidates.Select(candidate => candidate.IsActiveWindow.ToString()));
+        metadata["candidateLastSeenUtc"] = string.Join(",", candidates.Select(candidate => candidate.LastSeenUtc.ToString("O")));
     }
+}
+
+internal sealed record ToolAccessDenied(
+    string Message,
+    IReadOnlyDictionary<string, string> Metadata)
+{
+    public ToolResponse<T> As<T>() => new(false, default, Message, Metadata);
 }
 
 public sealed record BrokerPing(

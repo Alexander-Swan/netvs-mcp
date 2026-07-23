@@ -1,3 +1,4 @@
+using System.IO;
 using NetVsMcp.Contracts;
 
 namespace NetVsMcp.Broker.Services;
@@ -154,6 +155,19 @@ public sealed class SessionRegistry
                 : RouteResult.Found(bySession);
         }
 
+        if (target?.ProcessId is > 0)
+        {
+            var matches = sessions
+                .Where(session => session.ProcessId == target.ProcessId)
+                .ToArray();
+
+            return ResolveMatches(
+                matches,
+                RouteFailureReason.ProcessIdNotFound,
+                $"No session has process id '{target.ProcessId}'.",
+                sessions);
+        }
+
         if (!string.IsNullOrWhiteSpace(target?.SolutionPath))
         {
             var normalizedTargetPath = SolutionPathNormalizer.Normalize(target.SolutionPath);
@@ -165,6 +179,30 @@ public sealed class SessionRegistry
                 matches,
                 RouteFailureReason.SolutionPathNotFound,
                 $"No session has solution path '{normalizedTargetPath}'.",
+                sessions);
+        }
+
+        var workspacePath = target?.WorkspacePath ?? target?.RootPath;
+        if (!string.IsNullOrWhiteSpace(workspacePath))
+        {
+            var solutionPath = FindNearestSolutionPath(workspacePath);
+            if (solutionPath is null)
+            {
+                return RouteResult.Failed(
+                    RouteFailureReason.WorkspacePathNotFound,
+                    $"No .sln or .slnx file was found at or above workspace path '{workspacePath}'.",
+                    sessions);
+            }
+
+            var normalizedSolutionPath = SolutionPathNormalizer.Normalize(solutionPath);
+            var matches = sessions
+                .Where(session => string.Equals(session.SolutionPath, normalizedSolutionPath, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            return ResolveMatches(
+                matches,
+                RouteFailureReason.WorkspacePathNotFound,
+                $"No session matched workspace path '{workspacePath}'.",
                 sessions);
         }
 
@@ -194,8 +232,35 @@ public sealed class SessionRegistry
 
         return RouteResult.Failed(
             RouteFailureReason.Ambiguous,
-            "Multiple Visual Studio sessions are available. Specify sessionId, solutionPath, or solutionName.",
+            "Multiple Visual Studio sessions are available. Specify sessionId, processId, solutionPath, workspacePath, or solutionName.",
             sessions);
+    }
+
+    public int RemoveStaleSessions(DateTimeOffset? now = null)
+    {
+        var snapshotTime = now ?? _utcNow();
+        var removed = 0;
+
+        lock (_gate)
+        {
+            foreach (var sessionId in _sessions
+                .Where(pair => snapshotTime - pair.Value.LastSeenUtc > StaleAfter)
+                .Select(pair => pair.Key)
+                .ToArray())
+            {
+                if (_sessions.Remove(sessionId))
+                {
+                    removed++;
+                }
+            }
+        }
+
+        if (removed > 0)
+        {
+            OnSessionsChanged();
+        }
+
+        return removed;
     }
 
     private static RouteResult ResolveMatches(
@@ -213,6 +278,51 @@ public sealed class SessionRegistry
                 "Multiple Visual Studio sessions matched the target. Specify sessionId.",
                 matches)
         };
+    }
+
+    private static string? FindNearestSolutionPath(string workspacePath)
+    {
+        var normalizedPath = SolutionPathNormalizer.Normalize(workspacePath);
+        if (string.IsNullOrWhiteSpace(normalizedPath))
+        {
+            return null;
+        }
+
+        if (File.Exists(normalizedPath) &&
+            (normalizedPath.EndsWith(".sln", StringComparison.OrdinalIgnoreCase) ||
+             normalizedPath.EndsWith(".slnx", StringComparison.OrdinalIgnoreCase)))
+        {
+            return normalizedPath;
+        }
+
+        var directory = File.Exists(normalizedPath)
+            ? Path.GetDirectoryName(normalizedPath)
+            : normalizedPath;
+
+        while (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+        {
+            var solutions = Directory
+                .EnumerateFiles(directory, "*.sln*")
+                .Where(path => path.EndsWith(".sln", StringComparison.OrdinalIgnoreCase) ||
+                               path.EndsWith(".slnx", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (solutions.Length == 1)
+            {
+                return solutions[0];
+            }
+
+            if (solutions.Length > 1)
+            {
+                return solutions.FirstOrDefault(path => Path.GetExtension(path).Equals(".slnx", StringComparison.OrdinalIgnoreCase))
+                    ?? solutions[0];
+            }
+
+            directory = Directory.GetParent(directory)?.FullName;
+        }
+
+        return null;
     }
 
     private void OnSessionsChanged() => SessionsChanged?.Invoke(this, EventArgs.Empty);

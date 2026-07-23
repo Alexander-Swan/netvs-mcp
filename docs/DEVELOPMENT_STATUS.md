@@ -638,11 +638,27 @@ Saved in `docs/PLAN.md`:
 Recommended next workstreams:
 
 1. Complete local token authentication for HTTP MCP and VSIX registration.
-2. Improve session selection with process id and workspace/root-path routing.
-3. Add optional session manifest files under `%LOCALAPPDATA%\NetVsMcp\Sessions`.
-4. Add capability profiles: `read-only`, `edit-preview`, `edit-direct`, `debug`, and `admin`.
+2. Improve session selection with process id and workspace/root-path routing. Completed at broker level in `SessionRegistry`.
+3. Add optional session manifest files under `%LOCALAPPDATA%\NetVsMcp\Sessions`. Completed at broker level through `SessionManifestService`.
+4. Add capability profiles: `read-only`, `edit-preview`, `edit-direct`, `debug`, and `admin`. Completed at broker tool-policy level.
 5. Add agent-friendly snapshot tools: `vs_context_snapshot`, `solution_overview`, `debug_snapshot`, `symbol_context`, `prepare_safe_edit`, `build_and_get_errors`, and `open_relevant_files`.
 6. Validate and document runtime demos inside Visual Studio.
+
+### Orchestrator: Broker Phase 8 Routing And Profiles
+
+- Status: Ready for commit
+- Scope:
+  - process-id routing
+  - workspace/root-path routing by walking upward to `.sln` or `.slnx`
+  - stale session removal
+  - optional broker-written session manifests
+  - broker capability profiles and tool access denial metadata
+- Local build: `dotnet build .\NetVsMcp.slnx` passed with 0 warnings and 0 errors before tests
+- Local broker tests: `dotnet test .\tests\NetVsMcp.Broker.Tests\NetVsMcp.Broker.Tests.csproj` passed with 107 tests
+- Remaining gaps:
+  - HTTP/VSIX authentication still needs token enforcement
+  - profile setting is configured through `BrokerOptions`; UI/config persistence is not built yet
+  - runtime validation inside a real Visual Studio experimental instance is still pending
 
 ## Review Findings
 
@@ -715,8 +731,8 @@ Recommended next workstreams:
 
 Highest-value next tasks:
 
-1. Decide whether to complete or revert the current uncommitted broker token-path prep in `src/NetVsMcp.Broker/Services/BrokerOptions.cs`.
-2. Complete local token authentication and update broker UI/config output.
-3. Implement process id and workspace/root-path session routing.
-4. Add optional session manifests and stale cleanup.
-5. Start runtime validation with the broker plus a Visual Studio experimental instance.
+1. Complete local token authentication and update broker UI/config output.
+2. Add UI/config persistence for broker capability profiles.
+3. Add agent-friendly snapshot tools.
+4. Start runtime validation with the broker plus a Visual Studio experimental instance.
+5. Document runtime demos once Visual Studio validation is complete.

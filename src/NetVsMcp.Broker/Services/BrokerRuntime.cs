@@ -18,9 +18,11 @@ public sealed class BrokerRuntime
         Dispatcher = new VsSessionDispatcher(sessions, Connections);
         Registration = new BrokerRegistrationRpcService(sessions);
         AuditLog = new AuditLogService(options.EffectiveLogsDirectory);
+        SessionManifests = new SessionManifestService(options.EffectiveSessionsDirectory);
         Tools = new BrokerToolService(this);
         _httpHost = new LocalMcpHttpHost(options, Tools);
         _registrationPipeListener = new VsixRegistrationPipeListener(options, sessions, Connections);
+        Sessions.SessionsChanged += OnSessionsChanged;
     }
 
     public BrokerOptions Options { get; }
@@ -37,6 +39,8 @@ public sealed class BrokerRuntime
 
     public IAuditLogService AuditLog { get; }
 
+    public ISessionManifestService SessionManifests { get; }
+
     public DateTimeOffset StartedUtc { get; }
 
     public bool IsHttpEndpointRunning => _httpHost.IsRunning;
@@ -52,6 +56,7 @@ public sealed class BrokerRuntime
         Options.PipeName,
         StartedUtc,
         Version,
+        Options.CapabilityProfile,
         Sessions.ListSessionStatuses());
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -68,5 +73,18 @@ public sealed class BrokerRuntime
     {
         await _registrationPipeListener.StopAsync();
         await _httpHost.StopAsync();
+        Sessions.SessionsChanged -= OnSessionsChanged;
+    }
+
+    private void OnSessionsChanged(object? sender, EventArgs e)
+    {
+        try
+        {
+            SessionManifests.Sync(Sessions.ListSessions());
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine($"NetVsMcp session manifest sync failed: {ex}");
+        }
     }
 }

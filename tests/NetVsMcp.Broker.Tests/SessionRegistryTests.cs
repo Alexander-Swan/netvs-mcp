@@ -59,6 +59,46 @@ public sealed class SessionRegistryTests
     }
 
     [Fact]
+    public void Resolve_UsesProcessIdBeforeSolutionPath()
+    {
+        var registry = new SessionRegistry();
+        registry.Register(CreateRegistration("vs-1", "Shared", @"C:\Code\One\Shared.sln", isActive: false, processId: 1001));
+        registry.Register(CreateRegistration("vs-2", "Shared", @"C:\Code\Two\Shared.sln", isActive: false, processId: 1002));
+
+        var result = registry.Resolve(new RoutingTarget(
+            SolutionPath: @"C:\Code\One\Shared.sln",
+            ProcessId: 1002));
+
+        Assert.True(result.Success);
+        Assert.Equal("vs-2", result.Session?.SessionId);
+    }
+
+    [Fact]
+    public void Resolve_UsesWorkspacePathToFindNearestSolution()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "NetVsMcp.Registry.Tests", Guid.NewGuid().ToString("N"));
+        var projectDirectory = Path.Combine(tempRoot, "src", "App");
+        Directory.CreateDirectory(projectDirectory);
+        var solutionPath = Path.Combine(tempRoot, "App.slnx");
+        File.WriteAllText(solutionPath, string.Empty);
+
+        try
+        {
+            var registry = new SessionRegistry();
+            registry.Register(CreateRegistration("vs-1", "App", solutionPath, isActive: false));
+
+            var result = registry.Resolve(new RoutingTarget(WorkspacePath: projectDirectory));
+
+            Assert.True(result.Success);
+            Assert.Equal("vs-1", result.Session?.SessionId);
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Update_StoresNormalizedSolutionPath()
     {
         var registry = new SessionRegistry();
@@ -153,15 +193,29 @@ public sealed class SessionRegistryTests
         Assert.Equal(SessionHealth.Stale, status.Health);
     }
 
+    [Fact]
+    public void RemoveStaleSessions_RemovesOldSessions()
+    {
+        var now = DateTimeOffset.Parse("2026-07-22T20:00:00Z");
+        var registry = new SessionRegistry(() => now);
+        registry.Register(CreateRegistration("vs-1", "One", @"C:\Code\One\One.sln", isActive: true));
+
+        var removed = registry.RemoveStaleSessions(now.AddMinutes(1));
+
+        Assert.Equal(1, removed);
+        Assert.Empty(registry.ListSessions());
+    }
+
     private static VsSessionRegistration CreateRegistration(
         string sessionId,
         string solutionName,
         string solutionPath,
-        bool isActive)
+        bool isActive,
+        int? processId = null)
     {
         return new VsSessionRegistration(
             SessionId: sessionId,
-            ProcessId: Random.Shared.Next(1000, 9999),
+            ProcessId: processId ?? Random.Shared.Next(1000, 9999),
             VisualStudioVersion: "18.0",
             Edition: "Enterprise",
             SolutionName: solutionName,

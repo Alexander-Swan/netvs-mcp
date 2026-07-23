@@ -86,8 +86,10 @@ public sealed class VsSessionDispatcher : IVsSessionDispatcher
         {
             RouteFailureReason.NoRegisteredSessions => VsSessionDispatchFailureReason.NoRegisteredSessions,
             RouteFailureReason.SessionNotFound => VsSessionDispatchFailureReason.SessionNotFound,
+            RouteFailureReason.ProcessIdNotFound => VsSessionDispatchFailureReason.SessionNotFound,
             RouteFailureReason.SolutionPathNotFound => VsSessionDispatchFailureReason.SolutionPathNotFound,
             RouteFailureReason.SolutionNameNotFound => VsSessionDispatchFailureReason.SolutionNameNotFound,
+            RouteFailureReason.WorkspacePathNotFound => VsSessionDispatchFailureReason.SolutionPathNotFound,
             RouteFailureReason.Ambiguous => VsSessionDispatchFailureReason.AmbiguousTarget,
             _ => VsSessionDispatchFailureReason.SessionNotFound
         };

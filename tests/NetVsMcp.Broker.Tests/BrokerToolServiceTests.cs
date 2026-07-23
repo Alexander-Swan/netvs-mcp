@@ -27,6 +27,7 @@ public sealed class BrokerToolServiceTests
         var response = runtime.Tools.VsGetCapabilities();
 
         Assert.True(response.Success);
+        Assert.Equal(BrokerCapabilityProfile.Admin, response.Value!.ActiveProfile);
         Assert.Contains(response.Value!.Tools, tool => tool.Name == "vs_list_sessions");
         Assert.Contains(response.Value.Tools, tool => tool.Name == "vs_get_status");
         Assert.Contains(response.Value.Tools, tool => tool.Name == "vs_get_capabilities");
@@ -54,6 +55,8 @@ public sealed class BrokerToolServiceTests
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "project_info", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "startup_project_set", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "test_run", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "document_write", Category: BrokerToolCategory.EditDirect, MinimumProfile: BrokerCapabilityProfile.EditDirect });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "debug_start", Category: BrokerToolCategory.Debug, MinimumProfile: BrokerCapabilityProfile.Debug });
         Assert.All(
             response.Value.Tools.Where(tool => tool.Name.StartsWith("vs_", StringComparison.Ordinal)),
             tool => Assert.False(tool.RequiresVisualStudioSession));
@@ -83,6 +86,19 @@ public sealed class BrokerToolServiceTests
 
         Assert.True(response.Success);
         Assert.Equal("vs-1", response.Value!.Session.SessionId);
+    }
+
+    [Fact]
+    public void VsGetSession_SelectsByProcessId()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp", processId: 1001));
+        runtime.Sessions.Register(CreateRegistration("vs-2", "Other", processId: 1002));
+
+        var response = runtime.Tools.VsGetSession(processId: 1002);
+
+        Assert.True(response.Success);
+        Assert.Equal("vs-2", response.Value!.Session.SessionId);
     }
 
     [Fact]
@@ -192,6 +208,67 @@ public sealed class BrokerToolServiceTests
         Assert.Equal("document_read", audit.GetProperty("toolName").GetString());
         Assert.True(audit.GetProperty("success").GetBoolean());
         Assert.Equal("vs-1", audit.GetProperty("sessionId").GetString());
+    }
+
+    [Fact]
+    public async Task DocumentWrite_IsDeniedInReadOnlyProfile()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.ReadOnly);
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.DocumentWrite("Editor.cs", "updated", sessionId: "vs-1");
+
+        Assert.False(response.Success);
+        Assert.Equal("CapabilityProfileDenied", response.Metadata!["failureReason"]);
+        Assert.Equal("ReadOnly", response.Metadata["activeProfile"]);
+        Assert.Equal("EditDirect", response.Metadata["requiredProfile"]);
+    }
+
+    [Fact]
+    public async Task EditPreview_IsAllowedInEditPreviewProfile()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.EditPreview);
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.EditPreview("write", "Editor.cs", "updated", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("edit-1", response.Value!.PendingEdit!.EditId);
+    }
+
+    [Fact]
+    public async Task BuildSolution_IsDeniedInEditDirectProfile()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.EditDirect);
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.BuildSolution(sessionId: "vs-1");
+
+        Assert.False(response.Success);
+        Assert.Equal("CapabilityProfileDenied", response.Metadata!["failureReason"]);
+        Assert.Equal("Debug", response.Metadata["requiredProfile"]);
+    }
+
+    [Fact]
+    public void Runtime_WritesAndRemovesSessionManifests()
+    {
+        var runtime = CreateRuntime();
+
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+
+        var manifest = Directory.GetFiles(runtime.SessionManifests.SessionsDirectory, "vs-1.json").Single();
+        using (var document = JsonDocument.Parse(File.ReadAllText(manifest)))
+        {
+            Assert.Equal("vs-1", document.RootElement.GetProperty("sessionId").GetString());
+            Assert.Equal("NetVsMcp", document.RootElement.GetProperty("solutionName").GetString());
+        }
+
+        runtime.Sessions.Unregister("vs-1");
+
+        Assert.Empty(Directory.GetFiles(runtime.SessionManifests.SessionsDirectory, "vs-*.json"));
     }
 
     [Fact]
@@ -977,11 +1054,15 @@ public sealed class BrokerToolServiceTests
         Assert.Equal("vs-1", response.Metadata["sessionId"]);
     }
 
-    private static BrokerRuntime CreateRuntime()
+    private static BrokerRuntime CreateRuntime(
+        BrokerCapabilityProfile capabilityProfile = BrokerCapabilityProfile.Admin)
     {
+        var root = Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"));
         var options = BrokerOptions.LocalDefault with
         {
-            LogsDirectory = Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"))
+            LogsDirectory = Path.Combine(root, "Logs"),
+            SessionsDirectory = Path.Combine(root, "Sessions"),
+            CapabilityProfile = capabilityProfile
         };
 
         return new BrokerRuntime(options, new SessionRegistry());
@@ -995,24 +1076,29 @@ public sealed class BrokerToolServiceTests
         return document.RootElement.Clone();
     }
 
-    private static VsSessionRegistration CreateRegistration(string sessionId, string solutionName)
+    private static VsSessionRegistration CreateRegistration(
+        string sessionId,
+        string solutionName,
+        int processId = 1234)
     {
         return CreateRegistration(
             sessionId,
             solutionName,
             $@"C:\Code\{solutionName}\{solutionName}.slnx",
-            isActive: true);
+            isActive: true,
+            processId: processId);
     }
 
     private static VsSessionRegistration CreateRegistration(
         string sessionId,
         string solutionName,
         string solutionPath,
-        bool isActive)
+        bool isActive,
+        int processId = 1234)
     {
         return new VsSessionRegistration(
             SessionId: sessionId,
-            ProcessId: 1234,
+            ProcessId: processId,
             VisualStudioVersion: "18.0",
             Edition: "Enterprise",
             SolutionName: solutionName,
