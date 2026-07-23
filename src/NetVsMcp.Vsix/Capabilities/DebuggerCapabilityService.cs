@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnvDTE;
@@ -31,11 +32,20 @@ internal interface IDebuggerCapabilityService
     Task<WatchListResult> ListWatchesAsync(CancellationToken cancellationToken);
     Task<DebugThreadListResult> GetThreadsAsync(CancellationToken cancellationToken);
     Task<DebuggedProcessListResult> ListDebuggedProcessesAsync(CancellationToken cancellationToken);
+    Task<LocalProcessListResult> ListLocalProcessesAsync(CancellationToken cancellationToken);
+    Task<DebugAttachResult> AttachAsync(DebugAttachRequest request, CancellationToken cancellationToken);
+    Task<ProcessDetachResult> DetachAsync(ProcessDetachRequest request, CancellationToken cancellationToken);
     Task<ThreadSwitchResult> SwitchThreadAsync(ThreadSwitchRequest request, CancellationToken cancellationToken);
     Task<ModuleListResult> ListModulesAsync(CancellationToken cancellationToken);
     Task<ImmediateExecuteResult> ExecuteImmediateAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken);
     Task<ExceptionSettingsResult> GetExceptionSettingsAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken);
     Task<ExceptionSettingsResult> SetExceptionSettingsAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken);
+    Task<MemoryReadResult> ReadMemoryAsync(MemoryReadRequest request, CancellationToken cancellationToken);
+    Task<RegisterListResult> ListRegistersAsync(CancellationToken cancellationToken);
+    Task<RegisterGetResult> GetRegisterAsync(RegisterGetRequest request, CancellationToken cancellationToken);
+    Task<ParallelStacksResult> GetParallelStacksAsync(CancellationToken cancellationToken);
+    Task<ParallelWatchResult> GetParallelWatchAsync(CancellationToken cancellationToken);
+    Task<ParallelTasksResult> ListParallelTasksAsync(CancellationToken cancellationToken);
 }
 
 internal enum DebugStepKind
@@ -365,6 +375,71 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         return new DebuggedProcessListResult(result);
     }
 
+    public async Task<LocalProcessListResult> ListLocalProcessesAsync(CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var debugger = await GetDebuggerAsync();
+        var debuggedProcessIds = new HashSet<int>();
+        foreach (Process process in debugger.DebuggedProcesses)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            debuggedProcessIds.Add(process.ProcessID);
+        }
+
+        var result = new List<LocalProcessInfo>();
+
+        foreach (Process process in debugger.LocalProcesses)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            result.Add(LocalProcessInfo.FromProcess(process, debuggedProcessIds.Contains(process.ProcessID)));
+        }
+
+        return new LocalProcessListResult(result.OrderBy(process => process.ProcessId).ToArray());
+    }
+
+    public async Task<DebugAttachResult> AttachAsync(DebugAttachRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var debugger = await GetDebuggerAsync();
+        var matches = FindProcesses(debugger.LocalProcesses, request.ProcessId, request.ProcessName);
+
+        if (matches.Count == 0)
+        {
+            return new DebugAttachResult(false, "No matching local process was found.", null);
+        }
+
+        if (matches.Count > 1)
+        {
+            return new DebugAttachResult(false, $"Process selector matched {matches.Count} local processes; use processId.", null);
+        }
+
+        var process = matches[0];
+        process.Attach();
+        return new DebugAttachResult(true, null, DebuggedProcessInfo.FromProcess(process));
+    }
+
+    public async Task<ProcessDetachResult> DetachAsync(ProcessDetachRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var debugger = await GetDebuggerAsync();
+        var matches = FindProcesses(debugger.DebuggedProcesses, request.ProcessId, request.ProcessName);
+
+        if (matches.Count == 0)
+        {
+            return new ProcessDetachResult(false, "No matching debugged process was found.", null, GetDebuggerState(debugger));
+        }
+
+        if (matches.Count > 1)
+        {
+            return new ProcessDetachResult(false, $"Process selector matched {matches.Count} debugged processes; use processId.", null, GetDebuggerState(debugger));
+        }
+
+        var process = matches[0];
+        var info = DebuggedProcessInfo.FromProcess(process);
+        process.Detach(WaitForBreakOrEnd: false);
+        return new ProcessDetachResult(true, null, info, GetDebuggerState(debugger));
+    }
+
     public async Task<ThreadSwitchResult> SwitchThreadAsync(ThreadSwitchRequest request, CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
@@ -425,6 +500,83 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
             false,
             false,
             "Exception settings mutation is not exposed through this VSIX skeleton yet; use Visual Studio debugger exception settings APIs in a later slice."));
+    }
+
+    public Task<MemoryReadResult> ReadMemoryAsync(MemoryReadRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new MemoryReadResult(
+            false,
+            false,
+            "Debugger memory reads require lower-level Visual Studio debug engine APIs; EnvDTE does not expose a stable memory-read surface.",
+            request.AddressExpression,
+            request.ByteCount,
+            null));
+    }
+
+    public Task<RegisterListResult> ListRegistersAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new RegisterListResult(
+            false,
+            "Debugger register enumeration requires lower-level Visual Studio debug engine APIs; EnvDTE does not expose a stable register surface.",
+            Array.Empty<RegisterInfo>()));
+    }
+
+    public Task<RegisterGetResult> GetRegisterAsync(RegisterGetRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new RegisterGetResult(
+            false,
+            false,
+            "Debugger register lookup requires lower-level Visual Studio debug engine APIs; EnvDTE does not expose a stable register surface.",
+            null));
+    }
+
+    public async Task<ParallelStacksResult> GetParallelStacksAsync(CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var debugger = await GetDebuggerAsync();
+        var currentProgram = debugger.CurrentProgram;
+        if (currentProgram?.Threads is not Threads threads)
+        {
+            return new ParallelStacksResult(true, "No current debug program is available.", Array.Empty<ParallelStackFrameInfo>());
+        }
+
+        var frames = new List<ParallelStackFrameInfo>();
+        foreach (EnvDTE.Thread thread in threads)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var stackFrames = TryGetThreadStackFrames(thread);
+            if (stackFrames is null)
+            {
+                frames.Add(new ParallelStackFrameInfo(thread.ID, thread.Name, null, null, 0, 0));
+                continue;
+            }
+
+            foreach (StackFrame frame in stackFrames)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                frames.Add(new ParallelStackFrameInfo(thread.ID, thread.Name, frame.FunctionName, null, 0, 0));
+            }
+        }
+
+        return new ParallelStacksResult(true, null, frames);
+    }
+
+    public async Task<ParallelWatchResult> GetParallelWatchAsync(CancellationToken cancellationToken)
+    {
+        var watches = await ListWatchesAsync(cancellationToken);
+        return new ParallelWatchResult(watches.Supported, watches.Message, watches.Watches);
+    }
+
+    public Task<ParallelTasksResult> ListParallelTasksAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new ParallelTasksResult(
+            false,
+            "Parallel task enumeration requires lower-level Visual Studio debugger APIs; EnvDTE does not expose the Parallel Tasks window data.",
+            Array.Empty<ParallelTaskInfo>()));
     }
 
     private async Task<DTE> GetDteAsync()
@@ -502,6 +654,44 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         }
 
         return false;
+    }
+
+    private static List<Process> FindProcesses(Processes processes, int? processId, string? processName)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var matches = new List<Process>();
+
+        foreach (Process process in processes)
+        {
+            if (processId is not null && process.ProcessID != processId.Value)
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(processName)
+                && !string.Equals(Path.GetFileName(process.Name), processName, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(process.Name, processName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            matches.Add(process);
+        }
+
+        return matches;
+    }
+
+    private static StackFrames? TryGetThreadStackFrames(EnvDTE.Thread thread)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        try
+        {
+            return thread.StackFrames;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static dbgHitCountType ResolveHitCountType(string? hitCountType, int hitCount)

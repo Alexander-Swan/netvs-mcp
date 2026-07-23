@@ -56,6 +56,87 @@ internal sealed class DebuggedProcessListResult
     public IReadOnlyCollection<DebuggedProcessInfo> Processes { get; }
 }
 
+internal sealed class LocalProcessInfo
+{
+    public LocalProcessInfo(int processId, string name, string transport, string userName, bool isBeingDebugged)
+    {
+        ProcessId = processId;
+        Name = name;
+        Transport = transport;
+        UserName = userName;
+        IsBeingDebugged = isBeingDebugged;
+    }
+
+    public int ProcessId { get; }
+    public string Name { get; }
+    public string Transport { get; }
+    public string UserName { get; }
+    public bool IsBeingDebugged { get; }
+
+    public static LocalProcessInfo FromProcess(Process process, bool isBeingDebugged)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        return new LocalProcessInfo(
+            process.ProcessID,
+            process.Name ?? string.Empty,
+            string.Empty,
+            string.Empty,
+            isBeingDebugged);
+    }
+}
+
+internal sealed class LocalProcessListResult
+{
+    public LocalProcessListResult(IReadOnlyCollection<LocalProcessInfo> processes)
+    {
+        Processes = processes;
+    }
+
+    public IReadOnlyCollection<LocalProcessInfo> Processes { get; }
+}
+
+internal sealed class DebugAttachRequest
+{
+    public int? ProcessId { get; set; }
+    public string? ProcessName { get; set; }
+}
+
+internal sealed class DebugAttachResult
+{
+    public DebugAttachResult(bool success, string? message, DebuggedProcessInfo? process)
+    {
+        Success = success;
+        Message = message;
+        Process = process;
+    }
+
+    public bool Success { get; }
+    public string? Message { get; }
+    public DebuggedProcessInfo? Process { get; }
+}
+
+internal sealed class ProcessDetachRequest
+{
+    public int? ProcessId { get; set; }
+    public string? ProcessName { get; set; }
+}
+
+internal sealed class ProcessDetachResult
+{
+    public ProcessDetachResult(bool success, string? message, DebuggedProcessInfo? process, DebuggerStateInfo state)
+    {
+        Success = success;
+        Message = message;
+        Process = process;
+        State = state;
+    }
+
+    public bool Success { get; }
+    public string? Message { get; }
+    public DebuggedProcessInfo? Process { get; }
+    public DebuggerStateInfo State { get; }
+}
+
 internal sealed class BreakpointSetRequest
 {
     public string DocumentPath { get; set; } = string.Empty;
@@ -568,4 +649,157 @@ internal sealed class ExceptionSettingsResult
     public bool Supported { get; }
     public bool Success { get; }
     public string? Message { get; }
+}
+
+internal sealed class MemoryReadRequest
+{
+    public string AddressExpression { get; set; } = string.Empty;
+    public int ByteCount { get; set; } = 64;
+}
+
+internal sealed class MemoryReadResult
+{
+    public MemoryReadResult(bool supported, bool success, string? message, string addressExpression, int byteCount, string? hex)
+    {
+        Supported = supported;
+        Success = success;
+        Message = message;
+        AddressExpression = addressExpression;
+        ByteCount = byteCount;
+        Hex = hex;
+    }
+
+    public bool Supported { get; }
+    public bool Success { get; }
+    public string? Message { get; }
+    public string AddressExpression { get; }
+    public int ByteCount { get; }
+    public string? Hex { get; }
+}
+
+internal sealed class RegisterInfo
+{
+    public RegisterInfo(string name, string? value, string? type)
+    {
+        Name = name;
+        Value = value;
+        Type = type;
+    }
+
+    public string Name { get; }
+    public string? Value { get; }
+    public string? Type { get; }
+}
+
+internal sealed class RegisterGetRequest
+{
+    public string Name { get; set; } = string.Empty;
+}
+
+internal sealed class RegisterListResult
+{
+    public RegisterListResult(bool supported, string? message, IReadOnlyCollection<RegisterInfo> registers)
+    {
+        Supported = supported;
+        Message = message;
+        Registers = registers;
+    }
+
+    public bool Supported { get; }
+    public string? Message { get; }
+    public IReadOnlyCollection<RegisterInfo> Registers { get; }
+}
+
+internal sealed class RegisterGetResult
+{
+    public RegisterGetResult(bool supported, bool success, string? message, RegisterInfo? register)
+    {
+        Supported = supported;
+        Success = success;
+        Message = message;
+        Register = register;
+    }
+
+    public bool Supported { get; }
+    public bool Success { get; }
+    public string? Message { get; }
+    public RegisterInfo? Register { get; }
+}
+
+internal sealed class ParallelStackFrameInfo
+{
+    public ParallelStackFrameInfo(int threadId, string? threadName, string? functionName, string? file, int line, int column)
+    {
+        ThreadId = threadId;
+        ThreadName = threadName;
+        FunctionName = functionName;
+        File = file;
+        Line = line;
+        Column = column;
+    }
+
+    public int ThreadId { get; }
+    public string? ThreadName { get; }
+    public string? FunctionName { get; }
+    public string? File { get; }
+    public int Line { get; }
+    public int Column { get; }
+}
+
+internal sealed class ParallelStacksResult
+{
+    public ParallelStacksResult(bool supported, string? message, IReadOnlyCollection<ParallelStackFrameInfo> frames)
+    {
+        Supported = supported;
+        Message = message;
+        Frames = frames;
+    }
+
+    public bool Supported { get; }
+    public string? Message { get; }
+    public IReadOnlyCollection<ParallelStackFrameInfo> Frames { get; }
+}
+
+internal sealed class ParallelWatchResult
+{
+    public ParallelWatchResult(bool supported, string? message, IReadOnlyCollection<DebugExpressionInfo> expressions)
+    {
+        Supported = supported;
+        Message = message;
+        Expressions = expressions;
+    }
+
+    public bool Supported { get; }
+    public string? Message { get; }
+    public IReadOnlyCollection<DebugExpressionInfo> Expressions { get; }
+}
+
+internal sealed class ParallelTaskInfo
+{
+    public ParallelTaskInfo(string? id, string? status, string? location, int? threadId)
+    {
+        Id = id;
+        Status = status;
+        Location = location;
+        ThreadId = threadId;
+    }
+
+    public string? Id { get; }
+    public string? Status { get; }
+    public string? Location { get; }
+    public int? ThreadId { get; }
+}
+
+internal sealed class ParallelTasksResult
+{
+    public ParallelTasksResult(bool supported, string? message, IReadOnlyCollection<ParallelTaskInfo> tasks)
+    {
+        Supported = supported;
+        Message = message;
+        Tasks = tasks;
+    }
+
+    public bool Supported { get; }
+    public string? Message { get; }
+    public IReadOnlyCollection<ParallelTaskInfo> Tasks { get; }
 }

@@ -703,8 +703,41 @@ public sealed record DebuggedProcessInfo(
     string? Transport,
     string? UserName);
 
+public sealed record LocalProcessInfo(
+    int ProcessId,
+    string? Name,
+    string? Transport,
+    string? UserName,
+    bool IsBeingDebugged);
+
 public sealed record DebuggedProcessListResult(
     IReadOnlyCollection<DebuggedProcessInfo> Processes);
+
+public sealed record LocalProcessListResult(
+    IReadOnlyCollection<LocalProcessInfo> Processes);
+
+public sealed class DebugAttachRequest
+{
+    public int? ProcessId { get; set; }
+    public string? ProcessName { get; set; }
+}
+
+public sealed record DebugAttachResult(
+    bool Success,
+    string? Message,
+    DebuggedProcessInfo? Process);
+
+public sealed class ProcessDetachRequest
+{
+    public int? ProcessId { get; set; }
+    public string? ProcessName { get; set; }
+}
+
+public sealed record ProcessDetachResult(
+    bool Success,
+    string? Message,
+    DebuggedProcessInfo? Process,
+    DebuggerStateInfo State);
 
 public sealed class WatchAddRequest
 {
@@ -778,6 +811,70 @@ public sealed record ExceptionSettingsResult(
     bool Supported,
     bool Success,
     string? Message);
+
+public sealed class MemoryReadRequest
+{
+    public string AddressExpression { get; set; } = string.Empty;
+    public int ByteCount { get; set; } = 64;
+}
+
+public sealed record MemoryReadResult(
+    bool Supported,
+    bool Success,
+    string? Message,
+    string AddressExpression,
+    int ByteCount,
+    string? Hex);
+
+public sealed record RegisterInfo(
+    string Name,
+    string? Value,
+    string? Type);
+
+public sealed class RegisterGetRequest
+{
+    public string Name { get; set; } = string.Empty;
+}
+
+public sealed record RegisterListResult(
+    bool Supported,
+    string? Message,
+    IReadOnlyCollection<RegisterInfo> Registers);
+
+public sealed record RegisterGetResult(
+    bool Supported,
+    bool Success,
+    string? Message,
+    RegisterInfo? Register);
+
+public sealed record ParallelStackFrameInfo(
+    int ThreadId,
+    string? ThreadName,
+    string? FunctionName,
+    string? File,
+    int Line,
+    int Column);
+
+public sealed record ParallelStacksResult(
+    bool Supported,
+    string? Message,
+    IReadOnlyCollection<ParallelStackFrameInfo> Frames);
+
+public sealed record ParallelWatchResult(
+    bool Supported,
+    string? Message,
+    IReadOnlyCollection<DebugExpressionInfo> Expressions);
+
+public sealed record ParallelTaskInfo(
+    string? Id,
+    string? Status,
+    string? Location,
+    int? ThreadId);
+
+public sealed record ParallelTasksResult(
+    bool Supported,
+    string? Message,
+    IReadOnlyCollection<ParallelTaskInfo> Tasks);
 
 public sealed class DebugStepRequest
 {
@@ -1364,6 +1461,16 @@ public interface IVisualStudioSessionRpc
 
     Task<DebuggedProcessListResult> ProcessListDebuggedAsync(CancellationToken cancellationToken);
 
+    Task<LocalProcessListResult> ProcessListLocalAsync(CancellationToken cancellationToken);
+
+    Task<DebugAttachResult> DebugAttachAsync(
+        DebugAttachRequest request,
+        CancellationToken cancellationToken);
+
+    Task<ProcessDetachResult> ProcessDetachAsync(
+        ProcessDetachRequest request,
+        CancellationToken cancellationToken);
+
     Task<WatchOperationResult> WatchAddAsync(
         WatchAddRequest request,
         CancellationToken cancellationToken);
@@ -1393,4 +1500,20 @@ public interface IVisualStudioSessionRpc
     Task<ExceptionSettingsResult> ExceptionSettingsSetAsync(
         ExceptionSettingsRequest request,
         CancellationToken cancellationToken);
+
+    Task<MemoryReadResult> MemoryReadAsync(
+        MemoryReadRequest request,
+        CancellationToken cancellationToken);
+
+    Task<RegisterListResult> RegisterListAsync(CancellationToken cancellationToken);
+
+    Task<RegisterGetResult> RegisterGetAsync(
+        RegisterGetRequest request,
+        CancellationToken cancellationToken);
+
+    Task<ParallelStacksResult> ParallelStacksAsync(CancellationToken cancellationToken);
+
+    Task<ParallelWatchResult> ParallelWatchAsync(CancellationToken cancellationToken);
+
+    Task<ParallelTasksResult> ParallelTasksListAsync(CancellationToken cancellationToken);
 }

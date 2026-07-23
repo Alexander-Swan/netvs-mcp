@@ -117,6 +117,21 @@ internal sealed class DebuggerRpcTarget
         return debugger.ListDebuggedProcessesAsync(cancellationToken);
     }
 
+    public Task<LocalProcessListResult> ProcessListLocalAsync(CancellationToken cancellationToken)
+    {
+        return debugger.ListLocalProcessesAsync(cancellationToken);
+    }
+
+    public Task<DebugAttachResult> DebugAttachAsync(DebugAttachRequest request, CancellationToken cancellationToken)
+    {
+        return debugger.AttachAsync(request, cancellationToken);
+    }
+
+    public Task<ProcessDetachResult> ProcessDetachAsync(ProcessDetachRequest request, CancellationToken cancellationToken)
+    {
+        return debugger.DetachAsync(request, cancellationToken);
+    }
+
     public Task<ThreadSwitchResult> ThreadSwitchAsync(ThreadSwitchRequest request, CancellationToken cancellationToken)
     {
         return debugger.SwitchThreadAsync(request, cancellationToken);
@@ -140,5 +155,35 @@ internal sealed class DebuggerRpcTarget
     public Task<ExceptionSettingsResult> ExceptionSettingsSetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken)
     {
         return debugger.SetExceptionSettingsAsync(request, cancellationToken);
+    }
+
+    public Task<MemoryReadResult> MemoryReadAsync(MemoryReadRequest request, CancellationToken cancellationToken)
+    {
+        return debugger.ReadMemoryAsync(request, cancellationToken);
+    }
+
+    public Task<RegisterListResult> RegisterListAsync(CancellationToken cancellationToken)
+    {
+        return debugger.ListRegistersAsync(cancellationToken);
+    }
+
+    public Task<RegisterGetResult> RegisterGetAsync(RegisterGetRequest request, CancellationToken cancellationToken)
+    {
+        return debugger.GetRegisterAsync(request, cancellationToken);
+    }
+
+    public Task<ParallelStacksResult> ParallelStacksAsync(CancellationToken cancellationToken)
+    {
+        return debugger.GetParallelStacksAsync(cancellationToken);
+    }
+
+    public Task<ParallelWatchResult> ParallelWatchAsync(CancellationToken cancellationToken)
+    {
+        return debugger.GetParallelWatchAsync(cancellationToken);
+    }
+
+    public Task<ParallelTasksResult> ParallelTasksListAsync(CancellationToken cancellationToken)
+    {
+        return debugger.ListParallelTasksAsync(cancellationToken);
     }
 }

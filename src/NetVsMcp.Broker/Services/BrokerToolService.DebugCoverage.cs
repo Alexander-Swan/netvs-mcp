@@ -27,8 +27,21 @@ public sealed partial class BrokerToolService
             cancellationToken);
 
     [McpServerTool(Name = "debug_attach")]
-    [Description("Planned: attaches the debugger to a process.")]
-    public Task<ToolResponse<UnsupportedToolResult>> DebugAttach(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Debugger", "Implement attach by process id/name with ambiguity responses.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Attaches the Visual Studio debugger to a local process by id or name.")]
+    public Task<ToolResponse<DebugAttachResult>> DebugAttach(int? processId = null, string? processName = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (processId is null && string.IsNullOrWhiteSpace(processName))
+        {
+            return Task.FromResult(FailWithCode<DebugAttachResult>("Process id or process name is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new DebugAttachRequest
+        {
+            ProcessId = processId,
+            ProcessName = NormalizeOptional(processName)
+        };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.DebugAttachAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "debug_get_threads")]
     [Description("Lists debugger threads for the current debug program.")]
@@ -102,12 +115,31 @@ public sealed partial class BrokerToolService
             cancellationToken);
 
     [McpServerTool(Name = "process_list_local")]
-    [Description("Planned: lists local processes for attach workflows.")]
-    public Task<ToolResponse<UnsupportedToolResult>> ProcessListLocal(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement local process listing with filters.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Lists local processes visible to Visual Studio for debugger attach workflows.")]
+    public Task<ToolResponse<LocalProcessListResult>> ProcessListLocal(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.ProcessListLocalAsync(ct),
+            cancellationToken);
 
     [McpServerTool(Name = "process_detach")]
-    [Description("Planned: detaches from a debugged process.")]
-    public Task<ToolResponse<UnsupportedToolResult>> ProcessDetach(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement debugger process detach.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Detaches the Visual Studio debugger from a debugged process by id or name.")]
+    public Task<ToolResponse<ProcessDetachResult>> ProcessDetach(int? processId = null, string? processName = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (processId is null && string.IsNullOrWhiteSpace(processName))
+        {
+            return Task.FromResult(FailWithCode<ProcessDetachResult>("Process id or process name is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new ProcessDetachRequest
+        {
+            ProcessId = processId,
+            ProcessName = NormalizeOptional(processName)
+        };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ProcessDetachAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "process_terminate")]
     [Description("Planned: terminates a process.")]
@@ -153,26 +185,57 @@ public sealed partial class BrokerToolService
     }
 
     [McpServerTool(Name = "memory_read")]
-    [Description("Planned: reads debugger memory.")]
-    public Task<ToolResponse<UnsupportedToolResult>> MemoryRead(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement bounded native/mixed-mode memory reads.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Reads debugger memory when the active Visual Studio debug engine exposes it.")]
+    public Task<ToolResponse<MemoryReadResult>> MemoryRead(string addressExpression, int byteCount = 64, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(addressExpression))
+        {
+            return Task.FromResult(FailWithCode<MemoryReadResult>("Address expression is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        if (byteCount <= 0 || byteCount > 4096)
+        {
+            return Task.FromResult(FailWithCode<MemoryReadResult>("Byte count must be between 1 and 4096.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new MemoryReadRequest
+        {
+            AddressExpression = addressExpression,
+            ByteCount = byteCount
+        };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.MemoryReadAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "register_list")]
-    [Description("Planned: lists debugger registers.")]
-    public Task<ToolResponse<UnsupportedToolResult>> RegisterList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement register enumeration.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Lists debugger registers when the active Visual Studio debug engine exposes them.")]
+    public Task<ToolResponse<RegisterListResult>> RegisterList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.RegisterListAsync(ct), cancellationToken);
 
     [McpServerTool(Name = "register_get")]
-    [Description("Planned: returns one debugger register.")]
-    public Task<ToolResponse<UnsupportedToolResult>> RegisterGet(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement one-register lookup.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Returns one debugger register when the active Visual Studio debug engine exposes it.")]
+    public Task<ToolResponse<RegisterGetResult>> RegisterGet(string name, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return Task.FromResult(FailWithCode<RegisterGetResult>("Register name is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new RegisterGetRequest { Name = name };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.RegisterGetAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "parallel_stacks")]
-    [Description("Planned: returns parallel stacks data.")]
-    public Task<ToolResponse<UnsupportedToolResult>> ParallelStacks(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement parallel stacks extraction.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Returns parallel stack information when the active Visual Studio debug engine exposes it.")]
+    public Task<ToolResponse<ParallelStacksResult>> ParallelStacks(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.ParallelStacksAsync(ct), cancellationToken);
 
     [McpServerTool(Name = "parallel_watch")]
-    [Description("Planned: returns parallel watch data.")]
-    public Task<ToolResponse<UnsupportedToolResult>> ParallelWatch(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement parallel watch extraction.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Returns parallel watch expressions when the active Visual Studio debug engine exposes them.")]
+    public Task<ToolResponse<ParallelWatchResult>> ParallelWatch(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.ParallelWatchAsync(ct), cancellationToken);
 
     [McpServerTool(Name = "parallel_tasks_list")]
-    [Description("Planned: lists parallel tasks.")]
-    public Task<ToolResponse<UnsupportedToolResult>> ParallelTasksList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement parallel task enumeration.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Lists parallel tasks when the active Visual Studio debug engine exposes them.")]
+    public Task<ToolResponse<ParallelTasksResult>> ParallelTasksList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.ParallelTasksListAsync(ct), cancellationToken);
 }

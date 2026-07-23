@@ -834,6 +834,103 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task DebugAttach_RoutesSelectorToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DebugAttach(processId: 1234, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.True(response.Value!.Success);
+        Assert.Equal(1234, session.LastDebugAttachRequest!.ProcessId);
+        Assert.Equal(1234, response.Value.Process!.ProcessId);
+    }
+
+    [Fact]
+    public async Task DebugAttach_RequiresProcessSelector()
+    {
+        var runtime = CreateRuntime();
+
+        var response = await runtime.Tools.DebugAttach();
+
+        Assert.False(response.Success);
+        Assert.Equal("Process id or process name is required.", response.Message);
+        Assert.Equal(ToolErrorCodes.InvalidRequest, response.Metadata!["error_code"]);
+    }
+
+    [Fact]
+    public async Task ProcessListLocal_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.ProcessListLocal(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("NetVsMcp.Broker.exe", Assert.Single(response.Value!.Processes).Name);
+    }
+
+    [Fact]
+    public async Task ProcessDetach_RoutesSelectorToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.ProcessDetach(processName: "NetVsMcp.Broker.exe", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.True(response.Value!.Success);
+        Assert.Equal("NetVsMcp.Broker.exe", session.LastProcessDetachRequest!.ProcessName);
+        Assert.Equal("Break", response.Value.State.Mode);
+    }
+
+    [Fact]
+    public async Task MemoryRead_RoutesBoundedRequestToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.MemoryRead("&count", byteCount: 16, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("&count", session.LastMemoryReadRequest!.AddressExpression);
+        Assert.Equal(16, response.Value!.ByteCount);
+    }
+
+    [Fact]
+    public async Task RegisterAndParallelTools_RouteToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var registers = await runtime.Tools.RegisterList(sessionId: "vs-1");
+        var register = await runtime.Tools.RegisterGet("rip", sessionId: "vs-1");
+        var stacks = await runtime.Tools.ParallelStacks(sessionId: "vs-1");
+        var watch = await runtime.Tools.ParallelWatch(sessionId: "vs-1");
+        var tasks = await runtime.Tools.ParallelTasksList(sessionId: "vs-1");
+
+        Assert.True(registers.Success);
+        Assert.Equal("rip", Assert.Single(registers.Value!.Registers).Name);
+        Assert.True(register.Success);
+        Assert.Equal("rip", register.Value!.Register!.Name);
+        Assert.True(stacks.Success);
+        Assert.Single(stacks.Value!.Frames);
+        Assert.True(watch.Success);
+        Assert.Single(watch.Value!.Expressions);
+        Assert.True(tasks.Success);
+        Assert.Single(tasks.Value!.Tasks);
+    }
+
+    [Fact]
     public async Task CodeDocumentSymbols_RequiresDocumentPath()
     {
         var runtime = CreateRuntime();
@@ -1967,6 +2064,12 @@ public sealed class BrokerToolServiceTests
 
         public EvaluateExpressionRequest? LastEvaluateExpressionRequest { get; private set; }
 
+        public DebugAttachRequest? LastDebugAttachRequest { get; private set; }
+
+        public ProcessDetachRequest? LastProcessDetachRequest { get; private set; }
+
+        public MemoryReadRequest? LastMemoryReadRequest { get; private set; }
+
         public PlannedToolRequest? LastPlannedToolRequest { get; private set; }
 
         public bool DocumentListCalled { get; private set; }
@@ -2675,6 +2778,24 @@ public sealed class BrokerToolServiceTests
             return Task.FromResult(new DebuggedProcessListResult(processes));
         }
 
+        public Task<LocalProcessListResult> ProcessListLocalAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<LocalProcessInfo> processes = [new(1234, "NetVsMcp.Broker.exe", "Default", "alex", true)];
+            return Task.FromResult(new LocalProcessListResult(processes));
+        }
+
+        public Task<DebugAttachResult> DebugAttachAsync(DebugAttachRequest request, CancellationToken cancellationToken)
+        {
+            LastDebugAttachRequest = request;
+            return Task.FromResult(new DebugAttachResult(true, null, new DebuggedProcessInfo(request.ProcessId ?? 1234, request.ProcessName ?? "NetVsMcp.Broker.exe", "Default", "alex")));
+        }
+
+        public Task<ProcessDetachResult> ProcessDetachAsync(ProcessDetachRequest request, CancellationToken cancellationToken)
+        {
+            LastProcessDetachRequest = request;
+            return Task.FromResult(new ProcessDetachResult(true, null, new DebuggedProcessInfo(request.ProcessId ?? 1234, request.ProcessName ?? "NetVsMcp.Broker.exe", "Default", "alex"), new DebuggerStateInfo("Break")));
+        }
+
         public Task<WatchOperationResult> WatchAddAsync(WatchAddRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(new WatchOperationResult(true, true, "Added.", new DebugExpressionInfo(request.Expression, "1", "int", true)));
 
@@ -2710,6 +2831,39 @@ public sealed class BrokerToolServiceTests
 
         public Task<ExceptionSettingsResult> ExceptionSettingsSetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(new ExceptionSettingsResult(true, true, null));
+
+        public Task<MemoryReadResult> MemoryReadAsync(MemoryReadRequest request, CancellationToken cancellationToken)
+        {
+            LastMemoryReadRequest = request;
+            return Task.FromResult(new MemoryReadResult(false, false, "Memory reads require native debugger APIs.", request.AddressExpression, request.ByteCount, null));
+        }
+
+        public Task<RegisterListResult> RegisterListAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<RegisterInfo> registers = [new("rip", "0x00000001", "pointer")];
+            return Task.FromResult(new RegisterListResult(true, null, registers));
+        }
+
+        public Task<RegisterGetResult> RegisterGetAsync(RegisterGetRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(new RegisterGetResult(true, true, null, new RegisterInfo(request.Name, "0x00000001", "pointer")));
+
+        public Task<ParallelStacksResult> ParallelStacksAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<ParallelStackFrameInfo> frames = [new(1, "Main Thread", "Program.Main", "Program.cs", 42, 1)];
+            return Task.FromResult(new ParallelStacksResult(true, null, frames));
+        }
+
+        public Task<ParallelWatchResult> ParallelWatchAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<DebugExpressionInfo> expressions = [new("count", "42", "int", true)];
+            return Task.FromResult(new ParallelWatchResult(true, null, expressions));
+        }
+
+        public Task<ParallelTasksResult> ParallelTasksListAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<ParallelTaskInfo> tasks = [new("1", "Running", "Program.cs:42", 1)];
+            return Task.FromResult(new ParallelTasksResult(true, null, tasks));
+        }
 
         private static BreakpointInfo CreateBreakpoint(string? condition, BreakpointSetRequest? request = null)
         {

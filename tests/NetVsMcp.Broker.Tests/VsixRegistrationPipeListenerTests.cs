@@ -319,6 +319,12 @@ public sealed class VsixRegistrationPipeListenerTests
 
         public Task<DebuggedProcessListResult> ProcessListDebuggedAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<LocalProcessListResult> ProcessListLocalAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<DebugAttachResult> DebugAttachAsync(DebugAttachRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ProcessDetachResult> ProcessDetachAsync(ProcessDetachRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<NugetSearchResult> NugetSearchAsync(NugetSearchRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<NugetMutationResult> NugetInstallAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -354,5 +360,17 @@ public sealed class VsixRegistrationPipeListenerTests
         public Task<ExceptionSettingsResult> ExceptionSettingsGetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<ExceptionSettingsResult> ExceptionSettingsSetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<MemoryReadResult> MemoryReadAsync(MemoryReadRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<RegisterListResult> RegisterListAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<RegisterGetResult> RegisterGetAsync(RegisterGetRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ParallelStacksResult> ParallelStacksAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ParallelWatchResult> ParallelWatchAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ParallelTasksResult> ParallelTasksListAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }
