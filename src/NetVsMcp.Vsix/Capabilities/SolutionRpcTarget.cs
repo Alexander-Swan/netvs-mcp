@@ -67,6 +67,26 @@ internal sealed class SolutionRpcTarget
         return solution.ListNugetPackagesAsync(request, cancellationToken);
     }
 
+    public Task<NugetSearchResult> NugetSearchAsync(NugetSearchRequest request, CancellationToken cancellationToken)
+    {
+        return solution.SearchNugetPackagesAsync(request, cancellationToken);
+    }
+
+    public Task<NugetMutationResult> NugetInstallAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken)
+    {
+        return solution.InstallNugetPackageAsync(request, cancellationToken);
+    }
+
+    public Task<NugetMutationResult> NugetUpdateAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken)
+    {
+        return solution.UpdateNugetPackageAsync(request, cancellationToken);
+    }
+
+    public Task<NugetMutationResult> NugetUninstallAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken)
+    {
+        return solution.UninstallNugetPackageAsync(request, cancellationToken);
+    }
+
     public Task<StartupProjectResult> StartupProjectGetAsync(CancellationToken cancellationToken)
     {
         return solution.GetStartupProjectAsync(cancellationToken);

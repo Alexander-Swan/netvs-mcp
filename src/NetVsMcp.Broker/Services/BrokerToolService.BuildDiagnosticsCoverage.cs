@@ -7,24 +7,35 @@ namespace NetVsMcp.Broker.Services;
 public sealed partial class BrokerToolService
 {
     [McpServerTool(Name = "build_project")]
-    [Description("Planned: builds a project in the routed Visual Studio session.")]
-    public Task<ToolResponse<UnsupportedToolResult>> BuildProject(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Build", "Implement VSIX project build through SolutionBuild.BuildProject.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Builds one project in the routed Visual Studio session.")]
+    public Task<ToolResponse<BuildSolutionResult>> BuildProject(string projectName, bool waitForBuildToFinish = true, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectName))
+        {
+            return Task.FromResult(FailWithCode<BuildSolutionResult>("Project name is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new BuildProjectRequest { ProjectName = projectName, WaitForBuildToFinish = waitForBuildToFinish };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.BuildProjectAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "build_cancel")]
-    [Description("Planned: cancels an active build.")]
-    public Task<ToolResponse<UnsupportedToolResult>> BuildCancel(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Build", "Implement VSIX build cancellation through SolutionBuild.Cancel.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Cancels an active Visual Studio build.")]
+    public Task<ToolResponse<BuildStatusInfo>> BuildCancel(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.BuildCancelAsync(ct), cancellationToken);
 
     [McpServerTool(Name = "clean_solution")]
-    [Description("Planned: cleans the routed Visual Studio solution.")]
-    public Task<ToolResponse<UnsupportedToolResult>> CleanSolution(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Build", "Implement VSIX solution clean operation.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Cleans the routed Visual Studio solution.")]
+    public Task<ToolResponse<BuildSolutionResult>> CleanSolution(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.CleanSolutionAsync(ct), cancellationToken);
 
     [McpServerTool(Name = "rebuild_solution")]
-    [Description("Planned: rebuilds the routed Visual Studio solution.")]
-    public Task<ToolResponse<UnsupportedToolResult>> RebuildSolution(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Build", "Implement VSIX solution rebuild operation.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Rebuilds the routed Visual Studio solution.")]
+    public Task<ToolResponse<BuildSolutionResult>> RebuildSolution(bool waitForBuildToFinish = true, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        var request = new BuildSolutionRequest { WaitForBuildToFinish = waitForBuildToFinish };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.RebuildSolutionAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "build_configuration_get")]
     [Description("Returns the active solution build configuration and platform.")]
@@ -37,9 +48,17 @@ public sealed partial class BrokerToolService
             cancellationToken);
 
     [McpServerTool(Name = "build_configuration_set")]
-    [Description("Planned: sets solution build configuration.")]
-    public Task<ToolResponse<UnsupportedToolResult>> BuildConfigurationSet(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Build", "Implement solution configuration/platform mutation with profile checks.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Sets the active solution build configuration and optional platform.")]
+    public Task<ToolResponse<BuildConfigurationInfo>> BuildConfigurationSet(string configuration, string? platform = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(configuration))
+        {
+            return Task.FromResult(FailWithCode<BuildConfigurationInfo>("Configuration is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new BuildConfigurationSetRequest { Configuration = configuration, Platform = platform };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.BuildConfigurationSetAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "output_list_panes")]
     [Description("Lists Visual Studio output panes.")]

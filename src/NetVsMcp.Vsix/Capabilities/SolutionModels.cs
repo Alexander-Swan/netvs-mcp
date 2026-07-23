@@ -150,6 +150,20 @@ internal sealed class NugetListRequest
     public string ProjectName { get; set; } = string.Empty;
 }
 
+internal sealed class NugetSearchRequest
+{
+    public string Query { get; set; } = string.Empty;
+    public int MaxResults { get; set; } = 20;
+    public bool IncludePrerelease { get; set; }
+}
+
+internal sealed class NugetPackageMutationRequest
+{
+    public string ProjectName { get; set; } = string.Empty;
+    public string PackageId { get; set; } = string.Empty;
+    public string Version { get; set; } = string.Empty;
+}
+
 internal sealed class NugetPackageInfo
 {
     public NugetPackageInfo(string id, string version, string projectName, string projectPath)
@@ -174,6 +188,36 @@ internal sealed class NugetListResult
     }
 
     public IReadOnlyCollection<NugetPackageInfo> Packages { get; }
+}
+
+internal sealed class NugetSearchResult
+{
+    public NugetSearchResult(IReadOnlyCollection<NugetPackageInfo> packages)
+    {
+        Packages = packages;
+    }
+
+    public IReadOnlyCollection<NugetPackageInfo> Packages { get; }
+}
+
+internal sealed class NugetMutationResult
+{
+    public NugetMutationResult(bool success, string message, ProjectInfo project, string packageId, string version, int exitCode)
+    {
+        Success = success;
+        Message = message;
+        Project = project;
+        PackageId = packageId;
+        Version = version;
+        ExitCode = exitCode;
+    }
+
+    public bool Success { get; }
+    public string Message { get; }
+    public ProjectInfo Project { get; }
+    public string PackageId { get; }
+    public string Version { get; }
+    public int ExitCode { get; }
 }
 
 internal sealed class TestOperationResult

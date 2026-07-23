@@ -354,5 +354,41 @@ public sealed class VsSessionDispatcherTests
         public Task<DebuggerStateInfo> DebugRestartAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<DebuggedProcessListResult> ProcessListDebuggedAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<NugetSearchResult> NugetSearchAsync(NugetSearchRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<NugetMutationResult> NugetInstallAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<NugetMutationResult> NugetUpdateAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<NugetMutationResult> NugetUninstallAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<BuildSolutionResult> BuildProjectAsync(BuildProjectRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<BuildStatusInfo> BuildCancelAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<BuildSolutionResult> CleanSolutionAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<BuildSolutionResult> RebuildSolutionAsync(BuildSolutionRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<BuildConfigurationInfo> BuildConfigurationSetAsync(BuildConfigurationSetRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<WatchOperationResult> WatchAddAsync(WatchAddRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<WatchOperationResult> WatchRemoveAsync(WatchRemoveRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<WatchListResult> WatchListAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<DebugThreadListResult> DebugGetThreadsAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ThreadSwitchResult> ThreadSwitchAsync(ThreadSwitchRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ModuleListResult> ModuleListAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ImmediateExecuteResult> ImmediateExecuteAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ExceptionSettingsResult> ExceptionSettingsGetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ExceptionSettingsResult> ExceptionSettingsSetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

@@ -31,28 +31,57 @@ public sealed partial class BrokerToolService
     public Task<ToolResponse<UnsupportedToolResult>> DebugAttach(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Debugger", "Implement attach by process id/name with ambiguity responses.", sessionId, solutionName, solutionPath, cancellationToken);
 
     [McpServerTool(Name = "debug_get_threads")]
-    [Description("Planned: lists debugger threads.")]
-    public Task<ToolResponse<UnsupportedToolResult>> DebugGetThreads(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Debugger", "Implement thread enumeration for active debug sessions.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Lists debugger threads for the current debug program.")]
+    public Task<ToolResponse<DebugThreadListResult>> DebugGetThreads(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.DebugGetThreadsAsync(ct), cancellationToken);
 
     [McpServerTool(Name = "debug_set_variable")]
     [Description("Planned: sets a debugger variable.")]
     public Task<ToolResponse<UnsupportedToolResult>> DebugSetVariable(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Debugger", "Implement debugger expression assignment with engine acceptance reporting.", sessionId, solutionName, solutionPath, cancellationToken);
 
     [McpServerTool(Name = "watch_add")]
-    [Description("Planned: adds a debugger watch expression.")]
-    public Task<ToolResponse<UnsupportedToolResult>> WatchAdd(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement watch expression creation.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Adds a debugger watch expression when supported by the VSIX debugger service.")]
+    public Task<ToolResponse<WatchOperationResult>> WatchAdd(string expression, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(expression))
+        {
+            return Task.FromResult(FailWithCode<WatchOperationResult>("Watch expression is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new WatchAddRequest { Expression = expression };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.WatchAddAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "watch_remove")]
-    [Description("Planned: removes a debugger watch expression.")]
-    public Task<ToolResponse<UnsupportedToolResult>> WatchRemove(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement watch expression removal.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Removes a debugger watch expression when supported by the VSIX debugger service.")]
+    public Task<ToolResponse<WatchOperationResult>> WatchRemove(string expression, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(expression))
+        {
+            return Task.FromResult(FailWithCode<WatchOperationResult>("Watch expression is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new WatchRemoveRequest { Expression = expression };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.WatchRemoveAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "watch_list")]
-    [Description("Planned: lists debugger watch expressions.")]
-    public Task<ToolResponse<UnsupportedToolResult>> WatchList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement watch expression enumeration.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Lists debugger watch expressions when supported by the VSIX debugger service.")]
+    public Task<ToolResponse<WatchListResult>> WatchList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.WatchListAsync(ct), cancellationToken);
 
     [McpServerTool(Name = "thread_switch")]
-    [Description("Planned: switches debugger thread.")]
-    public Task<ToolResponse<UnsupportedToolResult>> ThreadSwitch(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement debugger thread switching.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Switches the active debugger thread.")]
+    public Task<ToolResponse<ThreadSwitchResult>> ThreadSwitch(int threadId, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (threadId <= 0)
+        {
+            return Task.FromResult(FailWithCode<ThreadSwitchResult>("Thread id must be greater than zero.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new ThreadSwitchRequest { ThreadId = threadId };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ThreadSwitchAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "thread_set_frozen")]
     [Description("Planned: freezes or thaws a debugger thread.")]
@@ -85,20 +114,43 @@ public sealed partial class BrokerToolService
     public Task<ToolResponse<UnsupportedToolResult>> ProcessTerminate(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement admin-gated process termination.", sessionId, solutionName, solutionPath, cancellationToken);
 
     [McpServerTool(Name = "immediate_execute")]
-    [Description("Planned: executes text in the immediate window.")]
-    public Task<ToolResponse<UnsupportedToolResult>> ImmediateExecute(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement admin-gated immediate window execution.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Executes text in the immediate window when supported by the VSIX debugger service.")]
+    public Task<ToolResponse<ImmediateExecuteResult>> ImmediateExecute(string statement, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(statement))
+        {
+            return Task.FromResult(FailWithCode<ImmediateExecuteResult>("Statement is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new ImmediateExecuteRequest { Statement = statement };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ImmediateExecuteAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "module_list")]
-    [Description("Planned: lists debugger modules.")]
-    public Task<ToolResponse<UnsupportedToolResult>> ModuleList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement module enumeration.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Lists debugger modules when supported by the VSIX debugger service.")]
+    public Task<ToolResponse<ModuleListResult>> ModuleList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.ModuleListAsync(ct), cancellationToken);
 
     [McpServerTool(Name = "exception_settings_get")]
-    [Description("Planned: returns debugger exception settings.")]
-    public Task<ToolResponse<UnsupportedToolResult>> ExceptionSettingsGet(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement exception settings inspection.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Returns debugger exception settings when supported by the VSIX debugger service.")]
+    public Task<ToolResponse<ExceptionSettingsResult>> ExceptionSettingsGet(string? exceptionName = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        var request = new ExceptionSettingsRequest { ExceptionName = exceptionName };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ExceptionSettingsGetAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "exception_settings_set")]
-    [Description("Planned: sets debugger exception settings.")]
-    public Task<ToolResponse<UnsupportedToolResult>> ExceptionSettingsSet(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement exception settings mutation.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Sets debugger exception settings when supported by the VSIX debugger service.")]
+    public Task<ToolResponse<ExceptionSettingsResult>> ExceptionSettingsSet(string exceptionName, bool breakOnThrown, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(exceptionName))
+        {
+            return Task.FromResult(FailWithCode<ExceptionSettingsResult>("Exception name is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new ExceptionSettingsRequest { ExceptionName = exceptionName, BreakOnThrown = breakOnThrown };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ExceptionSettingsSetAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "memory_read")]
     [Description("Planned: reads debugger memory.")]

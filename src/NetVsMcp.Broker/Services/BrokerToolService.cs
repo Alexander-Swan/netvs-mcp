@@ -106,12 +106,12 @@ public sealed partial class BrokerToolService
         new("find_in_files", "Searches files under a Visual Studio solution or root path.", true),
         new("code_go_to_implementation", "Planned: navigates to implementation for a code position.", true),
         new("code_workspace_symbols", "Planned: searches workspace symbols.", true),
-        new("build_project", "Planned: builds a project in the routed Visual Studio session.", true),
-        new("build_cancel", "Planned: cancels an active build.", true),
-        new("clean_solution", "Planned: cleans the routed Visual Studio solution.", true),
-        new("rebuild_solution", "Planned: rebuilds the routed Visual Studio solution.", true),
+        new("build_project", "Builds one project in the routed Visual Studio session.", true),
+        new("build_cancel", "Cancels an active Visual Studio build.", true),
+        new("clean_solution", "Cleans the routed Visual Studio solution.", true),
+        new("rebuild_solution", "Rebuilds the routed Visual Studio solution.", true),
         new("build_configuration_get", "Returns the active solution build configuration and platform.", true),
-        new("build_configuration_set", "Planned: sets solution build configuration.", true),
+        new("build_configuration_set", "Sets the active solution build configuration and optional platform.", true),
         new("output_list_panes", "Lists Visual Studio output panes.", true),
         new("output_write", "Planned: writes to a Visual Studio output pane.", true),
         new("output_clear", "Clears a Visual Studio output pane.", true),
@@ -119,22 +119,22 @@ public sealed partial class BrokerToolService
         new("debug_start_without_debugging", "Starts the current startup project without debugging.", true),
         new("debug_restart", "Restarts the active debug session.", true),
         new("debug_attach", "Planned: attaches the debugger to a process.", true),
-        new("debug_get_threads", "Planned: lists debugger threads.", true),
+        new("debug_get_threads", "Lists debugger threads for the current debug program.", true),
         new("debug_set_variable", "Planned: sets a debugger variable.", true),
-        new("watch_add", "Planned: adds a debugger watch expression.", true),
-        new("watch_remove", "Planned: removes a debugger watch expression.", true),
-        new("watch_list", "Planned: lists debugger watch expressions.", true),
-        new("thread_switch", "Planned: switches debugger thread.", true),
+        new("watch_add", "Adds a debugger watch expression when supported by the VSIX debugger service.", true),
+        new("watch_remove", "Removes a debugger watch expression when supported by the VSIX debugger service.", true),
+        new("watch_list", "Lists debugger watch expressions when supported by the VSIX debugger service.", true),
+        new("thread_switch", "Switches the active debugger thread.", true),
         new("thread_set_frozen", "Planned: freezes or thaws a debugger thread.", true),
         new("thread_get_callstack", "Planned: returns call stack for a debugger thread.", true),
         new("process_list_debugged", "Lists processes currently being debugged by Visual Studio.", true),
         new("process_list_local", "Planned: lists local processes for attach workflows.", true),
         new("process_detach", "Planned: detaches from a debugged process.", true),
         new("process_terminate", "Planned: terminates a process.", true),
-        new("immediate_execute", "Planned: executes text in the immediate window.", true),
-        new("module_list", "Planned: lists debugger modules.", true),
-        new("exception_settings_get", "Planned: returns debugger exception settings.", true),
-        new("exception_settings_set", "Planned: sets debugger exception settings.", true),
+        new("immediate_execute", "Executes text in the immediate window when supported by the VSIX debugger service.", true),
+        new("module_list", "Lists debugger modules when supported by the VSIX debugger service.", true),
+        new("exception_settings_get", "Returns debugger exception settings when supported by the VSIX debugger service.", true),
+        new("exception_settings_set", "Sets debugger exception settings when supported by the VSIX debugger service.", true),
         new("memory_read", "Planned: reads debugger memory.", true),
         new("register_list", "Planned: lists debugger registers.", true),
         new("register_get", "Planned: returns one debugger register.", true),
@@ -172,10 +172,10 @@ public sealed partial class BrokerToolService
         new("web_element_click", "Planned: clicks a browser element.", true),
         new("web_element_set_value", "Planned: sets a browser element value.", true),
         new("nuget_list", "Lists PackageReference NuGet packages from project files in the routed Visual Studio solution.", true),
-        new("nuget_search", "Planned: searches NuGet packages.", true),
-        new("nuget_install", "Planned: installs a NuGet package.", true),
-        new("nuget_update", "Planned: updates a NuGet package.", true),
-        new("nuget_uninstall", "Planned: uninstalls a NuGet package.", true),
+        new("nuget_search", "Searches NuGet packages from nuget.org.", true),
+        new("nuget_install", "Installs a NuGet package into a project.", true),
+        new("nuget_update", "Updates a NuGet package in a project.", true),
+        new("nuget_uninstall", "Uninstalls a NuGet package from a project.", true),
         new("vs_get_logs", "Planned: returns broker log information.", false)
     ];
 
@@ -3128,22 +3128,17 @@ public sealed partial class BrokerToolService
         }
 
         if (toolName.StartsWith("console_", StringComparison.Ordinal) ||
-            toolName.StartsWith("watch_", StringComparison.Ordinal) ||
             toolName.StartsWith("thread_", StringComparison.Ordinal) ||
             toolName.StartsWith("parallel_", StringComparison.Ordinal) ||
             toolName.StartsWith("register_", StringComparison.Ordinal) ||
             toolName is "debug_attach" or
-                "debug_get_threads" or
                 "debug_restart" or
                 "debug_set_variable" or
                 "debug_start_without_debugging" or
-                "exception_settings_get" or
                 "exception_settings_set" or
                 "immediate_execute" or
                 "memory_read" or
-                "module_list" or
                 "process_detach" or
-                "process_list_debugged" or
                 "process_list_local" or
                 "process_terminate")
         {
@@ -3225,7 +3220,12 @@ public sealed partial class BrokerToolService
             "debug_get_mode" or
             "debug_get_callstack" or
             "debug_get_locals" or
+            "debug_get_threads" or
             "debug_snapshot" or
+            "exception_settings_get" or
+            "module_list" or
+            "process_list_debugged" or
+            "watch_list" or
             "breakpoint_list" or
             "breakpoint_group_list" or
             "edit_list_pending" => BrokerToolCategory.Read,
@@ -3255,6 +3255,8 @@ public sealed partial class BrokerToolService
             "debug_step" or
             "debug_evaluate" or
             "debug_eval_many" or
+            "watch_add" or
+            "watch_remove" or
             "breakpoint_set" or
             "breakpoint_remove" or
             "breakpoint_enable" or

@@ -186,11 +186,26 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<BuildSolutionResult> BuildSolutionAsync(BuildSolutionRequest request, CancellationToken cancellationToken) =>
         build.BuildSolutionAsync(request, cancellationToken);
 
+    public Task<BuildSolutionResult> BuildProjectAsync(BuildProjectRequest request, CancellationToken cancellationToken) =>
+        build.BuildProjectAsync(request, cancellationToken);
+
+    public Task<BuildStatusInfo> BuildCancelAsync(CancellationToken cancellationToken) =>
+        build.BuildCancelAsync(cancellationToken);
+
+    public Task<BuildSolutionResult> CleanSolutionAsync(CancellationToken cancellationToken) =>
+        build.CleanSolutionAsync(cancellationToken);
+
+    public Task<BuildSolutionResult> RebuildSolutionAsync(BuildSolutionRequest request, CancellationToken cancellationToken) =>
+        build.RebuildSolutionAsync(request, cancellationToken);
+
     public Task<BuildStatusInfo> BuildStatusAsync(CancellationToken cancellationToken) =>
         build.BuildStatusAsync(cancellationToken);
 
     public Task<BuildConfigurationInfo> BuildConfigurationGetAsync(CancellationToken cancellationToken) =>
         build.BuildConfigurationGetAsync(cancellationToken);
+
+    public Task<BuildConfigurationInfo> BuildConfigurationSetAsync(BuildConfigurationSetRequest request, CancellationToken cancellationToken) =>
+        build.BuildConfigurationSetAsync(request, cancellationToken);
 
     public Task<ErrorListResult> ErrorsListAsync(ErrorListRequest request, CancellationToken cancellationToken) =>
         build.ErrorsListAsync(request, cancellationToken);
@@ -332,6 +347,18 @@ internal sealed class VisualStudioCapabilityRpcTarget
 
     public Task<NugetListResult> NugetListAsync(NugetListRequest request, CancellationToken cancellationToken) =>
         solution.NugetListAsync(request, cancellationToken);
+
+    public Task<NugetSearchResult> NugetSearchAsync(NugetSearchRequest request, CancellationToken cancellationToken) =>
+        solution.NugetSearchAsync(request, cancellationToken);
+
+    public Task<NugetMutationResult> NugetInstallAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken) =>
+        solution.NugetInstallAsync(request, cancellationToken);
+
+    public Task<NugetMutationResult> NugetUpdateAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken) =>
+        solution.NugetUpdateAsync(request, cancellationToken);
+
+    public Task<NugetMutationResult> NugetUninstallAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken) =>
+        solution.NugetUninstallAsync(request, cancellationToken);
 
     private static string FormatSymbolLabel(DocumentSymbolInfo symbol)
     {

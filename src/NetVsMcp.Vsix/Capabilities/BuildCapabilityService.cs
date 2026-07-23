@@ -12,14 +12,17 @@ namespace NetVsMcp.Vsix;
 internal interface IBuildCapabilityService
 {
     Task<BuildSolutionResult> BuildSolutionAsync(BuildSolutionRequest request, CancellationToken cancellationToken);
+    Task<BuildSolutionResult> BuildProjectAsync(BuildProjectRequest request, CancellationToken cancellationToken);
+    Task<BuildStatusInfo> CancelBuildAsync(CancellationToken cancellationToken);
+    Task<BuildSolutionResult> CleanSolutionAsync(CancellationToken cancellationToken);
+    Task<BuildSolutionResult> RebuildSolutionAsync(BuildSolutionRequest request, CancellationToken cancellationToken);
     Task<BuildStatusInfo> GetBuildStatusAsync(CancellationToken cancellationToken);
     Task<BuildConfigurationInfo> GetBuildConfigurationAsync(CancellationToken cancellationToken);
+    Task<BuildConfigurationInfo> SetBuildConfigurationAsync(BuildConfigurationSetRequest request, CancellationToken cancellationToken);
     Task<ErrorListResult> ListErrorsAsync(ErrorListRequest request, CancellationToken cancellationToken);
     Task<OutputReadResult> ReadOutputAsync(OutputReadRequest request, CancellationToken cancellationToken);
     Task<OutputPaneListResult> ListOutputPanesAsync(CancellationToken cancellationToken);
     Task<OutputReadResult> ClearOutputAsync(OutputPaneRequest request, CancellationToken cancellationToken);
-    Task BuildProjectAsync(string projectName, CancellationToken cancellationToken);
-    Task CancelBuildAsync(CancellationToken cancellationToken);
 }
 
 internal sealed class BuildCapabilityService : IBuildCapabilityService
@@ -45,6 +48,63 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
         return new BuildSolutionResult(
             GetBuildStatus(solutionBuild),
             solutionBuild.LastBuildInfo);
+    }
+
+    public async Task<BuildSolutionResult> BuildProjectAsync(BuildProjectRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(request.ProjectName))
+        {
+            throw new ArgumentException("Project name is required.", nameof(request));
+        }
+
+        var dte = await GetDte2Async()
+            ?? throw new InvalidOperationException("Visual Studio DTE2 service is unavailable.");
+        var solutionBuild = dte.Solution?.SolutionBuild
+            ?? throw new InvalidOperationException("Visual Studio solution build service is unavailable.");
+        var projectUniqueName = FindProjectUniqueName(dte.Solution, request.ProjectName)
+            ?? throw new InvalidOperationException($"Project '{request.ProjectName}' was not found.");
+
+        solutionBuild.BuildProject(solutionBuild.ActiveConfiguration.Name, projectUniqueName, request.WaitForBuildToFinish);
+        return new BuildSolutionResult(GetBuildStatus(solutionBuild), solutionBuild.LastBuildInfo);
+    }
+
+    public async Task<BuildStatusInfo> CancelBuildAsync(CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDte2Async()
+            ?? throw new InvalidOperationException("Visual Studio DTE2 service is unavailable.");
+        var solutionBuild = dte.Solution?.SolutionBuild
+            ?? throw new InvalidOperationException("Visual Studio solution build service is unavailable.");
+        dte.ExecuteCommand("Build.Cancel");
+        return GetBuildStatus(solutionBuild);
+    }
+
+    public async Task<BuildSolutionResult> CleanSolutionAsync(CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDte2Async()
+            ?? throw new InvalidOperationException("Visual Studio DTE2 service is unavailable.");
+        var solutionBuild = dte.Solution?.SolutionBuild
+            ?? throw new InvalidOperationException("Visual Studio solution build service is unavailable.");
+        solutionBuild.Clean(WaitForCleanToFinish: true);
+        return new BuildSolutionResult(GetBuildStatus(solutionBuild), solutionBuild.LastBuildInfo);
+    }
+
+    public async Task<BuildSolutionResult> RebuildSolutionAsync(BuildSolutionRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDte2Async()
+            ?? throw new InvalidOperationException("Visual Studio DTE2 service is unavailable.");
+        var solutionBuild = dte.Solution?.SolutionBuild
+            ?? throw new InvalidOperationException("Visual Studio solution build service is unavailable.");
+        solutionBuild.Clean(WaitForCleanToFinish: true);
+        solutionBuild.Build(request.WaitForBuildToFinish);
+        return new BuildSolutionResult(GetBuildStatus(solutionBuild), solutionBuild.LastBuildInfo);
     }
 
     public async Task<BuildStatusInfo> GetBuildStatusAsync(CancellationToken cancellationToken)
@@ -76,6 +136,37 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
             : string.Empty;
         return new BuildConfigurationInfo(activeConfiguration.Name, platform ?? string.Empty);
     }
+
+    public async Task<BuildConfigurationInfo> SetBuildConfigurationAsync(BuildConfigurationSetRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(request.Configuration))
+        {
+            throw new ArgumentException("Configuration is required.", nameof(request));
+        }
+
+        var dte = await GetDte2Async()
+            ?? throw new InvalidOperationException("Visual Studio DTE2 service is unavailable.");
+        var configurations = dte.Solution?.SolutionBuild?.SolutionConfigurations
+            ?? throw new InvalidOperationException("Visual Studio solution build configurations are unavailable.");
+
+        for (var index = 1; index <= configurations.Count; index++)
+        {
+            var configuration = configurations.Item(index);
+            var configuration2 = configuration as SolutionConfiguration2;
+            var platform = configuration2?.PlatformName ?? string.Empty;
+            if (string.Equals(configuration.Name, request.Configuration, StringComparison.OrdinalIgnoreCase) &&
+                (string.IsNullOrWhiteSpace(request.Platform) || string.Equals(platform, request.Platform, StringComparison.OrdinalIgnoreCase)))
+            {
+                configuration.Activate();
+                return new BuildConfigurationInfo(configuration.Name, platform);
+            }
+        }
+
+        throw new InvalidOperationException($"Build configuration '{request.Configuration}' was not found.");
+    }
+
 
     public async Task<ErrorListResult> ListErrorsAsync(ErrorListRequest request, CancellationToken cancellationToken)
     {
@@ -180,19 +271,6 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
         return new OutputReadResult(pane.Name, string.Empty, false);
     }
 
-    public Task BuildProjectAsync(string projectName, CancellationToken cancellationToken)
-    {
-        _ = projectName;
-        _ = cancellationToken;
-        throw new System.NotImplementedException("Resolve the project in the active solution before invoking VS build services.");
-    }
-
-    public Task CancelBuildAsync(CancellationToken cancellationToken)
-    {
-        _ = cancellationToken;
-        throw new System.NotImplementedException("Cancel the active Visual Studio build operation.");
-    }
-
     private async Task<DTE?> GetDteAsync()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
@@ -270,5 +348,57 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
 
         var editPoint = textDocument.StartPoint.CreateEditPoint();
         return editPoint.GetText(textDocument.EndPoint);
+    }
+
+    private static string? FindProjectUniqueName(Solution? solution, string projectName)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        if (solution?.Projects is null)
+        {
+            return null;
+        }
+
+        foreach (Project project in solution.Projects)
+        {
+            var uniqueName = FindProjectUniqueName(project, projectName);
+            if (uniqueName is not null)
+            {
+                return uniqueName;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? FindProjectUniqueName(Project project, string projectName)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        if (project.Kind == ProjectKinds.vsProjectKindSolutionFolder)
+        {
+            foreach (ProjectItem item in project.ProjectItems)
+            {
+                if (item.SubProject is not null)
+                {
+                    var child = FindProjectUniqueName(item.SubProject, projectName);
+                    if (child is not null)
+                    {
+                        return child;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        if (string.Equals(project.Name, projectName, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(project.UniqueName, projectName, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(project.FullName, projectName, StringComparison.OrdinalIgnoreCase))
+        {
+            return project.UniqueName;
+        }
+
+        return null;
     }
 }

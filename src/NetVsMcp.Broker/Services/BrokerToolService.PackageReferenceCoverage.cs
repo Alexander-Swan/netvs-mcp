@@ -91,24 +91,37 @@ public sealed partial class BrokerToolService
     }
 
     [McpServerTool(Name = "nuget_search")]
-    [Description("Planned: searches NuGet packages.")]
-    public Task<ToolResponse<UnsupportedToolResult>> NugetSearch(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("NuGet", "Implement NuGet API search with result limits and version metadata.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Searches NuGet packages from nuget.org.")]
+    public Task<ToolResponse<NugetSearchResult>> NugetSearch(string query, int maxResults = 20, bool includePrerelease = false, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return Task.FromResult(FailWithCode<NugetSearchResult>("Query is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        if (maxResults <= 0)
+        {
+            return Task.FromResult(FailWithCode<NugetSearchResult>("Max results must be greater than zero.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new NugetSearchRequest { Query = query, MaxResults = maxResults, IncludePrerelease = includePrerelease };
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.NugetSearchAsync(request, ct), cancellationToken);
+    }
 
     [McpServerTool(Name = "nuget_install")]
-    [Description("Planned: installs a NuGet package.")]
-    public Task<ToolResponse<UnsupportedToolResult>> NugetInstall(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("NuGet", "Implement profile-gated package install and restore reporting.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Installs a NuGet package into a project.")]
+    public Task<ToolResponse<NugetMutationResult>> NugetInstall(string projectName, string packageId, string? version = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchNugetMutation(projectName, packageId, version, sessionId, solutionName, solutionPath, (connection, request, ct) => connection.NugetInstallAsync(request, ct), cancellationToken);
 
     [McpServerTool(Name = "nuget_update")]
-    [Description("Planned: updates a NuGet package.")]
-    public Task<ToolResponse<UnsupportedToolResult>> NugetUpdate(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("NuGet", "Implement profile-gated package update and restore reporting.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Updates a NuGet package in a project; pass version to pin a specific version.")]
+    public Task<ToolResponse<NugetMutationResult>> NugetUpdate(string projectName, string packageId, string? version = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchNugetMutation(projectName, packageId, version, sessionId, solutionName, solutionPath, (connection, request, ct) => connection.NugetUpdateAsync(request, ct), cancellationToken);
 
     [McpServerTool(Name = "nuget_uninstall")]
-    [Description("Planned: uninstalls a NuGet package.")]
-    public Task<ToolResponse<UnsupportedToolResult>> NugetUninstall(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("NuGet", "Implement profile-gated package uninstall and restore reporting.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Uninstalls a NuGet package from a project.")]
+    public Task<ToolResponse<NugetMutationResult>> NugetUninstall(string projectName, string packageId, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchNugetMutation(projectName, packageId, null, sessionId, solutionName, solutionPath, (connection, request, ct) => connection.NugetUninstallAsync(request, ct), cancellationToken);
 
     [McpServerTool(Name = "vs_get_logs")]
     [Description("Planned: returns broker log information.")]
@@ -125,5 +138,35 @@ public sealed partial class BrokerToolService
         return string.IsNullOrWhiteSpace(reference)
             ? "Reference is required."
             : null;
+    }
+
+    private Task<ToolResponse<NugetMutationResult>> DispatchNugetMutation(
+        string? projectName,
+        string? packageId,
+        string? version,
+        string? sessionId,
+        string? solutionName,
+        string? solutionPath,
+        Func<IVisualStudioSessionRpc, NugetPackageMutationRequest, CancellationToken, Task<NugetMutationResult>> operation,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(projectName))
+        {
+            return Task.FromResult(FailWithCode<NugetMutationResult>("Project name is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        if (string.IsNullOrWhiteSpace(packageId))
+        {
+            return Task.FromResult(FailWithCode<NugetMutationResult>("Package id is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new NugetPackageMutationRequest
+        {
+            ProjectName = projectName,
+            PackageId = packageId,
+            Version = version
+        };
+
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => operation(connection, request, ct), cancellationToken);
     }
 }

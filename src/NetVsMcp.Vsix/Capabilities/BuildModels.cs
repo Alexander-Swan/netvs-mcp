@@ -10,6 +10,18 @@ internal sealed class BuildSolutionRequest
     public bool WaitForBuildToFinish { get; set; }
 }
 
+internal sealed class BuildProjectRequest
+{
+    public string ProjectName { get; set; } = string.Empty;
+    public bool WaitForBuildToFinish { get; set; } = true;
+}
+
+internal sealed class BuildConfigurationSetRequest
+{
+    public string Configuration { get; set; } = string.Empty;
+    public string Platform { get; set; } = string.Empty;
+}
+
 internal sealed class BuildSolutionResult
 {
     public BuildSolutionResult(BuildStatusInfo status, int lastBuildInfo)

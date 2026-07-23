@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -27,6 +28,10 @@ internal interface ISolutionCapabilityService
     Task<ProjectReferenceResult> AddReferenceAsync(ProjectReferenceRequest request, CancellationToken cancellationToken);
     Task<ProjectReferenceResult> RemoveReferenceAsync(ProjectReferenceRequest request, CancellationToken cancellationToken);
     Task<NugetListResult> ListNugetPackagesAsync(NugetListRequest request, CancellationToken cancellationToken);
+    Task<NugetSearchResult> SearchNugetPackagesAsync(NugetSearchRequest request, CancellationToken cancellationToken);
+    Task<NugetMutationResult> InstallNugetPackageAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken);
+    Task<NugetMutationResult> UpdateNugetPackageAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken);
+    Task<NugetMutationResult> UninstallNugetPackageAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken);
     Task<StartupProjectResult> GetStartupProjectAsync(CancellationToken cancellationToken);
     Task<StartupProjectResult> SetStartupProjectAsync(StartupProjectSetRequest request, CancellationToken cancellationToken);
     Task<TestOperationResult> DiscoverTestsAsync(TestDiscoverRequest request, CancellationToken cancellationToken);
@@ -286,6 +291,87 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
         return new NugetListResult(packages);
     }
 
+    public async Task<NugetSearchResult> SearchNugetPackagesAsync(NugetSearchRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Query))
+        {
+            throw new ArgumentException("Query is required.", nameof(request));
+        }
+
+        var maxResults = request.MaxResults <= 0 ? 20 : Math.Min(request.MaxResults, 100);
+        var prerelease = request.IncludePrerelease ? "true" : "false";
+        var url = $"https://azuresearch-usnc.nuget.org/query?q={Uri.EscapeDataString(request.Query.Trim())}&take={maxResults}&prerelease={prerelease}";
+        string json;
+        using (var client = new System.Net.WebClient())
+        using (cancellationToken.Register(client.CancelAsync))
+        {
+            json = await client.DownloadStringTaskAsync(new Uri(url));
+        }
+        using var document = JsonDocument.Parse(json);
+        var packages = new List<NugetPackageInfo>();
+        foreach (var item in document.RootElement.GetProperty("data").EnumerateArray())
+        {
+            var id = item.GetProperty("id").GetString();
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                continue;
+            }
+
+            var version = item.TryGetProperty("version", out var versionElement)
+                ? versionElement.GetString()
+                : string.Empty;
+            packages.Add(new NugetPackageInfo(id!, version ?? string.Empty, string.Empty, string.Empty));
+        }
+
+        return new NugetSearchResult(packages);
+    }
+
+    public Task<NugetMutationResult> InstallNugetPackageAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken) =>
+        MutateNugetPackageAsync(request, "install", cancellationToken);
+
+    public Task<NugetMutationResult> UpdateNugetPackageAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken) =>
+        MutateNugetPackageAsync(request, "update", cancellationToken);
+
+    public Task<NugetMutationResult> UninstallNugetPackageAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken) =>
+        MutateNugetPackageAsync(request, "uninstall", cancellationToken);
+
+    private async Task<NugetMutationResult> MutateNugetPackageAsync(
+        NugetPackageMutationRequest request,
+        string operation,
+        CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(request.PackageId))
+        {
+            throw new ArgumentException("Package id is required.", nameof(request));
+        }
+
+        var dte = await GetDteAsync();
+        var project = ResolveProject(dte, request.ProjectName);
+        var projectPath = RequireProjectPath(project);
+        var version = EmptyToNull(request.Version);
+        var arguments = operation == "uninstall"
+            ? $"remove {QuoteArgument(projectPath)} package {QuoteArgument(request.PackageId)}"
+            : CreateDotnetAddPackageArguments(projectPath, request.PackageId, version);
+        var process = await RunProcessAsync(
+            DotnetExecutable,
+            arguments,
+            Path.GetDirectoryName(projectPath) ?? Environment.CurrentDirectory,
+            cancellationToken);
+        TrySaveProject(project);
+
+        return new NugetMutationResult(
+            process.ExitCode == 0,
+            process.ExitCode == 0
+                ? $"NuGet package {operation} completed for {request.PackageId}."
+                : CreateProcessFailureMessage($"NuGet package {operation} failed for {request.PackageId}", process),
+            ProjectInfoFromProject(project),
+            request.PackageId,
+            version ?? string.Empty,
+            process.ExitCode);
+    }
+
     public async Task<StartupProjectResult> GetStartupProjectAsync(CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
@@ -485,6 +571,23 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
             ? Path.GetFullPath(trimmed)
             : Path.GetFullPath(Path.Combine(Path.GetDirectoryName(projectPath) ?? Environment.CurrentDirectory, trimmed));
         return GetRelativePath(Path.GetDirectoryName(projectPath) ?? Environment.CurrentDirectory, fullReferencePath);
+    }
+
+    private static string CreateDotnetAddPackageArguments(string projectPath, string packageId, string? version)
+    {
+        var arguments = new StringBuilder()
+            .Append("add ")
+            .Append(QuoteArgument(projectPath))
+            .Append(" package ")
+            .Append(QuoteArgument(packageId));
+        if (!string.IsNullOrWhiteSpace(version))
+        {
+            arguments
+                .Append(" --version ")
+                .Append(QuoteArgument(version!));
+        }
+
+        return arguments.ToString();
     }
 
     private static XElement GetOrCreateItemGroup(XElement root)

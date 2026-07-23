@@ -2059,6 +2059,21 @@ public sealed class BrokerToolServiceTests
             return Task.FromResult(new NugetListResult(packages));
         }
 
+        public Task<NugetSearchResult> NugetSearchAsync(NugetSearchRequest request, CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<NugetPackageInfo> packages = [new(request.Query, "1.0.0", null, null)];
+            return Task.FromResult(new NugetSearchResult(packages));
+        }
+
+        public Task<NugetMutationResult> NugetInstallAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(CreateNugetMutation(request, "Installed."));
+
+        public Task<NugetMutationResult> NugetUpdateAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(CreateNugetMutation(request, "Updated."));
+
+        public Task<NugetMutationResult> NugetUninstallAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(CreateNugetMutation(request, "Uninstalled."));
+
         public Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult(ToolResponse<VsSessionInfo>.Ok(new VsSessionInfo(
@@ -2462,6 +2477,33 @@ public sealed class BrokerToolServiceTests
             return Task.FromResult(new BuildSolutionResult(status, 0));
         }
 
+        public Task<BuildSolutionResult> BuildProjectAsync(
+            BuildProjectRequest request,
+            CancellationToken cancellationToken)
+        {
+            var status = new BuildStatusInfo("Done", 0);
+            return Task.FromResult(new BuildSolutionResult(status, 0));
+        }
+
+        public Task<BuildStatusInfo> BuildCancelAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new BuildStatusInfo("Cancelled", 0));
+        }
+
+        public Task<BuildSolutionResult> CleanSolutionAsync(CancellationToken cancellationToken)
+        {
+            var status = new BuildStatusInfo("Done", 0);
+            return Task.FromResult(new BuildSolutionResult(status, 0));
+        }
+
+        public Task<BuildSolutionResult> RebuildSolutionAsync(
+            BuildSolutionRequest request,
+            CancellationToken cancellationToken)
+        {
+            var status = new BuildStatusInfo("Done", 0);
+            return Task.FromResult(new BuildSolutionResult(status, 0));
+        }
+
         public Task<BuildStatusInfo> BuildStatusAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult(new BuildStatusInfo("Idle", 0));
@@ -2470,6 +2512,13 @@ public sealed class BrokerToolServiceTests
         public Task<BuildConfigurationInfo> BuildConfigurationGetAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult(new BuildConfigurationInfo("Debug", "Any CPU"));
+        }
+
+        public Task<BuildConfigurationInfo> BuildConfigurationSetAsync(
+            BuildConfigurationSetRequest request,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new BuildConfigurationInfo(request.Configuration, request.Platform));
         }
 
         public Task<ErrorListResult> ErrorsListAsync(
@@ -2626,6 +2675,42 @@ public sealed class BrokerToolServiceTests
             return Task.FromResult(new DebuggedProcessListResult(processes));
         }
 
+        public Task<WatchOperationResult> WatchAddAsync(WatchAddRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(new WatchOperationResult(true, true, "Added.", new DebugExpressionInfo(request.Expression, "1", "int", true)));
+
+        public Task<WatchOperationResult> WatchRemoveAsync(WatchRemoveRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(new WatchOperationResult(true, true, "Removed.", new DebugExpressionInfo(request.Expression, "1", "int", true)));
+
+        public Task<WatchListResult> WatchListAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<DebugExpressionInfo> watches = [new("count", "42", "int", true)];
+            return Task.FromResult(new WatchListResult(true, null, watches));
+        }
+
+        public Task<DebugThreadListResult> DebugGetThreadsAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<DebugThreadInfo> threads = [new(1, "Main Thread", true)];
+            return Task.FromResult(new DebugThreadListResult(true, null, threads));
+        }
+
+        public Task<ThreadSwitchResult> ThreadSwitchAsync(ThreadSwitchRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(new ThreadSwitchResult(true, true, null, new DebugThreadInfo(request.ThreadId, "Main Thread", true)));
+
+        public Task<ModuleListResult> ModuleListAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<DebugModuleInfo> modules = [new("NetVsMcp.Broker.dll", @"C:\Code\NetVsMcp\NetVsMcp.Broker.dll")];
+            return Task.FromResult(new ModuleListResult(true, null, modules));
+        }
+
+        public Task<ImmediateExecuteResult> ImmediateExecuteAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(new ImmediateExecuteResult(true, true, null, "ok"));
+
+        public Task<ExceptionSettingsResult> ExceptionSettingsGetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(new ExceptionSettingsResult(true, true, null));
+
+        public Task<ExceptionSettingsResult> ExceptionSettingsSetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(new ExceptionSettingsResult(true, true, null));
+
         private static BreakpointInfo CreateBreakpoint(string? condition, BreakpointSetRequest? request = null)
         {
             return new BreakpointInfo(
@@ -2643,6 +2728,11 @@ public sealed class BrokerToolServiceTests
                 HitCountType: request?.HitCountType,
                 DependsOnBreakpointName: request?.DependsOnBreakpointName,
                 GroupName: request?.GroupName ?? "critical");
+        }
+
+        private static NugetMutationResult CreateNugetMutation(NugetPackageMutationRequest request, string message)
+        {
+            return new NugetMutationResult(true, message, CreateProject(request.ProjectName), request.PackageId, request.Version, 0);
         }
 
         private static EditorDocumentInfo CreateDocument(string path)

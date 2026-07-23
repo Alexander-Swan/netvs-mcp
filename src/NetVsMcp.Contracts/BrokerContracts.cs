@@ -485,6 +485,20 @@ public sealed class NugetListRequest
     public string? ProjectName { get; set; }
 }
 
+public sealed class NugetSearchRequest
+{
+    public string Query { get; set; } = string.Empty;
+    public int MaxResults { get; set; } = 20;
+    public bool IncludePrerelease { get; set; }
+}
+
+public sealed class NugetPackageMutationRequest
+{
+    public string ProjectName { get; set; } = string.Empty;
+    public string PackageId { get; set; } = string.Empty;
+    public string? Version { get; set; }
+}
+
 public sealed record NugetPackageInfo(
     string Id,
     string? Version,
@@ -493,6 +507,17 @@ public sealed record NugetPackageInfo(
 
 public sealed record NugetListResult(
     IReadOnlyCollection<NugetPackageInfo> Packages);
+
+public sealed record NugetSearchResult(
+    IReadOnlyCollection<NugetPackageInfo> Packages);
+
+public sealed record NugetMutationResult(
+    bool Success,
+    string Message,
+    ProjectInfo? Project,
+    string PackageId,
+    string? Version,
+    int ExitCode);
 
 public sealed record StartupProjectResult(
     IReadOnlyCollection<string> Projects,
@@ -618,6 +643,18 @@ public sealed record BuildConfigurationInfo(
     string? Configuration,
     string? Platform);
 
+public sealed class BuildProjectRequest
+{
+    public string ProjectName { get; set; } = string.Empty;
+    public bool WaitForBuildToFinish { get; set; } = true;
+}
+
+public sealed class BuildConfigurationSetRequest
+{
+    public string Configuration { get; set; } = string.Empty;
+    public string? Platform { get; set; }
+}
+
 public sealed class ErrorListRequest
 {
     public bool IncludeWarnings { get; set; } = true;
@@ -668,6 +705,79 @@ public sealed record DebuggedProcessInfo(
 
 public sealed record DebuggedProcessListResult(
     IReadOnlyCollection<DebuggedProcessInfo> Processes);
+
+public sealed class WatchAddRequest
+{
+    public string Expression { get; set; } = string.Empty;
+}
+
+public sealed class WatchRemoveRequest
+{
+    public string Expression { get; set; } = string.Empty;
+}
+
+public sealed record WatchOperationResult(
+    bool Supported,
+    bool Success,
+    string? Message,
+    DebugExpressionInfo? Watch);
+
+public sealed record WatchListResult(
+    bool Supported,
+    string? Message,
+    IReadOnlyCollection<DebugExpressionInfo> Watches);
+
+public sealed record DebugThreadInfo(
+    int Id,
+    string? Name,
+    bool IsCurrent);
+
+public sealed record DebugThreadListResult(
+    bool Supported,
+    string? Message,
+    IReadOnlyCollection<DebugThreadInfo> Threads);
+
+public sealed class ThreadSwitchRequest
+{
+    public int ThreadId { get; set; }
+}
+
+public sealed record ThreadSwitchResult(
+    bool Supported,
+    bool Success,
+    string? Message,
+    DebugThreadInfo? Thread);
+
+public sealed record DebugModuleInfo(
+    string? Name,
+    string? Path);
+
+public sealed record ModuleListResult(
+    bool Supported,
+    string? Message,
+    IReadOnlyCollection<DebugModuleInfo> Modules);
+
+public sealed class ImmediateExecuteRequest
+{
+    public string Statement { get; set; } = string.Empty;
+}
+
+public sealed record ImmediateExecuteResult(
+    bool Supported,
+    bool Success,
+    string? Message,
+    string? Output);
+
+public sealed class ExceptionSettingsRequest
+{
+    public string? ExceptionName { get; set; }
+    public bool? BreakOnThrown { get; set; }
+}
+
+public sealed record ExceptionSettingsResult(
+    bool Supported,
+    bool Success,
+    string? Message);
 
 public sealed class DebugStepRequest
 {
@@ -1156,13 +1266,45 @@ public interface IVisualStudioSessionRpc
         NugetListRequest request,
         CancellationToken cancellationToken);
 
+    Task<NugetSearchResult> NugetSearchAsync(
+        NugetSearchRequest request,
+        CancellationToken cancellationToken);
+
+    Task<NugetMutationResult> NugetInstallAsync(
+        NugetPackageMutationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<NugetMutationResult> NugetUpdateAsync(
+        NugetPackageMutationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<NugetMutationResult> NugetUninstallAsync(
+        NugetPackageMutationRequest request,
+        CancellationToken cancellationToken);
+
     Task<BuildSolutionResult> BuildSolutionAsync(
+        BuildSolutionRequest request,
+        CancellationToken cancellationToken);
+
+    Task<BuildSolutionResult> BuildProjectAsync(
+        BuildProjectRequest request,
+        CancellationToken cancellationToken);
+
+    Task<BuildStatusInfo> BuildCancelAsync(CancellationToken cancellationToken);
+
+    Task<BuildSolutionResult> CleanSolutionAsync(CancellationToken cancellationToken);
+
+    Task<BuildSolutionResult> RebuildSolutionAsync(
         BuildSolutionRequest request,
         CancellationToken cancellationToken);
 
     Task<BuildStatusInfo> BuildStatusAsync(CancellationToken cancellationToken);
 
     Task<BuildConfigurationInfo> BuildConfigurationGetAsync(CancellationToken cancellationToken);
+
+    Task<BuildConfigurationInfo> BuildConfigurationSetAsync(
+        BuildConfigurationSetRequest request,
+        CancellationToken cancellationToken);
 
     Task<ErrorListResult> ErrorsListAsync(
         ErrorListRequest request,
@@ -1221,4 +1363,34 @@ public interface IVisualStudioSessionRpc
         CancellationToken cancellationToken);
 
     Task<DebuggedProcessListResult> ProcessListDebuggedAsync(CancellationToken cancellationToken);
+
+    Task<WatchOperationResult> WatchAddAsync(
+        WatchAddRequest request,
+        CancellationToken cancellationToken);
+
+    Task<WatchOperationResult> WatchRemoveAsync(
+        WatchRemoveRequest request,
+        CancellationToken cancellationToken);
+
+    Task<WatchListResult> WatchListAsync(CancellationToken cancellationToken);
+
+    Task<DebugThreadListResult> DebugGetThreadsAsync(CancellationToken cancellationToken);
+
+    Task<ThreadSwitchResult> ThreadSwitchAsync(
+        ThreadSwitchRequest request,
+        CancellationToken cancellationToken);
+
+    Task<ModuleListResult> ModuleListAsync(CancellationToken cancellationToken);
+
+    Task<ImmediateExecuteResult> ImmediateExecuteAsync(
+        ImmediateExecuteRequest request,
+        CancellationToken cancellationToken);
+
+    Task<ExceptionSettingsResult> ExceptionSettingsGetAsync(
+        ExceptionSettingsRequest request,
+        CancellationToken cancellationToken);
+
+    Task<ExceptionSettingsResult> ExceptionSettingsSetAsync(
+        ExceptionSettingsRequest request,
+        CancellationToken cancellationToken);
 }
