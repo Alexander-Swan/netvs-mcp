@@ -17,6 +17,25 @@ public sealed record BrokerOptions(
         $@"\\.\pipe\{DefaultPipeName}",
         DefaultLogsDirectory);
 
+    public static BrokerOptions FromEnvironmentAndArgs(string[]? args)
+    {
+        var options = LocalDefault;
+
+        options = ApplyOption(options, "mcp-endpoint", Environment.GetEnvironmentVariable("NETVS_MCP_ENDPOINT"));
+        options = ApplyOption(options, "mcp-port", Environment.GetEnvironmentVariable("NETVS_MCP_PORT"));
+        options = ApplyOption(options, "pipe-name", Environment.GetEnvironmentVariable("NETVS_MCP_PIPE_NAME"));
+        options = ApplyOption(options, "logs-dir", Environment.GetEnvironmentVariable("NETVS_MCP_LOGS_DIR"));
+        options = ApplyOption(options, "token-file", Environment.GetEnvironmentVariable("NETVS_MCP_TOKEN_FILE"));
+        options = ApplyOption(options, "sessions-dir", Environment.GetEnvironmentVariable("NETVS_MCP_SESSIONS_DIR"));
+
+        foreach (var (name, value) in ParseArgs(args ?? []))
+        {
+            options = ApplyOption(options, name, value);
+        }
+
+        return options;
+    }
+
     public static string DefaultPipeName => "netvs-mcp-" + SanitizeUserKey(CurrentUserKey);
 
     private static string CurrentUserKey
@@ -51,6 +70,79 @@ public sealed record BrokerOptions(
 
     public string EffectiveSessionsDirectory =>
         string.IsNullOrWhiteSpace(SessionsDirectory) ? DefaultSessionsDirectory : SessionsDirectory;
+
+    private static BrokerOptions ApplyOption(BrokerOptions options, string name, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return options;
+        }
+
+        return NormalizeOptionName(name) switch
+        {
+            "mcp-endpoint" => options with { McpEndpoint = value },
+            "mcp-port" => options with { McpEndpoint = ReplaceEndpointPort(options.McpEndpoint, value) },
+            "pipe-name" => options with { PipeName = NormalizePipeName(value) },
+            "logs-dir" => options with { LogsDirectory = value },
+            "token-file" => options with { TokenFilePath = value },
+            "sessions-dir" => options with { SessionsDirectory = value },
+            _ => options
+        };
+    }
+
+    private static IEnumerable<(string Name, string Value)> ParseArgs(string[] args)
+    {
+        for (var i = 0; i < args.Length; i++)
+        {
+            var arg = args[i];
+            if (!arg.StartsWith("--", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var option = arg[2..];
+            var separator = option.IndexOf('=');
+            if (separator >= 0)
+            {
+                yield return (option[..separator], option[(separator + 1)..]);
+                continue;
+            }
+
+            if (i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal))
+            {
+                yield return (option, args[++i]);
+            }
+        }
+    }
+
+    private static string ReplaceEndpointPort(string endpoint, string portText)
+    {
+        if (!int.TryParse(portText, out var port) || port is < 0 or > 65535)
+        {
+            throw new InvalidOperationException($"Invalid MCP port '{portText}'.");
+        }
+
+        if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri))
+        {
+            throw new InvalidOperationException($"Invalid MCP endpoint '{endpoint}'.");
+        }
+
+        var builder = new UriBuilder(uri)
+        {
+            Port = port
+        };
+        return builder.Uri.ToString().TrimEnd('/');
+    }
+
+    private static string NormalizePipeName(string value)
+    {
+        return value.StartsWith(@"\\.\pipe\", StringComparison.OrdinalIgnoreCase)
+            ? value
+            : $@"\\.\pipe\{value}";
+    }
+
+    private static string NormalizeOptionName(string name) =>
+        name.Trim().Replace('_', '-').ToLowerInvariant();
 
     private static string SanitizeUserKey(string value)
     {

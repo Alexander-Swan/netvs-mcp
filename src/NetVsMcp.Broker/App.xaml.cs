@@ -17,7 +17,7 @@ public partial class App : System.Windows.Application
 
         var sessions = new SessionRegistry();
         _autostart = new AutostartService();
-        _runtime = new BrokerRuntime(BrokerOptions.LocalDefault, sessions);
+        _runtime = new BrokerRuntime(BrokerOptions.FromEnvironmentAndArgs(e.Args), sessions);
         await _runtime.StartAsync(CancellationToken.None);
 
         var viewModel = new MainWindowViewModel(_runtime, _autostart);
