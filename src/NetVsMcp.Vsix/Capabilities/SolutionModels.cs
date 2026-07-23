@@ -20,6 +20,11 @@ internal sealed class SolutionInfoResult
     public string? StartupProject { get; }
 }
 
+internal sealed class SolutionOpenRequest
+{
+    public string Path { get; set; } = string.Empty;
+}
+
 internal sealed class ProjectListResult
 {
     public ProjectListResult(IReadOnlyCollection<ProjectInfo> projects)
@@ -33,6 +38,18 @@ internal sealed class ProjectListResult
 internal sealed class ProjectInfoRequest
 {
     public string ProjectName { get; set; } = string.Empty;
+}
+
+internal sealed class SolutionAddProjectRequest
+{
+    public string ProjectPath { get; set; } = string.Empty;
+}
+
+internal sealed class ProjectFileRequest
+{
+    public string ProjectName { get; set; } = string.Empty;
+
+    public string FilePath { get; set; } = string.Empty;
 }
 
 internal sealed class ProjectInfo

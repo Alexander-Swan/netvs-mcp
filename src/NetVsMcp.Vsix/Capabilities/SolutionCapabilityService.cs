@@ -17,8 +17,13 @@ namespace NetVsMcp.Vsix;
 internal interface ISolutionCapabilityService
 {
     Task<SolutionInfoResult> GetSolutionInfoAsync(CancellationToken cancellationToken);
+    Task<SolutionInfoResult> OpenSolutionAsync(SolutionOpenRequest request, CancellationToken cancellationToken);
+    Task<SolutionInfoResult> CloseSolutionAsync(CancellationToken cancellationToken);
     Task<ProjectListResult> ListProjectsAsync(CancellationToken cancellationToken);
+    Task<ProjectInfo> AddProjectAsync(SolutionAddProjectRequest request, CancellationToken cancellationToken);
+    Task<ProjectInfo> RemoveProjectAsync(ProjectInfoRequest request, CancellationToken cancellationToken);
     Task<ProjectInfo?> GetProjectInfoAsync(ProjectInfoRequest request, CancellationToken cancellationToken);
+    Task<ProjectInfo> AddFileAsync(ProjectFileRequest request, CancellationToken cancellationToken);
     Task<StartupProjectResult> GetStartupProjectAsync(CancellationToken cancellationToken);
     Task<StartupProjectResult> SetStartupProjectAsync(StartupProjectSetRequest request, CancellationToken cancellationToken);
     Task<TestOperationResult> DiscoverTestsAsync(TestDiscoverRequest request, CancellationToken cancellationToken);
@@ -58,6 +63,35 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
             startupProject);
     }
 
+    public async Task<SolutionInfoResult> OpenSolutionAsync(SolutionOpenRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(request.Path))
+        {
+            throw new ArgumentException("Solution path is required.", nameof(request));
+        }
+
+        var path = Path.GetFullPath(request.Path.Trim());
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException("Solution file was not found.", path);
+        }
+
+        var dte = await GetDteAsync();
+        dte.Solution.Open(path);
+        return await GetSolutionInfoAsync(cancellationToken);
+    }
+
+    public async Task<SolutionInfoResult> CloseSolutionAsync(CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDteAsync();
+        dte.Solution.Close();
+        return await GetSolutionInfoAsync(cancellationToken);
+    }
+
     public async Task<ProjectListResult> ListProjectsAsync(CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
@@ -68,6 +102,45 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
             .ToArray();
 
         return new ProjectListResult(projects);
+    }
+
+    public async Task<ProjectInfo> AddProjectAsync(SolutionAddProjectRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(request.ProjectPath))
+        {
+            throw new ArgumentException("Project path is required.", nameof(request));
+        }
+
+        var projectPath = Path.GetFullPath(request.ProjectPath.Trim());
+        if (!File.Exists(projectPath))
+        {
+            throw new FileNotFoundException("Project file was not found.", projectPath);
+        }
+
+        var dte = await GetDteAsync();
+        var project = dte.Solution.AddFromFile(projectPath)
+            ?? throw new InvalidOperationException("Visual Studio did not return an added project.");
+
+        return ProjectInfoFromProject(project);
+    }
+
+    public async Task<ProjectInfo> RemoveProjectAsync(ProjectInfoRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(request.ProjectName))
+        {
+            throw new ArgumentException("Project name is required.", nameof(request));
+        }
+
+        var dte = await GetDteAsync();
+        var project = FindProject(dte.Solution, request.ProjectName)
+            ?? throw new InvalidOperationException($"Project '{request.ProjectName}' was not found or is unsupported.");
+        var info = ProjectInfoFromProject(project);
+        dte.Solution.Remove(project);
+        return info;
     }
 
     public async Task<ProjectInfo?> GetProjectInfoAsync(ProjectInfoRequest request, CancellationToken cancellationToken)
@@ -82,6 +155,33 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
         var dte = await GetDteAsync();
         var project = FindProject(dte.Solution, request.ProjectName);
         return project is null ? null : ProjectInfoFromProject(project);
+    }
+
+    public async Task<ProjectInfo> AddFileAsync(ProjectFileRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(request.ProjectName))
+        {
+            throw new ArgumentException("Project name is required.", nameof(request));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.FilePath))
+        {
+            throw new ArgumentException("File path is required.", nameof(request));
+        }
+
+        var filePath = Path.GetFullPath(request.FilePath.Trim());
+        if (!File.Exists(filePath))
+        {
+            throw new FileNotFoundException("File was not found.", filePath);
+        }
+
+        var dte = await GetDteAsync();
+        var project = FindProject(dte.Solution, request.ProjectName)
+            ?? throw new InvalidOperationException($"Project '{request.ProjectName}' was not found or is unsupported.");
+        project.ProjectItems.AddFromFile(filePath);
+        return ProjectInfoFromProject(project);
     }
 
     public async Task<StartupProjectResult> GetStartupProjectAsync(CancellationToken cancellationToken)

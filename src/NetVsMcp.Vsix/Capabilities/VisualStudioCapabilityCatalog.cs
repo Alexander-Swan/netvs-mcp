@@ -5,6 +5,7 @@ namespace NetVsMcp.Vsix;
 internal interface IVisualStudioCapabilityCatalog
 {
     IReadOnlyCollection<string> CapabilityNames { get; }
+    IGeneralIdeCapabilityService GeneralIde { get; }
     IEditorCapabilityService Editor { get; }
     INavigationCapabilityService Navigation { get; }
     IBuildCapabilityService Build { get; }
@@ -15,12 +16,14 @@ internal interface IVisualStudioCapabilityCatalog
 internal sealed class VisualStudioCapabilityCatalog : IVisualStudioCapabilityCatalog
 {
     public VisualStudioCapabilityCatalog(
+        IGeneralIdeCapabilityService generalIde,
         IEditorCapabilityService editor,
         INavigationCapabilityService navigation,
         IBuildCapabilityService build,
         IDebuggerCapabilityService debugger,
         ISolutionCapabilityService solution)
     {
+        GeneralIde = generalIde;
         Editor = editor;
         Navigation = navigation;
         Build = build;
@@ -31,6 +34,7 @@ internal sealed class VisualStudioCapabilityCatalog : IVisualStudioCapabilityCat
     public IReadOnlyCollection<string> CapabilityNames { get; } =
     [
         "editor",
+        "generalIde",
         "editing",
         "navigation",
         "build",
@@ -39,6 +43,7 @@ internal sealed class VisualStudioCapabilityCatalog : IVisualStudioCapabilityCat
         "tests"
     ];
 
+    public IGeneralIdeCapabilityService GeneralIde { get; }
     public IEditorCapabilityService Editor { get; }
     public INavigationCapabilityService Navigation { get; }
     public IBuildCapabilityService Build { get; }

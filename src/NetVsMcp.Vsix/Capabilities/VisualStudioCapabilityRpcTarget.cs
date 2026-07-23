@@ -9,6 +9,7 @@ namespace NetVsMcp.Vsix;
 internal sealed class VisualStudioCapabilityRpcTarget
 {
     private readonly EditorRpcTarget editor;
+    private readonly GeneralIdeRpcTarget generalIde;
     private readonly NavigationRpcTarget navigation;
     private readonly BuildRpcTarget build;
     private readonly DebuggerRpcTarget debugger;
@@ -22,6 +23,7 @@ internal sealed class VisualStudioCapabilityRpcTarget
     {
         this.capabilities = capabilities;
         this.snapshotProvider = snapshotProvider;
+        generalIde = new GeneralIdeRpcTarget(capabilities.GeneralIde);
         editor = new EditorRpcTarget(capabilities.Editor);
         navigation = new NavigationRpcTarget(capabilities.Navigation);
         build = new BuildRpcTarget(capabilities.Build);
@@ -77,6 +79,21 @@ internal sealed class VisualStudioCapabilityRpcTarget
 
     public Task<EditorDocumentInfo?> DocumentActiveAsync(CancellationToken cancellationToken) =>
         editor.DocumentActiveAsync(cancellationToken);
+
+    public Task<ExecuteCommandResult> ExecuteCommandAsync(ExecuteCommandRequest request, CancellationToken cancellationToken) =>
+        generalIde.ExecuteCommandAsync(request, cancellationToken);
+
+    public Task<WindowListResult> WindowListAsync(CancellationToken cancellationToken) =>
+        generalIde.WindowListAsync(cancellationToken);
+
+    public Task<WindowActivateResult> WindowActivateAsync(WindowActivateRequest request, CancellationToken cancellationToken) =>
+        generalIde.WindowActivateAsync(request, cancellationToken);
+
+    public Task<ToolWindowResult> ToolWindowShowAsync(ToolWindowRequest request, CancellationToken cancellationToken) =>
+        generalIde.ToolWindowShowAsync(request, cancellationToken);
+
+    public Task<ToolWindowResult> ToolWindowHideAsync(ToolWindowRequest request, CancellationToken cancellationToken) =>
+        generalIde.ToolWindowHideAsync(request, cancellationToken);
 
     public Task<DocumentReadResult> DocumentReadAsync(DocumentReadRequest request, CancellationToken cancellationToken) =>
         editor.DocumentReadAsync(request, cancellationToken);
@@ -219,11 +236,26 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<SolutionInfoResult> SolutionInfoAsync(CancellationToken cancellationToken) =>
         solution.SolutionInfoAsync(cancellationToken);
 
+    public Task<SolutionInfoResult> SolutionOpenAsync(SolutionOpenRequest request, CancellationToken cancellationToken) =>
+        solution.SolutionOpenAsync(request, cancellationToken);
+
+    public Task<SolutionInfoResult> SolutionCloseAsync(CancellationToken cancellationToken) =>
+        solution.SolutionCloseAsync(cancellationToken);
+
     public Task<ProjectListResult> ProjectListAsync(CancellationToken cancellationToken) =>
         solution.ProjectListAsync(cancellationToken);
 
+    public Task<ProjectInfo> SolutionAddProjectAsync(SolutionAddProjectRequest request, CancellationToken cancellationToken) =>
+        solution.SolutionAddProjectAsync(request, cancellationToken);
+
+    public Task<ProjectInfo> SolutionRemoveProjectAsync(ProjectInfoRequest request, CancellationToken cancellationToken) =>
+        solution.SolutionRemoveProjectAsync(request, cancellationToken);
+
     public Task<ProjectInfo?> ProjectInfoAsync(ProjectInfoRequest request, CancellationToken cancellationToken) =>
         solution.ProjectInfoAsync(request, cancellationToken);
+
+    public Task<ProjectInfo> ProjectAddFileAsync(ProjectFileRequest request, CancellationToken cancellationToken) =>
+        solution.ProjectAddFileAsync(request, cancellationToken);
 
     public Task<StartupProjectResult> StartupProjectGetAsync(CancellationToken cancellationToken) =>
         solution.StartupProjectGetAsync(cancellationToken);

@@ -76,6 +76,53 @@ public sealed record RoutingTarget(
     string? WorkspacePath = null,
     string? RootPath = null);
 
+public sealed class ExecuteCommandRequest
+{
+    public string CommandName { get; set; } = string.Empty;
+
+    public string? Arguments { get; set; }
+}
+
+public sealed record ExecuteCommandResult(
+    bool Success,
+    string CommandName,
+    string? Arguments,
+    string? Message);
+
+public sealed record WindowInfo(
+    string? Caption,
+    string? Kind,
+    string? ObjectKind,
+    bool IsActive,
+    bool IsVisible);
+
+public sealed record WindowListResult(
+    IReadOnlyCollection<WindowInfo> Windows);
+
+public sealed class WindowActivateRequest
+{
+    public string? Caption { get; set; }
+
+    public string? ObjectKind { get; set; }
+}
+
+public sealed record WindowActivateResult(
+    bool Success,
+    string? Message,
+    WindowInfo? Window);
+
+public sealed class ToolWindowRequest
+{
+    public string? Caption { get; set; }
+
+    public string? ObjectKind { get; set; }
+}
+
+public sealed record ToolWindowResult(
+    bool Success,
+    string? Message,
+    WindowInfo? Window);
+
 public sealed record VsSessionInfo(
     string SessionId,
     int ProcessId,
@@ -307,12 +354,29 @@ public sealed record SolutionInfoResult(
     int ProjectCount,
     string? StartupProject);
 
+public sealed class SolutionOpenRequest
+{
+    public string Path { get; set; } = string.Empty;
+}
+
 public sealed record ProjectListResult(
     IReadOnlyCollection<ProjectInfo> Projects);
 
 public sealed class ProjectInfoRequest
 {
     public string ProjectName { get; set; } = string.Empty;
+}
+
+public sealed class SolutionAddProjectRequest
+{
+    public string ProjectPath { get; set; } = string.Empty;
+}
+
+public sealed class ProjectFileRequest
+{
+    public string ProjectName { get; set; } = string.Empty;
+
+    public string FilePath { get; set; } = string.Empty;
 }
 
 public sealed record ProjectInfo(
@@ -778,6 +842,24 @@ public interface IVisualStudioSessionRpc
 {
     Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken);
 
+    Task<ExecuteCommandResult> ExecuteCommandAsync(
+        ExecuteCommandRequest request,
+        CancellationToken cancellationToken);
+
+    Task<WindowListResult> WindowListAsync(CancellationToken cancellationToken);
+
+    Task<WindowActivateResult> WindowActivateAsync(
+        WindowActivateRequest request,
+        CancellationToken cancellationToken);
+
+    Task<ToolWindowResult> ToolWindowShowAsync(
+        ToolWindowRequest request,
+        CancellationToken cancellationToken);
+
+    Task<ToolWindowResult> ToolWindowHideAsync(
+        ToolWindowRequest request,
+        CancellationToken cancellationToken);
+
     Task<ToolResponse<string?>> GetActiveDocumentAsync(CancellationToken cancellationToken);
 
     Task<ToolResponse<IReadOnlyCollection<string>>> ListDocumentSymbolsAsync(
@@ -838,10 +920,28 @@ public interface IVisualStudioSessionRpc
 
     Task<SolutionInfoResult> SolutionInfoAsync(CancellationToken cancellationToken);
 
+    Task<SolutionInfoResult> SolutionOpenAsync(
+        SolutionOpenRequest request,
+        CancellationToken cancellationToken);
+
+    Task<SolutionInfoResult> SolutionCloseAsync(CancellationToken cancellationToken);
+
     Task<ProjectListResult> ProjectListAsync(CancellationToken cancellationToken);
+
+    Task<ProjectInfo> SolutionAddProjectAsync(
+        SolutionAddProjectRequest request,
+        CancellationToken cancellationToken);
+
+    Task<ProjectInfo> SolutionRemoveProjectAsync(
+        ProjectInfoRequest request,
+        CancellationToken cancellationToken);
 
     Task<ProjectInfo?> ProjectInfoAsync(
         ProjectInfoRequest request,
+        CancellationToken cancellationToken);
+
+    Task<ProjectInfo> ProjectAddFileAsync(
+        ProjectFileRequest request,
         CancellationToken cancellationToken);
 
     Task<StartupProjectResult> StartupProjectGetAsync(CancellationToken cancellationToken);

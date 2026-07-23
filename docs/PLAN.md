@@ -37,7 +37,7 @@ NetVsMcp.slnx
   src/NetVsMcp.Contracts
     shared RPC contracts and DTOs
 
-  tests/NetVsMcp.Tests
+  tests/NetVsMcp.Broker.Tests
     routing, contracts, and broker tests
 ```
 
@@ -120,18 +120,23 @@ Every MCP tool should accept optional routing fields:
 {
   "sessionId": null,
   "solutionName": null,
-  "solutionPath": null
+  "solutionPath": null,
+  "processId": null,
+  "workspacePath": null,
+  "rootPath": null
 }
 ```
 
 Broker target selection order:
 
 1. explicit `sessionId`
-2. exact `solutionPath`
-3. exact `solutionName`
-4. active Visual Studio window
-5. only registered Visual Studio instance
-6. otherwise return candidate sessions and ask for a more specific target
+2. explicit `processId`
+3. normalized `solutionPath`
+4. normalized `workspacePath` or `rootPath` by walking upward to `.sln` or `.slnx`
+5. exact `solutionName`
+6. active Visual Studio window or configured default
+7. only registered Visual Studio instance
+8. otherwise return candidate sessions and ask for a more specific target
 
 ## Capability Backlog
 
@@ -148,7 +153,6 @@ Broker target selection order:
 ### General IDE
 
 - `execute_command`
-- `get_status`
 - `get_help`
 - `window_list`
 - `window_activate`
@@ -157,7 +161,6 @@ Broker target selection order:
 
 ### Solution And Project
 
-- `solution_open`
 - `solution_close`
 - `solution_info`
 - `project_list`
@@ -334,6 +337,225 @@ Breakpoint variants:
 - `web_network`
 - `web_element_click`
 - `web_element_set_value`
+
+## Tool Coverage Plan
+
+The broker currently exposes a substantial routed MCP surface, but parity work remains. Treat these as planned workstreams after authentication and runtime validation unless a demo needs one sooner.
+
+### Already Exposed Broker Tools
+
+Current broker MCP tools include:
+
+- broker/session tools: `vs_list_sessions`, `vs_get_status`, `vs_get_capabilities`, `vs_get_session`, `vs_select_session`, `vs_ping`, `vs_context_snapshot`
+- general IDE tools: `execute_command`, `get_status`, `get_help`, `window_list`, `window_activate`, `toolwindow_show`, `toolwindow_hide`
+- documents/editor/safe edits: `document_active`, `document_read`, `document_open`, `open_relevant_files`, `selection_get`, `document_write`, `document_save`, `editor_insert`, `editor_replace`, `editor_goto_line`, `selection_set`, `document_cleanup`, `format_and_organize`, `edit_preview`, `prepare_safe_edit`, `edit_approve`, `apply_safe_edit_and_build`, `edit_reject`, `edit_list_pending`
+- navigation/context: `code_document_symbols`, `code_go_to_definition`, `code_find_references`, `symbol_context`, `document_outline`, `find_implementations`, `rename_symbol_preview`
+- solution/project/test/build/output: `solution_open`, `solution_close`, `solution_info`, `solution_add_project`, `solution_remove_project`, `project_list`, `project_info`, `project_add_file`, `startup_project_get`, `startup_project_set`, `solution_overview`, `project_dependencies`, `package_restore`, `test_discover`, `test_run`, `test_results`, `test_run_and_get_results`, `build_solution`, `build_status`, `errors_list`, `build_and_get_errors`, `diagnostics_for_document`, `output_read`, `workspace_search`
+- debugging/breakpoints: `debug_status`, `debug_get_mode`, `debug_start`, `debug_stop`, `debug_continue`, `debug_break`, `debug_step`, `breakpoint_set`, `breakpoint_list`, `breakpoint_group_list`, `breakpoint_remove`, `breakpoint_enable`, `breakpoint_group_enable`, `breakpoint_group_remove`, `debug_get_callstack`, `debug_get_locals`, `debug_evaluate`, `debug_snapshot`, `debug_eval_many`
+- local context: `git_context`
+
+### Remaining General IDE Tools
+
+Add these to improve broad Visual Studio control:
+
+- `get_status`
+General IDE coverage is complete for this plan slice.
+
+Acceptance criteria:
+
+- commands reject unknown or dangerous operations with clear errors
+- window/tool-window responses include stable captions, kind, active/visible state, and activation support status
+- tests cover successful execution, unknown command, and routed-session failure behavior
+
+### Missing Solution And Project Mutation Tools
+
+Add project-system mutation support:
+
+- `solution_open`
+- `project_remove_file`
+- `project_add_reference`
+- `project_remove_reference`
+
+Acceptance criteria:
+
+- mutation tools use capability-profile policy and audit logging
+- path inputs are normalized and constrained to the routed solution where applicable
+- responses include before/after project or solution identity and any Visual Studio reload/build implications
+- tests cover routing failure, invalid paths, and successful fake-RPC dispatch
+
+### Missing Document And Search Tools
+
+Add:
+
+- `document_list`
+- `document_close`
+- `editor_find`
+- `find_in_files`
+
+Acceptance criteria:
+
+- document lists include open/dirty/active metadata where Visual Studio exposes it
+- find tools support case sensitivity, whole word, regex where safe, and result limits
+- large result sets include truncation metadata
+
+### Missing Build And Configuration Tools
+
+Add:
+
+- `build_project`
+- `build_cancel`
+- `clean_solution`
+- `rebuild_solution`
+- `build_configuration_get`
+- `build_configuration_set`
+
+Acceptance criteria:
+
+- build operations preserve existing routed error behavior
+- build configuration responses include solution configuration and platform
+- setters are denied outside profiles that allow build/config mutation
+
+### Missing Output And Diagnostics Tools
+
+Add:
+
+- `output_list_panes`
+- `output_write`
+- `output_clear`
+- `diagnostics_binding_errors`
+
+Acceptance criteria:
+
+- output pane writes and clears are profile-gated and audited
+- pane reads and diagnostics support result limits
+- XAML/WPF binding diagnostics parse useful file, line, path, and message fields when available
+
+### Missing Debugger Tools
+
+Add:
+
+- `debug_start_without_debugging`
+- `debug_restart`
+- `debug_attach`
+- `debug_get_threads`
+- `debug_set_variable`
+
+Acceptance criteria:
+
+- attach supports process id and process name with ambiguity responses
+- state-changing debug operations are denied outside debug/admin profiles
+- variable mutation reports whether the debugger engine accepted the change
+
+### Missing Advanced Debug Tools
+
+Add:
+
+- `watch_add`
+- `watch_remove`
+- `watch_list`
+- `thread_switch`
+- `thread_set_frozen`
+- `thread_get_callstack`
+- `process_list_debugged`
+- `process_list_local`
+- `process_detach`
+- `process_terminate`
+- `immediate_execute`
+- `module_list`
+- `exception_settings_get`
+- `exception_settings_set`
+- `memory_read`
+- `register_list`
+- `register_get`
+- `parallel_stacks`
+- `parallel_watch`
+- `parallel_tasks_list`
+
+Acceptance criteria:
+
+- unsupported debugger-engine cases return explicit unsupported results instead of generic failures
+- process termination and immediate execution require admin-grade policy
+- memory/register APIs include size limits and clear native/mixed-mode caveats
+
+### Missing Debuggee Console Tools
+
+Add:
+
+- `console_read`
+- `console_send`
+- `console_get_info`
+
+Acceptance criteria:
+
+- console targeting is tied to the routed debuggee process
+- input/send operations are debug-profile gated and audited
+- responses report unsupported cases for non-console debuggees
+
+### Missing UI Automation Tools
+
+Add:
+
+- `ui_capture_window`
+- `ui_capture_region`
+- `ui_snapshot`
+- `ui_get_tree`
+- `ui_find_elements`
+- `ui_get_element`
+- `ui_click`
+- `ui_double_click`
+- `ui_right_click`
+- `ui_drag`
+- `ui_set_value`
+- `ui_invoke`
+- `ui_send_keys`
+- `ui_wait_for_element`
+- `ui_wait_idle`
+
+Acceptance criteria:
+
+- all actions target the routed debuggee window, not arbitrary desktop windows
+- UI snapshots combine bounded UIA tree data with screenshot metadata
+- click/type/drag operations require an automation/admin profile and are audited
+- waits have explicit timeouts and stable timeout responses
+
+### Missing Web Debugging Tools
+
+Add browser-debugging support only after the core Visual Studio runtime is stable:
+
+- `web_connect`
+- `web_disconnect`
+- `web_status`
+- `web_navigate`
+- `web_screenshot`
+- `web_dom_get`
+- `web_dom_query`
+- `web_console`
+- `web_js_execute`
+- `web_network`
+- `web_element_click`
+- `web_element_set_value`
+
+Acceptance criteria:
+
+- browser connections are explicit and scoped to the routed debug session where possible
+- JavaScript execution and navigation require an automation/admin profile
+- DOM, console, network, and screenshot outputs use size limits and truncation metadata
+
+### Missing NuGet Tools
+
+Add:
+
+- `nuget_list`
+- `nuget_search`
+- `nuget_install`
+- `nuget_update`
+- `nuget_uninstall`
+
+Acceptance criteria:
+
+- package mutation is profile-gated and audited
+- search uses NuGet APIs with result limits and version metadata
+- install/update/uninstall responses include affected project, package id, requested version, and restore status
 
 ## Recommended MVP
 

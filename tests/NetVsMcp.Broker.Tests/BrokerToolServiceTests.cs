@@ -35,6 +35,13 @@ public sealed class BrokerToolServiceTests
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_select_session", RequiresVisualStudioSession: false });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_ping", RequiresVisualStudioSession: false });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_context_snapshot", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "execute_command", RequiresVisualStudioSession: true, Category: BrokerToolCategory.Admin, MinimumProfile: BrokerCapabilityProfile.Admin });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "get_status", RequiresVisualStudioSession: true, Category: BrokerToolCategory.Read, MinimumProfile: BrokerCapabilityProfile.ReadOnly });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "get_help", RequiresVisualStudioSession: false, Category: BrokerToolCategory.Read, MinimumProfile: BrokerCapabilityProfile.ReadOnly });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "window_list", RequiresVisualStudioSession: true, Category: BrokerToolCategory.Read, MinimumProfile: BrokerCapabilityProfile.ReadOnly });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "window_activate", RequiresVisualStudioSession: true, Category: BrokerToolCategory.Read, MinimumProfile: BrokerCapabilityProfile.ReadOnly });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "toolwindow_show", RequiresVisualStudioSession: true, Category: BrokerToolCategory.Read, MinimumProfile: BrokerCapabilityProfile.ReadOnly });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "toolwindow_hide", RequiresVisualStudioSession: true, Category: BrokerToolCategory.Read, MinimumProfile: BrokerCapabilityProfile.ReadOnly });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "document_active", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "code_document_symbols", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "code_go_to_definition", RequiresVisualStudioSession: true });
@@ -62,10 +69,15 @@ public sealed class BrokerToolServiceTests
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "edit_preview", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "edit_list_pending", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "apply_safe_edit_and_build", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "solution_open", RequiresVisualStudioSession: true, Category: BrokerToolCategory.Admin, MinimumProfile: BrokerCapabilityProfile.Admin });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "solution_close", RequiresVisualStudioSession: true, Category: BrokerToolCategory.Admin, MinimumProfile: BrokerCapabilityProfile.Admin });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "solution_info", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "solution_add_project", RequiresVisualStudioSession: true, Category: BrokerToolCategory.Admin, MinimumProfile: BrokerCapabilityProfile.Admin });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "solution_remove_project", RequiresVisualStudioSession: true, Category: BrokerToolCategory.Admin, MinimumProfile: BrokerCapabilityProfile.Admin });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "solution_overview", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "project_list", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "project_info", RequiresVisualStudioSession: true });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "project_add_file", RequiresVisualStudioSession: true, Category: BrokerToolCategory.Admin, MinimumProfile: BrokerCapabilityProfile.Admin });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "project_dependencies", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "startup_project_set", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "test_run", RequiresVisualStudioSession: true });
@@ -91,6 +103,19 @@ public sealed class BrokerToolServiceTests
         Assert.True(response.Success);
         Assert.Equal("vs-2", response.Value!.Session.SessionId);
         Assert.Equal(SessionHealth.Connected, response.Value.Health);
+    }
+
+    [Fact]
+    public void GetHelp_FiltersBySessionRequirement()
+    {
+        var runtime = CreateRuntime();
+
+        var response = runtime.Tools.GetHelp(requiresVisualStudioSession: false);
+
+        Assert.True(response.Success);
+        Assert.Contains(response.Value!.Tools, tool => tool.Name == "get_help");
+        Assert.Contains(response.Value.Tools, tool => tool.Name == "vs_get_capabilities");
+        Assert.DoesNotContain(response.Value.Tools, tool => tool.RequiresVisualStudioSession);
     }
 
     [Fact]
@@ -214,6 +239,135 @@ public sealed class BrokerToolServiceTests
         Assert.Equal("Break", response.Value.Debugger!.Mode);
         Assert.Single(response.Value.Errors!.Items);
         Assert.Single(response.Value.PendingEdits!.PendingEdits);
+    }
+
+    [Fact]
+    public async Task ExecuteCommand_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        var rpc = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Connections.AddOrUpdate("vs-1", rpc);
+
+        var response = await runtime.Tools.ExecuteCommand("View.ErrorList", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.True(response.Value!.Success);
+        Assert.Equal("View.ErrorList", response.Value.CommandName);
+        Assert.Equal("View.ErrorList", rpc.LastExecuteCommandRequest!.CommandName);
+    }
+
+    [Fact]
+    public async Task ExecuteCommand_RequiresCommandName()
+    {
+        var runtime = CreateRuntime();
+
+        var response = await runtime.Tools.ExecuteCommand(" ");
+
+        Assert.False(response.Success);
+        Assert.Equal("Command name is required.", response.Message);
+    }
+
+    [Fact]
+    public async Task ExecuteCommand_IsDeniedOutsideAdminProfile()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.Debug);
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.ExecuteCommand("View.ErrorList", sessionId: "vs-1");
+
+        Assert.False(response.Success);
+        Assert.Equal("CapabilityProfileDenied", response.Metadata!["failureReason"]);
+        Assert.Equal("Admin", response.Metadata["requiredProfile"]);
+    }
+
+    [Fact]
+    public async Task GetStatus_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.ReadOnly);
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.GetStatus(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("vs-fake", response.Value!.SessionId);
+        Assert.Equal("Editor.cs", response.Value.ActiveDocument);
+    }
+
+    [Fact]
+    public async Task WindowList_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.ReadOnly);
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.WindowList(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        var window = Assert.Single(response.Value!.Windows);
+        Assert.Equal("Editor.cs", window.Caption);
+        Assert.True(window.IsActive);
+    }
+
+    [Fact]
+    public async Task WindowActivate_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.ReadOnly);
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        var rpc = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Connections.AddOrUpdate("vs-1", rpc);
+
+        var response = await runtime.Tools.WindowActivate(caption: "Error List", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.True(response.Value!.Success);
+        Assert.Equal("Error List", response.Value.Window!.Caption);
+        Assert.Equal("Error List", rpc.LastWindowActivateRequest!.Caption);
+    }
+
+    [Fact]
+    public async Task WindowActivate_RequiresCaptionOrObjectKind()
+    {
+        var runtime = CreateRuntime();
+
+        var response = await runtime.Tools.WindowActivate();
+
+        Assert.False(response.Success);
+        Assert.Equal("Window caption or object kind is required.", response.Message);
+    }
+
+    [Fact]
+    public async Task ToolWindowShow_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.ReadOnly);
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        var rpc = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Connections.AddOrUpdate("vs-1", rpc);
+
+        var response = await runtime.Tools.ToolwindowShow(caption: "Error List", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.True(response.Value!.Success);
+        Assert.True(response.Value.Window!.IsVisible);
+        Assert.Equal("Error List", rpc.LastToolWindowShowRequest!.Caption);
+    }
+
+    [Fact]
+    public async Task ToolWindowHide_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.ReadOnly);
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        var rpc = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Connections.AddOrUpdate("vs-1", rpc);
+
+        var response = await runtime.Tools.ToolwindowHide(objectKind: "{ErrorList}", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.True(response.Value!.Success);
+        Assert.False(response.Value.Window!.IsVisible);
+        Assert.Equal("{ErrorList}", rpc.LastToolWindowHideRequest!.ObjectKind);
     }
 
     [Fact]
@@ -1103,6 +1257,75 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task SolutionOpen_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.Admin);
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.SolutionOpen(@"C:\Code\Other\Other.slnx", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal(@"C:\Code\Other\Other.slnx", session.LastSolutionOpenRequest!.Path);
+        Assert.Equal("Other", response.Value!.Name);
+    }
+
+    [Fact]
+    public async Task SolutionOpen_RequiresPath()
+    {
+        var runtime = CreateRuntime();
+
+        var response = await runtime.Tools.SolutionOpen(" ");
+
+        Assert.False(response.Success);
+        Assert.Equal("Path is required.", response.Message);
+    }
+
+    [Fact]
+    public async Task SolutionOpen_IsDeniedOutsideAdminProfile()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.Debug);
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.SolutionOpen(@"C:\Code\Other\Other.slnx", sessionId: "vs-1");
+
+        Assert.False(response.Success);
+        Assert.Equal("CapabilityProfileDenied", response.Metadata!["failureReason"]);
+        Assert.Equal("Admin", response.Metadata["requiredProfile"]);
+    }
+
+    [Fact]
+    public async Task SolutionClose_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.Admin);
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.SolutionClose(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.True(session.SolutionClosed);
+        Assert.False(response.Value!.IsOpen);
+    }
+
+    [Fact]
+    public async Task SolutionClose_IsDeniedOutsideAdminProfile()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.Debug);
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.SolutionClose(sessionId: "vs-1");
+
+        Assert.False(response.Success);
+        Assert.Equal("CapabilityProfileDenied", response.Metadata!["failureReason"]);
+        Assert.Equal("Admin", response.Metadata["requiredProfile"]);
+    }
+
+    [Fact]
     public async Task ProjectList_RoutesToConnectedSession()
     {
         var runtime = CreateRuntime();
@@ -1113,6 +1336,86 @@ public sealed class BrokerToolServiceTests
 
         Assert.True(response.Success);
         Assert.Contains(response.Value!.Projects, project => project.Name == "NetVsMcp.Broker");
+    }
+
+    [Fact]
+    public async Task SolutionAddProject_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.Admin);
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.SolutionAddProject(@"C:\Code\NetVsMcp\src\NewProject\NewProject.csproj", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal(@"C:\Code\NetVsMcp\src\NewProject\NewProject.csproj", session.LastSolutionAddProjectRequest!.ProjectPath);
+        Assert.Equal("NewProject", response.Value!.Name);
+    }
+
+    [Fact]
+    public async Task SolutionAddProject_RequiresPath()
+    {
+        var runtime = CreateRuntime();
+
+        var response = await runtime.Tools.SolutionAddProject(" ");
+
+        Assert.False(response.Success);
+        Assert.Equal("Path is required.", response.Message);
+    }
+
+    [Fact]
+    public async Task SolutionAddProject_IsDeniedOutsideAdminProfile()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.Debug);
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.SolutionAddProject(@"C:\Code\NetVsMcp\src\NewProject\NewProject.csproj", sessionId: "vs-1");
+
+        Assert.False(response.Success);
+        Assert.Equal("CapabilityProfileDenied", response.Metadata!["failureReason"]);
+        Assert.Equal("Admin", response.Metadata["requiredProfile"]);
+    }
+
+    [Fact]
+    public async Task SolutionRemoveProject_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.Admin);
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.SolutionRemoveProject("NetVsMcp.Broker", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("NetVsMcp.Broker", session.LastSolutionRemoveProjectRequest!.ProjectName);
+        Assert.Equal("NetVsMcp.Broker", response.Value!.Name);
+    }
+
+    [Fact]
+    public async Task SolutionRemoveProject_RequiresProjectName()
+    {
+        var runtime = CreateRuntime();
+
+        var response = await runtime.Tools.SolutionRemoveProject(" ");
+
+        Assert.False(response.Success);
+        Assert.Equal("Project name is required.", response.Message);
+    }
+
+    [Fact]
+    public async Task SolutionRemoveProject_IsDeniedOutsideAdminProfile()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.Debug);
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.SolutionRemoveProject("NetVsMcp.Broker", sessionId: "vs-1");
+
+        Assert.False(response.Success);
+        Assert.Equal("CapabilityProfileDenied", response.Metadata!["failureReason"]);
+        Assert.Equal("Admin", response.Metadata["requiredProfile"]);
     }
 
     [Fact]
@@ -1139,6 +1442,50 @@ public sealed class BrokerToolServiceTests
         Assert.True(response.Success);
         Assert.Equal("NetVsMcp.Broker", session.LastProjectInfoRequest!.ProjectName);
         Assert.Equal("NetVsMcp.Broker", response.Value!.Name);
+    }
+
+    [Fact]
+    public async Task ProjectAddFile_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.Admin);
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.ProjectAddFile("NetVsMcp.Broker", @"C:\Code\NetVsMcp\NewFile.cs", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("NetVsMcp.Broker", session.LastProjectAddFileRequest!.ProjectName);
+        Assert.Equal(@"C:\Code\NetVsMcp\NewFile.cs", session.LastProjectAddFileRequest.FilePath);
+        Assert.Equal("NetVsMcp.Broker", response.Value!.Name);
+    }
+
+    [Fact]
+    public async Task ProjectAddFile_RequiresInputs()
+    {
+        var runtime = CreateRuntime();
+
+        var missingProject = await runtime.Tools.ProjectAddFile(" ", "File.cs");
+        var missingPath = await runtime.Tools.ProjectAddFile("NetVsMcp.Broker", " ");
+
+        Assert.False(missingProject.Success);
+        Assert.Equal("Project name is required.", missingProject.Message);
+        Assert.False(missingPath.Success);
+        Assert.Equal("Path is required.", missingPath.Message);
+    }
+
+    [Fact]
+    public async Task ProjectAddFile_IsDeniedOutsideAdminProfile()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.Debug);
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.ProjectAddFile("NetVsMcp.Broker", "File.cs", sessionId: "vs-1");
+
+        Assert.False(response.Success);
+        Assert.Equal("CapabilityProfileDenied", response.Metadata!["failureReason"]);
+        Assert.Equal("Admin", response.Metadata["requiredProfile"]);
     }
 
     [Fact]
@@ -1503,6 +1850,24 @@ public sealed class BrokerToolServiceTests
 
         public RenameSymbolRequest? LastRenameSymbolRequest { get; private set; }
 
+        public ExecuteCommandRequest? LastExecuteCommandRequest { get; private set; }
+
+        public WindowActivateRequest? LastWindowActivateRequest { get; private set; }
+
+        public ToolWindowRequest? LastToolWindowShowRequest { get; private set; }
+
+        public ToolWindowRequest? LastToolWindowHideRequest { get; private set; }
+
+        public SolutionOpenRequest? LastSolutionOpenRequest { get; private set; }
+
+        public SolutionAddProjectRequest? LastSolutionAddProjectRequest { get; private set; }
+
+        public ProjectInfoRequest? LastSolutionRemoveProjectRequest { get; private set; }
+
+        public ProjectFileRequest? LastProjectAddFileRequest { get; private set; }
+
+        public bool SolutionClosed { get; private set; }
+
         public DocumentReadRequest? LastDocumentReadRequest { get; private set; }
 
         public DocumentOpenRequest? LastDocumentOpenRequest { get; private set; }
@@ -1581,6 +1946,60 @@ public sealed class BrokerToolServiceTests
             LastSymbolsDocumentPath = documentPath;
             IReadOnlyCollection<string> symbols = ["Editor", "Editor.Run"];
             return Task.FromResult(ToolResponse<IReadOnlyCollection<string>>.Ok(symbols));
+        }
+
+        public Task<ExecuteCommandResult> ExecuteCommandAsync(
+            ExecuteCommandRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastExecuteCommandRequest = request;
+            return Task.FromResult(new ExecuteCommandResult(true, request.CommandName, request.Arguments, "Command executed."));
+        }
+
+        public Task<WindowListResult> WindowListAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<WindowInfo> windows =
+            [
+                new(_activeDocument, "Document", "Text", true, true)
+            ];
+
+            return Task.FromResult(new WindowListResult(windows));
+        }
+
+        public Task<WindowActivateResult> WindowActivateAsync(
+            WindowActivateRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastWindowActivateRequest = request;
+            var caption = request.Caption ?? "Error List";
+            return Task.FromResult(new WindowActivateResult(
+                true,
+                "Window activated.",
+                new WindowInfo(caption, "Tool", request.ObjectKind ?? "{ErrorList}", true, true)));
+        }
+
+        public Task<ToolWindowResult> ToolWindowShowAsync(
+            ToolWindowRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastToolWindowShowRequest = request;
+            var caption = request.Caption ?? "Error List";
+            return Task.FromResult(new ToolWindowResult(
+                true,
+                "Tool window shown.",
+                new WindowInfo(caption, "Tool", request.ObjectKind ?? "{ErrorList}", true, true)));
+        }
+
+        public Task<ToolWindowResult> ToolWindowHideAsync(
+            ToolWindowRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastToolWindowHideRequest = request;
+            var caption = request.Caption ?? "Error List";
+            return Task.FromResult(new ToolWindowResult(
+                true,
+                "Tool window hidden.",
+                new WindowInfo(caption, "Tool", request.ObjectKind ?? "{ErrorList}", false, false)));
         }
 
         public Task<GoToDefinitionResult> CodeGoToDefinitionAsync(
@@ -1779,6 +2198,25 @@ public sealed class BrokerToolServiceTests
                 @"src\NetVsMcp.Broker\NetVsMcp.Broker.csproj"));
         }
 
+        public Task<SolutionInfoResult> SolutionOpenAsync(
+            SolutionOpenRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastSolutionOpenRequest = request;
+            return Task.FromResult(new SolutionInfoResult(
+                Path.GetFileNameWithoutExtension(request.Path),
+                request.Path,
+                true,
+                1,
+                null));
+        }
+
+        public Task<SolutionInfoResult> SolutionCloseAsync(CancellationToken cancellationToken)
+        {
+            SolutionClosed = true;
+            return Task.FromResult(new SolutionInfoResult(null, null, false, 0, null));
+        }
+
         public Task<ProjectListResult> ProjectListAsync(CancellationToken cancellationToken)
         {
             IReadOnlyCollection<ProjectInfo> projects =
@@ -1790,12 +2228,36 @@ public sealed class BrokerToolServiceTests
             return Task.FromResult(new ProjectListResult(projects));
         }
 
+        public Task<ProjectInfo> SolutionAddProjectAsync(
+            SolutionAddProjectRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastSolutionAddProjectRequest = request;
+            return Task.FromResult(CreateProject(Path.GetFileNameWithoutExtension(request.ProjectPath)));
+        }
+
+        public Task<ProjectInfo> SolutionRemoveProjectAsync(
+            ProjectInfoRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastSolutionRemoveProjectRequest = request;
+            return Task.FromResult(CreateProject(request.ProjectName));
+        }
+
         public Task<ProjectInfo?> ProjectInfoAsync(
             ProjectInfoRequest request,
             CancellationToken cancellationToken)
         {
             LastProjectInfoRequest = request;
             return Task.FromResult<ProjectInfo?>(CreateProject(request.ProjectName));
+        }
+
+        public Task<ProjectInfo> ProjectAddFileAsync(
+            ProjectFileRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastProjectAddFileRequest = request;
+            return Task.FromResult(CreateProject(request.ProjectName));
         }
 
         public Task<StartupProjectResult> StartupProjectGetAsync(CancellationToken cancellationToken)

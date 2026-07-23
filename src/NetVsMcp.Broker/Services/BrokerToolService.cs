@@ -20,6 +20,13 @@ public sealed class BrokerToolService
         new("vs_select_session", "Resolves a Visual Studio session using broker routing rules without persisting selection.", false),
         new("vs_ping", "Returns lightweight broker health and optional routed Visual Studio session status.", false),
         new("vs_context_snapshot", "Returns a compact routed Visual Studio context snapshot.", true),
+        new("execute_command", "Executes a Visual Studio command in a routed session.", true),
+        new("get_status", "Returns Visual Studio session status through a routed session.", true),
+        new("get_help", "Lists NetVsMcp broker tools and Visual Studio capability categories.", false),
+        new("window_list", "Lists Visual Studio windows in a routed session.", true),
+        new("window_activate", "Activates a Visual Studio window in a routed session.", true),
+        new("toolwindow_show", "Shows a Visual Studio tool window in a routed session.", true),
+        new("toolwindow_hide", "Hides a Visual Studio tool window in a routed session.", true),
         new("document_active", "Returns the active document for a routed Visual Studio session.", true),
         new("code_document_symbols", "Lists document symbols through a routed Visual Studio session.", true),
         new("code_go_to_definition", "Finds and navigates to a symbol definition through a routed Visual Studio session.", true),
@@ -77,9 +84,14 @@ public sealed class BrokerToolService
         new("apply_safe_edit_and_build", "Approves a pending edit, builds, and returns errors.", true),
         new("edit_reject", "Rejects a pending safe edit through a routed Visual Studio session.", true),
         new("edit_list_pending", "Lists pending safe edits through a routed Visual Studio session.", true),
+        new("solution_open", "Opens a solution in a routed Visual Studio session.", true),
+        new("solution_close", "Closes the open solution in a routed Visual Studio session.", true),
         new("solution_info", "Returns solution metadata from a routed Visual Studio session.", true),
+        new("solution_add_project", "Adds an existing project file to the routed Visual Studio solution.", true),
+        new("solution_remove_project", "Removes a project from the routed Visual Studio solution.", true),
         new("project_list", "Lists projects from a routed Visual Studio session.", true),
         new("project_info", "Returns project metadata from a routed Visual Studio session.", true),
+        new("project_add_file", "Adds an existing file to a project in the routed Visual Studio solution.", true),
         new("startup_project_get", "Returns startup project metadata from a routed Visual Studio session.", true),
         new("startup_project_set", "Sets the startup project in a routed Visual Studio session.", true),
         new("test_discover", "Discovers tests through a routed Visual Studio session.", true),
@@ -135,6 +147,25 @@ public sealed class BrokerToolService
 
         var response = ToolResponse<BrokerCapabilities>.Ok(capabilities);
         AuditToolResult(nameof(VsGetCapabilities), null, response.Success, null, response.Message);
+        return response;
+    }
+
+    [McpServerTool(Name = "get_help")]
+    [Description("Lists NetVsMcp broker tools and Visual Studio capability categories.")]
+    public ToolResponse<BrokerCapabilities> GetHelp(bool? requiresVisualStudioSession = null)
+    {
+        var tools = ToolDescriptors
+            .Select(WithAccessMetadata)
+            .Where(tool => requiresVisualStudioSession is null || tool.RequiresVisualStudioSession == requiresVisualStudioSession.Value)
+            .ToArray();
+        var capabilities = new BrokerCapabilities(
+            _runtime.Options.McpEndpoint,
+            _runtime.Options.CapabilityProfile,
+            tools,
+            VisualStudioCapabilities);
+
+        var response = ToolResponse<BrokerCapabilities>.Ok(capabilities);
+        AuditToolResult(nameof(GetHelp), null, response.Success, null, response.Message);
         return response;
     }
 
@@ -259,6 +290,150 @@ public sealed class BrokerToolService
                     await connection.ErrorsListAsync(new ErrorListRequest { IncludeWarnings = true, MaxItems = 50 }, ct),
                     await connection.EditListPendingAsync(ct));
             },
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "execute_command")]
+    [Description("Executes a Visual Studio command in a routed session.")]
+    public Task<ToolResponse<ExecuteCommandResult>> ExecuteCommand(
+        string commandName,
+        string? arguments = null,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(commandName))
+        {
+            return Task.FromResult(ToolResponse<ExecuteCommandResult>.Fail("Command name is required."));
+        }
+
+        var request = new ExecuteCommandRequest
+        {
+            CommandName = commandName.Trim(),
+            Arguments = NormalizeOptional(arguments)
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.ExecuteCommandAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "get_status")]
+    [Description("Returns Visual Studio session status through a routed session.")]
+    public async Task<ToolResponse<VsSessionInfo>> GetStatus(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        var target = CreateTarget(sessionId, solutionName, solutionPath);
+        if (ValidateToolAccess(nameof(GetStatus), target) is { } denied)
+        {
+            return denied.As<VsSessionInfo>();
+        }
+
+        var dispatch = await _runtime.Dispatcher.DispatchAsync(
+            target,
+            static (connection, ct) => connection.GetStatusAsync(ct),
+            cancellationToken);
+
+        var response = ToToolResponse(dispatch);
+        AuditToolResult(nameof(GetStatus), target, response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
+        return response;
+    }
+
+    [McpServerTool(Name = "window_list")]
+    [Description("Lists Visual Studio windows in a routed session.")]
+    public Task<ToolResponse<WindowListResult>> WindowList(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.WindowListAsync(ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "window_activate")]
+    [Description("Activates a Visual Studio window in a routed session.")]
+    public Task<ToolResponse<WindowActivateResult>> WindowActivate(
+        string? caption = null,
+        string? objectKind = null,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(caption) && string.IsNullOrWhiteSpace(objectKind))
+        {
+            return Task.FromResult(ToolResponse<WindowActivateResult>.Fail("Window caption or object kind is required."));
+        }
+
+        var request = new WindowActivateRequest
+        {
+            Caption = NormalizeOptional(caption),
+            ObjectKind = NormalizeOptional(objectKind)
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.WindowActivateAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "toolwindow_show")]
+    [Description("Shows a Visual Studio tool window in a routed session.")]
+    public Task<ToolResponse<ToolWindowResult>> ToolwindowShow(
+        string? caption = null,
+        string? objectKind = null,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (CreateToolWindowRequest(caption, objectKind) is not { } request)
+        {
+            return Task.FromResult(ToolResponse<ToolWindowResult>.Fail("Tool window caption or object kind is required."));
+        }
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.ToolWindowShowAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "toolwindow_hide")]
+    [Description("Hides a Visual Studio tool window in a routed session.")]
+    public Task<ToolResponse<ToolWindowResult>> ToolwindowHide(
+        string? caption = null,
+        string? objectKind = null,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (CreateToolWindowRequest(caption, objectKind) is not { } request)
+        {
+            return Task.FromResult(ToolResponse<ToolWindowResult>.Fail("Tool window caption or object kind is required."));
+        }
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.ToolWindowHideAsync(request, ct),
             cancellationToken);
     }
 
@@ -1118,6 +1293,45 @@ public sealed class BrokerToolService
             cancellationToken);
     }
 
+    [McpServerTool(Name = "solution_open")]
+    [Description("Opens a solution in a routed Visual Studio session.")]
+    public Task<ToolResponse<SolutionInfoResult>> SolutionOpen(
+        string path,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateRequiredPath(path) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<SolutionInfoResult>.Fail(validation));
+        }
+
+        var request = new SolutionOpenRequest { Path = path.Trim() };
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.SolutionOpenAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "solution_close")]
+    [Description("Closes the open solution in a routed Visual Studio session.")]
+    public Task<ToolResponse<SolutionInfoResult>> SolutionClose(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.SolutionCloseAsync(ct),
+            cancellationToken);
+    }
+
     [McpServerTool(Name = "project_list")]
     [Description("Lists projects from a routed Visual Studio session.")]
     public Task<ToolResponse<ProjectListResult>> ProjectList(
@@ -1131,6 +1345,52 @@ public sealed class BrokerToolService
             solutionName,
             solutionPath,
             static (connection, ct) => connection.ProjectListAsync(ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "solution_add_project")]
+    [Description("Adds an existing project file to the routed Visual Studio solution.")]
+    public Task<ToolResponse<ProjectInfo>> SolutionAddProject(
+        string projectPath,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateRequiredPath(projectPath) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<ProjectInfo>.Fail(validation));
+        }
+
+        var request = new SolutionAddProjectRequest { ProjectPath = projectPath.Trim() };
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.SolutionAddProjectAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "solution_remove_project")]
+    [Description("Removes a project from the routed Visual Studio solution.")]
+    public Task<ToolResponse<ProjectInfo>> SolutionRemoveProject(
+        string projectName,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateProjectName(projectName) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<ProjectInfo>.Fail(validation));
+        }
+
+        var request = new ProjectInfoRequest { ProjectName = projectName.Trim() };
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.SolutionRemoveProjectAsync(request, ct),
             cancellationToken);
     }
 
@@ -1154,6 +1414,39 @@ public sealed class BrokerToolService
             solutionName,
             solutionPath,
             (connection, ct) => connection.ProjectInfoAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "project_add_file")]
+    [Description("Adds an existing file to a project in the routed Visual Studio solution.")]
+    public Task<ToolResponse<ProjectInfo>> ProjectAddFile(
+        string projectName,
+        string filePath,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateProjectName(projectName) is { } projectValidation)
+        {
+            return Task.FromResult(ToolResponse<ProjectInfo>.Fail(projectValidation));
+        }
+
+        if (ValidateRequiredPath(filePath) is { } pathValidation)
+        {
+            return Task.FromResult(ToolResponse<ProjectInfo>.Fail(pathValidation));
+        }
+
+        var request = new ProjectFileRequest
+        {
+            ProjectName = projectName.Trim(),
+            FilePath = filePath.Trim()
+        };
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.ProjectAddFileAsync(request, ct),
             cancellationToken);
     }
 
@@ -2564,6 +2857,20 @@ public sealed class BrokerToolService
         return ValidatePosition(line, column);
     }
 
+    private static ToolWindowRequest? CreateToolWindowRequest(string? caption, string? objectKind)
+    {
+        if (string.IsNullOrWhiteSpace(caption) && string.IsNullOrWhiteSpace(objectKind))
+        {
+            return null;
+        }
+
+        return new ToolWindowRequest
+        {
+            Caption = NormalizeOptional(caption),
+            ObjectKind = NormalizeOptional(objectKind)
+        };
+    }
+
     private static ToolResponse<T> ToToolResponse<T>(
         VsSessionDispatchResult<ToolResponse<T>> dispatch)
     {
@@ -2730,6 +3037,12 @@ public sealed class BrokerToolService
         return toolName switch
         {
             "document_active" or
+            "get_status" or
+            "get_help" or
+            "window_list" or
+            "window_activate" or
+            "toolwindow_show" or
+            "toolwindow_hide" or
             "document_read" or
             "document_open" or
             "selection_get" or
@@ -2794,7 +3107,14 @@ public sealed class BrokerToolService
             "breakpoint_group_enable" or
             "breakpoint_group_remove" => BrokerToolCategory.Debug,
 
-            "startup_project_set" => BrokerToolCategory.Admin,
+            "startup_project_set" or
+            "solution_open" or
+            "solution_close" or
+            "solution_add_project" or
+            "solution_remove_project" or
+            "project_add_file" => BrokerToolCategory.Admin,
+
+            "execute_command" => BrokerToolCategory.Admin,
 
             "test_discover" or
             "test_run" or

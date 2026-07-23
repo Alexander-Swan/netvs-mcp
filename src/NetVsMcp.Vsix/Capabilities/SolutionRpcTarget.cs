@@ -17,14 +17,39 @@ internal sealed class SolutionRpcTarget
         return solution.GetSolutionInfoAsync(cancellationToken);
     }
 
+    public Task<SolutionInfoResult> SolutionOpenAsync(SolutionOpenRequest request, CancellationToken cancellationToken)
+    {
+        return solution.OpenSolutionAsync(request, cancellationToken);
+    }
+
+    public Task<SolutionInfoResult> SolutionCloseAsync(CancellationToken cancellationToken)
+    {
+        return solution.CloseSolutionAsync(cancellationToken);
+    }
+
     public Task<ProjectListResult> ProjectListAsync(CancellationToken cancellationToken)
     {
         return solution.ListProjectsAsync(cancellationToken);
     }
 
+    public Task<ProjectInfo> SolutionAddProjectAsync(SolutionAddProjectRequest request, CancellationToken cancellationToken)
+    {
+        return solution.AddProjectAsync(request, cancellationToken);
+    }
+
+    public Task<ProjectInfo> SolutionRemoveProjectAsync(ProjectInfoRequest request, CancellationToken cancellationToken)
+    {
+        return solution.RemoveProjectAsync(request, cancellationToken);
+    }
+
     public Task<ProjectInfo?> ProjectInfoAsync(ProjectInfoRequest request, CancellationToken cancellationToken)
     {
         return solution.GetProjectInfoAsync(request, cancellationToken);
+    }
+
+    public Task<ProjectInfo> ProjectAddFileAsync(ProjectFileRequest request, CancellationToken cancellationToken)
+    {
+        return solution.AddFileAsync(request, cancellationToken);
     }
 
     public Task<StartupProjectResult> StartupProjectGetAsync(CancellationToken cancellationToken)

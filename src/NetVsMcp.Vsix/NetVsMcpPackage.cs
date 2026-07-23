@@ -27,6 +27,7 @@ public sealed class NetVsMcpPackage : AsyncPackage
         await stateMonitor.InitializeAsync(cancellationToken);
 
         var capabilities = new VisualStudioCapabilityCatalog(
+            new GeneralIdeCapabilityService(this),
             new EditorCapabilityService(this),
             new NavigationCapabilityService(this),
             new BuildCapabilityService(this),
