@@ -1156,12 +1156,21 @@ Test operation requests:
 
 ```json
 {
-  "supported": false,
-  "message": "Visual Studio Test Platform integration is not wired in this VSIX slice yet.",
+  "supported": true,
+  "message": "Ran 12 test result(s) from NetVsMcp.Broker.Tests. RunId: 4f2d...",
   "tests": [],
-  "results": []
+  "results": [
+    {
+      "name": "NetVsMcp.Broker.Tests.SessionRegistryTests.Register_AddsSession",
+      "outcome": "Passed",
+      "duration": "00:00:00.0123456",
+      "message": null
+    }
+  ]
 }
 ```
+
+The VSIX resolves `projectName` against the active solution and runs `dotnet test` for either the selected project or the active solution. `filter` is passed through to `dotnet test --filter`, and `test_run` writes TRX results to a temporary NetVsMcp results directory so the VSIX can return structured result rows. `test_results` returns the last captured run in the current VSIX session, optionally constrained by `runId`.
 
 Follow-up: startup project handling currently supports the common single-startup project path. Multi-startup project profiles need runtime validation and a richer request model before `startup_project_set` can safely edit them.
 
