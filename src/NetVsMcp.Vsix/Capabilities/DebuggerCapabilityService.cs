@@ -124,6 +124,8 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         var debugger = await GetDebuggerAsync();
         var file = ResolveDocumentPath(await GetDteAsync(), request.DocumentPath);
         var column = request.Column <= 0 ? 1 : request.Column;
+        var hitCount = request.HitCount.GetValueOrDefault();
+        var hitCountType = ResolveHitCountType(request.HitCountType, hitCount);
         var breakpoints = debugger.Breakpoints.Add(
             Function: string.Empty,
             File: file,
@@ -137,10 +139,11 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
             Data: string.Empty,
             DataCount: 1,
             Address: string.Empty,
-            HitCount: 0,
-            HitCountType: dbgHitCountType.dbgHitCountTypeNone);
+            HitCount: hitCount,
+            HitCountType: hitCountType);
 
         var breakpoint = breakpoints.Item(1);
+        BreakpointMetadata.FromRequest(request).ApplyTo(breakpoint);
         return BreakpointInfo.FromBreakpoint(breakpoint);
     }
 
@@ -466,5 +469,27 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         }
 
         return false;
+    }
+
+    private static dbgHitCountType ResolveHitCountType(string? hitCountType, int hitCount)
+    {
+        if (hitCount <= 0)
+        {
+            return dbgHitCountType.dbgHitCountTypeNone;
+        }
+
+        if (string.IsNullOrWhiteSpace(hitCountType))
+        {
+            return dbgHitCountType.dbgHitCountTypeEqual;
+        }
+
+        var normalizedHitCountType = hitCountType!.Trim().ToLowerInvariant();
+        return normalizedHitCountType switch
+        {
+            "equal" or "equals" or "exact" or "==" => dbgHitCountType.dbgHitCountTypeEqual,
+            "multiple" or "multipleof" or "multiple_of" => dbgHitCountType.dbgHitCountTypeMultiple,
+            "greaterthanorequal" or "greater_than_or_equal" or "greater-or-equal" or ">=" => dbgHitCountType.dbgHitCountTypeGreaterOrEqual,
+            _ => throw new ArgumentException("Hit count type must be one of: equals, multiple, greaterThanOrEqual.", nameof(hitCountType))
+        };
     }
 }

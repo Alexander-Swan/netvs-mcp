@@ -407,6 +407,30 @@ public sealed record FindReferencesResult(
     DocumentSymbolInfo? Symbol,
     IReadOnlyCollection<CodeReferenceInfo> References);
 
+public sealed class RenameSymbolRequest
+{
+    public string DocumentPath { get; set; } = string.Empty;
+
+    public int Line { get; set; }
+
+    public int Column { get; set; }
+
+    public string NewName { get; set; } = string.Empty;
+}
+
+public sealed record RenameSymbolChangeInfo(
+    string? File,
+    int StartLine,
+    int StartColumn,
+    int EndLine,
+    int EndColumn,
+    string NewText);
+
+public sealed class PackageRestoreRequest
+{
+    public string? ProjectName { get; set; }
+}
+
 public sealed class BuildSolutionRequest
 {
     public bool WaitForBuildToFinish { get; set; }
@@ -649,7 +673,9 @@ public sealed record RenameSymbolPreviewResult(
     bool Supported,
     string Message,
     CodePositionRequest Position,
-    string NewName);
+    string NewName,
+    DocumentSymbolInfo? Symbol = null,
+    IReadOnlyCollection<RenameSymbolChangeInfo>? Changes = null);
 
 public sealed record FindImplementationsResult(
     bool Supported,
@@ -668,7 +694,8 @@ public sealed record DiagnosticsForDocumentResult(
 public sealed record PackageRestoreResult(
     bool Supported,
     string Message,
-    ProjectInfo? Project);
+    ProjectInfo? Project,
+    int ExitCode = 0);
 
 public sealed record GitContextResult(
     bool Supported,
@@ -841,6 +868,18 @@ public interface IVisualStudioSessionRpc
 
     Task<FindReferencesResult> CodeFindReferencesAsync(
         CodePositionRequest request,
+        CancellationToken cancellationToken);
+
+    Task<FindImplementationsResult> CodeFindImplementationsAsync(
+        CodePositionRequest request,
+        CancellationToken cancellationToken);
+
+    Task<RenameSymbolPreviewResult> CodeRenameSymbolPreviewAsync(
+        RenameSymbolRequest request,
+        CancellationToken cancellationToken);
+
+    Task<PackageRestoreResult> PackageRestoreAsync(
+        PackageRestoreRequest request,
         CancellationToken cancellationToken);
 
     Task<BuildSolutionResult> BuildSolutionAsync(

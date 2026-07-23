@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using EnvDTE;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.FindSymbols;
+using Microsoft.CodeAnalysis.Rename;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.LanguageServices;
 using Microsoft.VisualStudio.Shell;
@@ -18,6 +19,8 @@ internal interface INavigationCapabilityService
 {
     Task<GoToDefinitionResult> GoToDefinitionAsync(string documentPath, int line, int column, CancellationToken cancellationToken);
     Task<FindReferencesResult> FindReferencesAsync(string documentPath, int line, int column, CancellationToken cancellationToken);
+    Task<FindImplementationsResult> FindImplementationsAsync(string documentPath, int line, int column, CancellationToken cancellationToken);
+    Task<RenameSymbolPreviewResult> RenameSymbolPreviewAsync(RenameSymbolRequest request, CancellationToken cancellationToken);
     Task<DocumentSymbolsResult> ListDocumentSymbolsAsync(string? documentPath, CancellationToken cancellationToken);
 }
 
@@ -96,6 +99,81 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
         return new FindReferencesResult(
             DocumentSymbolInfoFactory.FromSymbol(resolvedSymbol.Symbol, resolvedSymbol.Document.FilePath, line, column),
             orderedReferences);
+    }
+
+    public async Task<FindImplementationsResult> FindImplementationsAsync(string documentPath, int line, int column, CancellationToken cancellationToken)
+    {
+        var position = new CodePositionRequest { DocumentPath = documentPath, Line = line, Column = column };
+        var resolvedSymbol = await ResolveSymbolAtPositionAsync(documentPath, line, column, cancellationToken);
+        if (resolvedSymbol.Symbol is null)
+        {
+            return new FindImplementationsResult(true, "No symbol found at the requested position.", position, Array.Empty<CodeLocationInfo>());
+        }
+
+        var implementations = await SymbolFinder.FindImplementationsAsync(
+            resolvedSymbol.Symbol,
+            resolvedSymbol.Document.Project.Solution,
+            cancellationToken: cancellationToken);
+
+        var locations = implementations
+            .SelectMany(symbol => GetSourceLocations(symbol).Select(location => CreateLocationInfo(location, symbol)))
+            .Where(location => location is not null)
+            .Cast<CodeLocationInfo>()
+            .OrderBy(location => location.File, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(location => location.Line)
+            .ThenBy(location => location.Column)
+            .ToArray();
+
+        return new FindImplementationsResult(
+            true,
+            $"Found {locations.Length} implementation location(s).",
+            position,
+            locations);
+    }
+
+    public async Task<RenameSymbolPreviewResult> RenameSymbolPreviewAsync(RenameSymbolRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.NewName))
+        {
+            throw new ArgumentException("New name is required.", nameof(request));
+        }
+
+        var resolvedSymbol = await ResolveSymbolAtPositionAsync(request.DocumentPath, request.Line, request.Column, cancellationToken);
+        var position = new CodePositionRequest
+        {
+            DocumentPath = request.DocumentPath,
+            Line = request.Line,
+            Column = request.Column
+        };
+        if (resolvedSymbol.Symbol is null)
+        {
+            return new RenameSymbolPreviewResult(
+                true,
+                "No symbol found at the requested position.",
+                position,
+                request.NewName,
+                null,
+                Array.Empty<RenameSymbolChangeInfo>());
+        }
+
+        var oldSolution = resolvedSymbol.Document.Project.Solution;
+#pragma warning disable CS0618
+        var newSolution = await Renamer.RenameSymbolAsync(
+            oldSolution,
+            resolvedSymbol.Symbol,
+            request.NewName,
+            oldSolution.Workspace.Options,
+            cancellationToken);
+#pragma warning restore CS0618
+        var changes = await CreateRenameChangesAsync(oldSolution, newSolution, cancellationToken);
+
+        return new RenameSymbolPreviewResult(
+            true,
+            $"Rename preview contains {changes.Count} text change(s).",
+            position,
+            request.NewName,
+            DocumentSymbolInfoFactory.FromSymbol(resolvedSymbol.Symbol, resolvedSymbol.Document.FilePath, request.Line, request.Column),
+            changes);
     }
 
     public async Task<DocumentSymbolsResult> ListDocumentSymbolsAsync(string? documentPath, CancellationToken cancellationToken)
@@ -324,6 +402,56 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
                 lineSpan.Path,
                 position.Line + 1,
                 position.Character + 1));
+    }
+
+    private static async Task<IReadOnlyCollection<RenameSymbolChangeInfo>> CreateRenameChangesAsync(
+        Microsoft.CodeAnalysis.Solution oldSolution,
+        Microsoft.CodeAnalysis.Solution newSolution,
+        CancellationToken cancellationToken)
+    {
+        var changes = new List<RenameSymbolChangeInfo>();
+        foreach (var newProject in newSolution.Projects)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var oldProject = oldSolution.GetProject(newProject.Id);
+            if (oldProject is null)
+            {
+                continue;
+            }
+
+            foreach (var newDocument in newProject.Documents)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var oldDocument = oldProject.GetDocument(newDocument.Id);
+                if (oldDocument is null)
+                {
+                    continue;
+                }
+
+                var oldText = await oldDocument.GetTextAsync(cancellationToken);
+                var newText = await newDocument.GetTextAsync(cancellationToken);
+                foreach (var change in newText.GetTextChanges(oldText))
+                {
+                    var start = oldText.Lines.GetLinePosition(change.Span.Start);
+                    var end = oldText.Lines.GetLinePosition(change.Span.End);
+                    changes.Add(new RenameSymbolChangeInfo(
+                        newDocument.FilePath,
+                        start.Line + 1,
+                        start.Character + 1,
+                        end.Line + 1,
+                        end.Character + 1,
+                        change.NewText ?? string.Empty));
+                }
+            }
+        }
+
+        return changes
+            .OrderBy(change => change.File, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(change => change.StartLine)
+            .ThenBy(change => change.StartColumn)
+            .ToArray();
     }
 
     private async Task NavigateToLocationAsync(CodeLocationInfo location, CancellationToken cancellationToken)

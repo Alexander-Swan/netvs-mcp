@@ -129,6 +129,12 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<FindReferencesResult> CodeFindReferencesAsync(CodePositionRequest request, CancellationToken cancellationToken) =>
         navigation.CodeFindReferencesAsync(request, cancellationToken);
 
+    public Task<FindImplementationsResult> CodeFindImplementationsAsync(CodePositionRequest request, CancellationToken cancellationToken) =>
+        navigation.CodeFindImplementationsAsync(request, cancellationToken);
+
+    public Task<RenameSymbolPreviewResult> CodeRenameSymbolPreviewAsync(RenameSymbolRequest request, CancellationToken cancellationToken) =>
+        navigation.CodeRenameSymbolPreviewAsync(request, cancellationToken);
+
     public Task<BuildSolutionResult> BuildSolutionAsync(BuildSolutionRequest request, CancellationToken cancellationToken) =>
         build.BuildSolutionAsync(request, cancellationToken);
 
@@ -233,6 +239,9 @@ internal sealed class VisualStudioCapabilityRpcTarget
 
     public Task<TestOperationResult> TestResultsAsync(TestResultsRequest request, CancellationToken cancellationToken) =>
         solution.TestResultsAsync(request, cancellationToken);
+
+    public Task<PackageRestoreResult> PackageRestoreAsync(PackageRestoreRequest request, CancellationToken cancellationToken) =>
+        solution.PackageRestoreAsync(request, cancellationToken);
 
     private static string FormatSymbolLabel(DocumentSymbolInfo symbol)
     {

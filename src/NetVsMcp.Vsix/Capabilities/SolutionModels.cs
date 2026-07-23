@@ -97,6 +97,11 @@ internal sealed class TestResultsRequest
     public string? RunId { get; set; }
 }
 
+internal sealed class PackageRestoreRequest
+{
+    public string? ProjectName { get; set; }
+}
+
 internal sealed class TestOperationResult
 {
     public TestOperationResult(bool supported, string message, IReadOnlyCollection<TestCaseInfo> tests, IReadOnlyCollection<TestResultInfo> results)
@@ -144,4 +149,20 @@ internal sealed class TestResultInfo
     public string Outcome { get; }
     public string? Duration { get; }
     public string? Message { get; }
+}
+
+internal sealed class PackageRestoreResult
+{
+    public PackageRestoreResult(bool supported, string message, ProjectInfo? project, int exitCode)
+    {
+        Supported = supported;
+        Message = message;
+        Project = project;
+        ExitCode = exitCode;
+    }
+
+    public bool Supported { get; }
+    public string Message { get; }
+    public ProjectInfo? Project { get; }
+    public int ExitCode { get; }
 }

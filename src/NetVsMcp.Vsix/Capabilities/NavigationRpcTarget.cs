@@ -26,4 +26,14 @@ internal sealed class NavigationRpcTarget
     {
         return navigation.FindReferencesAsync(request.DocumentPath, request.Line, request.Column, cancellationToken);
     }
+
+    public Task<FindImplementationsResult> CodeFindImplementationsAsync(CodePositionRequest request, CancellationToken cancellationToken)
+    {
+        return navigation.FindImplementationsAsync(request.DocumentPath, request.Line, request.Column, cancellationToken);
+    }
+
+    public Task<RenameSymbolPreviewResult> CodeRenameSymbolPreviewAsync(RenameSymbolRequest request, CancellationToken cancellationToken)
+    {
+        return navigation.RenameSymbolPreviewAsync(request, cancellationToken);
+    }
 }

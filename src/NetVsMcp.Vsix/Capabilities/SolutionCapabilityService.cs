@@ -24,6 +24,7 @@ internal interface ISolutionCapabilityService
     Task<TestOperationResult> DiscoverTestsAsync(TestDiscoverRequest request, CancellationToken cancellationToken);
     Task<TestOperationResult> RunTestsAsync(TestRunRequest request, CancellationToken cancellationToken);
     Task<TestOperationResult> GetTestResultsAsync(TestResultsRequest request, CancellationToken cancellationToken);
+    Task<PackageRestoreResult> RestorePackagesAsync(PackageRestoreRequest request, CancellationToken cancellationToken);
 }
 
 internal sealed class SolutionCapabilityService : ISolutionCapabilityService
@@ -195,6 +196,35 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
             runId is null
                 ? "No test results have been captured by this VSIX session yet."
                 : $"No captured test results were found for runId '{runId}'.");
+    }
+
+    public async Task<PackageRestoreResult> RestorePackagesAsync(PackageRestoreRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDteAsync();
+        var projectName = EmptyToNull(request.ProjectName);
+        var target = ResolveTestTarget(dte, projectName);
+        ProjectInfo? project = null;
+        if (projectName is not null)
+        {
+            var dteProject = FindProject(dte.Solution, projectName);
+            project = dteProject is null ? null : ProjectInfoFromProject(dteProject);
+        }
+
+        var process = await RunProcessAsync(
+            DotnetExecutable,
+            $"restore {QuoteArgument(target.Path)}",
+            target.WorkingDirectory,
+            cancellationToken);
+
+        return new PackageRestoreResult(
+            process.ExitCode == 0,
+            process.ExitCode == 0
+                ? $"Restored packages for {target.DisplayName}."
+                : CreateProcessFailureMessage($"Package restore failed for {target.DisplayName}", process),
+            project,
+            process.ExitCode);
     }
 
     private async Task<DTE2> GetDteAsync()

@@ -51,4 +51,9 @@ internal sealed class SolutionRpcTarget
     {
         return solution.GetTestResultsAsync(request, cancellationToken);
     }
+
+    public Task<PackageRestoreResult> PackageRestoreAsync(PackageRestoreRequest request, CancellationToken cancellationToken)
+    {
+        return solution.RestorePackagesAsync(request, cancellationToken);
+    }
 }

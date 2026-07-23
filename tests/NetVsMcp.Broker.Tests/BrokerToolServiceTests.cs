@@ -732,15 +732,36 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
-    public async Task RenameSymbolPreview_ReturnsStructuredUnsupportedResult()
+    public async Task FindImplementations_RoutesToConnectedSession()
     {
         var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
 
-        var response = await runtime.Tools.RenameSymbolPreview("Program.cs", 1, 1, "NewName");
+        var response = await runtime.Tools.FindImplementations("Program.cs", 1, 1, sessionId: "vs-1");
 
         Assert.True(response.Success);
-        Assert.False(response.Value!.Supported);
+        Assert.True(response.Value!.Supported);
+        Assert.Equal("Program.cs", session.LastCodeFindImplementationsRequest!.DocumentPath);
+        Assert.Single(response.Value.Implementations);
+    }
+
+    [Fact]
+    public async Task RenameSymbolPreview_RoutesToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.RenameSymbolPreview("Program.cs", 1, 1, "NewName", sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.True(response.Value!.Supported);
+        Assert.Equal("Program.cs", session.LastRenameSymbolRequest!.DocumentPath);
         Assert.Equal("NewName", response.Value.NewName);
+        Assert.Single(response.Value.Changes!);
     }
 
     [Fact]
@@ -1151,7 +1172,7 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
-    public async Task PackageRestore_ReturnsStructuredUnsupportedResult()
+    public async Task PackageRestore_RoutesToConnectedSession()
     {
         var runtime = CreateRuntime();
         var session = new FakeVisualStudioSessionRpc("Editor.cs");
@@ -1161,8 +1182,10 @@ public sealed class BrokerToolServiceTests
         var response = await runtime.Tools.PackageRestore("NetVsMcp.Broker", sessionId: "vs-1");
 
         Assert.True(response.Success);
-        Assert.False(response.Value!.Supported);
+        Assert.True(response.Value!.Supported);
+        Assert.Equal("NetVsMcp.Broker", session.LastPackageRestoreRequest!.ProjectName);
         Assert.Equal("NetVsMcp.Broker", response.Value.Project!.Name);
+        Assert.Equal(0, response.Value.ExitCode);
     }
 
     [Fact]
@@ -1476,6 +1499,10 @@ public sealed class BrokerToolServiceTests
 
         public CodePositionRequest? LastCodeFindReferencesRequest { get; private set; }
 
+        public CodePositionRequest? LastCodeFindImplementationsRequest { get; private set; }
+
+        public RenameSymbolRequest? LastRenameSymbolRequest { get; private set; }
+
         public DocumentReadRequest? LastDocumentReadRequest { get; private set; }
 
         public DocumentOpenRequest? LastDocumentOpenRequest { get; private set; }
@@ -1507,6 +1534,8 @@ public sealed class BrokerToolServiceTests
         public TestRunRequest? LastTestRunRequest { get; private set; }
 
         public TestResultsRequest? LastTestResultsRequest { get; private set; }
+
+        public PackageRestoreRequest? LastPackageRestoreRequest { get; private set; }
 
         public BuildSolutionRequest? LastBuildSolutionRequest { get; private set; }
 
@@ -1580,6 +1609,39 @@ public sealed class BrokerToolServiceTests
             ];
 
             return Task.FromResult(new FindReferencesResult(symbol, references));
+        }
+
+        public Task<FindImplementationsResult> CodeFindImplementationsAsync(
+            CodePositionRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastCodeFindImplementationsRequest = request;
+            var symbol = CreateSymbol(request);
+            IReadOnlyCollection<CodeLocationInfo> implementations =
+            [
+                new(request.DocumentPath, request.Line + 2, request.Column, symbol)
+            ];
+
+            return Task.FromResult(new FindImplementationsResult(true, "Found implementations.", request, implementations));
+        }
+
+        public Task<RenameSymbolPreviewResult> CodeRenameSymbolPreviewAsync(
+            RenameSymbolRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastRenameSymbolRequest = request;
+            var position = new CodePositionRequest
+            {
+                DocumentPath = request.DocumentPath,
+                Line = request.Line,
+                Column = request.Column
+            };
+            IReadOnlyCollection<RenameSymbolChangeInfo> changes =
+            [
+                new(request.DocumentPath, request.Line, request.Column, request.Line, request.Column + 3, request.NewName)
+            ];
+
+            return Task.FromResult(new RenameSymbolPreviewResult(true, "Previewed rename.", position, request.NewName, CreateSymbol(position), changes));
         }
 
         public Task<DocumentReadResult> DocumentReadAsync(
@@ -1778,6 +1840,14 @@ public sealed class BrokerToolServiceTests
         {
             LastTestResultsRequest = request;
             return Task.FromResult(new TestOperationResult(true, "Returned test results.", [], CreateTestResults()));
+        }
+
+        public Task<PackageRestoreResult> PackageRestoreAsync(
+            PackageRestoreRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastPackageRestoreRequest = request;
+            return Task.FromResult(new PackageRestoreResult(true, "Restored packages.", CreateProject(request.ProjectName ?? "NetVsMcp.Broker"), 0));
         }
 
         public Task<BuildSolutionResult> BuildSolutionAsync(

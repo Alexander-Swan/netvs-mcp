@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json;
 using EnvDTE;
 using Microsoft.VisualStudio.Shell;
 
@@ -25,6 +26,13 @@ internal sealed class BreakpointSetRequest
     public int Line { get; set; }
     public int Column { get; set; } = 1;
     public string? Condition { get; set; }
+    public string? Action { get; set; }
+    public string? ActionMessage { get; set; }
+    public bool ContinueAfterAction { get; set; }
+    public int? HitCount { get; set; }
+    public string? HitCountType { get; set; }
+    public string? DependsOnBreakpointName { get; set; }
+    public string? GroupName { get; set; }
 }
 
 internal sealed class BreakpointRemoveRequest
@@ -83,7 +91,14 @@ internal sealed class BreakpointInfo
         int column,
         string? functionName,
         string? condition,
-        bool enabled)
+        bool enabled,
+        string? action = null,
+        string? actionMessage = null,
+        bool continueAfterAction = false,
+        int? hitCount = null,
+        string? hitCountType = null,
+        string? dependsOnBreakpointName = null,
+        string? groupName = null)
     {
         Name = name;
         File = file;
@@ -92,6 +107,13 @@ internal sealed class BreakpointInfo
         FunctionName = functionName;
         Condition = condition;
         Enabled = enabled;
+        Action = action;
+        ActionMessage = actionMessage;
+        ContinueAfterAction = continueAfterAction;
+        HitCount = hitCount;
+        HitCountType = hitCountType;
+        DependsOnBreakpointName = dependsOnBreakpointName;
+        GroupName = groupName;
     }
 
     public string? Name { get; }
@@ -101,11 +123,19 @@ internal sealed class BreakpointInfo
     public string? FunctionName { get; }
     public string? Condition { get; }
     public bool Enabled { get; }
+    public string? Action { get; }
+    public string? ActionMessage { get; }
+    public bool ContinueAfterAction { get; }
+    public int? HitCount { get; }
+    public string? HitCountType { get; }
+    public string? DependsOnBreakpointName { get; }
+    public string? GroupName { get; }
 
     public static BreakpointInfo FromBreakpoint(Breakpoint breakpoint)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
 
+        var metadata = BreakpointMetadata.FromBreakpoint(breakpoint);
         return new BreakpointInfo(
             breakpoint.Name,
             breakpoint.File,
@@ -113,7 +143,131 @@ internal sealed class BreakpointInfo
             breakpoint.FileColumn,
             breakpoint.FunctionName,
             breakpoint.Condition,
-            breakpoint.Enabled);
+            breakpoint.Enabled,
+            metadata.Action,
+            metadata.ActionMessage,
+            metadata.ContinueAfterAction,
+            metadata.HitCount,
+            metadata.HitCountType,
+            metadata.DependsOnBreakpointName,
+            metadata.GroupName);
+    }
+}
+
+internal sealed class BreakpointMetadata
+{
+    private const string TagPrefix = "NetVsMcp:";
+
+    public string? Action { get; set; }
+    public string? ActionMessage { get; set; }
+    public bool ContinueAfterAction { get; set; }
+    public int? HitCount { get; set; }
+    public string? HitCountType { get; set; }
+    public string? DependsOnBreakpointName { get; set; }
+    public string? GroupName { get; set; }
+
+    public static BreakpointMetadata FromRequest(BreakpointSetRequest request) =>
+        new()
+        {
+            Action = EmptyToNull(request.Action),
+            ActionMessage = EmptyToNull(request.ActionMessage),
+            ContinueAfterAction = request.ContinueAfterAction,
+            HitCount = request.HitCount,
+            HitCountType = EmptyToNull(request.HitCountType),
+            DependsOnBreakpointName = EmptyToNull(request.DependsOnBreakpointName),
+            GroupName = EmptyToNull(request.GroupName)
+        };
+
+    public static BreakpointMetadata FromBreakpoint(Breakpoint breakpoint)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        var metadata = TryReadTag(breakpoint);
+        metadata.HitCount ??= TryGetIntProperty(breakpoint, "HitCountTarget") ?? TryGetIntProperty(breakpoint, "HitCount");
+        metadata.HitCountType ??= TryGetProperty(breakpoint, "HitCountType")?.ToString();
+        metadata.ActionMessage ??= TryGetProperty(breakpoint, "Message")?.ToString();
+        return metadata;
+    }
+
+    public void ApplyTo(Breakpoint breakpoint)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        if (!string.IsNullOrWhiteSpace(ActionMessage))
+        {
+            TrySetProperty(breakpoint, "Message", ActionMessage);
+        }
+
+        if (!string.IsNullOrWhiteSpace(Action))
+        {
+            TrySetProperty(breakpoint, "Action", Action);
+        }
+
+        TrySetProperty(breakpoint, "ContinueExecution", ContinueAfterAction);
+        TrySetProperty(breakpoint, "ContinueAfterAction", ContinueAfterAction);
+        TrySetProperty(breakpoint, "Tag", TagPrefix + JsonSerializer.Serialize(this));
+    }
+
+    private static BreakpointMetadata TryReadTag(Breakpoint breakpoint)
+    {
+        var tag = TryGetProperty(breakpoint, "Tag")?.ToString();
+        if (tag is not { Length: > 0 } nonEmptyTag ||
+            !nonEmptyTag.StartsWith(TagPrefix, System.StringComparison.Ordinal))
+        {
+            return new BreakpointMetadata();
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<BreakpointMetadata>(nonEmptyTag.Substring(TagPrefix.Length))
+                ?? new BreakpointMetadata();
+        }
+        catch
+        {
+            return new BreakpointMetadata();
+        }
+    }
+
+    private static string? EmptyToNull(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private static int? TryGetIntProperty(Breakpoint breakpoint, string propertyName)
+    {
+        var value = TryGetProperty(breakpoint, propertyName);
+        return value is int integer ? integer : null;
+    }
+
+    private static object? TryGetProperty(Breakpoint breakpoint, string propertyName)
+    {
+        try
+        {
+            return breakpoint.GetType().InvokeMember(
+                propertyName,
+                System.Reflection.BindingFlags.GetProperty,
+                null,
+                breakpoint,
+                null);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void TrySetProperty(Breakpoint breakpoint, string propertyName, object? value)
+    {
+        try
+        {
+            breakpoint.GetType().InvokeMember(
+                propertyName,
+                System.Reflection.BindingFlags.SetProperty,
+                null,
+                breakpoint,
+                [value]);
+        }
+        catch
+        {
+        }
     }
 }
 

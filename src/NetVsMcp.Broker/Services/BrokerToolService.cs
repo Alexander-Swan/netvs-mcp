@@ -445,11 +445,12 @@ public sealed class BrokerToolService
         }
 
         var position = new CodePositionRequest { DocumentPath = documentPath.Trim(), Line = line, Column = column };
-        return Task.FromResult(ToolResponse<FindImplementationsResult>.Ok(new FindImplementationsResult(
-            false,
-            "Dedicated implementation lookup requires a VSIX Roslyn endpoint; use code_find_references as a fallback.",
-            position,
-            [])));
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.CodeFindImplementationsAsync(position, ct),
+            cancellationToken);
     }
 
     [McpServerTool(Name = "rename_symbol_preview")]
@@ -464,10 +465,6 @@ public sealed class BrokerToolService
         string? solutionPath = null,
         CancellationToken cancellationToken = default)
     {
-        _ = sessionId;
-        _ = solutionName;
-        _ = solutionPath;
-        _ = cancellationToken;
         if (ValidateCodePosition(documentPath, line, column) is { } validation)
         {
             return Task.FromResult(ToolResponse<RenameSymbolPreviewResult>.Fail(validation));
@@ -478,12 +475,20 @@ public sealed class BrokerToolService
             return Task.FromResult(ToolResponse<RenameSymbolPreviewResult>.Fail("New name is required."));
         }
 
-        var position = new CodePositionRequest { DocumentPath = documentPath.Trim(), Line = line, Column = column };
-        return Task.FromResult(ToolResponse<RenameSymbolPreviewResult>.Ok(new RenameSymbolPreviewResult(
-            false,
-            "Dedicated rename preview requires a VSIX Roslyn workspace endpoint before edits can be safely produced.",
-            position,
-            newName.Trim())));
+        var request = new RenameSymbolRequest
+        {
+            DocumentPath = documentPath.Trim(),
+            Line = line,
+            Column = column,
+            NewName = newName.Trim()
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.CodeRenameSymbolPreviewAsync(request, ct),
+            cancellationToken);
     }
 
     [McpServerTool(Name = "document_read")]
@@ -1240,23 +1245,12 @@ public sealed class BrokerToolService
         string? solutionPath = null,
         CancellationToken cancellationToken = default)
     {
+        var request = new PackageRestoreRequest { ProjectName = NormalizeOptional(projectName) };
         return DispatchValueAsync(
             sessionId,
             solutionName,
             solutionPath,
-            async (connection, ct) =>
-            {
-                ProjectInfo? project = null;
-                if (!string.IsNullOrWhiteSpace(projectName))
-                {
-                    project = await connection.ProjectInfoAsync(new ProjectInfoRequest { ProjectName = projectName.Trim() }, ct);
-                }
-
-                return new PackageRestoreResult(
-                    false,
-                    "Package restore requires a dedicated VSIX project-system endpoint before the broker can route it safely.",
-                    project);
-            },
+            (connection, ct) => connection.PackageRestoreAsync(request, ct),
             cancellationToken);
     }
 
