@@ -378,5 +378,36 @@ public sealed class VsixRegistrationPipeListenerTests
         public Task<ParallelWatchResult> ParallelWatchAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<ParallelTasksResult> ParallelTasksListAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<AutomationResult> ConsoleReadAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> ConsoleSendAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> ConsoleGetInfoAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> UiCaptureWindowAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> UiCaptureRegionAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> UiSnapshotAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> UiGetTreeAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> UiFindElementsAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> UiGetElementAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> UiClickAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> UiDoubleClickAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> UiRightClickAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> UiDragAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> UiSetValueAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> UiInvokeAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> UiSendKeysAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> UiWaitForElementAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> UiWaitIdleAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebConnectAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebDisconnectAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebStatusAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebNavigateAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebScreenshotAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebDomGetAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebDomQueryAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebConsoleAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebJsExecuteAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebNetworkAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebElementClickAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebElementSetValueAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

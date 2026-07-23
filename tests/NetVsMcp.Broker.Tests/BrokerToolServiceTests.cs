@@ -1976,6 +1976,25 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task AutomationTools_RouteThroughVsixSession()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.Admin);
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var console = await runtime.Tools.ConsoleRead(sessionId: "vs-1");
+        var ui = await runtime.Tools.UiFindElements("name=Run", sessionId: "vs-1");
+        var web = await runtime.Tools.WebNavigate("http://localhost:5000", sessionId: "vs-1");
+
+        Assert.True(console.Success);
+        Assert.Equal("console_read", console.Value!.Metadata!["toolName"]);
+        Assert.True(ui.Success);
+        Assert.Equal("ui_find_elements", ui.Value!.Metadata!["toolName"]);
+        Assert.True(web.Success);
+        Assert.Equal("web_navigate", web.Value!.Metadata!["toolName"]);
+    }
+
+    [Fact]
     public async Task BuildStatus_ReturnsMissingConnectionFailure()
     {
         var runtime = CreateRuntime();
@@ -2964,6 +2983,46 @@ public sealed class BrokerToolServiceTests
         {
             IReadOnlyCollection<ParallelTaskInfo> tasks = [new("1", "Running", "Program.cs:42", 1)];
             return Task.FromResult(new ParallelTasksResult(true, null, tasks));
+        }
+
+        public Task<AutomationResult> ConsoleReadAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> ConsoleSendAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> ConsoleGetInfoAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> UiCaptureWindowAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> UiCaptureRegionAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> UiSnapshotAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> UiGetTreeAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> UiFindElementsAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> UiGetElementAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> UiClickAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> UiDoubleClickAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> UiRightClickAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> UiDragAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> UiSetValueAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> UiInvokeAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> UiSendKeysAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> UiWaitForElementAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> UiWaitIdleAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> WebConnectAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> WebDisconnectAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> WebStatusAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> WebNavigateAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> WebScreenshotAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> WebDomGetAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> WebDomQueryAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> WebConsoleAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> WebJsExecuteAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> WebNetworkAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> WebElementClickAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+        public Task<AutomationResult> WebElementSetValueAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);
+
+        private static Task<AutomationResult> AutomationAsync(AutomationRequest request)
+        {
+            IReadOnlyDictionary<string, string> metadata = new Dictionary<string, string>
+            {
+                ["toolName"] = request.ToolName
+            };
+            return Task.FromResult(new AutomationResult(false, false, "Automation backend unavailable.", request.Text, metadata));
         }
 
         private static BreakpointInfo CreateBreakpoint(string? condition, BreakpointSetRequest? request = null)

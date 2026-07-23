@@ -1194,6 +1194,27 @@ public sealed record UnsupportedToolResult(
     string Message,
     string? NextImplementationHint = null);
 
+public sealed class AutomationRequest
+{
+    public string ToolName { get; set; } = string.Empty;
+    public string? Target { get; set; }
+    public string? Selector { get; set; }
+    public string? Url { get; set; }
+    public string? Text { get; set; }
+    public int? X { get; set; }
+    public int? Y { get; set; }
+    public int? Width { get; set; }
+    public int? Height { get; set; }
+    public int TimeoutMilliseconds { get; set; } = 5000;
+}
+
+public sealed record AutomationResult(
+    bool Supported,
+    bool Success,
+    string? Message,
+    string? Text = null,
+    IReadOnlyDictionary<string, string>? Metadata = null);
+
 public sealed class PlannedToolRequest
 {
     public string ToolName { get; set; } = string.Empty;
@@ -1553,4 +1574,124 @@ public interface IVisualStudioSessionRpc
     Task<ParallelWatchResult> ParallelWatchAsync(CancellationToken cancellationToken);
 
     Task<ParallelTasksResult> ParallelTasksListAsync(CancellationToken cancellationToken);
+
+    Task<AutomationResult> ConsoleReadAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> ConsoleSendAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> ConsoleGetInfoAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> UiCaptureWindowAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> UiCaptureRegionAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> UiSnapshotAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> UiGetTreeAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> UiFindElementsAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> UiGetElementAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> UiClickAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> UiDoubleClickAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> UiRightClickAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> UiDragAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> UiSetValueAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> UiInvokeAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> UiSendKeysAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> UiWaitForElementAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> UiWaitIdleAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> WebConnectAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> WebDisconnectAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> WebStatusAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> WebNavigateAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> WebScreenshotAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> WebDomGetAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> WebDomQueryAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> WebConsoleAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> WebJsExecuteAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> WebNetworkAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> WebElementClickAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AutomationResult> WebElementSetValueAsync(
+        AutomationRequest request,
+        CancellationToken cancellationToken);
 }
