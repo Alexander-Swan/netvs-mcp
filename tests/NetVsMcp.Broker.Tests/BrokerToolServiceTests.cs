@@ -1975,6 +1975,14 @@ public sealed class BrokerToolServiceTests
 
         public FindInFilesRequest? LastFindInFilesRequest { get; private set; }
 
+        public DocumentCloseRequest? LastDocumentCloseRequest { get; private set; }
+
+        public ProjectReferenceRequest? LastProjectAddReferenceRequest { get; private set; }
+
+        public ProjectReferenceRequest? LastProjectRemoveReferenceRequest { get; private set; }
+
+        public NugetListRequest? LastNugetListRequest { get; private set; }
+
         public Task<UnsupportedToolResult> PlannedToolAsync(
             PlannedToolRequest request,
             CancellationToken cancellationToken)
@@ -1998,6 +2006,14 @@ public sealed class BrokerToolServiceTests
             return Task.FromResult(new DocumentListResult(documents, _activeDocument));
         }
 
+        public Task<DocumentCloseResult> DocumentCloseAsync(
+            DocumentCloseRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastDocumentCloseRequest = request;
+            return Task.FromResult(new DocumentCloseResult(true, "Document closed.", CreateDocument(string.IsNullOrWhiteSpace(request.Path) ? _activeDocument : request.Path), request.Policy));
+        }
+
         public Task<TextSearchResult> EditorFindAsync(
             EditorFindRequest request,
             CancellationToken cancellationToken)
@@ -2012,6 +2028,35 @@ public sealed class BrokerToolServiceTests
         {
             LastFindInFilesRequest = request;
             return Task.FromResult(CreateTextSearchResult(request.Query, @"C:\Code\NetVsMcp\Editor.cs"));
+        }
+
+        public Task<ProjectReferenceResult> ProjectAddReferenceAsync(
+            ProjectReferenceRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastProjectAddReferenceRequest = request;
+            return Task.FromResult(new ProjectReferenceResult(true, "Reference added.", CreateProject(request.ProjectName), request.Reference, request.ReferenceType));
+        }
+
+        public Task<ProjectReferenceResult> ProjectRemoveReferenceAsync(
+            ProjectReferenceRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastProjectRemoveReferenceRequest = request;
+            return Task.FromResult(new ProjectReferenceResult(true, "Reference removed.", CreateProject(request.ProjectName), request.Reference, request.ReferenceType));
+        }
+
+        public Task<NugetListResult> NugetListAsync(
+            NugetListRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastNugetListRequest = request;
+            IReadOnlyCollection<NugetPackageInfo> packages =
+            [
+                new("StreamJsonRpc", "2.25.29", request.ProjectName ?? "NetVsMcp", @"C:\Code\NetVsMcp\NetVsMcp.csproj")
+            ];
+
+            return Task.FromResult(new NugetListResult(packages));
         }
 
         public Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken)
@@ -2422,6 +2467,11 @@ public sealed class BrokerToolServiceTests
             return Task.FromResult(new BuildStatusInfo("Idle", 0));
         }
 
+        public Task<BuildConfigurationInfo> BuildConfigurationGetAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new BuildConfigurationInfo("Debug", "Any CPU"));
+        }
+
         public Task<ErrorListResult> ErrorsListAsync(
             ErrorListRequest request,
             CancellationToken cancellationToken)
@@ -2449,6 +2499,19 @@ public sealed class BrokerToolServiceTests
             return Task.FromResult(new OutputReadResult(request.PaneName, "Build output", false));
         }
 
+        public Task<OutputPaneListResult> OutputListPanesAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<OutputPaneInfo> panes = [new("Build"), new("Debug")];
+            return Task.FromResult(new OutputPaneListResult(panes));
+        }
+
+        public Task<OutputReadResult> OutputClearAsync(
+            OutputPaneRequest request,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new OutputReadResult(request.PaneName ?? "Build", string.Empty, false));
+        }
+
         public Task<DebuggerStateInfo> DebugStatusAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult(new DebuggerStateInfo("Break"));
@@ -2460,6 +2523,16 @@ public sealed class BrokerToolServiceTests
         }
 
         public Task<DebuggerStateInfo> DebugStartAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new DebuggerStateInfo("Run"));
+        }
+
+        public Task<DebuggerStateInfo> DebugStartWithoutDebuggingAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new DebuggerStateInfo("Run"));
+        }
+
+        public Task<DebuggerStateInfo> DebugRestartAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult(new DebuggerStateInfo("Run"));
         }
@@ -2545,6 +2618,12 @@ public sealed class BrokerToolServiceTests
             LastEvaluateExpressionRequest = request;
             var expression = new DebugExpressionInfo(request.Expression, "43", "int", true);
             return Task.FromResult(new EvaluateExpressionResult(new DebuggerStateInfo("Break"), expression));
+        }
+
+        public Task<DebuggedProcessListResult> ProcessListDebuggedAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<DebuggedProcessInfo> processes = [new(1234, "NetVsMcp.Broker.exe", "Default", "alex")];
+            return Task.FromResult(new DebuggedProcessListResult(processes));
         }
 
         private static BreakpointInfo CreateBreakpoint(string? condition, BreakpointSetRequest? request = null)

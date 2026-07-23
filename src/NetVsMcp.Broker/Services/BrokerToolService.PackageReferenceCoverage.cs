@@ -12,19 +12,83 @@ public sealed partial class BrokerToolService
         PlannedTool("Project System", "Implement project item lookup and removal with profile checks.", sessionId, solutionName, solutionPath, cancellationToken);
 
     [McpServerTool(Name = "project_add_reference")]
-    [Description("Planned: adds a reference to a project in the routed Visual Studio solution.")]
-    public Task<ToolResponse<UnsupportedToolResult>> ProjectAddReference(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Project System", "Implement assembly/project reference addition.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Adds an assembly or project reference to a project in the routed Visual Studio solution.")]
+    public Task<ToolResponse<ProjectReferenceResult>> ProjectAddReference(
+        string projectName,
+        string reference,
+        string referenceType = "assembly",
+        string? hintPath = null,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        var validation = ValidateProjectReference(projectName, reference);
+        if (validation is not null)
+        {
+            return Task.FromResult(FailWithCode<ProjectReferenceResult>(validation, ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new ProjectReferenceRequest
+        {
+            ProjectName = projectName,
+            Reference = reference,
+            ReferenceType = referenceType,
+            HintPath = hintPath
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.ProjectAddReferenceAsync(request, ct),
+            cancellationToken);
+    }
 
     [McpServerTool(Name = "project_remove_reference")]
-    [Description("Planned: removes a reference from a project in the routed Visual Studio solution.")]
-    public Task<ToolResponse<UnsupportedToolResult>> ProjectRemoveReference(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Project System", "Implement reference lookup and removal.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Removes an assembly or project reference from a project in the routed Visual Studio solution.")]
+    public Task<ToolResponse<ProjectReferenceResult>> ProjectRemoveReference(
+        string projectName,
+        string reference,
+        string referenceType = "assembly",
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        var validation = ValidateProjectReference(projectName, reference);
+        if (validation is not null)
+        {
+            return Task.FromResult(FailWithCode<ProjectReferenceResult>(validation, ToolErrorCodes.InvalidRequest));
+        }
+
+        var request = new ProjectReferenceRequest
+        {
+            ProjectName = projectName,
+            Reference = reference,
+            ReferenceType = referenceType
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.ProjectRemoveReferenceAsync(request, ct),
+            cancellationToken);
+    }
 
     [McpServerTool(Name = "nuget_list")]
-    [Description("Planned: lists NuGet packages.")]
-    public Task<ToolResponse<UnsupportedToolResult>> NugetList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("NuGet", "Implement package listing from project assets or NuGet APIs.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Lists PackageReference NuGet packages from project files in the routed Visual Studio solution.")]
+    public Task<ToolResponse<NugetListResult>> NugetList(string? projectName = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        var request = new NugetListRequest { ProjectName = projectName };
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.NugetListAsync(request, ct),
+            cancellationToken);
+    }
 
     [McpServerTool(Name = "nuget_search")]
     [Description("Planned: searches NuGet packages.")]
@@ -50,4 +114,16 @@ public sealed partial class BrokerToolService
     [Description("Planned: returns broker log information.")]
     public Task<ToolResponse<UnsupportedToolResult>> VsGetLogs(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         PlannedTool("Broker", "Implement bounded broker log retrieval.", sessionId, solutionName, solutionPath, cancellationToken);
+
+    private static string? ValidateProjectReference(string? projectName, string? reference)
+    {
+        if (string.IsNullOrWhiteSpace(projectName))
+        {
+            return "Project name is required.";
+        }
+
+        return string.IsNullOrWhiteSpace(reference)
+            ? "Reference is required."
+            : null;
+    }
 }

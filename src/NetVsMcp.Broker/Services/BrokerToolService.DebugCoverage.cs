@@ -7,12 +7,24 @@ namespace NetVsMcp.Broker.Services;
 public sealed partial class BrokerToolService
 {
     [McpServerTool(Name = "debug_start_without_debugging")]
-    [Description("Planned: starts without debugging.")]
-    public Task<ToolResponse<UnsupportedToolResult>> DebugStartWithoutDebugging(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Debugger", "Implement DTE start-without-debugging command.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Starts the current startup project without debugging.")]
+    public Task<ToolResponse<DebuggerStateInfo>> DebugStartWithoutDebugging(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.DebugStartWithoutDebuggingAsync(ct),
+            cancellationToken);
 
     [McpServerTool(Name = "debug_restart")]
-    [Description("Planned: restarts debugging.")]
-    public Task<ToolResponse<UnsupportedToolResult>> DebugRestart(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Debugger", "Implement debugger restart behavior.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Restarts the active debug session.")]
+    public Task<ToolResponse<DebuggerStateInfo>> DebugRestart(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.DebugRestartAsync(ct),
+            cancellationToken);
 
     [McpServerTool(Name = "debug_attach")]
     [Description("Planned: attaches the debugger to a process.")]
@@ -51,8 +63,14 @@ public sealed partial class BrokerToolService
     public Task<ToolResponse<UnsupportedToolResult>> ThreadGetCallstack(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement per-thread call stack retrieval.", sessionId, solutionName, solutionPath, cancellationToken);
 
     [McpServerTool(Name = "process_list_debugged")]
-    [Description("Planned: lists debugged processes.")]
-    public Task<ToolResponse<UnsupportedToolResult>> ProcessListDebugged(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) => PlannedTool("Advanced Debug", "Implement debugged process enumeration.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Lists processes currently being debugged by Visual Studio.")]
+    public Task<ToolResponse<DebuggedProcessListResult>> ProcessListDebugged(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.ProcessListDebuggedAsync(ct),
+            cancellationToken);
 
     [McpServerTool(Name = "process_list_local")]
     [Description("Planned: lists local processes for attach workflows.")]

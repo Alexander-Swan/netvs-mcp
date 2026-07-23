@@ -71,6 +71,36 @@ internal sealed class DocumentListResult
     public string ActiveDocument { get; }
 }
 
+internal enum DocumentClosePolicy
+{
+    NoSave,
+    Save,
+    Discard
+}
+
+internal sealed class DocumentCloseRequest
+{
+    public string Path { get; set; } = string.Empty;
+    public DocumentClosePolicy Policy { get; set; } = DocumentClosePolicy.NoSave;
+    public bool AllowDirtyDiscard { get; set; }
+}
+
+internal sealed class DocumentCloseResult
+{
+    public DocumentCloseResult(bool success, string message, EditorDocumentInfo document, DocumentClosePolicy policy)
+    {
+        Success = success;
+        Message = message;
+        Document = document;
+        Policy = policy;
+    }
+
+    public bool Success { get; }
+    public string Message { get; }
+    public EditorDocumentInfo Document { get; }
+    public DocumentClosePolicy Policy { get; }
+}
+
 internal sealed class EditorFindRequest
 {
     public string Path { get; set; } = string.Empty;

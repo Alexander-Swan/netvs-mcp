@@ -20,6 +20,42 @@ internal sealed class DebugStepRequest
     public DebugStepKind StepKind { get; set; } = DebugStepKind.Over;
 }
 
+internal sealed class DebuggedProcessInfo
+{
+    public DebuggedProcessInfo(int processId, string name, string transport, string userName)
+    {
+        ProcessId = processId;
+        Name = name;
+        Transport = transport;
+        UserName = userName;
+    }
+
+    public int ProcessId { get; }
+    public string Name { get; }
+    public string Transport { get; }
+    public string UserName { get; }
+
+    public static DebuggedProcessInfo FromProcess(Process process)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        return new DebuggedProcessInfo(
+            process.ProcessID,
+            process.Name ?? string.Empty,
+            string.Empty,
+            string.Empty);
+    }
+}
+
+internal sealed class DebuggedProcessListResult
+{
+    public DebuggedProcessListResult(IReadOnlyCollection<DebuggedProcessInfo> processes)
+    {
+        Processes = processes;
+    }
+
+    public IReadOnlyCollection<DebuggedProcessInfo> Processes { get; }
+}
+
 internal sealed class BreakpointSetRequest
 {
     public string DocumentPath { get; set; } = string.Empty;

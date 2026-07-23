@@ -18,9 +18,30 @@ public sealed partial class BrokerToolService
             cancellationToken);
 
     [McpServerTool(Name = "document_close")]
-    [Description("Planned: closes a document in a routed Visual Studio session.")]
-    public Task<ToolResponse<UnsupportedToolResult>> DocumentClose(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Documents", "Implement VSIX document close with save/discard policy.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Closes an open document with save, discard, or no-save policy.")]
+    public Task<ToolResponse<DocumentCloseResult>> DocumentClose(
+        string path = "",
+        DocumentClosePolicy policy = DocumentClosePolicy.NoSave,
+        bool allowDirtyDiscard = false,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new DocumentCloseRequest
+        {
+            Path = path,
+            Policy = policy,
+            AllowDirtyDiscard = allowDirtyDiscard
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.DocumentCloseAsync(request, ct),
+            cancellationToken);
+    }
 
     [McpServerTool(Name = "editor_find")]
     [Description("Finds text in one editor document.")]

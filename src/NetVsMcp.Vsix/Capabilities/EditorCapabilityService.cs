@@ -15,6 +15,7 @@ internal interface IEditorCapabilityService
 {
     Task<EditorDocumentInfo?> GetActiveDocumentAsync(CancellationToken cancellationToken);
     Task<DocumentListResult> ListDocumentsAsync(CancellationToken cancellationToken);
+    Task<DocumentCloseResult> CloseDocumentAsync(DocumentCloseRequest request, CancellationToken cancellationToken);
     Task<DocumentReadResult> ReadDocumentAsync(string path, CancellationToken cancellationToken);
     Task<TextSearchResult> FindInDocumentAsync(EditorFindRequest request, CancellationToken cancellationToken);
     Task<TextSearchResult> FindInFilesAsync(FindInFilesRequest request, CancellationToken cancellationToken);
@@ -68,6 +69,44 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
         return new DocumentListResult(
             documents,
             dte.ActiveDocument?.FullName ?? dte.ActiveDocument?.Name ?? string.Empty);
+    }
+
+    public async Task<DocumentCloseResult> CloseDocumentAsync(DocumentCloseRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDteAsync() ?? throw new InvalidOperationException("Visual Studio DTE service is unavailable.");
+        var document = GetDocumentForOptionalPath(dte, request.Path, openIfNeeded: false);
+        var info = EditorDocumentInfo.FromDocument(document);
+        if (!document.Saved && request.Policy == DocumentClosePolicy.NoSave)
+        {
+            return new DocumentCloseResult(
+                false,
+                "Document has unsaved changes; choose save or explicit discard before closing.",
+                info,
+                request.Policy);
+        }
+
+        if (!document.Saved &&
+            request.Policy == DocumentClosePolicy.Discard &&
+            !request.AllowDirtyDiscard)
+        {
+            return new DocumentCloseResult(
+                false,
+                "Document has unsaved changes; set allowDirtyDiscard to true to discard them.",
+                info,
+                request.Policy);
+        }
+
+        var saveChanges = request.Policy switch
+        {
+            DocumentClosePolicy.Save => vsSaveChanges.vsSaveChangesYes,
+            DocumentClosePolicy.Discard => vsSaveChanges.vsSaveChangesNo,
+            _ => vsSaveChanges.vsSaveChangesNo
+        };
+
+        document.Close(saveChanges);
+        return new DocumentCloseResult(true, "Document closed.", info, request.Policy);
     }
 
     public async Task<DocumentReadResult> ReadDocumentAsync(string path, CancellationToken cancellationToken)

@@ -12,6 +12,8 @@ namespace NetVsMcp.Vsix;
 internal interface IDebuggerCapabilityService
 {
     Task<DebuggerStateInfo> StartAsync(CancellationToken cancellationToken);
+    Task<DebuggerStateInfo> StartWithoutDebuggingAsync(CancellationToken cancellationToken);
+    Task<DebuggerStateInfo> RestartAsync(CancellationToken cancellationToken);
     Task<DebuggerStateInfo> StopAsync(CancellationToken cancellationToken);
     Task<DebuggerStateInfo> ContinueAsync(CancellationToken cancellationToken);
     Task<DebuggerStateInfo> BreakAsync(CancellationToken cancellationToken);
@@ -28,6 +30,7 @@ internal interface IDebuggerCapabilityService
     Task<WatchOperationResult> RemoveWatchAsync(WatchRemoveRequest request, CancellationToken cancellationToken);
     Task<WatchListResult> ListWatchesAsync(CancellationToken cancellationToken);
     Task<DebugThreadListResult> GetThreadsAsync(CancellationToken cancellationToken);
+    Task<DebuggedProcessListResult> ListDebuggedProcessesAsync(CancellationToken cancellationToken);
     Task<ThreadSwitchResult> SwitchThreadAsync(ThreadSwitchRequest request, CancellationToken cancellationToken);
     Task<ModuleListResult> ListModulesAsync(CancellationToken cancellationToken);
     Task<ImmediateExecuteResult> ExecuteImmediateAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken);
@@ -57,6 +60,22 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         var debugger = await GetDebuggerAsync();
         debugger.Go(WaitForBreakOrEnd: false);
         return GetDebuggerState(debugger);
+    }
+
+    public async Task<DebuggerStateInfo> StartWithoutDebuggingAsync(CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var dte = await GetDteAsync();
+        dte.ExecuteCommand("Debug.StartWithoutDebugging");
+        return GetDebuggerState(dte.Debugger);
+    }
+
+    public async Task<DebuggerStateInfo> RestartAsync(CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var dte = await GetDteAsync();
+        dte.ExecuteCommand("Debug.Restart");
+        return GetDebuggerState(dte.Debugger);
     }
 
     public async Task<DebuggerStateInfo> StopAsync(CancellationToken cancellationToken)
@@ -330,6 +349,20 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         }
 
         return new DebugThreadListResult(true, null, result);
+    }
+
+    public async Task<DebuggedProcessListResult> ListDebuggedProcessesAsync(CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var debugger = await GetDebuggerAsync();
+        var result = new List<DebuggedProcessInfo>();
+        foreach (Process process in debugger.DebuggedProcesses)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            result.Add(DebuggedProcessInfo.FromProcess(process));
+        }
+
+        return new DebuggedProcessListResult(result);
     }
 
     public async Task<ThreadSwitchResult> SwitchThreadAsync(ThreadSwitchRequest request, CancellationToken cancellationToken)

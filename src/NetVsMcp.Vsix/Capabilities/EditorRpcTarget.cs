@@ -22,6 +22,11 @@ internal sealed class EditorRpcTarget
         return editor.ListDocumentsAsync(cancellationToken);
     }
 
+    public Task<DocumentCloseResult> DocumentCloseAsync(DocumentCloseRequest request, CancellationToken cancellationToken)
+    {
+        return editor.CloseDocumentAsync(request, cancellationToken);
+    }
+
     public Task<DocumentReadResult> DocumentReadAsync(DocumentReadRequest request, CancellationToken cancellationToken)
     {
         return editor.ReadDocumentAsync(request.Path, cancellationToken);

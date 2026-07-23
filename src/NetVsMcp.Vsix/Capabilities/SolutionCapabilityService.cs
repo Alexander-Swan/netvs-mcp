@@ -24,6 +24,9 @@ internal interface ISolutionCapabilityService
     Task<ProjectInfo> RemoveProjectAsync(ProjectInfoRequest request, CancellationToken cancellationToken);
     Task<ProjectInfo?> GetProjectInfoAsync(ProjectInfoRequest request, CancellationToken cancellationToken);
     Task<ProjectInfo> AddFileAsync(ProjectFileRequest request, CancellationToken cancellationToken);
+    Task<ProjectReferenceResult> AddReferenceAsync(ProjectReferenceRequest request, CancellationToken cancellationToken);
+    Task<ProjectReferenceResult> RemoveReferenceAsync(ProjectReferenceRequest request, CancellationToken cancellationToken);
+    Task<NugetListResult> ListNugetPackagesAsync(NugetListRequest request, CancellationToken cancellationToken);
     Task<StartupProjectResult> GetStartupProjectAsync(CancellationToken cancellationToken);
     Task<StartupProjectResult> SetStartupProjectAsync(StartupProjectSetRequest request, CancellationToken cancellationToken);
     Task<TestOperationResult> DiscoverTestsAsync(TestDiscoverRequest request, CancellationToken cancellationToken);
@@ -184,6 +187,105 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
         return ProjectInfoFromProject(project);
     }
 
+    public async Task<ProjectReferenceResult> AddReferenceAsync(ProjectReferenceRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDteAsync();
+        var project = ResolveProject(dte, request.ProjectName);
+        var projectPath = RequireProjectPath(project);
+        var document = XDocument.Load(projectPath, LoadOptions.PreserveWhitespace);
+        var root = document.Root ?? throw new InvalidOperationException("Project file has no root element.");
+        var referenceType = NormalizeReferenceType(request.ReferenceType);
+        var referenceItemName = referenceType == "project" ? "ProjectReference" : "Reference";
+        var include = ResolveReferenceInclude(projectPath, request.Reference, referenceType);
+
+        if (!HasItem(root, referenceItemName, include))
+        {
+            var itemGroup = GetOrCreateItemGroup(root);
+            var item = new XElement(root.Name.Namespace + referenceItemName, new XAttribute("Include", include));
+            if (referenceType == "assembly" && !string.IsNullOrWhiteSpace(request.HintPath))
+            {
+                item.Add(new XElement(root.Name.Namespace + "HintPath", request.HintPath.Trim()));
+            }
+
+            itemGroup.Add(item);
+            document.Save(projectPath);
+        }
+
+        TrySaveProject(project);
+        return new ProjectReferenceResult(true, "Reference added.", ProjectInfoFromProject(project), include, referenceType);
+    }
+
+    public async Task<ProjectReferenceResult> RemoveReferenceAsync(ProjectReferenceRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDteAsync();
+        var project = ResolveProject(dte, request.ProjectName);
+        var projectPath = RequireProjectPath(project);
+        var document = XDocument.Load(projectPath, LoadOptions.PreserveWhitespace);
+        var root = document.Root ?? throw new InvalidOperationException("Project file has no root element.");
+        var referenceType = NormalizeReferenceType(request.ReferenceType);
+        var referenceItemName = referenceType == "project" ? "ProjectReference" : "Reference";
+        var removed = RemoveItems(root, referenceItemName, request.Reference);
+        if (removed > 0)
+        {
+            document.Save(projectPath);
+            TrySaveProject(project);
+        }
+
+        return new ProjectReferenceResult(
+            removed > 0,
+            removed > 0 ? "Reference removed." : "Reference was not found.",
+            ProjectInfoFromProject(project),
+            request.Reference,
+            referenceType);
+    }
+
+    public async Task<NugetListResult> ListNugetPackagesAsync(NugetListRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDteAsync();
+        var requestedProject = EmptyToNull(request.ProjectName);
+        var projects = requestedProject is null
+            ? EnumerateProjects(dte.Solution).ToArray()
+            : [ResolveProject(dte, requestedProject)];
+        var packages = new List<NugetPackageInfo>();
+
+        foreach (var project in projects)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var projectPath = EmptyToNull(GetProjectFullName(project));
+            if (projectPath is null || !File.Exists(projectPath))
+            {
+                continue;
+            }
+
+            var document = XDocument.Load(projectPath);
+            foreach (var element in document.Descendants().Where(element => element.Name.LocalName == "PackageReference"))
+            {
+                var id = element.Attribute("Include")?.Value ??
+                    element.Attribute("Update")?.Value;
+                if (string.IsNullOrWhiteSpace(id))
+                {
+                    continue;
+                }
+
+                var version = element.Attribute("Version")?.Value ??
+                    element.Elements().FirstOrDefault(child => child.Name.LocalName == "Version")?.Value;
+                packages.Add(new NugetPackageInfo(
+                    id!,
+                    version ?? string.Empty,
+                    GetProjectName(project) ?? string.Empty,
+                    projectPath));
+            }
+        }
+
+        return new NugetListResult(packages);
+    }
+
     public async Task<StartupProjectResult> GetStartupProjectAsync(CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
@@ -325,6 +427,136 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
                 : CreateProcessFailureMessage($"Package restore failed for {target.DisplayName}", process),
             project,
             process.ExitCode);
+    }
+
+    private static Project ResolveProject(DTE2 dte, string projectName)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        if (string.IsNullOrWhiteSpace(projectName))
+        {
+            throw new ArgumentException("Project name is required.", nameof(projectName));
+        }
+
+        return FindProject(dte.Solution, projectName)
+            ?? throw new InvalidOperationException($"Project '{projectName}' was not found or is unsupported.");
+    }
+
+    private static string RequireProjectPath(Project project)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        var projectPath = EmptyToNull(GetProjectFullName(project));
+        if (projectPath is null || !File.Exists(projectPath))
+        {
+            throw new InvalidOperationException($"Project '{GetProjectName(project) ?? project.UniqueName}' does not have a project file path.");
+        }
+
+        return projectPath;
+    }
+
+    private static string NormalizeReferenceType(string? referenceType)
+    {
+        var normalized = string.IsNullOrWhiteSpace(referenceType)
+            ? "assembly"
+            : referenceType!.Trim().ToLowerInvariant();
+        if (normalized is "assembly" or "project")
+        {
+            return normalized;
+        }
+
+        throw new ArgumentException("Reference type must be 'assembly' or 'project'.", nameof(referenceType));
+    }
+
+    private static string ResolveReferenceInclude(string projectPath, string reference, string referenceType)
+    {
+        if (string.IsNullOrWhiteSpace(reference))
+        {
+            throw new ArgumentException("Reference is required.", nameof(reference));
+        }
+
+        var trimmed = reference.Trim();
+        if (referenceType != "project")
+        {
+            return trimmed;
+        }
+
+        var fullReferencePath = Path.IsPathRooted(trimmed)
+            ? Path.GetFullPath(trimmed)
+            : Path.GetFullPath(Path.Combine(Path.GetDirectoryName(projectPath) ?? Environment.CurrentDirectory, trimmed));
+        return GetRelativePath(Path.GetDirectoryName(projectPath) ?? Environment.CurrentDirectory, fullReferencePath);
+    }
+
+    private static XElement GetOrCreateItemGroup(XElement root)
+    {
+        var itemGroup = root.Elements().FirstOrDefault(element =>
+            element.Name.LocalName == "ItemGroup" &&
+            !element.Attributes().Any(attribute => attribute.Name.LocalName == "Condition"));
+        if (itemGroup is not null)
+        {
+            return itemGroup;
+        }
+
+        itemGroup = new XElement(root.Name.Namespace + "ItemGroup");
+        root.Add(itemGroup);
+        return itemGroup;
+    }
+
+    private static bool HasItem(XElement root, string itemName, string include)
+    {
+        return root.Descendants()
+            .Where(element => element.Name.LocalName == itemName)
+            .Any(element => string.Equals(element.Attribute("Include")?.Value, include, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static int RemoveItems(XElement root, string itemName, string reference)
+    {
+        var normalizedReference = reference.Trim();
+        var matches = root.Descendants()
+            .Where(element => element.Name.LocalName == itemName)
+            .Where(element =>
+            {
+                var include = element.Attribute("Include")?.Value;
+                return string.Equals(include, normalizedReference, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(Path.GetFileNameWithoutExtension(include ?? string.Empty), normalizedReference, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(Path.GetFileName(include ?? string.Empty), normalizedReference, StringComparison.OrdinalIgnoreCase);
+            })
+            .ToArray();
+
+        foreach (var match in matches)
+        {
+            match.Remove();
+        }
+
+        return matches.Length;
+    }
+
+    private static void TrySaveProject(Project project)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        try
+        {
+            project.Save();
+        }
+        catch
+        {
+        }
+    }
+
+    private static string GetRelativePath(string relativeTo, string path)
+    {
+        var baseUri = new Uri(AppendDirectorySeparator(Path.GetFullPath(relativeTo)));
+        var pathUri = new Uri(Path.GetFullPath(path));
+        return Uri.UnescapeDataString(baseUri.MakeRelativeUri(pathUri).ToString())
+            .Replace('/', Path.DirectorySeparatorChar);
+    }
+
+    private static string AppendDirectorySeparator(string path)
+    {
+        return path.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
+            ? path
+            : path + Path.DirectorySeparatorChar;
     }
 
     private async Task<DTE2> GetDteAsync()

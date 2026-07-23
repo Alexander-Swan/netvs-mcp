@@ -34,6 +34,18 @@ internal sealed class BuildStatusInfo
     public int LastBuildInfo { get; }
 }
 
+internal sealed class BuildConfigurationInfo
+{
+    public BuildConfigurationInfo(string configuration, string platform)
+    {
+        Configuration = configuration;
+        Platform = platform;
+    }
+
+    public string Configuration { get; }
+    public string Platform { get; }
+}
+
 internal sealed class ErrorListRequest
 {
     public bool IncludeWarnings { get; set; } = true;
@@ -107,4 +119,29 @@ internal sealed class OutputReadResult
     public string? PaneName { get; }
     public string Text { get; }
     public bool Truncated { get; }
+}
+
+internal sealed class OutputPaneInfo
+{
+    public OutputPaneInfo(string name)
+    {
+        Name = name;
+    }
+
+    public string Name { get; }
+}
+
+internal sealed class OutputPaneListResult
+{
+    public OutputPaneListResult(IReadOnlyCollection<OutputPaneInfo> panes)
+    {
+        Panes = panes;
+    }
+
+    public IReadOnlyCollection<OutputPaneInfo> Panes { get; }
+}
+
+internal sealed class OutputPaneRequest
+{
+    public string PaneName { get; set; } = string.Empty;
 }

@@ -17,6 +17,16 @@ internal sealed class DebuggerRpcTarget
         return debugger.StartAsync(cancellationToken);
     }
 
+    public Task<DebuggerStateInfo> DebugStartWithoutDebuggingAsync(CancellationToken cancellationToken)
+    {
+        return debugger.StartWithoutDebuggingAsync(cancellationToken);
+    }
+
+    public Task<DebuggerStateInfo> DebugRestartAsync(CancellationToken cancellationToken)
+    {
+        return debugger.RestartAsync(cancellationToken);
+    }
+
     public Task<DebuggerStateInfo> DebugStopAsync(CancellationToken cancellationToken)
     {
         return debugger.StopAsync(cancellationToken);
@@ -100,6 +110,11 @@ internal sealed class DebuggerRpcTarget
     public Task<DebugThreadListResult> DebugGetThreadsAsync(CancellationToken cancellationToken)
     {
         return debugger.GetThreadsAsync(cancellationToken);
+    }
+
+    public Task<DebuggedProcessListResult> ProcessListDebuggedAsync(CancellationToken cancellationToken)
+    {
+        return debugger.ListDebuggedProcessesAsync(cancellationToken);
     }
 
     public Task<ThreadSwitchResult> ThreadSwitchAsync(ThreadSwitchRequest request, CancellationToken cancellationToken)

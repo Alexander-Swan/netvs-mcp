@@ -259,6 +259,8 @@ public sealed class BrokerRegistrationRpcServiceTests
 
         public Task<DocumentListResult> DocumentListAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<DocumentCloseResult> DocumentCloseAsync(DocumentCloseRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<TextSearchResult> EditorFindAsync(EditorFindRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<TextSearchResult> FindInFilesAsync(FindInFilesRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -317,6 +319,10 @@ public sealed class BrokerRegistrationRpcServiceTests
 
         public Task<ProjectInfo> ProjectAddFileAsync(ProjectFileRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<ProjectReferenceResult> ProjectAddReferenceAsync(ProjectReferenceRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ProjectReferenceResult> ProjectRemoveReferenceAsync(ProjectReferenceRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<StartupProjectResult> StartupProjectGetAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<StartupProjectResult> StartupProjectSetAsync(StartupProjectSetRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -337,6 +343,8 @@ public sealed class BrokerRegistrationRpcServiceTests
 
         public Task<PackageRestoreResult> PackageRestoreAsync(PackageRestoreRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<NugetListResult> NugetListAsync(NugetListRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<BuildSolutionResult> BuildSolutionAsync(
             BuildSolutionRequest request,
             CancellationToken cancellationToken)
@@ -348,6 +356,8 @@ public sealed class BrokerRegistrationRpcServiceTests
         {
             throw new NotSupportedException();
         }
+
+        public Task<BuildConfigurationInfo> BuildConfigurationGetAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<ErrorListResult> ErrorsListAsync(
             ErrorListRequest request,
@@ -363,6 +373,10 @@ public sealed class BrokerRegistrationRpcServiceTests
             throw new NotSupportedException();
         }
 
+        public Task<OutputPaneListResult> OutputListPanesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<OutputReadResult> OutputClearAsync(OutputPaneRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<DebuggerStateInfo> DebugStatusAsync(CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
@@ -377,6 +391,10 @@ public sealed class BrokerRegistrationRpcServiceTests
         {
             throw new NotSupportedException();
         }
+
+        public Task<DebuggerStateInfo> DebugStartWithoutDebuggingAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<DebuggerStateInfo> DebugRestartAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<DebuggerStateInfo> DebugStopAsync(CancellationToken cancellationToken)
         {
@@ -442,5 +460,7 @@ public sealed class BrokerRegistrationRpcServiceTests
         {
             throw new NotSupportedException();
         }
+
+        public Task<DebuggedProcessListResult> ProcessListDebuggedAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

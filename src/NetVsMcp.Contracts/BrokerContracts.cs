@@ -192,6 +192,26 @@ public sealed record DocumentListResult(
     IReadOnlyCollection<EditorDocumentInfo> Documents,
     string? ActiveDocument);
 
+public enum DocumentClosePolicy
+{
+    NoSave,
+    Save,
+    Discard
+}
+
+public sealed class DocumentCloseRequest
+{
+    public string Path { get; set; } = string.Empty;
+    public DocumentClosePolicy Policy { get; set; } = DocumentClosePolicy.NoSave;
+    public bool AllowDirtyDiscard { get; set; }
+}
+
+public sealed record DocumentCloseResult(
+    bool Success,
+    string? Message,
+    EditorDocumentInfo? Document,
+    DocumentClosePolicy Policy);
+
 public sealed class EditorFindRequest
 {
     public string Path { get; set; } = string.Empty;
@@ -445,6 +465,35 @@ public sealed record ProjectInfo(
     string? Language,
     string? OutputFileName);
 
+public sealed class ProjectReferenceRequest
+{
+    public string ProjectName { get; set; } = string.Empty;
+    public string Reference { get; set; } = string.Empty;
+    public string ReferenceType { get; set; } = "assembly";
+    public string? HintPath { get; set; }
+}
+
+public sealed record ProjectReferenceResult(
+    bool Success,
+    string? Message,
+    ProjectInfo? Project,
+    string Reference,
+    string ReferenceType);
+
+public sealed class NugetListRequest
+{
+    public string? ProjectName { get; set; }
+}
+
+public sealed record NugetPackageInfo(
+    string Id,
+    string? Version,
+    string? ProjectName,
+    string? ProjectPath);
+
+public sealed record NugetListResult(
+    IReadOnlyCollection<NugetPackageInfo> Packages);
+
 public sealed record StartupProjectResult(
     IReadOnlyCollection<string> Projects,
     bool IsMultiStartup);
@@ -565,6 +614,10 @@ public sealed record BuildStatusInfo(
     string State,
     int LastBuildInfo);
 
+public sealed record BuildConfigurationInfo(
+    string? Configuration,
+    string? Platform);
+
 public sealed class ErrorListRequest
 {
     public bool IncludeWarnings { get; set; } = true;
@@ -595,7 +648,26 @@ public sealed record OutputReadResult(
     string Text,
     bool Truncated);
 
+public sealed record OutputPaneInfo(string Name);
+
+public sealed record OutputPaneListResult(
+    IReadOnlyCollection<OutputPaneInfo> Panes);
+
+public sealed class OutputPaneRequest
+{
+    public string? PaneName { get; set; }
+}
+
 public sealed record DebuggerStateInfo(string Mode);
+
+public sealed record DebuggedProcessInfo(
+    int ProcessId,
+    string? Name,
+    string? Transport,
+    string? UserName);
+
+public sealed record DebuggedProcessListResult(
+    IReadOnlyCollection<DebuggedProcessInfo> Processes);
 
 public sealed class DebugStepRequest
 {
@@ -944,6 +1016,10 @@ public interface IVisualStudioSessionRpc
 
     Task<DocumentListResult> DocumentListAsync(CancellationToken cancellationToken);
 
+    Task<DocumentCloseResult> DocumentCloseAsync(
+        DocumentCloseRequest request,
+        CancellationToken cancellationToken);
+
     Task<TextSearchResult> EditorFindAsync(
         EditorFindRequest request,
         CancellationToken cancellationToken);
@@ -1030,6 +1106,14 @@ public interface IVisualStudioSessionRpc
         ProjectFileRequest request,
         CancellationToken cancellationToken);
 
+    Task<ProjectReferenceResult> ProjectAddReferenceAsync(
+        ProjectReferenceRequest request,
+        CancellationToken cancellationToken);
+
+    Task<ProjectReferenceResult> ProjectRemoveReferenceAsync(
+        ProjectReferenceRequest request,
+        CancellationToken cancellationToken);
+
     Task<StartupProjectResult> StartupProjectGetAsync(CancellationToken cancellationToken);
 
     Task<StartupProjectResult> StartupProjectSetAsync(
@@ -1068,11 +1152,17 @@ public interface IVisualStudioSessionRpc
         PackageRestoreRequest request,
         CancellationToken cancellationToken);
 
+    Task<NugetListResult> NugetListAsync(
+        NugetListRequest request,
+        CancellationToken cancellationToken);
+
     Task<BuildSolutionResult> BuildSolutionAsync(
         BuildSolutionRequest request,
         CancellationToken cancellationToken);
 
     Task<BuildStatusInfo> BuildStatusAsync(CancellationToken cancellationToken);
+
+    Task<BuildConfigurationInfo> BuildConfigurationGetAsync(CancellationToken cancellationToken);
 
     Task<ErrorListResult> ErrorsListAsync(
         ErrorListRequest request,
@@ -1082,11 +1172,21 @@ public interface IVisualStudioSessionRpc
         OutputReadRequest request,
         CancellationToken cancellationToken);
 
+    Task<OutputPaneListResult> OutputListPanesAsync(CancellationToken cancellationToken);
+
+    Task<OutputReadResult> OutputClearAsync(
+        OutputPaneRequest request,
+        CancellationToken cancellationToken);
+
     Task<DebuggerStateInfo> DebugStatusAsync(CancellationToken cancellationToken);
 
     Task<DebuggerStateInfo> DebugGetModeAsync(CancellationToken cancellationToken);
 
     Task<DebuggerStateInfo> DebugStartAsync(CancellationToken cancellationToken);
+
+    Task<DebuggerStateInfo> DebugStartWithoutDebuggingAsync(CancellationToken cancellationToken);
+
+    Task<DebuggerStateInfo> DebugRestartAsync(CancellationToken cancellationToken);
 
     Task<DebuggerStateInfo> DebugStopAsync(CancellationToken cancellationToken);
 
@@ -1119,4 +1219,6 @@ public interface IVisualStudioSessionRpc
     Task<EvaluateExpressionResult> DebugEvaluateAsync(
         EvaluateExpressionRequest request,
         CancellationToken cancellationToken);
+
+    Task<DebuggedProcessListResult> ProcessListDebuggedAsync(CancellationToken cancellationToken);
 }

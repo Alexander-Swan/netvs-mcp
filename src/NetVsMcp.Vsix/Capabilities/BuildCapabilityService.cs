@@ -13,8 +13,11 @@ internal interface IBuildCapabilityService
 {
     Task<BuildSolutionResult> BuildSolutionAsync(BuildSolutionRequest request, CancellationToken cancellationToken);
     Task<BuildStatusInfo> GetBuildStatusAsync(CancellationToken cancellationToken);
+    Task<BuildConfigurationInfo> GetBuildConfigurationAsync(CancellationToken cancellationToken);
     Task<ErrorListResult> ListErrorsAsync(ErrorListRequest request, CancellationToken cancellationToken);
     Task<OutputReadResult> ReadOutputAsync(OutputReadRequest request, CancellationToken cancellationToken);
+    Task<OutputPaneListResult> ListOutputPanesAsync(CancellationToken cancellationToken);
+    Task<OutputReadResult> ClearOutputAsync(OutputPaneRequest request, CancellationToken cancellationToken);
     Task BuildProjectAsync(string projectName, CancellationToken cancellationToken);
     Task CancelBuildAsync(CancellationToken cancellationToken);
 }
@@ -54,6 +57,24 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
             ?? throw new InvalidOperationException("Visual Studio solution build service is unavailable.");
 
         return GetBuildStatus(solutionBuild);
+    }
+
+    public async Task<BuildConfigurationInfo> GetBuildConfigurationAsync(CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDte2Async()
+            ?? throw new InvalidOperationException("Visual Studio DTE2 service is unavailable.");
+        var activeConfiguration = dte.Solution?.SolutionBuild?.ActiveConfiguration;
+        if (activeConfiguration is null)
+        {
+            return new BuildConfigurationInfo(string.Empty, string.Empty);
+        }
+
+        var platform = activeConfiguration is SolutionConfiguration2 configuration2
+            ? configuration2.PlatformName
+            : string.Empty;
+        return new BuildConfigurationInfo(activeConfiguration.Name, platform ?? string.Empty);
     }
 
     public async Task<ErrorListResult> ListErrorsAsync(ErrorListRequest request, CancellationToken cancellationToken)
@@ -113,6 +134,50 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
         }
 
         return new OutputReadResult(pane.Name, text, truncated);
+    }
+
+    public async Task<OutputPaneListResult> ListOutputPanesAsync(CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDte2Async()
+            ?? throw new InvalidOperationException("Visual Studio DTE2 service is unavailable.");
+        var panes = dte.ToolWindows?.OutputWindow?.OutputWindowPanes;
+        if (panes is null)
+        {
+            return new OutputPaneListResult(Array.Empty<OutputPaneInfo>());
+        }
+
+        var result = new List<OutputPaneInfo>();
+        for (var index = 1; index <= panes.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            result.Add(new OutputPaneInfo(panes.Item(index).Name));
+        }
+
+        return new OutputPaneListResult(result);
+    }
+
+    public async Task<OutputReadResult> ClearOutputAsync(OutputPaneRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDte2Async()
+            ?? throw new InvalidOperationException("Visual Studio DTE2 service is unavailable.");
+        var panes = dte.ToolWindows?.OutputWindow?.OutputWindowPanes;
+        if (panes is null)
+        {
+            return new OutputReadResult(request.PaneName, string.Empty, true);
+        }
+
+        var pane = FindOutputPane(panes, request.PaneName);
+        if (pane is null)
+        {
+            return new OutputReadResult(request.PaneName, string.Empty, true);
+        }
+
+        pane.Clear();
+        return new OutputReadResult(pane.Name, string.Empty, false);
     }
 
     public Task BuildProjectAsync(string projectName, CancellationToken cancellationToken)

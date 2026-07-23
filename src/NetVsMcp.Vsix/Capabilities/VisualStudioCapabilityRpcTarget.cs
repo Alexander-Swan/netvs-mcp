@@ -102,6 +102,9 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<DocumentListResult> DocumentListAsync(CancellationToken cancellationToken) =>
         editor.DocumentListAsync(cancellationToken);
 
+    public Task<DocumentCloseResult> DocumentCloseAsync(DocumentCloseRequest request, CancellationToken cancellationToken) =>
+        editor.DocumentCloseAsync(request, cancellationToken);
+
     public Task<ExecuteCommandResult> ExecuteCommandAsync(ExecuteCommandRequest request, CancellationToken cancellationToken) =>
         generalIde.ExecuteCommandAsync(request, cancellationToken);
 
@@ -186,11 +189,20 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<BuildStatusInfo> BuildStatusAsync(CancellationToken cancellationToken) =>
         build.BuildStatusAsync(cancellationToken);
 
+    public Task<BuildConfigurationInfo> BuildConfigurationGetAsync(CancellationToken cancellationToken) =>
+        build.BuildConfigurationGetAsync(cancellationToken);
+
     public Task<ErrorListResult> ErrorsListAsync(ErrorListRequest request, CancellationToken cancellationToken) =>
         build.ErrorsListAsync(request, cancellationToken);
 
     public Task<OutputReadResult> OutputReadAsync(OutputReadRequest request, CancellationToken cancellationToken) =>
         build.OutputReadAsync(request, cancellationToken);
+
+    public Task<OutputPaneListResult> OutputListPanesAsync(CancellationToken cancellationToken) =>
+        build.OutputListPanesAsync(cancellationToken);
+
+    public Task<OutputReadResult> OutputClearAsync(OutputPaneRequest request, CancellationToken cancellationToken) =>
+        build.OutputClearAsync(request, cancellationToken);
 
     public Task<DebuggerStateInfo> DebugStatusAsync(CancellationToken cancellationToken) =>
         debugger.DebugStatusAsync(cancellationToken);
@@ -200,6 +212,12 @@ internal sealed class VisualStudioCapabilityRpcTarget
 
     public Task<DebuggerStateInfo> DebugStartAsync(CancellationToken cancellationToken) =>
         debugger.DebugStartAsync(cancellationToken);
+
+    public Task<DebuggerStateInfo> DebugStartWithoutDebuggingAsync(CancellationToken cancellationToken) =>
+        debugger.DebugStartWithoutDebuggingAsync(cancellationToken);
+
+    public Task<DebuggerStateInfo> DebugRestartAsync(CancellationToken cancellationToken) =>
+        debugger.DebugRestartAsync(cancellationToken);
 
     public Task<DebuggerStateInfo> DebugStopAsync(CancellationToken cancellationToken) =>
         debugger.DebugStopAsync(cancellationToken);
@@ -246,6 +264,9 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<DebugThreadListResult> DebugGetThreadsAsync(CancellationToken cancellationToken) =>
         debugger.DebugGetThreadsAsync(cancellationToken);
 
+    public Task<DebuggedProcessListResult> ProcessListDebuggedAsync(CancellationToken cancellationToken) =>
+        debugger.ProcessListDebuggedAsync(cancellationToken);
+
     public Task<ThreadSwitchResult> ThreadSwitchAsync(ThreadSwitchRequest request, CancellationToken cancellationToken) =>
         debugger.ThreadSwitchAsync(request, cancellationToken);
 
@@ -285,6 +306,12 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<ProjectInfo> ProjectAddFileAsync(ProjectFileRequest request, CancellationToken cancellationToken) =>
         solution.ProjectAddFileAsync(request, cancellationToken);
 
+    public Task<ProjectReferenceResult> ProjectAddReferenceAsync(ProjectReferenceRequest request, CancellationToken cancellationToken) =>
+        solution.ProjectAddReferenceAsync(request, cancellationToken);
+
+    public Task<ProjectReferenceResult> ProjectRemoveReferenceAsync(ProjectReferenceRequest request, CancellationToken cancellationToken) =>
+        solution.ProjectRemoveReferenceAsync(request, cancellationToken);
+
     public Task<StartupProjectResult> StartupProjectGetAsync(CancellationToken cancellationToken) =>
         solution.StartupProjectGetAsync(cancellationToken);
 
@@ -302,6 +329,9 @@ internal sealed class VisualStudioCapabilityRpcTarget
 
     public Task<PackageRestoreResult> PackageRestoreAsync(PackageRestoreRequest request, CancellationToken cancellationToken) =>
         solution.PackageRestoreAsync(request, cancellationToken);
+
+    public Task<NugetListResult> NugetListAsync(NugetListRequest request, CancellationToken cancellationToken) =>
+        solution.NugetListAsync(request, cancellationToken);
 
     private static string FormatSymbolLabel(DocumentSymbolInfo symbol)
     {

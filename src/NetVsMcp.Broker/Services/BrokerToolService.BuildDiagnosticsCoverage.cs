@@ -27,9 +27,14 @@ public sealed partial class BrokerToolService
         PlannedTool("Build", "Implement VSIX solution rebuild operation.", sessionId, solutionName, solutionPath, cancellationToken);
 
     [McpServerTool(Name = "build_configuration_get")]
-    [Description("Planned: returns solution build configuration.")]
-    public Task<ToolResponse<UnsupportedToolResult>> BuildConfigurationGet(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Build", "Implement solution configuration/platform inspection.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Returns the active solution build configuration and platform.")]
+    public Task<ToolResponse<BuildConfigurationInfo>> BuildConfigurationGet(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.BuildConfigurationGetAsync(ct),
+            cancellationToken);
 
     [McpServerTool(Name = "build_configuration_set")]
     [Description("Planned: sets solution build configuration.")]
@@ -37,9 +42,14 @@ public sealed partial class BrokerToolService
         PlannedTool("Build", "Implement solution configuration/platform mutation with profile checks.", sessionId, solutionName, solutionPath, cancellationToken);
 
     [McpServerTool(Name = "output_list_panes")]
-    [Description("Planned: lists Visual Studio output panes.")]
-    public Task<ToolResponse<UnsupportedToolResult>> OutputListPanes(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Output", "Implement output pane enumeration.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Lists Visual Studio output panes.")]
+    public Task<ToolResponse<OutputPaneListResult>> OutputListPanes(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.OutputListPanesAsync(ct),
+            cancellationToken);
 
     [McpServerTool(Name = "output_write")]
     [Description("Planned: writes to a Visual Studio output pane.")]
@@ -47,9 +57,17 @@ public sealed partial class BrokerToolService
         PlannedTool("Output", "Implement profile-gated output pane writes.", sessionId, solutionName, solutionPath, cancellationToken);
 
     [McpServerTool(Name = "output_clear")]
-    [Description("Planned: clears a Visual Studio output pane.")]
-    public Task<ToolResponse<UnsupportedToolResult>> OutputClear(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        PlannedTool("Output", "Implement profile-gated output pane clears.", sessionId, solutionName, solutionPath, cancellationToken);
+    [Description("Clears a Visual Studio output pane.")]
+    public Task<ToolResponse<OutputReadResult>> OutputClear(string? paneName = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        var request = new OutputPaneRequest { PaneName = paneName };
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.OutputClearAsync(request, ct),
+            cancellationToken);
+    }
 
     [McpServerTool(Name = "diagnostics_binding_errors")]
     [Description("Planned: returns binding diagnostics.")]

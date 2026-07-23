@@ -52,6 +52,32 @@ internal sealed class ProjectFileRequest
     public string FilePath { get; set; } = string.Empty;
 }
 
+internal sealed class ProjectReferenceRequest
+{
+    public string ProjectName { get; set; } = string.Empty;
+    public string Reference { get; set; } = string.Empty;
+    public string ReferenceType { get; set; } = "assembly";
+    public string HintPath { get; set; } = string.Empty;
+}
+
+internal sealed class ProjectReferenceResult
+{
+    public ProjectReferenceResult(bool success, string message, ProjectInfo project, string reference, string referenceType)
+    {
+        Success = success;
+        Message = message;
+        Project = project;
+        Reference = reference;
+        ReferenceType = referenceType;
+    }
+
+    public bool Success { get; }
+    public string Message { get; }
+    public ProjectInfo Project { get; }
+    public string Reference { get; }
+    public string ReferenceType { get; }
+}
+
 internal sealed class ProjectInfo
 {
     public ProjectInfo(
@@ -117,6 +143,37 @@ internal sealed class TestResultsRequest
 internal sealed class PackageRestoreRequest
 {
     public string? ProjectName { get; set; }
+}
+
+internal sealed class NugetListRequest
+{
+    public string ProjectName { get; set; } = string.Empty;
+}
+
+internal sealed class NugetPackageInfo
+{
+    public NugetPackageInfo(string id, string version, string projectName, string projectPath)
+    {
+        Id = id;
+        Version = version;
+        ProjectName = projectName;
+        ProjectPath = projectPath;
+    }
+
+    public string Id { get; }
+    public string Version { get; }
+    public string ProjectName { get; }
+    public string ProjectPath { get; }
+}
+
+internal sealed class NugetListResult
+{
+    public NugetListResult(IReadOnlyCollection<NugetPackageInfo> packages)
+    {
+        Packages = packages;
+    }
+
+    public IReadOnlyCollection<NugetPackageInfo> Packages { get; }
 }
 
 internal sealed class TestOperationResult

@@ -52,6 +52,21 @@ internal sealed class SolutionRpcTarget
         return solution.AddFileAsync(request, cancellationToken);
     }
 
+    public Task<ProjectReferenceResult> ProjectAddReferenceAsync(ProjectReferenceRequest request, CancellationToken cancellationToken)
+    {
+        return solution.AddReferenceAsync(request, cancellationToken);
+    }
+
+    public Task<ProjectReferenceResult> ProjectRemoveReferenceAsync(ProjectReferenceRequest request, CancellationToken cancellationToken)
+    {
+        return solution.RemoveReferenceAsync(request, cancellationToken);
+    }
+
+    public Task<NugetListResult> NugetListAsync(NugetListRequest request, CancellationToken cancellationToken)
+    {
+        return solution.ListNugetPackagesAsync(request, cancellationToken);
+    }
+
     public Task<StartupProjectResult> StartupProjectGetAsync(CancellationToken cancellationToken)
     {
         return solution.GetStartupProjectAsync(cancellationToken);
