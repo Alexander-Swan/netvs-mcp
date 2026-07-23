@@ -10,7 +10,7 @@ The broker is the MCP server. Visual Studio extensions register themselves with 
 
 ```text
 Codex / MCP Client
-  -> HTTP MCP on 127.0.0.1:5050
+  -> HTTP MCP on 127.0.0.1:5050/mcp
     -> NetVsMcp.Broker tray app
       -> NetVsMcp.Vsix instance A
       -> NetVsMcp.Vsix instance B
@@ -77,7 +77,7 @@ Example MCP config:
   "mcpServers": {
     "netvs": {
       "type": "http",
-      "url": "http://127.0.0.1:5050"
+      "url": "http://127.0.0.1:5050/mcp"
     }
   }
 }
@@ -444,7 +444,7 @@ These items were identified during the first broker/VSIX skeleton review and sho
 The broker currently has local HTTP JSON routes for early status/tool smoke testing. Replace these with the actual MCP HTTP transport so MCP clients can register the broker directly at:
 
 ```text
-http://127.0.0.1:5050
+http://127.0.0.1:5050/mcp
 ```
 
 Acceptance criteria:

@@ -1,4 +1,5 @@
 using System.IO;
+using System.Security.Principal;
 using NetVsMcp.Contracts;
 
 namespace NetVsMcp.Broker.Services;
@@ -12,9 +13,20 @@ public sealed record BrokerOptions(
     BrokerCapabilityProfile CapabilityProfile = BrokerCapabilityProfile.Admin)
 {
     public static BrokerOptions LocalDefault { get; } = new(
-        "http://127.0.0.1:5050",
-        $@"\\.\pipe\netvs-mcp-{Environment.UserName}",
+        "http://127.0.0.1:5050/mcp",
+        $@"\\.\pipe\{DefaultPipeName}",
         DefaultLogsDirectory);
+
+    public static string DefaultPipeName => "netvs-mcp-" + SanitizeUserKey(CurrentUserKey);
+
+    private static string CurrentUserKey
+    {
+        get
+        {
+            using var identity = WindowsIdentity.GetCurrent();
+            return identity.User?.Value ?? Environment.UserName;
+        }
+    }
 
     public static string DefaultLogsDirectory => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -39,6 +51,16 @@ public sealed record BrokerOptions(
 
     public string EffectiveSessionsDirectory =>
         string.IsNullOrWhiteSpace(SessionsDirectory) ? DefaultSessionsDirectory : SessionsDirectory;
+
+    private static string SanitizeUserKey(string value)
+    {
+        foreach (var invalid in new[] { '\\', '/', ':', '*', '?', '"', '<', '>', '|', ' ' })
+        {
+            value = value.Replace(invalid, '-');
+        }
+
+        return value;
+    }
 
     public string McpRegistrationJson =>
         $$"""
