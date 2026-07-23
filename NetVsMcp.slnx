@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/NetVsMcp.Broker/NetVsMcp.Broker.csproj" />
     <Project Path="src/NetVsMcp.Contracts/NetVsMcp.Contracts.csproj" />
+    <Project Path="src/NetVsMcp.Installer/NetVsMcp.Installer.wixproj" />
     <Project Path="src/NetVsMcp.Vsix/NetVsMcp.Vsix.csproj" />
   </Folder>
   <Folder Name="/tests/">

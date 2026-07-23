@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="NetVsMcp Broker"
+    Manufacturer="NetVsMcp contributors"
+    Version="$(var.ProductVersion)"
+    UpgradeCode="6D7E08EF-2518-43A9-9C7D-8E5366D43F6B"
+    Scope="perUser">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of NetVsMcp Broker is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="Main" Title="NetVsMcp Broker" Level="1">
+      <ComponentGroupRef Id="BrokerComponents" />
+      <ComponentGroupRef Id="ShortcutComponents" />
+      <ComponentRef Id="LicenseComponent" />
+    </Feature>
+
+    <StandardDirectory Id="ProgramFilesFolder">
+      <Directory Id="ProgramFilesNetVsMcpFolder" Name="NetVsMcp">
+        <Directory Id="INSTALLFOLDER" Name="Broker" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="NetVsMcp" />
+    </StandardDirectory>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="BrokerComponents" Directory="INSTALLFOLDER">
+      <Files Include="$(var.BrokerPublishDir)**" />
+    </ComponentGroup>
+
+    <ComponentGroup Id="ShortcutComponents" Directory="ApplicationProgramsFolder">
+      <Component Id="ApplicationShortcutComponent" Guid="517B6BFD-5A7D-4C8A-9F21-FE99133F0A8A">
+        <Shortcut
+          Id="ApplicationStartMenuShortcut"
+          Name="NetVsMcp Broker"
+          Description="Starts the local NetVsMcp Visual Studio MCP broker."
+          Target="[INSTALLFOLDER]NetVsMcp.Broker.exe"
+          WorkingDirectory="INSTALLFOLDER" />
+        <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\NetVsMcp\Broker" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Component Id="LicenseComponent" Directory="INSTALLFOLDER" Guid="8194E1BD-9A67-4F95-92BF-F4D4514C6130">
+      <File Id="MitLicenseFile" Source="..\..\LICENSE" Name="LICENSE.txt" />
+    </Component>
+  </Fragment>
+</Wix>

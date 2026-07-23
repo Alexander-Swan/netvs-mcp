@@ -1,0 +1,22 @@
+<Project Sdk="WixToolset.Sdk/6.0.2">
+
+  <PropertyGroup>
+    <OutputName>NetVsMcp.Broker</OutputName>
+    <OutputType>Package</OutputType>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">0.1.0</ProductVersion>
+    <BrokerPublishDir Condition="'$(BrokerPublishDir)' == ''">$(MSBuildThisFileDirectory)..\..\artifacts\publish\NetVsMcp.Broker\</BrokerPublishDir>
+    <DefineConstants>ProductVersion=$(ProductVersion);BrokerPublishDir=$(BrokerPublishDir)</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NetVsMcp.Broker\NetVsMcp.Broker.csproj" />
+  </ItemGroup>
+
+  <Target Name="PublishBrokerForInstaller" BeforeTargets="CoreCompile;Compile;Build">
+    <MSBuild
+      Projects="..\NetVsMcp.Broker\NetVsMcp.Broker.csproj"
+      Targets="Publish"
+      Properties="Configuration=$(Configuration);PublishDir=$(BrokerPublishDir);SelfContained=false" />
+  </Target>
+
+</Project>

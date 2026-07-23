@@ -25,6 +25,9 @@ NetVsMcp.slnx
   src/NetVsMcp.Contracts
     shared DTOs and RPC contracts for broker/VSIX communication
 
+  src/NetVsMcp.Installer
+    WiX project that builds the broker tray app MSI
+
   src/NetVsMcp.Vsix
     planned Visual Studio extension
 ```
@@ -45,3 +48,13 @@ The broker status window will show the final ready-to-copy MCP configuration. Th
   }
 }
 ```
+
+## Broker MSI
+
+Build the broker tray app MSI with:
+
+```powershell
+dotnet build .\src\NetVsMcp.Installer\NetVsMcp.Installer.wixproj -c Release
+```
+
+The MSI output is written to `src\NetVsMcp.Installer\bin\Release\NetVsMcp.Broker.msi`.
