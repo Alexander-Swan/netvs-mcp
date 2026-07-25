@@ -18,7 +18,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string _autostartStatus = string.Empty;
     private string _lastRefreshedText = string.Empty;
     private string _portText = string.Empty;
-    private string _pipeNameText = string.Empty;
     private string _logsDirectoryText = string.Empty;
     private string _sessionsDirectoryText = string.Empty;
 
@@ -28,7 +27,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _autostart = autostart;
         _runtime.Sessions.SessionsChanged += (_, _) => Refresh();
         _portText = (_runtime.PendingPort ?? _runtime.CurrentPort).ToString();
-        _pipeNameText = _runtime.PendingPipeName ?? _runtime.CurrentPipeName;
         _logsDirectoryText = _runtime.PendingLogsDirectory ?? _runtime.CurrentLogsDirectory;
         _sessionsDirectoryText = _runtime.PendingSessionsDirectory ?? _runtime.CurrentSessionsDirectory;
         Refresh();
@@ -131,19 +129,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
-    public string PipeNameText
-    {
-        get => _pipeNameText;
-        set
-        {
-            if (_pipeNameText != value)
-            {
-                _pipeNameText = value;
-                OnPropertyChanged();
-            }
-        }
-    }
-
     public string LogsDirectoryText
     {
         get => _logsDirectoryText;
@@ -178,12 +163,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(PipeNameText))
-        {
-            ShowSettingsMessage("Enter a named pipe name.", MessageBoxImage.Warning);
-            return;
-        }
-
         if (string.IsNullOrWhiteSpace(LogsDirectoryText))
         {
             ShowSettingsMessage("Enter a logs folder path.", MessageBoxImage.Warning);
@@ -197,7 +176,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
 
         _runtime.PendingPort = port == _runtime.CurrentPort ? null : port;
-        _runtime.PendingPipeName = PipeNameText == _runtime.CurrentPipeName ? null : PipeNameText;
         _runtime.PendingLogsDirectory = LogsDirectoryText == _runtime.CurrentLogsDirectory ? null : LogsDirectoryText;
         _runtime.PendingSessionsDirectory = SessionsDirectoryText == _runtime.CurrentSessionsDirectory ? null : SessionsDirectoryText;
 

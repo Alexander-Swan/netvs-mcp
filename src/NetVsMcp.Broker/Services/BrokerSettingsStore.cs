@@ -8,7 +8,6 @@ namespace NetVsMcp.Broker.Services;
 /// <summary>Persisted, user-configurable broker settings that override the compiled-in defaults.</summary>
 public sealed record BrokerSettings(
     int? Port = null,
-    string? PipeName = null,
     string? LogsDirectory = null,
     string? SessionsDirectory = null,
     BrokerCapabilityProfile? CapabilityProfile = null);

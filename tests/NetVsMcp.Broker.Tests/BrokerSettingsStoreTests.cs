@@ -13,7 +13,6 @@ public sealed class BrokerSettingsStoreTests
         var settings = store.Load();
 
         Assert.Null(settings.Port);
-        Assert.Null(settings.PipeName);
         Assert.Null(settings.LogsDirectory);
         Assert.Null(settings.SessionsDirectory);
         Assert.Null(settings.CapabilityProfile);
@@ -37,11 +36,11 @@ public sealed class BrokerSettingsStoreTests
     public void Update_PersistsAcrossSeparateStoreInstances()
     {
         var path = CreateTempFilePath();
-        new BrokerSettingsStore(path).Update(s => s with { PipeName = @"\\.\pipe\netvs-mcp-test" });
+        new BrokerSettingsStore(path).Update(s => s with { LogsDirectory = @"C:\Logs\netvs-mcp-test" });
 
         var reloaded = new BrokerSettingsStore(path).Load();
 
-        Assert.Equal(@"\\.\pipe\netvs-mcp-test", reloaded.PipeName);
+        Assert.Equal(@"C:\Logs\netvs-mcp-test", reloaded.LogsDirectory);
     }
 
     private static string CreateTempFilePath() => Path.Combine(

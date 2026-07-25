@@ -73,13 +73,6 @@ public sealed class BrokerRuntime
         set => UpdatePendingSetting(s => s with { Port = value }, $"port override to '{value?.ToString() ?? "(default)"}'");
     }
 
-    /// <summary>The pipe name saved for the next broker start. Requires a restart to apply.</summary>
-    public string? PendingPipeName
-    {
-        get => _settingsStore.Load().PipeName;
-        set => UpdatePendingSetting(s => s with { PipeName = value }, $"pipe name override to '{value ?? "(default)"}'");
-    }
-
     /// <summary>The logs folder saved for the next broker start. Requires a restart to apply.</summary>
     public string? PendingLogsDirectory
     {

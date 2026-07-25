@@ -105,7 +105,6 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="140" />
@@ -115,16 +114,13 @@
                     <TextBlock Text="Port" FontWeight="SemiBold" VerticalAlignment="Center" />
                     <TextBox Grid.Column="1" Text="{Binding PortText, UpdateSourceTrigger=PropertyChanged}" Width="120" HorizontalAlignment="Left" />
 
-                    <TextBlock Grid.Row="1" Text="Named pipe" FontWeight="SemiBold" Margin="0,6,0,0" VerticalAlignment="Center" />
-                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding PipeNameText, UpdateSourceTrigger=PropertyChanged}" Margin="0,6,0,0" />
+                    <TextBlock Grid.Row="1" Text="Logs folder" FontWeight="SemiBold" Margin="0,6,0,0" VerticalAlignment="Center" />
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding LogsDirectoryText, UpdateSourceTrigger=PropertyChanged}" Margin="0,6,0,0" />
 
-                    <TextBlock Grid.Row="2" Text="Logs folder" FontWeight="SemiBold" Margin="0,6,0,0" VerticalAlignment="Center" />
-                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding LogsDirectoryText, UpdateSourceTrigger=PropertyChanged}" Margin="0,6,0,0" />
+                    <TextBlock Grid.Row="2" Text="Sessions folder" FontWeight="SemiBold" Margin="0,6,0,0" VerticalAlignment="Center" />
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SessionsDirectoryText, UpdateSourceTrigger=PropertyChanged}" Margin="0,6,0,0" />
 
-                    <TextBlock Grid.Row="3" Text="Sessions folder" FontWeight="SemiBold" Margin="0,6,0,0" VerticalAlignment="Center" />
-                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SessionsDirectoryText, UpdateSourceTrigger=PropertyChanged}" Margin="0,6,0,0" />
-
-                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,12,0,0">
+                    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,12,0,0">
                         <Button Content="Save Settings" Click="ApplySettings_Click" Padding="12,6" Margin="0,0,8,0" />
                         <TextBlock Text="Changes are saved but only take effect after restarting NetVsMcp Broker."
                                    VerticalAlignment="Center"

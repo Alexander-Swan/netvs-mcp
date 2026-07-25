@@ -43,11 +43,6 @@ public sealed record BrokerOptions(
             options = options.WithPort(port);
         }
 
-        if (!string.IsNullOrWhiteSpace(settings.PipeName))
-        {
-            options = options with { PipeName = NormalizePipeName(settings.PipeName) };
-        }
-
         if (!string.IsNullOrWhiteSpace(settings.LogsDirectory))
         {
             options = options with { LogsDirectory = settings.LogsDirectory };
