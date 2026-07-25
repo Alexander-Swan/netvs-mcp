@@ -5,14 +5,22 @@ using NetVsMcp.Contracts;
 
 namespace NetVsMcp.Broker.Services;
 
-public interface ICapabilityProfileStore
+/// <summary>Persisted, user-configurable broker settings that override the compiled-in defaults.</summary>
+public sealed record BrokerSettings(
+    int? Port = null,
+    string? PipeName = null,
+    string? LogsDirectory = null,
+    string? SessionsDirectory = null,
+    BrokerCapabilityProfile? CapabilityProfile = null);
+
+public interface IBrokerSettingsStore
 {
     string FilePath { get; }
-    BrokerCapabilityProfile Load(BrokerCapabilityProfile fallback);
-    void Save(BrokerCapabilityProfile profile);
+    BrokerSettings Load();
+    void Update(Func<BrokerSettings, BrokerSettings> mutate);
 }
 
-public sealed class CapabilityProfileStore : ICapabilityProfileStore
+public sealed class BrokerSettingsStore : IBrokerSettingsStore
 {
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
     {
@@ -22,16 +30,16 @@ public sealed class CapabilityProfileStore : ICapabilityProfileStore
 
     private readonly object _gate = new();
 
-    public CapabilityProfileStore(string filePath)
+    public BrokerSettingsStore(string filePath)
     {
         FilePath = string.IsNullOrWhiteSpace(filePath)
-            ? BrokerOptions.DefaultCapabilityProfileFilePath
+            ? BrokerOptions.DefaultSettingsFilePath
             : filePath;
     }
 
     public string FilePath { get; }
 
-    public BrokerCapabilityProfile Load(BrokerCapabilityProfile fallback)
+    public BrokerSettings Load()
     {
         lock (_gate)
         {
@@ -39,14 +47,11 @@ public sealed class CapabilityProfileStore : ICapabilityProfileStore
             {
                 if (!File.Exists(FilePath))
                 {
-                    return fallback;
+                    return new BrokerSettings();
                 }
 
-                var record = JsonSerializer.Deserialize<CapabilityProfileRecord>(
-                    File.ReadAllText(FilePath),
-                    SerializerOptions);
-
-                return record is null ? fallback : record.CapabilityProfile;
+                return JsonSerializer.Deserialize<BrokerSettings>(File.ReadAllText(FilePath), SerializerOptions)
+                    ?? new BrokerSettings();
             }
             catch (IOException)
             {
@@ -58,25 +63,23 @@ public sealed class CapabilityProfileStore : ICapabilityProfileStore
             {
             }
 
-            return fallback;
+            return new BrokerSettings();
         }
     }
 
-    public void Save(BrokerCapabilityProfile profile)
+    public void Update(Func<BrokerSettings, BrokerSettings> mutate)
     {
         lock (_gate)
         {
+            var updated = mutate(Load());
+
             var directory = Path.GetDirectoryName(FilePath);
             if (!string.IsNullOrEmpty(directory))
             {
                 Directory.CreateDirectory(directory);
             }
 
-            File.WriteAllText(
-                FilePath,
-                JsonSerializer.Serialize(new CapabilityProfileRecord(profile), SerializerOptions));
+            File.WriteAllText(FilePath, JsonSerializer.Serialize(updated, SerializerOptions));
         }
     }
-
-    private sealed record CapabilityProfileRecord(BrokerCapabilityProfile CapabilityProfile);
 }

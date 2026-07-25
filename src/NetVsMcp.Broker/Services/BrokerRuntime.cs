@@ -8,7 +8,7 @@ public sealed class BrokerRuntime
 {
     private readonly LocalMcpHttpHost _httpHost;
     private readonly VsixRegistrationPipeListener _registrationPipeListener;
-    private readonly ICapabilityProfileStore _profileStore;
+    private readonly IBrokerSettingsStore _settingsStore;
     private BrokerCapabilityProfile _capabilityProfile;
 
     public BrokerRuntime(BrokerOptions options, SessionRegistry sessions)
@@ -21,7 +21,7 @@ public sealed class BrokerRuntime
         Registration = new BrokerRegistrationRpcService(sessions);
         AuditLog = new AuditLogService(options.EffectiveLogsDirectory);
         SessionManifests = new SessionManifestService(options.EffectiveSessionsDirectory);
-        _profileStore = new CapabilityProfileStore(options.EffectiveCapabilityProfileFilePath);
+        _settingsStore = new BrokerSettingsStore(options.EffectiveSettingsFilePath);
         _capabilityProfile = options.CapabilityProfile;
         Tools = new BrokerToolService(this);
         _httpHost = new LocalMcpHttpHost(options, Tools);
@@ -42,13 +42,66 @@ public sealed class BrokerRuntime
             }
 
             _capabilityProfile = value;
-            _profileStore.Save(value);
+            _settingsStore.Update(s => s with { CapabilityProfile = value });
             Trace.WriteLine($"NetVsMcp broker capability profile changed to '{value}'.");
             CapabilityProfileChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
     public event EventHandler? CapabilityProfileChanged;
+
+    /// <summary>The port the broker is actually listening on for this run.</summary>
+    public int CurrentPort => Options.Port;
+
+    /// <summary>The named pipe the broker is actually listening on for this run.</summary>
+    public string CurrentPipeName => Options.PipeName;
+
+    /// <summary>The logs folder the broker is actually using for this run.</summary>
+    public string CurrentLogsDirectory => Options.EffectiveLogsDirectory;
+
+    /// <summary>The sessions folder the broker is actually using for this run.</summary>
+    public string CurrentSessionsDirectory => Options.EffectiveSessionsDirectory;
+
+    /// <summary>
+    /// The port saved for the next broker start, or <c>null</c> if no override is configured
+    /// and the compiled-in default (5050 Release / 5051 Debug) will be used. Setting this does
+    /// not affect the currently running HTTP listener; the broker must be restarted to apply it.
+    /// </summary>
+    public int? PendingPort
+    {
+        get => _settingsStore.Load().Port;
+        set => UpdatePendingSetting(s => s with { Port = value }, $"port override to '{value?.ToString() ?? "(default)"}'");
+    }
+
+    /// <summary>The pipe name saved for the next broker start. Requires a restart to apply.</summary>
+    public string? PendingPipeName
+    {
+        get => _settingsStore.Load().PipeName;
+        set => UpdatePendingSetting(s => s with { PipeName = value }, $"pipe name override to '{value ?? "(default)"}'");
+    }
+
+    /// <summary>The logs folder saved for the next broker start. Requires a restart to apply.</summary>
+    public string? PendingLogsDirectory
+    {
+        get => _settingsStore.Load().LogsDirectory;
+        set => UpdatePendingSetting(s => s with { LogsDirectory = value }, $"logs folder override to '{value ?? "(default)"}'");
+    }
+
+    /// <summary>The sessions folder saved for the next broker start. Requires a restart to apply.</summary>
+    public string? PendingSessionsDirectory
+    {
+        get => _settingsStore.Load().SessionsDirectory;
+        set => UpdatePendingSetting(s => s with { SessionsDirectory = value }, $"sessions folder override to '{value ?? "(default)"}'");
+    }
+
+    public event EventHandler? PendingSettingsChanged;
+
+    private void UpdatePendingSetting(Func<BrokerSettings, BrokerSettings> mutate, string description)
+    {
+        _settingsStore.Update(mutate);
+        Trace.WriteLine($"NetVsMcp broker {description}. Restart the broker to apply.");
+        PendingSettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     public SessionRegistry Sessions { get; }
 

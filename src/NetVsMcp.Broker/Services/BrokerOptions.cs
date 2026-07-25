@@ -10,29 +10,57 @@ public sealed record BrokerOptions(
     string? LogsDirectory = null,
     string? TokenFilePath = null,
     string? SessionsDirectory = null,
-    string? CapabilityProfileFilePath = null,
-    BrokerCapabilityProfile CapabilityProfile = BrokerCapabilityProfile.Admin)
+    BrokerCapabilityProfile CapabilityProfile = BrokerCapabilityProfile.Admin,
+    string? SettingsFilePath = null)
 {
     public static BrokerOptions LocalDefault { get; } = new(
         $"http://127.0.0.1:{DefaultPort}/mcp",
         $@"\\.\pipe\{DefaultPipeName}",
         DefaultLogsDirectory);
 
-    public static BrokerOptions FromEnvironmentAndArgs(string[]? args)
-    {
-        var options = LocalDefault;
+    public static BrokerOptions FromArgs(string[]? args) => LocalDefault.WithArgs(args);
 
-        options = ApplyOption(options, "mcp-endpoint", Environment.GetEnvironmentVariable("NETVS_MCP_ENDPOINT"));
-        options = ApplyOption(options, "mcp-port", Environment.GetEnvironmentVariable("NETVS_MCP_PORT"));
-        options = ApplyOption(options, "pipe-name", Environment.GetEnvironmentVariable("NETVS_MCP_PIPE_NAME"));
-        options = ApplyOption(options, "logs-dir", Environment.GetEnvironmentVariable("NETVS_MCP_LOGS_DIR"));
-        options = ApplyOption(options, "token-file", Environment.GetEnvironmentVariable("NETVS_MCP_TOKEN_FILE"));
-        options = ApplyOption(options, "sessions-dir", Environment.GetEnvironmentVariable("NETVS_MCP_SESSIONS_DIR"));
-        options = ApplyOption(options, "profile-file", Environment.GetEnvironmentVariable("NETVS_MCP_PROFILE_FILE"));
+    /// <summary>Applies command-line argument overrides on top of this instance. CLI args take the highest precedence.</summary>
+    public BrokerOptions WithArgs(string[]? args)
+    {
+        var options = this;
 
         foreach (var (name, value) in ParseArgs(args ?? []))
         {
             options = ApplyOption(options, name, value);
+        }
+
+        return options;
+    }
+
+    /// <summary>Applies persisted settings on top of the compiled-in defaults. Call <see cref="WithArgs"/> afterwards so CLI args still win.</summary>
+    public BrokerOptions ApplyPersistedSettings(BrokerSettings settings)
+    {
+        var options = this;
+
+        if (settings.Port is int port)
+        {
+            options = options.WithPort(port);
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.PipeName))
+        {
+            options = options with { PipeName = NormalizePipeName(settings.PipeName) };
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.LogsDirectory))
+        {
+            options = options with { LogsDirectory = settings.LogsDirectory };
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.SessionsDirectory))
+        {
+            options = options with { SessionsDirectory = settings.SessionsDirectory };
+        }
+
+        if (settings.CapabilityProfile is { } profile)
+        {
+            options = options with { CapabilityProfile = profile };
         }
 
         return options;
@@ -83,13 +111,17 @@ public sealed record BrokerOptions(
     public string EffectiveSessionsDirectory =>
         string.IsNullOrWhiteSpace(SessionsDirectory) ? DefaultSessionsDirectory : SessionsDirectory;
 
-    public static string DefaultCapabilityProfileFilePath => Path.Combine(
+    public static string DefaultSettingsFilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "NetVsMcp",
-        "capability-profile.json");
+        "settings.json");
 
-    public string EffectiveCapabilityProfileFilePath =>
-        string.IsNullOrWhiteSpace(CapabilityProfileFilePath) ? DefaultCapabilityProfileFilePath : CapabilityProfileFilePath;
+    public string EffectiveSettingsFilePath =>
+        string.IsNullOrWhiteSpace(SettingsFilePath) ? DefaultSettingsFilePath : SettingsFilePath;
+
+    public int Port => Uri.TryCreate(McpEndpoint, UriKind.Absolute, out var uri) ? uri.Port : DefaultPort;
+
+    public BrokerOptions WithPort(int port) => this with { McpEndpoint = ReplaceEndpointPort(McpEndpoint, port.ToString()) };
 
     private static BrokerOptions ApplyOption(BrokerOptions options, string name, string? value)
     {
@@ -106,7 +138,7 @@ public sealed record BrokerOptions(
             "logs-dir" => options with { LogsDirectory = value },
             "token-file" => options with { TokenFilePath = value },
             "sessions-dir" => options with { SessionsDirectory = value },
-            "profile-file" => options with { CapabilityProfileFilePath = value },
+            "settings-file" => options with { SettingsFilePath = value },
             _ => options
         };
     }

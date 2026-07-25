@@ -41,6 +41,7 @@
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="2*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
@@ -97,7 +98,42 @@
                 </Grid>
             </GroupBox>
 
-            <GroupBox Header="Registered Visual Studio Sessions" Grid.Row="1" Margin="0,0,0,12">
+            <GroupBox Header="Startup Settings (restart required to apply)" Grid.Row="1" Margin="0,0,0,12">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="Port" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <TextBox Grid.Column="1" Text="{Binding PortText, UpdateSourceTrigger=PropertyChanged}" Width="120" HorizontalAlignment="Left" />
+
+                    <TextBlock Grid.Row="1" Text="Named pipe" FontWeight="SemiBold" Margin="0,6,0,0" VerticalAlignment="Center" />
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding PipeNameText, UpdateSourceTrigger=PropertyChanged}" Margin="0,6,0,0" />
+
+                    <TextBlock Grid.Row="2" Text="Logs folder" FontWeight="SemiBold" Margin="0,6,0,0" VerticalAlignment="Center" />
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding LogsDirectoryText, UpdateSourceTrigger=PropertyChanged}" Margin="0,6,0,0" />
+
+                    <TextBlock Grid.Row="3" Text="Sessions folder" FontWeight="SemiBold" Margin="0,6,0,0" VerticalAlignment="Center" />
+                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SessionsDirectoryText, UpdateSourceTrigger=PropertyChanged}" Margin="0,6,0,0" />
+
+                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,12,0,0">
+                        <Button Content="Save Settings" Click="ApplySettings_Click" Padding="12,6" Margin="0,0,8,0" />
+                        <TextBlock Text="Changes are saved but only take effect after restarting NetVsMcp Broker."
+                                   VerticalAlignment="Center"
+                                   Foreground="#555" />
+                    </StackPanel>
+                </Grid>
+            </GroupBox>
+
+            <GroupBox Header="Registered Visual Studio Sessions" Grid.Row="2" Margin="0,0,0,12">
                 <DataGrid ItemsSource="{Binding Sessions}"
                           AutoGenerateColumns="False"
                           CanUserAddRows="False"
@@ -121,7 +157,7 @@
                 </DataGrid>
             </GroupBox>
 
-            <GroupBox Header="Basic Actions" Grid.Row="2">
+            <GroupBox Header="Basic Actions" Grid.Row="3">
                 <TextBlock Margin="12"
                            TextWrapping="Wrap"
                            Text="Use the tray icon to keep the broker running in the background. Copy the MCP config into your MCP client, then open Visual Studio with the NetVsMcp VSIX installed so sessions appear here." />

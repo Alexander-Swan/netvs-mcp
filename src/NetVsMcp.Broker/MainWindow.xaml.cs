@@ -31,4 +31,6 @@ public partial class MainWindow : Window
     private void ToggleAutostart_Click(object sender, RoutedEventArgs e) => _viewModel.ToggleAutostart();
 
     private void OpenLogs_Click(object sender, RoutedEventArgs e) => _viewModel.OpenLogsFolder();
+
+    private void ApplySettings_Click(object sender, RoutedEventArgs e) => _viewModel.ApplyStartupSettings();
 }

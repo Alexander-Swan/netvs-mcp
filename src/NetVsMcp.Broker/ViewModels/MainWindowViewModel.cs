@@ -17,12 +17,20 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string _runningState = string.Empty;
     private string _autostartStatus = string.Empty;
     private string _lastRefreshedText = string.Empty;
+    private string _portText = string.Empty;
+    private string _pipeNameText = string.Empty;
+    private string _logsDirectoryText = string.Empty;
+    private string _sessionsDirectoryText = string.Empty;
 
     public MainWindowViewModel(BrokerRuntime runtime, IAutostartService autostart)
     {
         _runtime = runtime;
         _autostart = autostart;
         _runtime.Sessions.SessionsChanged += (_, _) => Refresh();
+        _portText = (_runtime.PendingPort ?? _runtime.CurrentPort).ToString();
+        _pipeNameText = _runtime.PendingPipeName ?? _runtime.CurrentPipeName;
+        _logsDirectoryText = _runtime.PendingLogsDirectory ?? _runtime.CurrentLogsDirectory;
+        _sessionsDirectoryText = _runtime.PendingSessionsDirectory ?? _runtime.CurrentSessionsDirectory;
         Refresh();
     }
 
@@ -84,11 +92,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public string McpEndpoint => _runtime.Options.McpEndpoint;
 
-    public string PipeName => _runtime.Options.PipeName;
+    public string PipeName => _runtime.CurrentPipeName;
 
     public string McpRegistrationJson => _runtime.Options.McpRegistrationJson;
 
-    public string LogsFolder => _runtime.Options.EffectiveLogsDirectory;
+    public string LogsFolder => _runtime.CurrentLogsDirectory;
+
+    public string SessionsFolder => _runtime.CurrentSessionsDirectory;
 
     public IReadOnlyList<BrokerCapabilityProfile> AvailableCapabilityProfiles { get; } =
         Enum.GetValues<BrokerCapabilityProfile>();
@@ -107,6 +117,95 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             OnPropertyChanged();
         }
     }
+
+    public string PortText
+    {
+        get => _portText;
+        set
+        {
+            if (_portText != value)
+            {
+                _portText = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string PipeNameText
+    {
+        get => _pipeNameText;
+        set
+        {
+            if (_pipeNameText != value)
+            {
+                _pipeNameText = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string LogsDirectoryText
+    {
+        get => _logsDirectoryText;
+        set
+        {
+            if (_logsDirectoryText != value)
+            {
+                _logsDirectoryText = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string SessionsDirectoryText
+    {
+        get => _sessionsDirectoryText;
+        set
+        {
+            if (_sessionsDirectoryText != value)
+            {
+                _sessionsDirectoryText = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public void ApplyStartupSettings()
+    {
+        if (!int.TryParse(PortText, out var port) || port is <= 0 or > 65535)
+        {
+            ShowSettingsMessage("Enter a port number between 1 and 65535.", MessageBoxImage.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(PipeNameText))
+        {
+            ShowSettingsMessage("Enter a named pipe name.", MessageBoxImage.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(LogsDirectoryText))
+        {
+            ShowSettingsMessage("Enter a logs folder path.", MessageBoxImage.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(SessionsDirectoryText))
+        {
+            ShowSettingsMessage("Enter a sessions folder path.", MessageBoxImage.Warning);
+            return;
+        }
+
+        _runtime.PendingPort = port == _runtime.CurrentPort ? null : port;
+        _runtime.PendingPipeName = PipeNameText == _runtime.CurrentPipeName ? null : PipeNameText;
+        _runtime.PendingLogsDirectory = LogsDirectoryText == _runtime.CurrentLogsDirectory ? null : LogsDirectoryText;
+        _runtime.PendingSessionsDirectory = SessionsDirectoryText == _runtime.CurrentSessionsDirectory ? null : SessionsDirectoryText;
+
+        ShowSettingsMessage("Settings saved. Restart NetVsMcp Broker to apply them.", MessageBoxImage.Information);
+    }
+
+    private static void ShowSettingsMessage(string message, MessageBoxImage icon) =>
+        System.Windows.MessageBox.Show(message, "NetVsMcp Settings", MessageBoxButton.OK, icon);
 
     public void Refresh()
     {

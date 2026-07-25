@@ -34,8 +34,8 @@ public sealed class BrokerToolServiceTests
         Assert.False(deniedResponse.Success);
         Assert.Equal("CapabilityProfileDenied", deniedResponse.Metadata!["failureReason"]);
 
-        var persisted = new CapabilityProfileStore(runtime.Options.EffectiveCapabilityProfileFilePath)
-            .Load(BrokerCapabilityProfile.Admin);
+        var persisted = new BrokerSettingsStore(runtime.Options.EffectiveSettingsFilePath)
+            .Load().CapabilityProfile;
         Assert.Equal(BrokerCapabilityProfile.ReadOnly, persisted);
     }
 
@@ -2085,7 +2085,7 @@ public sealed class BrokerToolServiceTests
         {
             LogsDirectory = Path.Combine(root, "Logs"),
             SessionsDirectory = Path.Combine(root, "Sessions"),
-            CapabilityProfileFilePath = Path.Combine(root, "capability-profile.json"),
+            SettingsFilePath = Path.Combine(root, "settings.json"),
             CapabilityProfile = capabilityProfile
         };
 

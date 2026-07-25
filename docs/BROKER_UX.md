@@ -10,19 +10,23 @@ The status window shows:
 - local MCP endpoint
 - VSIX named pipe
 - active capability profile, editable through a dropdown that saves immediately
+- editable startup settings (port, named pipe, logs folder, sessions folder) that save immediately but require a broker restart to take effect
 - ready-to-copy MCP client JSON snippet
 - registered Visual Studio sessions with solution name, solution path, session id, health, last seen time, debugger mode, active document, and advertised capabilities
 - basic actions for copying configuration, refreshing status, toggling start at login, and opening the logs folder
 
-## Capability Profile
+## Persisted Settings
 
-The status window's "Capability profile" dropdown selects one of `ReadOnly`, `EditPreview`, `EditDirect`, `Debug`, or `Admin`. Changing the selection takes effect immediately for all subsequent tool calls and is persisted to:
+All broker settings are configured from the status window and persisted to a single file:
 
 ```text
-%LOCALAPPDATA%\NetVsMcp\capability-profile.json
+%LOCALAPPDATA%\NetVsMcp\settings.json
 ```
 
-The persisted profile is loaded at broker startup and used until changed again. `BrokerToolAccessPolicy` still enforces which tool categories each profile allows; see `docs/PLAN.md` for the category-to-profile mapping.
+- **Capability profile**: the "Capability profile" dropdown selects one of `ReadOnly`, `EditPreview`, `EditDirect`, `Debug`, or `Admin`. Changing the selection takes effect immediately for all subsequent tool calls. `BrokerToolAccessPolicy` still enforces which tool categories each profile allows; see `docs/PLAN.md` for the category-to-profile mapping.
+- **Port, named pipe, logs folder, sessions folder**: edited in the "Startup Settings" group and saved with the "Save Settings" button. These are read once at broker startup (the HTTP listener, named pipe listener, and log/session directories are fixed for the life of a run), so changes only apply after restarting NetVsMcp Broker (exit via the tray icon, then relaunch).
+
+There are no environment variables for broker configuration; `--mcp-port`, `--mcp-endpoint`, `--pipe-name`, `--logs-dir`, `--sessions-dir`, and `--settings-file` command-line arguments remain available for advanced/one-off overrides (e.g. automated testing) and take precedence over the persisted settings file for that single run only — they are not saved.
 
 ## Tray Menu
 
