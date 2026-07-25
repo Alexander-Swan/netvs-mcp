@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnvDTE;
+using EnvDTE80;
 using Microsoft.VisualStudio.Shell;
 using Task = System.Threading.Tasks.Task;
 
@@ -177,7 +178,8 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
             HitCountType: hitCountType);
 
         var breakpoint = breakpoints.Item(1);
-        BreakpointMetadata.FromRequest(request).ApplyTo(breakpoint);
+        var metadata = BreakpointMetadata.FromRequest(request);
+        metadata.ApplyTo(breakpoint);
         return BreakpointInfo.FromBreakpoint(breakpoint);
     }
 
@@ -775,22 +777,19 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
     {
         ThreadHelper.ThrowIfNotOnUIThread();
 
-        if (!string.IsNullOrWhiteSpace(name)
-            && string.Equals(breakpoint.Name, name, StringComparison.OrdinalIgnoreCase))
+        // When a specific breakpoint name is supplied, it must match exactly. Falling through to the
+        // coarser file+line match here would let a request targeting one breakpoint incorrectly match
+        // (and mutate/delete) a different breakpoint that merely shares the same line.
+        if (!string.IsNullOrWhiteSpace(name))
         {
-            return true;
+            return string.Equals(breakpoint.Name, name, StringComparison.OrdinalIgnoreCase);
         }
 
-        if (!string.IsNullOrWhiteSpace(resolvedDocumentPath)
+        return !string.IsNullOrWhiteSpace(resolvedDocumentPath)
             && line > 0
             && !string.IsNullOrWhiteSpace(breakpoint.File)
             && string.Equals(Path.GetFullPath(breakpoint.File), resolvedDocumentPath, StringComparison.OrdinalIgnoreCase)
-            && breakpoint.FileLine == line)
-        {
-            return true;
-        }
-
-        return false;
+            && breakpoint.FileLine == line;
     }
 
     private static List<Process> FindProcesses(Processes processes, int? processId, string? processName)

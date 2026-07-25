@@ -21,4 +21,4 @@ dotnet build .\src\NetVsMcp.Installer\NetVsMcp.Installer.wixproj -c Release /p:P
 dotnet build .\src\NetVsMcp.Installer\NetVsMcp.Installer.wixproj -c Release /p:BrokerPublishDir=C:\Temp\NetVsMcp.Broker\
 ```
 
-The MSI installs the tray app under Program Files, adds a Start Menu shortcut, and installs the MIT license as `LICENSE.txt`.
+The MSI installs the tray app under `%LocalAppData%\NetVsMcp\Broker` (a true per-user install, so no UAC elevation is required), adds a Start Menu shortcut, and installs the MIT license as `LICENSE.txt`.

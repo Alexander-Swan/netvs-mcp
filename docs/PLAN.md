@@ -149,6 +149,7 @@ Broker target selection order:
 - `vs_select_session`
 - `vs_ping`
 - `vs_get_logs`
+- `vs_launch_instance`
 
 ### General IDE
 
@@ -344,22 +345,44 @@ The broker currently exposes a substantial routed MCP surface, but parity work r
 
 ### Already Exposed Broker Tools
 
-Current broker MCP tools include:
+Current broker MCP tools include (all live-tested — see `docs/TOOL_LIVE_TEST_REPORT.md`):
 
-- broker/session tools: `vs_list_sessions`, `vs_get_status`, `vs_get_capabilities`, `vs_get_session`, `vs_select_session`, `vs_ping`, `vs_context_snapshot`
+- broker/session tools: `vs_list_sessions`, `vs_get_status`, `vs_get_capabilities`, `vs_get_session`, `vs_select_session`, `vs_ping`, `vs_get_logs`, `vs_context_snapshot`
 - general IDE tools: `execute_command`, `get_status`, `get_help`, `window_list`, `window_activate`, `toolwindow_show`, `toolwindow_hide`
-- documents/editor/safe edits: `document_active`, `document_read`, `document_open`, `open_relevant_files`, `selection_get`, `document_write`, `document_save`, `editor_insert`, `editor_replace`, `editor_goto_line`, `selection_set`, `document_cleanup`, `format_and_organize`, `edit_preview`, `prepare_safe_edit`, `edit_approve`, `apply_safe_edit_and_build`, `edit_reject`, `edit_list_pending`
-- navigation/context: `code_document_symbols`, `code_go_to_definition`, `code_find_references`, `symbol_context`, `document_outline`, `find_implementations`, `rename_symbol_preview`
-- solution/project/test/build/output: `solution_open`, `solution_close`, `solution_info`, `solution_add_project`, `solution_remove_project`, `project_list`, `project_info`, `project_add_file`, `startup_project_get`, `startup_project_set`, `solution_overview`, `project_dependencies`, `package_restore`, `test_discover`, `test_run`, `test_results`, `test_run_and_get_results`, `build_solution`, `build_status`, `errors_list`, `build_and_get_errors`, `diagnostics_for_document`, `output_read`, `workspace_search`
-- debugging/breakpoints: `debug_status`, `debug_get_mode`, `debug_start`, `debug_stop`, `debug_continue`, `debug_break`, `debug_step`, `breakpoint_set`, `breakpoint_list`, `breakpoint_group_list`, `breakpoint_remove`, `breakpoint_enable`, `breakpoint_group_enable`, `breakpoint_group_remove`, `debug_get_callstack`, `debug_get_locals`, `debug_evaluate`, `debug_snapshot`, `debug_eval_many`
+- documents/editor/safe edits: `document_active`, `document_list`, `document_read`, `document_open`, `document_close`, `open_relevant_files`, `selection_get`, `document_write`, `document_save`, `editor_insert`, `editor_replace`, `editor_find`, `editor_goto_line`, `selection_set`, `document_cleanup`, `format_and_organize`, `find_in_files`, `edit_preview`, `prepare_safe_edit`, `edit_approve`, `apply_safe_edit_and_build`, `edit_reject`, `edit_list_pending`
+- navigation/context: `code_document_symbols`, `code_go_to_definition`, `code_go_to_implementation`, `code_find_references`, `code_workspace_symbols`, `symbol_context`, `document_outline`, `find_implementations`, `rename_symbol_preview`, `workspace_search`
+- solution/project: `solution_open`, `solution_close`, `solution_info`, `solution_overview`, `solution_add_project`, `solution_remove_project`, `project_list`, `project_info`, `project_dependencies`, `project_add_file`, `project_remove_file`, `project_add_reference`, `project_remove_reference`, `startup_project_get`, `startup_project_set`
+- build/diagnostics/output: `build_solution`, `build_project`, `build_cancel`, `build_status`, `clean_solution`, `rebuild_solution`, `build_configuration_get`, `build_configuration_set`, `build_and_get_errors`, `errors_list`, `diagnostics_for_document`, `diagnostics_binding_errors`, `output_list_panes`, `output_read`, `output_write`, `output_clear`
+- tests: `test_discover`, `test_run`, `test_results`, `test_run_and_get_results`
+- NuGet: `nuget_list`, `nuget_search`, `nuget_install`, `nuget_update`, `nuget_uninstall`, `package_restore`
+- debugging/breakpoints: `debug_status`, `debug_get_mode`, `debug_start`, `debug_start_without_debugging`, `debug_stop`, `debug_restart`, `debug_attach`, `debug_continue`, `debug_break`, `debug_step`, `debug_get_callstack`, `debug_get_locals`, `debug_get_threads`, `debug_evaluate`, `debug_eval_many`, `debug_set_variable`, `debug_snapshot`, `breakpoint_set`, `breakpoint_list`, `breakpoint_remove`, `breakpoint_enable`, `breakpoint_group_list`, `breakpoint_group_enable`, `breakpoint_group_remove`
+- advanced debug: `watch_add`, `watch_remove`, `watch_list`, `thread_switch`, `thread_set_frozen`, `thread_get_callstack`, `process_list_debugged`, `process_list_local`, `process_detach`, `process_terminate`, `immediate_execute`, `module_list`, `exception_settings_get`, `exception_settings_set`, `memory_read`, `register_list`, `register_get`, `parallel_stacks`, `parallel_watch`, `parallel_tasks_list`
+- debuggee console: `console_read`, `console_send`, `console_get_info`
+- debuggee UI automation: `ui_capture_window`, `ui_capture_region`, `ui_snapshot`, `ui_get_tree`, `ui_find_elements`, `ui_get_element`, `ui_click`, `ui_double_click`, `ui_right_click`, `ui_drag`, `ui_set_value`, `ui_invoke`, `ui_send_keys`, `ui_wait_for_element`, `ui_wait_idle`
+- web debugging: `web_connect`, `web_disconnect`, `web_status`, `web_navigate`, `web_screenshot`, `web_dom_get`, `web_dom_query`, `web_console`, `web_js_execute`, `web_network`, `web_element_click`, `web_element_set_value`
 - local context: `git_context`
+
+Everything below `vs_launch_instance` in this Tool Coverage Plan is now implemented and marked accordingly; only `vs_launch_instance` itself is still genuinely missing.
+
+### Missing Instance Launch Tool
+
+Add:
+
+- `vs_launch_instance`
+
+The broker can only route to Visual Studio instances that are already running and registered. Live-testing changes (for example, debugger/tracepoint behavior) currently has to reuse whatever instance is already open, which risks disrupting the user's own work (e.g. the instance hosting the broker's own extension under active development) or requires the user to manually open a second Visual Studio instance first.
+
+Acceptance criteria:
+
+- broker can launch a new Visual Studio process, optionally with a solution path, edition/version preference, and experimental instance flag (`/rootsuffix`)
+- tool returns once the new instance has registered with the broker (with a bounded timeout) or reports a clear timeout/launch-failure result
+- launched instances are otherwise ordinary registered sessions usable by all routing fields
+- launch is gated by an admin-grade capability profile and audited
+- tests cover launch success, launch timeout, and missing Visual Studio installation
 
 ### Remaining General IDE Tools
 
-Add these to improve broad Visual Studio control:
-
-- `get_status`
-General IDE coverage is complete for this plan slice.
+**Implemented.** `get_status` is live and live-tested. General IDE coverage is complete for this plan slice.
 
 Acceptance criteria:
 
@@ -369,12 +392,7 @@ Acceptance criteria:
 
 ### Missing Solution And Project Mutation Tools
 
-Add project-system mutation support:
-
-- `solution_open`
-- `project_remove_file`
-- `project_add_reference`
-- `project_remove_reference`
+**Implemented.** `solution_open`, `project_remove_file`, `project_add_reference`, `project_remove_reference` are all live and live-tested (see `docs/TOOL_LIVE_TEST_REPORT.md` §8). Remaining acceptance criteria below (capability-profile policy, audit logging) are still open as part of the broader auth/profile workstream.
 
 Acceptance criteria:
 
@@ -385,12 +403,7 @@ Acceptance criteria:
 
 ### Missing Document And Search Tools
 
-Add:
-
-- `document_list`
-- `document_close`
-- `editor_find`
-- `find_in_files`
+**Implemented.** `document_list`, `document_close`, `editor_find`, `find_in_files` are all live and live-tested.
 
 Acceptance criteria:
 
@@ -400,14 +413,7 @@ Acceptance criteria:
 
 ### Missing Build And Configuration Tools
 
-Add:
-
-- `build_project`
-- `build_cancel`
-- `clean_solution`
-- `rebuild_solution`
-- `build_configuration_get`
-- `build_configuration_set`
+**Implemented.** `build_project`, `build_cancel`, `clean_solution`, `rebuild_solution`, `build_configuration_get`, `build_configuration_set` are all live; `build_configuration_get` live-tested, the rest confirmed present in the broker source.
 
 Acceptance criteria:
 
@@ -417,12 +423,7 @@ Acceptance criteria:
 
 ### Missing Output And Diagnostics Tools
 
-Add:
-
-- `output_list_panes`
-- `output_write`
-- `output_clear`
-- `diagnostics_binding_errors`
+**Implemented.** `output_list_panes`, `output_write`, `output_clear`, `diagnostics_binding_errors` are all live and live-tested.
 
 Acceptance criteria:
 
@@ -432,13 +433,7 @@ Acceptance criteria:
 
 ### Missing Debugger Tools
 
-Add:
-
-- `debug_start_without_debugging`
-- `debug_restart`
-- `debug_attach`
-- `debug_get_threads`
-- `debug_set_variable`
+**Implemented.** `debug_start_without_debugging`, `debug_restart`, `debug_attach`, `debug_get_threads`, `debug_set_variable` are all live and live-tested.
 
 Acceptance criteria:
 
@@ -448,28 +443,7 @@ Acceptance criteria:
 
 ### Missing Advanced Debug Tools
 
-Add:
-
-- `watch_add`
-- `watch_remove`
-- `watch_list`
-- `thread_switch`
-- `thread_set_frozen`
-- `thread_get_callstack`
-- `process_list_debugged`
-- `process_list_local`
-- `process_detach`
-- `process_terminate`
-- `immediate_execute`
-- `module_list`
-- `exception_settings_get`
-- `exception_settings_set`
-- `memory_read`
-- `register_list`
-- `register_get`
-- `parallel_stacks`
-- `parallel_watch`
-- `parallel_tasks_list`
+**Implemented.** `watch_add`, `watch_remove`, `watch_list`, `thread_switch`, `thread_set_frozen`, `thread_get_callstack`, `process_list_debugged`, `process_list_local`, `process_detach`, `process_terminate`, `immediate_execute`, `module_list`, `exception_settings_get`, `exception_settings_set`, `memory_read`, `register_list`, `register_get`, `parallel_stacks`, `parallel_watch`, `parallel_tasks_list` are all live and live-tested. `exception_settings_get`/`set` and `parallel_tasks_list` currently report `supported:false` (not exposed through the VSIX skeleton yet).
 
 Acceptance criteria:
 
@@ -479,11 +453,7 @@ Acceptance criteria:
 
 ### Missing Debuggee Console Tools
 
-Add:
-
-- `console_read`
-- `console_send`
-- `console_get_info`
+**Implemented.** `console_read`, `console_send`, `console_get_info` are all live; `console_get_info` live-tested, `console_read`/`console_send` confirmed present in the broker source.
 
 Acceptance criteria:
 
@@ -493,23 +463,7 @@ Acceptance criteria:
 
 ### Missing UI Automation Tools
 
-Add:
-
-- `ui_capture_window`
-- `ui_capture_region`
-- `ui_snapshot`
-- `ui_get_tree`
-- `ui_find_elements`
-- `ui_get_element`
-- `ui_click`
-- `ui_double_click`
-- `ui_right_click`
-- `ui_drag`
-- `ui_set_value`
-- `ui_invoke`
-- `ui_send_keys`
-- `ui_wait_for_element`
-- `ui_wait_idle`
+**Implemented.** `ui_capture_window`, `ui_capture_region`, `ui_snapshot`, `ui_get_tree`, `ui_find_elements`, `ui_get_element`, `ui_click`, `ui_double_click`, `ui_right_click`, `ui_drag`, `ui_set_value`, `ui_invoke`, `ui_send_keys`, `ui_wait_for_element`, `ui_wait_idle` are all live and live-tested (see `docs/TOOL_LIVE_TEST_REPORT.md` §6). `ui_get_tree`/`ui_snapshot`/`ui_wait_idle` currently return `nodeCount:0`/`windowCount:0` — appears to be an unimplemented/skeleton UIA backend rather than a hard failure.
 
 Acceptance criteria:
 
@@ -520,20 +474,7 @@ Acceptance criteria:
 
 ### Missing Web Debugging Tools
 
-Add browser-debugging support only after the core Visual Studio runtime is stable:
-
-- `web_connect`
-- `web_disconnect`
-- `web_status`
-- `web_navigate`
-- `web_screenshot`
-- `web_dom_get`
-- `web_dom_query`
-- `web_console`
-- `web_js_execute`
-- `web_network`
-- `web_element_click`
-- `web_element_set_value`
+**Implemented.** `web_connect`, `web_disconnect`, `web_status`, `web_navigate`, `web_screenshot`, `web_dom_get`, `web_dom_query`, `web_console`, `web_js_execute`, `web_network`, `web_element_click`, `web_element_set_value` are all live and live-tested. `web_console`/`web_network` report `supported:true` but require a CDP-backed browser shell (not available from the current backend).
 
 Acceptance criteria:
 
@@ -543,13 +484,7 @@ Acceptance criteria:
 
 ### Missing NuGet Tools
 
-Add:
-
-- `nuget_list`
-- `nuget_search`
-- `nuget_install`
-- `nuget_update`
-- `nuget_uninstall`
+**Implemented.** `nuget_list`, `nuget_search`, `nuget_install`, `nuget_update`, `nuget_uninstall` are all live and live-tested (see `docs/TOOL_LIVE_TEST_REPORT.md` §8) — install/update/uninstall round-tripped end to end.
 
 Acceptance criteria:
 

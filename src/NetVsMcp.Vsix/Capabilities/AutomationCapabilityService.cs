@@ -764,9 +764,20 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
         OutputWindowPane? first = null;
         for (var index = 1; index <= panes.Count; index++)
         {
-            var pane = panes.Item(index);
+            OutputWindowPane pane;
+            string currentPaneName;
+            try
+            {
+                pane = panes.Item(index);
+                currentPaneName = pane.Name;
+            }
+            catch (COMException)
+            {
+                // Some panes (e.g. ones never activated) can throw when queried; skip them.
+                continue;
+            }
+
             first ??= pane;
-            var currentPaneName = pane.Name;
             var matchesRequestedPane = !string.IsNullOrWhiteSpace(paneName) &&
                 currentPaneName.IndexOf(paneName, StringComparison.OrdinalIgnoreCase) >= 0;
             var matchesFallbackPane = false;
@@ -791,13 +802,21 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
     private static string ReadPaneText(OutputWindowPane pane)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
-        if (pane.TextDocument is not TextDocument textDocument)
+        try
         {
+            if (pane.TextDocument is not TextDocument textDocument)
+            {
+                return string.Empty;
+            }
+
+            var editPoint = textDocument.StartPoint.CreateEditPoint();
+            return editPoint.GetText(textDocument.EndPoint);
+        }
+        catch (COMException)
+        {
+            // The pane's text document may not be available (e.g. pane never activated).
             return string.Empty;
         }
-
-        var editPoint = textDocument.StartPoint.CreateEditPoint();
-        return editPoint.GetText(textDocument.EndPoint);
     }
 
     private static void AddTargetWindows(string target, ICollection<TargetWindow> windows)

@@ -332,18 +332,14 @@ internal sealed class BreakpointMetadata
     {
         ThreadHelper.ThrowIfNotOnUIThread();
 
-        if (!string.IsNullOrWhiteSpace(ActionMessage))
+        // EnvDTE80.Breakpoint2.Message + BreakWhenHit map directly to VS's native
+        // "Print a Message" tracepoint (Message text, BreakWhenHit=false means "and continue").
+        if (!string.IsNullOrWhiteSpace(ActionMessage) && breakpoint is EnvDTE80.Breakpoint2 breakpoint2)
         {
-            TrySetProperty(breakpoint, "Message", ActionMessage);
+            breakpoint2.Message = ActionMessage;
+            breakpoint2.BreakWhenHit = !ContinueAfterAction;
         }
 
-        if (!string.IsNullOrWhiteSpace(Action))
-        {
-            TrySetProperty(breakpoint, "Action", Action);
-        }
-
-        TrySetProperty(breakpoint, "ContinueExecution", ContinueAfterAction);
-        TrySetProperty(breakpoint, "ContinueAfterAction", ContinueAfterAction);
         TrySetProperty(breakpoint, "Tag", TagPrefix + JsonSerializer.Serialize(this));
     }
 

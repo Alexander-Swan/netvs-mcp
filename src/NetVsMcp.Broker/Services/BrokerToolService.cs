@@ -2087,9 +2087,19 @@ public sealed partial class BrokerToolService
             cancellationToken);
     }
 
+    private const string BreakpointActionMetadataWarning =
+        "'dependsOnBreakpointName' is stored as informational metadata only. Visual Studio's EnvDTE automation API " +
+        "does not expose breakpoint dependencies, so this breakpoint will not actually wait for another breakpoint " +
+        "to be hit first. 'actionMessage' + 'continueAfterAction' are real: when this breakpoint is hit, the broker's " +
+        "VSIX extension logs the (expression-interpolated, e.g. \"value={x}\") message to the Debug output pane and, " +
+        "if requested, resumes execution automatically instead of breaking.";
+
+    private static bool HasUnsupportedBreakpointActionMetadata(BreakpointSetRequest request) =>
+        !string.IsNullOrWhiteSpace(request.DependsOnBreakpointName);
+
     [McpServerTool(Name = "breakpoint_set")]
     [Description("Sets a breakpoint in a routed Visual Studio session.")]
-    public Task<ToolResponse<BreakpointInfo>> BreakpointSet(
+    public async Task<ToolResponse<BreakpointInfo>> BreakpointSet(
         string documentPath,
         int line,
         int column = 1,
@@ -2108,22 +2118,22 @@ public sealed partial class BrokerToolService
     {
         if (string.IsNullOrWhiteSpace(documentPath))
         {
-            return Task.FromResult(ToolResponse<BreakpointInfo>.Fail("Document path is required."));
+            return ToolResponse<BreakpointInfo>.Fail("Document path is required.");
         }
 
         if (line < 1)
         {
-            return Task.FromResult(ToolResponse<BreakpointInfo>.Fail("Breakpoint line must be greater than zero."));
+            return ToolResponse<BreakpointInfo>.Fail("Breakpoint line must be greater than zero.");
         }
 
         if (column < 1)
         {
-            return Task.FromResult(ToolResponse<BreakpointInfo>.Fail("Breakpoint column must be greater than zero."));
+            return ToolResponse<BreakpointInfo>.Fail("Breakpoint column must be greater than zero.");
         }
 
         if (hitCount is < 0)
         {
-            return Task.FromResult(ToolResponse<BreakpointInfo>.Fail("Breakpoint hit count must be zero or greater."));
+            return ToolResponse<BreakpointInfo>.Fail("Breakpoint hit count must be zero or greater.");
         }
 
         var request = new BreakpointSetRequest
@@ -2141,12 +2151,19 @@ public sealed partial class BrokerToolService
             GroupName = NormalizeOptional(groupName)
         };
 
-        return DispatchValueAsync(
+        var response = await DispatchValueAsync(
             sessionId,
             solutionName,
             solutionPath,
             (connection, ct) => connection.BreakpointSetAsync(request, ct),
             cancellationToken);
+
+        if (response.Success && HasUnsupportedBreakpointActionMetadata(request))
+        {
+            return response with { Message = BreakpointActionMetadataWarning };
+        }
+
+        return response;
     }
 
     [McpServerTool(Name = "breakpoint_list")]
@@ -2624,6 +2641,11 @@ public sealed partial class BrokerToolService
         foreach (var file in EnumerateWorkspaceFiles(rootPath, filePattern))
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (IsProbablyBinaryFile(file))
+            {
+                continue;
+            }
+
             var lineNumber = 0;
             foreach (var line in File.ReadLines(file))
             {
@@ -2640,6 +2662,33 @@ public sealed partial class BrokerToolService
         }
 
         return new WorkspaceSearchResult(rootPath, matches, false);
+    }
+
+    private static bool IsProbablyBinaryFile(string file)
+    {
+        try
+        {
+            using var stream = File.OpenRead(file);
+            Span<byte> buffer = stackalloc byte[8000];
+            var read = stream.Read(buffer);
+            for (var i = 0; i < read; i++)
+            {
+                if (buffer[i] == 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        catch (IOException)
+        {
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return true;
+        }
     }
 
     private static IEnumerable<string> EnumerateWorkspaceFiles(string rootPath, string filePattern)

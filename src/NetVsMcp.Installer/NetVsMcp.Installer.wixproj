@@ -6,6 +6,10 @@
     <ProductVersion Condition="'$(ProductVersion)' == ''">$(VersionPrefix)</ProductVersion>
     <BrokerPublishDir Condition="'$(BrokerPublishDir)' == ''">$(MSBuildThisFileDirectory)..\..\artifacts\publish\NetVsMcp.Broker\</BrokerPublishDir>
     <DefineConstants>ProductVersion=$(ProductVersion);BrokerPublishDir=$(BrokerPublishDir)</DefineConstants>
+    <!-- ICE38/ICE91/ICE64 flag legacy per-user-profile MSI conventions (HKCU-keypath self-repair,
+         roaming-profile RemoveFile tracking) that don't apply to this non-roaming, non-advertised
+         tray app, so they're suppressed rather than worked around. -->
+    <SuppressIces>ICE38;ICE91;ICE64</SuppressIces>
   </PropertyGroup>
 
   <ItemGroup>

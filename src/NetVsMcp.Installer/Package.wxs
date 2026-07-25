@@ -16,8 +16,8 @@
       <ComponentRef Id="LicenseComponent" />
     </Feature>
 
-    <StandardDirectory Id="ProgramFilesFolder">
-      <Directory Id="ProgramFilesNetVsMcpFolder" Name="NetVsMcp">
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="LocalAppDataNetVsMcpFolder" Name="NetVsMcp">
         <Directory Id="INSTALLFOLDER" Name="Broker" />
       </Directory>
     </StandardDirectory>
