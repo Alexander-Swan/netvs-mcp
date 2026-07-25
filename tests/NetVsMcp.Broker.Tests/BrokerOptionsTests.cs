@@ -9,7 +9,7 @@ public sealed class BrokerOptionsTests
     {
         var options = BrokerOptions.FromEnvironmentAndArgs([]);
 
-        Assert.Equal("http://127.0.0.1:5050/mcp", options.McpEndpoint);
+        Assert.Equal($"http://127.0.0.1:{BrokerOptions.DefaultPort}/mcp", options.McpEndpoint);
         Assert.Equal($@"\\.\pipe\{BrokerOptions.DefaultPipeName}", options.PipeName);
     }
 

@@ -14,7 +14,7 @@ public sealed record BrokerOptions(
     BrokerCapabilityProfile CapabilityProfile = BrokerCapabilityProfile.Admin)
 {
     public static BrokerOptions LocalDefault { get; } = new(
-        "http://127.0.0.1:5050/mcp",
+        $"http://127.0.0.1:{DefaultPort}/mcp",
         $@"\\.\pipe\{DefaultPipeName}",
         DefaultLogsDirectory);
 
@@ -38,7 +38,17 @@ public sealed record BrokerOptions(
         return options;
     }
 
+    // Debug builds use a different port/pipe name than Release builds so a developer can run a
+    // locally-built Debug broker side by side with a Release broker installed via the MSI.
+#if DEBUG
+    public static int DefaultPort => 5051;
+
+    public static string DefaultPipeName => "netvs-mcp-dev-" + SanitizeUserKey(CurrentUserKey);
+#else
+    public static int DefaultPort => 5050;
+
     public static string DefaultPipeName => "netvs-mcp-" + SanitizeUserKey(CurrentUserKey);
+#endif
 
     private static string CurrentUserKey
     {
