@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          [xml]$props = Get-Content Directory.Build.props
+          $prefix = $props.Project.PropertyGroup.VersionPrefix
+          $suffix = $props.Project.PropertyGroup.VersionSuffix
+          $full = if ($suffix) { "$prefix-$suffix" } else { $prefix }
+          "prefix=$prefix" >> $env:GITHUB_OUTPUT
+          "suffix=$suffix" >> $env:GITHUB_OUTPUT
+          "full=$full" >> $env:GITHUB_OUTPUT
+          "tag=v$full" >> $env:GITHUB_OUTPUT
+
+      - name: Run tests
+        run: dotnet test tests/NetVsMcp.Broker.Tests/NetVsMcp.Broker.Tests.csproj -c Release
+
+      - name: Build broker MSI
+        run: dotnet build src/NetVsMcp.Installer/NetVsMcp.Installer.wixproj -c Release
+
+      - name: Patch VSIX manifest version
+        shell: pwsh
+        run: |
+          $path = "src/NetVsMcp.Vsix/source.extension.vsixmanifest"
+          $prefix = "${{ steps.version.outputs.prefix }}"
+          $xml = Get-Content $path -Raw
+          $xml = $xml -replace '(<Identity[^>]*Version=")[^"]*(")', "`$1$prefix`$2"
+          Set-Content $path $xml -NoNewline
+
+      - name: Build VSIX
+        run: dotnet build src/NetVsMcp.Vsix/NetVsMcp.Vsix.csproj -c Release
+
+      - name: Collect release assets
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+          Copy-Item "src/NetVsMcp.Installer/bin/Release/NetVsMcp.Broker.msi" "release-assets/NetVsMcp.Broker-${{ steps.version.outputs.full }}.msi"
+          $vsix = Get-ChildItem -Recurse -Filter "NetVsMcp.Vsix.vsix" -Path "src/NetVsMcp.Vsix/bin/Release" | Select-Object -First 1
+          Copy-Item $vsix.FullName "release-assets/NetVsMcp.Vsix-${{ steps.version.outputs.full }}.vsix"
+
+      - name: Revert manifest patch
+        run: git checkout -- src/NetVsMcp.Vsix/source.extension.vsixmanifest
+
+      - name: Create tag and GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag ${{ steps.version.outputs.tag }}
+          git push origin ${{ steps.version.outputs.tag }}
+          gh release create ${{ steps.version.outputs.tag }} release-assets/* --title "NetVsMcp ${{ steps.version.outputs.full }}" --generate-notes
+
+      - name: Bump version for next dev cycle
+        shell: pwsh
+        run: |
+          $suffix = "${{ steps.version.outputs.suffix }}"
+          if ($suffix -match '^(.*)\.(\d+)$') {
+            $next = "$($Matches[1]).$([int]$Matches[2] + 1)"
+          } elseif ($suffix) {
+            $next = "$suffix.2"
+          } else {
+            $next = $suffix
+          }
+          $path = "Directory.Build.props"
+          $content = Get-Content $path -Raw
+          $content = $content -replace '<VersionSuffix>[^<]*</VersionSuffix>', "<VersionSuffix>$next</VersionSuffix>"
+          Set-Content $path $content -NoNewline
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Directory.Build.props
+          git commit -m "chore: bump version after releasing ${{ steps.version.outputs.full }}"
+          git push origin HEAD:master

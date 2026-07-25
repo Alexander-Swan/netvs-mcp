@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputName>NetVsMcp.Broker</OutputName>
     <OutputType>Package</OutputType>
-    <ProductVersion Condition="'$(ProductVersion)' == ''">0.1.0</ProductVersion>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">$(VersionPrefix)</ProductVersion>
     <BrokerPublishDir Condition="'$(BrokerPublishDir)' == ''">$(MSBuildThisFileDirectory)..\..\artifacts\publish\NetVsMcp.Broker\</BrokerPublishDir>
     <DefineConstants>ProductVersion=$(ProductVersion);BrokerPublishDir=$(BrokerPublishDir)</DefineConstants>
   </PropertyGroup>
