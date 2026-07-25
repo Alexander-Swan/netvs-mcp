@@ -640,7 +640,7 @@ Recommended next workstreams:
 1. Complete local token authentication for HTTP MCP and VSIX registration.
 2. Improve session selection with process id and workspace/root-path routing. Completed at broker level in `SessionRegistry`.
 3. Add optional session manifest files under `%LOCALAPPDATA%\NetVsMcp\Sessions`. Completed at broker level through `SessionManifestService`.
-4. Add capability profiles: `read-only`, `edit-preview`, `edit-direct`, `debug`, and `admin`. Completed at broker tool-policy level.
+4. Add capability profiles: `read-only`, `edit-preview`, `edit-direct`, `debug`, and `admin`. Completed at broker tool-policy level, with status window UI and `%LOCALAPPDATA%\NetVsMcp\capability-profile.json` persistence.
 5. Add agent-friendly snapshot tools: `vs_context_snapshot`, `solution_overview`, `debug_snapshot`, `symbol_context`, `prepare_safe_edit`, `build_and_get_errors`, and `open_relevant_files`.
 6. Validate and document runtime demos inside Visual Studio.
 
@@ -738,7 +738,7 @@ Recommended next workstreams:
 Highest-value next tasks:
 
 1. Complete local token authentication and update broker UI/config output.
-2. Add UI/config persistence for broker capability profiles.
-3. Add agent-friendly snapshot tools.
-4. Start runtime validation with the broker plus a Visual Studio experimental instance.
-5. Document runtime demos once Visual Studio validation is complete.
+2. Start runtime validation with the broker plus a Visual Studio experimental instance.
+3. Document runtime demos once Visual Studio validation is complete.
+
+Note: the full MCP tool backlog from `docs/PLAN.md`'s "Tool Coverage Plan" (NuGet, advanced debug, UI automation, web debugging, build/config, output/diagnostics, document/search, solution/project mutation, and snapshot tools) is already implemented in `BrokerToolService*.cs`; that section of the plan needs a rewrite to stop describing shipped tools as missing. Capability profile UI/config persistence is also now complete (status window dropdown + `capability-profile.json`).

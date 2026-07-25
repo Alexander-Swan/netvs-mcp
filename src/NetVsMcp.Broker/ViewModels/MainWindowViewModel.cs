@@ -90,6 +90,24 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public string LogsFolder => _runtime.Options.EffectiveLogsDirectory;
 
+    public IReadOnlyList<BrokerCapabilityProfile> AvailableCapabilityProfiles { get; } =
+        Enum.GetValues<BrokerCapabilityProfile>();
+
+    public BrokerCapabilityProfile CapabilityProfile
+    {
+        get => _runtime.CapabilityProfile;
+        set
+        {
+            if (_runtime.CapabilityProfile == value)
+            {
+                return;
+            }
+
+            _runtime.CapabilityProfile = value;
+            OnPropertyChanged();
+        }
+    }
+
     public void Refresh()
     {
         var dispatcher = System.Windows.Application.Current?.Dispatcher;

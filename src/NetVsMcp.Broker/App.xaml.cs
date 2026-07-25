@@ -17,7 +17,10 @@ public partial class App : System.Windows.Application
 
         var sessions = new SessionRegistry();
         _autostart = new AutostartService();
-        _runtime = new BrokerRuntime(BrokerOptions.FromEnvironmentAndArgs(e.Args), sessions);
+        var options = BrokerOptions.FromEnvironmentAndArgs(e.Args);
+        var profileStore = new CapabilityProfileStore(options.EffectiveCapabilityProfileFilePath);
+        options = options with { CapabilityProfile = profileStore.Load(options.CapabilityProfile) };
+        _runtime = new BrokerRuntime(options, sessions);
         await _runtime.StartAsync(CancellationToken.None);
 
         var viewModel = new MainWindowViewModel(_runtime, _autostart);

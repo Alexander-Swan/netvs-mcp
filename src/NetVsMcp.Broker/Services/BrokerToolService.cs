@@ -221,7 +221,7 @@ public sealed partial class BrokerToolService
     {
         var capabilities = new BrokerCapabilities(
             _runtime.Options.McpEndpoint,
-            _runtime.Options.CapabilityProfile,
+            _runtime.CapabilityProfile,
             ToolDescriptors.Select(WithAccessMetadata).ToArray(),
             VisualStudioCapabilities);
 
@@ -240,7 +240,7 @@ public sealed partial class BrokerToolService
             .ToArray();
         var capabilities = new BrokerCapabilities(
             _runtime.Options.McpEndpoint,
-            _runtime.Options.CapabilityProfile,
+            _runtime.CapabilityProfile,
             tools,
             VisualStudioCapabilities);
 
@@ -3020,18 +3020,18 @@ public sealed partial class BrokerToolService
     {
         var mcpToolName = ToMcpToolName(toolName);
         var category = CategorizeTool(mcpToolName);
-        if (BrokerToolAccessPolicy.IsAllowed(_runtime.Options.CapabilityProfile, category))
+        if (BrokerToolAccessPolicy.IsAllowed(_runtime.CapabilityProfile, category))
         {
             return null;
         }
 
-        var message = $"Tool '{mcpToolName}' requires profile '{BrokerToolAccessPolicy.MinimumProfile(category)}' or higher; active profile is '{_runtime.Options.CapabilityProfile}'.";
+        var message = $"Tool '{mcpToolName}' requires profile '{BrokerToolAccessPolicy.MinimumProfile(category)}' or higher; active profile is '{_runtime.CapabilityProfile}'.";
         AuditToolResult(toolName, target, false, null, message, "CapabilityProfileDenied");
         return new ToolAccessDenied(message, new Dictionary<string, string>
         {
             ["error_code"] = ToolErrorCodes.InvalidRequest,
             ["failureReason"] = "CapabilityProfileDenied",
-            ["activeProfile"] = _runtime.Options.CapabilityProfile.ToString(),
+            ["activeProfile"] = _runtime.CapabilityProfile.ToString(),
             ["requiredProfile"] = BrokerToolAccessPolicy.MinimumProfile(category).ToString(),
             ["category"] = category.ToString()
         });

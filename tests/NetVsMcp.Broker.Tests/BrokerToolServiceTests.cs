@@ -20,6 +20,26 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task CapabilityProfile_ChangeIsPersistedAndReflectedImmediately()
+    {
+        var runtime = CreateRuntime(BrokerCapabilityProfile.Admin);
+
+        runtime.CapabilityProfile = BrokerCapabilityProfile.ReadOnly;
+
+        Assert.Equal(BrokerCapabilityProfile.ReadOnly, runtime.CapabilityProfile);
+        Assert.Equal(BrokerCapabilityProfile.ReadOnly, runtime.GetStatus().CapabilityProfile);
+        Assert.Equal(BrokerCapabilityProfile.ReadOnly, runtime.Tools.VsGetCapabilities().Value!.ActiveProfile);
+
+        var deniedResponse = await runtime.Tools.ExecuteCommand("File.NewFile");
+        Assert.False(deniedResponse.Success);
+        Assert.Equal("CapabilityProfileDenied", deniedResponse.Metadata!["failureReason"]);
+
+        var persisted = new CapabilityProfileStore(runtime.Options.EffectiveCapabilityProfileFilePath)
+            .Load(BrokerCapabilityProfile.Admin);
+        Assert.Equal(BrokerCapabilityProfile.ReadOnly, persisted);
+    }
+
+    [Fact]
     public void VsGetCapabilities_ReturnsInitialBrokerTools()
     {
         var runtime = CreateRuntime();
@@ -2065,6 +2085,7 @@ public sealed class BrokerToolServiceTests
         {
             LogsDirectory = Path.Combine(root, "Logs"),
             SessionsDirectory = Path.Combine(root, "Sessions"),
+            CapabilityProfileFilePath = Path.Combine(root, "capability-profile.json"),
             CapabilityProfile = capabilityProfile
         };
 

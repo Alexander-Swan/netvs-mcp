@@ -10,6 +10,7 @@ public sealed record BrokerOptions(
     string? LogsDirectory = null,
     string? TokenFilePath = null,
     string? SessionsDirectory = null,
+    string? CapabilityProfileFilePath = null,
     BrokerCapabilityProfile CapabilityProfile = BrokerCapabilityProfile.Admin)
 {
     public static BrokerOptions LocalDefault { get; } = new(
@@ -27,6 +28,7 @@ public sealed record BrokerOptions(
         options = ApplyOption(options, "logs-dir", Environment.GetEnvironmentVariable("NETVS_MCP_LOGS_DIR"));
         options = ApplyOption(options, "token-file", Environment.GetEnvironmentVariable("NETVS_MCP_TOKEN_FILE"));
         options = ApplyOption(options, "sessions-dir", Environment.GetEnvironmentVariable("NETVS_MCP_SESSIONS_DIR"));
+        options = ApplyOption(options, "profile-file", Environment.GetEnvironmentVariable("NETVS_MCP_PROFILE_FILE"));
 
         foreach (var (name, value) in ParseArgs(args ?? []))
         {
@@ -71,6 +73,14 @@ public sealed record BrokerOptions(
     public string EffectiveSessionsDirectory =>
         string.IsNullOrWhiteSpace(SessionsDirectory) ? DefaultSessionsDirectory : SessionsDirectory;
 
+    public static string DefaultCapabilityProfileFilePath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "NetVsMcp",
+        "capability-profile.json");
+
+    public string EffectiveCapabilityProfileFilePath =>
+        string.IsNullOrWhiteSpace(CapabilityProfileFilePath) ? DefaultCapabilityProfileFilePath : CapabilityProfileFilePath;
+
     private static BrokerOptions ApplyOption(BrokerOptions options, string name, string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -86,6 +96,7 @@ public sealed record BrokerOptions(
             "logs-dir" => options with { LogsDirectory = value },
             "token-file" => options with { TokenFilePath = value },
             "sessions-dir" => options with { SessionsDirectory = value },
+            "profile-file" => options with { CapabilityProfileFilePath = value },
             _ => options
         };
     }
