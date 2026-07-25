@@ -4,16 +4,12 @@
 
 ## Status Window
 
-The status window shows:
+The status window is split into two tabs:
 
-- broker running state and start time
-- local MCP endpoint
-- VSIX named pipe
-- active capability profile, editable through a dropdown that saves immediately
-- editable startup settings (port, logs folder, sessions folder) that save immediately but require a broker restart to take effect
-- ready-to-copy MCP client JSON snippet
-- registered Visual Studio sessions with solution name, solution path, session id, health, last seen time, debugger mode, active document, and advertised capabilities
-- basic actions for copying configuration, refreshing status, toggling start at login, and opening the logs folder
+- **Status**: broker running state and start time, local MCP endpoint, VSIX named pipe, start-at-login state, logs folder, a ready-to-copy MCP client JSON snippet, registered Visual Studio sessions (solution name, solution path, session id, health, last seen time, debugger mode, active document, advertised capabilities), and basic actions text.
+- **Settings**: active capability profile, editable through a dropdown that saves immediately, and editable startup settings (port, logs folder, sessions folder) that save immediately but require a broker restart to take effect.
+
+The header (running state, MCP config/refresh buttons) and footer (copy endpoint/pipe, toggle autostart, open logs) stay visible above and below the tabs regardless of which tab is selected.
 
 ## Persisted Settings
 
