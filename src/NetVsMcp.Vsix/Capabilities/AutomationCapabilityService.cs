@@ -198,7 +198,7 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
         var match = (await FindElementsAsync(request, firstOnly: true, cancellationToken)).FirstOrDefault();
         return match.Element is null
             ? Failure(request, "No matching UI element was found.", ("backend", "uia"))
-            : Success(request, SerializeElement(match), ("backend", "uia"), ("elementId", match.Id));
+            : Success(request, SerializeElement(match), ("backend", "uia"), ("elementId", ElementId(match)));
     }
 
     public Task<AutomationResult> UiClickAsync(AutomationRequest request, CancellationToken cancellationToken) =>
@@ -225,7 +225,7 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
         MouseEvent(MouseEventFlags.LeftDown);
         MoveMouse(toX, toY);
         MouseEvent(MouseEventFlags.LeftUp);
-        return Success(request, null, ("backend", "uia-input"), ("elementId", match.Id));
+        return Success(request, null, ("backend", "uia-input"), ("elementId", ElementId(match)));
     }
 
     public async Task<AutomationResult> UiSetValueAsync(AutomationRequest request, CancellationToken cancellationToken)
@@ -240,14 +240,14 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
             valuePatternObject is ValuePattern valuePattern)
         {
             valuePattern.SetValue(request.Text ?? string.Empty);
-            return Success(request, null, ("backend", "uia-value-pattern"), ("elementId", match.Id));
+            return Success(request, null, ("backend", "uia-value-pattern"), ("elementId", ElementId(match)));
         }
 
         if (TrySetForegroundWindow(WindowFromElement(match.Element)))
         {
             SendKeys.SendWait("^a");
             SendKeys.SendWait(request.Text ?? string.Empty);
-            return Success(request, null, ("backend", "sendkeys-fallback"), ("elementId", match.Id));
+            return Success(request, null, ("backend", "sendkeys-fallback"), ("elementId", ElementId(match)));
         }
 
         return Failure(request, "Element does not expose ValuePattern and could not be activated.", ("backend", "uia"));
@@ -265,7 +265,7 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
             invokePatternObject is InvokePattern invokePattern)
         {
             invokePattern.Invoke();
-            return Success(request, null, ("backend", "uia-invoke-pattern"), ("elementId", match.Id));
+            return Success(request, null, ("backend", "uia-invoke-pattern"), ("elementId", ElementId(match)));
         }
 
         return await ClickElementAsync(request, MouseClickKind.Left, 1, cancellationToken);
@@ -293,7 +293,7 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
             var match = (await FindElementsAsync(request, firstOnly: true, cancellationToken)).FirstOrDefault();
             if (match.Element is not null)
             {
-                return Success(request, SerializeElement(match), ("backend", "uia"), ("elementId", match.Id));
+                return Success(request, SerializeElement(match), ("backend", "uia"), ("elementId", ElementId(match)));
             }
 
             await Task.Delay(100, cancellationToken);
@@ -709,7 +709,7 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
             }
         }
 
-        return Success(request, null, ("backend", "uia-input"), ("elementId", match.Id));
+        return Success(request, null, ("backend", "uia-input"), ("elementId", ElementId(match)));
     }
 
     private AutomationResult CaptureRectangle(AutomationRequest request, Rectangle rectangle, params (string Key, string Value)[] extraMetadata)
@@ -953,6 +953,9 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
 
     private static string SerializeElement(ElementMatch match) =>
         $"id={match.Id}; {FormatElement(match.Element!)}";
+
+    private static string ElementId(ElementMatch match) =>
+        match.Id ?? throw new InvalidOperationException("Matched UI element did not have a registered element ID.");
 
     private static string FormatElement(AutomationElement element)
     {
