@@ -58,9 +58,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             {
                 _runningState = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(IsRunning));
             }
         }
     }
+
+    public bool IsRunning => _runningState == "Running";
 
     public string AutostartStatus
     {
@@ -207,7 +210,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             Sessions.Add(SessionStatusViewModel.FromStatus(session));
         }
+
+        OnPropertyChanged(nameof(HasSessions));
+        OnPropertyChanged(nameof(NoSessions));
     }
+
+    public bool HasSessions => Sessions.Count > 0;
+
+    public bool NoSessions => Sessions.Count == 0;
 
     public void CopyMcpConfig() => System.Windows.Clipboard.SetText(McpRegistrationJson);
 
