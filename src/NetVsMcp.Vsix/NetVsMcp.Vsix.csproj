@@ -10,7 +10,7 @@
     <RootNamespace>NetVsMcp.Vsix</RootNamespace>
     <AssemblyName>NetVsMcp.Vsix</AssemblyName>
     <!-- Keep in sync with source.extension.vsixmanifest Identity/@Version. -->
-    <Version>0.1.2</Version>
+    <Version>0.1.3</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,7 +25,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Assets\broker.ico" />
+    <Content Include="Overview.md">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="Assets\broker.ico">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

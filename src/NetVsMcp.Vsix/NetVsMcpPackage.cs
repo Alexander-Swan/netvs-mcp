@@ -43,8 +43,6 @@ public sealed class NetVsMcpPackage : AsyncPackage
             new NamedPipeBrokerConnectionFactory(BrokerPipeName.CurrentUserDefault(), capabilityRpcTarget));
 
         await lifecycle.StartAsync(cancellationToken);
-
-        FirstRunAboutService.ShowIfNeeded(this);
     }
 
     protected override void Dispose(bool disposing)
