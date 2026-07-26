@@ -46,8 +46,6 @@ internal interface IDebuggerCapabilityService
     Task<ExceptionSettingsResult> GetExceptionSettingsAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken);
     Task<ExceptionSettingsResult> SetExceptionSettingsAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken);
     Task<MemoryReadResult> ReadMemoryAsync(MemoryReadRequest request, CancellationToken cancellationToken);
-    Task<RegisterListResult> ListRegistersAsync(CancellationToken cancellationToken);
-    Task<RegisterGetResult> GetRegisterAsync(RegisterGetRequest request, CancellationToken cancellationToken);
     Task<ParallelStacksResult> GetParallelStacksAsync(CancellationToken cancellationToken);
     Task<ParallelWatchResult> GetParallelWatchAsync(CancellationToken cancellationToken);
     Task<ParallelTasksResult> ListParallelTasksAsync(CancellationToken cancellationToken);
@@ -762,25 +760,6 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
             "Debugger memory reads require lower-level Visual Studio debug engine APIs; EnvDTE does not expose a stable memory-read surface.",
             request.AddressExpression,
             request.ByteCount,
-            null));
-    }
-
-    public Task<RegisterListResult> ListRegistersAsync(CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(new RegisterListResult(
-            false,
-            "Debugger register enumeration requires lower-level Visual Studio debug engine APIs; EnvDTE does not expose a stable register surface.",
-            Array.Empty<RegisterInfo>()));
-    }
-
-    public Task<RegisterGetResult> GetRegisterAsync(RegisterGetRequest request, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(new RegisterGetResult(
-            false,
-            false,
-            "Debugger register lookup requires lower-level Visual Studio debug engine APIs; EnvDTE does not expose a stable register surface.",
             null));
     }
 

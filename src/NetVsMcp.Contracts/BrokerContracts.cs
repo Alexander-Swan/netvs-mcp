@@ -913,27 +913,6 @@ public sealed record MemoryReadResult(
     int ByteCount,
     string? Hex);
 
-public sealed record RegisterInfo(
-    string Name,
-    string? Value,
-    string? Type);
-
-public sealed class RegisterGetRequest
-{
-    public string Name { get; set; } = string.Empty;
-}
-
-public sealed record RegisterListResult(
-    bool Supported,
-    string? Message,
-    IReadOnlyCollection<RegisterInfo> Registers);
-
-public sealed record RegisterGetResult(
-    bool Supported,
-    bool Success,
-    string? Message,
-    RegisterInfo? Register);
-
 public sealed record ParallelStackFrameInfo(
     int ThreadId,
     string? ThreadName,
@@ -1632,12 +1611,6 @@ public interface IVisualStudioSessionRpc
 
     Task<MemoryReadResult> MemoryReadAsync(
         MemoryReadRequest request,
-        CancellationToken cancellationToken);
-
-    Task<RegisterListResult> RegisterListAsync(CancellationToken cancellationToken);
-
-    Task<RegisterGetResult> RegisterGetAsync(
-        RegisterGetRequest request,
         CancellationToken cancellationToken);
 
     Task<ParallelStacksResult> ParallelStacksAsync(CancellationToken cancellationToken);

@@ -256,24 +256,6 @@ public sealed partial class BrokerToolService
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.MemoryReadAsync(request, ct), cancellationToken);
     }
 
-    [McpServerTool(Name = "register_list")]
-    [Description("Lists debugger registers when the active Visual Studio debug engine exposes them.")]
-    public Task<ToolResponse<RegisterListResult>> RegisterList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.RegisterListAsync(ct), cancellationToken);
-
-    [McpServerTool(Name = "register_get")]
-    [Description("Returns one debugger register when the active Visual Studio debug engine exposes it.")]
-    public Task<ToolResponse<RegisterGetResult>> RegisterGet(string name, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            return Task.FromResult(FailWithCode<RegisterGetResult>("Register name is required.", ToolErrorCodes.InvalidRequest));
-        }
-
-        var request = new RegisterGetRequest { Name = name };
-        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.RegisterGetAsync(request, ct), cancellationToken);
-    }
-
     [McpServerTool(Name = "parallel_stacks")]
     [Description("Returns parallel stack information when the active Visual Studio debug engine exposes it.")]
     public Task<ToolResponse<ParallelStacksResult>> ParallelStacks(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>

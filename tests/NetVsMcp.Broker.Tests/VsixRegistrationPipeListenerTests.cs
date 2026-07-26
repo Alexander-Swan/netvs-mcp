@@ -372,10 +372,6 @@ public sealed class VsixRegistrationPipeListenerTests
 
         public Task<MemoryReadResult> MemoryReadAsync(MemoryReadRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<RegisterListResult> RegisterListAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<RegisterGetResult> RegisterGetAsync(RegisterGetRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-
         public Task<ParallelStacksResult> ParallelStacksAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<ParallelWatchResult> ParallelWatchAsync(CancellationToken cancellationToken) => throw new NotSupportedException();

@@ -926,22 +926,16 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
-    public async Task RegisterAndParallelTools_RouteToConnectedSession()
+    public async Task ParallelTools_RouteToConnectedSession()
     {
         var runtime = CreateRuntime();
         runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
         runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
 
-        var registers = await runtime.Tools.RegisterList(sessionId: "vs-1");
-        var register = await runtime.Tools.RegisterGet("rip", sessionId: "vs-1");
         var stacks = await runtime.Tools.ParallelStacks(sessionId: "vs-1");
         var watch = await runtime.Tools.ParallelWatch(sessionId: "vs-1");
         var tasks = await runtime.Tools.ParallelTasksList(sessionId: "vs-1");
 
-        Assert.True(registers.Success);
-        Assert.Equal("rip", Assert.Single(registers.Value!.Registers).Name);
-        Assert.True(register.Success);
-        Assert.Equal("rip", register.Value!.Register!.Name);
         Assert.True(stacks.Success);
         Assert.Single(stacks.Value!.Frames);
         Assert.True(watch.Success);
@@ -3034,15 +3028,6 @@ public sealed class BrokerToolServiceTests
             LastMemoryReadRequest = request;
             return Task.FromResult(new MemoryReadResult(false, false, "Memory reads require native debugger APIs.", request.AddressExpression, request.ByteCount, null));
         }
-
-        public Task<RegisterListResult> RegisterListAsync(CancellationToken cancellationToken)
-        {
-            IReadOnlyCollection<RegisterInfo> registers = [new("rip", "0x00000001", "pointer")];
-            return Task.FromResult(new RegisterListResult(true, null, registers));
-        }
-
-        public Task<RegisterGetResult> RegisterGetAsync(RegisterGetRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(new RegisterGetResult(true, true, null, new RegisterInfo(request.Name, "0x00000001", "pointer")));
 
         public Task<ParallelStacksResult> ParallelStacksAsync(CancellationToken cancellationToken)
         {

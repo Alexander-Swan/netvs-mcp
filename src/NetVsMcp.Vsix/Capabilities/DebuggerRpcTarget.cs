@@ -182,16 +182,6 @@ internal sealed class DebuggerRpcTarget
         return debugger.ReadMemoryAsync(request, cancellationToken);
     }
 
-    public Task<RegisterListResult> RegisterListAsync(CancellationToken cancellationToken)
-    {
-        return debugger.ListRegistersAsync(cancellationToken);
-    }
-
-    public Task<RegisterGetResult> RegisterGetAsync(RegisterGetRequest request, CancellationToken cancellationToken)
-    {
-        return debugger.GetRegisterAsync(request, cancellationToken);
-    }
-
     public Task<ParallelStacksResult> ParallelStacksAsync(CancellationToken cancellationToken)
     {
         return debugger.GetParallelStacksAsync(cancellationToken);

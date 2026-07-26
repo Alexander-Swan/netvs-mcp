@@ -137,8 +137,6 @@ public sealed partial class BrokerToolService
         new("exception_settings_get", "Returns debugger exception settings when supported by the VSIX debugger service.", true),
         new("exception_settings_set", "Sets debugger exception settings when supported by the VSIX debugger service.", true),
         new("memory_read", "Reads debugger memory when the active Visual Studio debug engine exposes it.", true),
-        new("register_list", "Lists debugger registers when the active Visual Studio debug engine exposes them.", true),
-        new("register_get", "Returns one debugger register when the active Visual Studio debug engine exposes it.", true),
         new("parallel_stacks", "Returns parallel stack information when the active Visual Studio debug engine exposes it.", true),
         new("parallel_watch", "Returns parallel watch expressions when the active Visual Studio debug engine exposes them.", true),
         new("parallel_tasks_list", "Lists parallel tasks when the active Visual Studio debug engine exposes them.", true),

@@ -782,55 +782,6 @@ internal sealed class MemoryReadResult
     public string? Hex { get; }
 }
 
-internal sealed class RegisterInfo
-{
-    public RegisterInfo(string name, string? value, string? type)
-    {
-        Name = name;
-        Value = value;
-        Type = type;
-    }
-
-    public string Name { get; }
-    public string? Value { get; }
-    public string? Type { get; }
-}
-
-internal sealed class RegisterGetRequest
-{
-    public string Name { get; set; } = string.Empty;
-}
-
-internal sealed class RegisterListResult
-{
-    public RegisterListResult(bool supported, string? message, IReadOnlyCollection<RegisterInfo> registers)
-    {
-        Supported = supported;
-        Message = message;
-        Registers = registers;
-    }
-
-    public bool Supported { get; }
-    public string? Message { get; }
-    public IReadOnlyCollection<RegisterInfo> Registers { get; }
-}
-
-internal sealed class RegisterGetResult
-{
-    public RegisterGetResult(bool supported, bool success, string? message, RegisterInfo? register)
-    {
-        Supported = supported;
-        Success = success;
-        Message = message;
-        Register = register;
-    }
-
-    public bool Supported { get; }
-    public bool Success { get; }
-    public string? Message { get; }
-    public RegisterInfo? Register { get; }
-}
-
 internal sealed class ParallelStackFrameInfo
 {
     public ParallelStackFrameInfo(int threadId, string? threadName, string? functionName, string? file, int line, int column)

@@ -310,12 +310,6 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<MemoryReadResult> MemoryReadAsync(MemoryReadRequest request, CancellationToken cancellationToken) =>
         debugger.MemoryReadAsync(request, cancellationToken);
 
-    public Task<RegisterListResult> RegisterListAsync(CancellationToken cancellationToken) =>
-        debugger.RegisterListAsync(cancellationToken);
-
-    public Task<RegisterGetResult> RegisterGetAsync(RegisterGetRequest request, CancellationToken cancellationToken) =>
-        debugger.RegisterGetAsync(request, cancellationToken);
-
     public Task<ParallelStacksResult> ParallelStacksAsync(CancellationToken cancellationToken) =>
         debugger.ParallelStacksAsync(cancellationToken);
 
