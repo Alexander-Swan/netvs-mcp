@@ -9,6 +9,8 @@
     <VsixDeployOnDebug>true</VsixDeployOnDebug>
     <RootNamespace>NetVsMcp.Vsix</RootNamespace>
     <AssemblyName>NetVsMcp.Vsix</AssemblyName>
+    <!-- Keep in sync with source.extension.vsixmanifest Identity/@Version. -->
+    <Version>0.1.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +22,10 @@
     <Reference Include="System.Windows.Forms" />
     <Reference Include="UIAutomationClient" />
     <Reference Include="UIAutomationTypes" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\broker.ico" />
   </ItemGroup>
 
   <ItemGroup>
