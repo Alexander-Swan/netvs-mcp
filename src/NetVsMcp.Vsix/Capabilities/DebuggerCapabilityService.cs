@@ -613,14 +613,37 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
             : new ModuleListResult(true, null, distinctModules);
     }
 
-    public Task<ImmediateExecuteResult> ExecuteImmediateAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken)
+    public async Task<ImmediateExecuteResult> ExecuteImmediateAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(new ImmediateExecuteResult(
-            false,
-            false,
-            "Immediate window execution is not wired yet; EnvDTE command routing needs runtime validation to avoid sending text to the wrong window.",
-            null));
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(request.Statement))
+        {
+            return new ImmediateExecuteResult(true, false, "Statement is required.", null);
+        }
+
+        var debugger = await GetDebuggerAsync();
+        if (debugger.CurrentMode == dbgDebugMode.dbgDesignMode)
+        {
+            return new ImmediateExecuteResult(true, false, "The debugger is not running; the Immediate window is only available while debugging.", null);
+        }
+
+        try
+        {
+            // The Immediate window itself routes statements through the same expression
+            // evaluator exposed by Debugger.GetExpression, so this reuses that API directly
+            // instead of driving the Immediate window's UI (which risks sending keystrokes to
+            // whichever window currently has focus).
+            var expression = debugger.GetExpression(request.Statement, UseAutoExpandRules: true, Timeout: 5000);
+            var output = expression.IsValidValue
+                ? (string.IsNullOrEmpty(expression.Type) ? expression.Value : $"{expression.Value} ({expression.Type})")
+                : expression.Value;
+            return new ImmediateExecuteResult(true, expression.IsValidValue, null, output);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
+        {
+            return new ImmediateExecuteResult(true, false, ex.Message, null);
+        }
     }
 
     public async Task<ExceptionSettingsResult> GetExceptionSettingsAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken)
