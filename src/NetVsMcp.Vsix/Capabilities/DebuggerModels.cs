@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using EnvDTE;
@@ -721,18 +722,38 @@ internal sealed class ExceptionSettingsRequest
     public bool? BreakOnThrown { get; set; }
 }
 
+internal sealed class ExceptionSettingInfo
+{
+    public ExceptionSettingInfo(string? groupName, string? name, bool breakWhenThrown, bool breakWhenUserUnhandled, bool userDefined)
+    {
+        GroupName = groupName;
+        Name = name;
+        BreakWhenThrown = breakWhenThrown;
+        BreakWhenUserUnhandled = breakWhenUserUnhandled;
+        UserDefined = userDefined;
+    }
+
+    public string? GroupName { get; }
+    public string? Name { get; }
+    public bool BreakWhenThrown { get; }
+    public bool BreakWhenUserUnhandled { get; }
+    public bool UserDefined { get; }
+}
+
 internal sealed class ExceptionSettingsResult
 {
-    public ExceptionSettingsResult(bool supported, bool success, string? message)
+    public ExceptionSettingsResult(bool supported, bool success, string? message, IReadOnlyCollection<ExceptionSettingInfo>? settings = null)
     {
         Supported = supported;
         Success = success;
         Message = message;
+        Settings = settings ?? Array.Empty<ExceptionSettingInfo>();
     }
 
     public bool Supported { get; }
     public bool Success { get; }
     public string? Message { get; }
+    public IReadOnlyCollection<ExceptionSettingInfo> Settings { get; }
 }
 
 internal sealed class MemoryReadRequest

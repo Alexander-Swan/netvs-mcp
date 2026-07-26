@@ -623,22 +623,111 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
             null));
     }
 
-    public Task<ExceptionSettingsResult> GetExceptionSettingsAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken)
+    public async Task<ExceptionSettingsResult> GetExceptionSettingsAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(new ExceptionSettingsResult(
-            false,
-            false,
-            "Exception settings are not exposed through this VSIX skeleton yet; use Visual Studio debugger exception settings APIs in a later slice."));
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var debugger = await GetDebuggerAsync();
+        if (debugger is not EnvDTE90.Debugger3 debugger3)
+        {
+            return new ExceptionSettingsResult(false, false, "Visual Studio debugger does not support exception settings (EnvDTE90.Debugger3 is unavailable).");
+        }
+
+        var filter = string.IsNullOrWhiteSpace(request.ExceptionName) ? null : request.ExceptionName!.Trim();
+        var settings = new List<ExceptionSettingInfo>();
+        try
+        {
+            foreach (EnvDTE90.ExceptionSettings group in debugger3.ExceptionGroups)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                foreach (EnvDTE90.ExceptionSetting setting in group)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (filter is not null && setting.Name.IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0)
+                    {
+                        continue;
+                    }
+
+                    settings.Add(new ExceptionSettingInfo(group.Name, setting.Name, setting.BreakWhenThrown, setting.BreakWhenUserUnhandled, setting.UserDefined));
+                }
+            }
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
+        {
+            return new ExceptionSettingsResult(false, false, ex.Message);
+        }
+
+        return new ExceptionSettingsResult(true, true, null, settings);
     }
 
-    public Task<ExceptionSettingsResult> SetExceptionSettingsAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken)
+    public async Task<ExceptionSettingsResult> SetExceptionSettingsAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(new ExceptionSettingsResult(
-            false,
-            false,
-            "Exception settings mutation is not exposed through this VSIX skeleton yet; use Visual Studio debugger exception settings APIs in a later slice."));
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(request.ExceptionName))
+        {
+            return new ExceptionSettingsResult(false, false, "Exception name is required.");
+        }
+
+        if (request.BreakOnThrown is not { } breakOnThrown)
+        {
+            return new ExceptionSettingsResult(false, false, "BreakOnThrown is required to change an exception setting.");
+        }
+
+        var debugger = await GetDebuggerAsync();
+        if (debugger is not EnvDTE90.Debugger3 debugger3)
+        {
+            return new ExceptionSettingsResult(false, false, "Visual Studio debugger does not support exception settings (EnvDTE90.Debugger3 is unavailable).");
+        }
+
+        var exceptionName = request.ExceptionName!.Trim();
+        try
+        {
+            foreach (EnvDTE90.ExceptionSettings group in debugger3.ExceptionGroups)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                foreach (EnvDTE90.ExceptionSetting setting in group)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!string.Equals(setting.Name, exceptionName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    group.SetBreakWhenThrown(breakOnThrown, setting);
+                    var updated = new ExceptionSettingInfo(group.Name, setting.Name, breakOnThrown, setting.BreakWhenUserUnhandled, setting.UserDefined);
+                    return new ExceptionSettingsResult(true, true, "Exception setting updated.", new[] { updated });
+                }
+            }
+
+            if (!breakOnThrown)
+            {
+                return new ExceptionSettingsResult(false, false, $"Exception '{exceptionName}' was not found among the debugger's exception settings.");
+            }
+
+            EnvDTE90.ExceptionSettings? clrGroup = null;
+            foreach (EnvDTE90.ExceptionSettings candidateGroup in debugger3.ExceptionGroups)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (string.Equals(candidateGroup.Name, "Common Language Runtime Exceptions", StringComparison.OrdinalIgnoreCase))
+                {
+                    clrGroup = candidateGroup;
+                    break;
+                }
+            }
+
+            if (clrGroup is null)
+            {
+                return new ExceptionSettingsResult(false, false, $"Exception '{exceptionName}' was not found and the Common Language Runtime Exceptions group is unavailable to add it.");
+            }
+
+            var newSetting = clrGroup.NewException(exceptionName, 0);
+            clrGroup.SetBreakWhenThrown(true, newSetting);
+            var created = new ExceptionSettingInfo(clrGroup.Name, newSetting.Name, true, newSetting.BreakWhenUserUnhandled, newSetting.UserDefined);
+            return new ExceptionSettingsResult(true, true, "Exception setting created.", new[] { created });
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
+        {
+            return new ExceptionSettingsResult(false, false, ex.Message);
+        }
     }
 
     public Task<MemoryReadResult> ReadMemoryAsync(MemoryReadRequest request, CancellationToken cancellationToken)

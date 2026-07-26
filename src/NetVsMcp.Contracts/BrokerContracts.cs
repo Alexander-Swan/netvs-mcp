@@ -880,10 +880,18 @@ public sealed class ExceptionSettingsRequest
     public bool? BreakOnThrown { get; set; }
 }
 
+public sealed record ExceptionSettingInfo(
+    string? GroupName,
+    string? Name,
+    bool BreakWhenThrown,
+    bool BreakWhenUserUnhandled,
+    bool UserDefined);
+
 public sealed record ExceptionSettingsResult(
     bool Supported,
     bool Success,
-    string? Message);
+    string? Message,
+    IReadOnlyCollection<ExceptionSettingInfo>? Settings = null);
 
 public sealed class MemoryReadRequest
 {
