@@ -118,6 +118,7 @@ jobs:
           Set-Content $path $content -NoNewline
 
       - name: Commit version bump
+        continue-on-error: true
         shell: pwsh
         run: |
           git config user.name "github-actions[bot]"
