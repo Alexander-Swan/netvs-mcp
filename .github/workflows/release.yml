@@ -61,9 +61,13 @@ jobs:
         run: |
           $path = "src/NetVsMcp.Vsix/source.extension.vsixmanifest"
           $prefix = "${{ steps.version.outputs.prefix }}"
-          $xml = Get-Content $path -Raw
-          $xml = $xml -replace '(<Identity[^>]*Version=")[^"]*(")', "`$1$prefix`$2"
-          Set-Content $path $xml -NoNewline
+          [xml]$manifest = Get-Content $path
+          $identity = $manifest.PackageManifest.Metadata.Identity
+          if (-not $identity) {
+            throw "Unable to find VSIX manifest Identity element."
+          }
+          $identity.Version = $prefix
+          $manifest.Save((Resolve-Path $path).Path)
 
       - name: Build VSIX
         run: dotnet build src/NetVsMcp.Vsix/NetVsMcp.Vsix.csproj -c Release
