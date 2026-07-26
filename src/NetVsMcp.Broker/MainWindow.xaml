@@ -71,6 +71,7 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="140" />
@@ -82,20 +83,24 @@
                             <TextBlock Grid.Column="1" Text="{Binding McpEndpoint}" VerticalAlignment="Center" />
                             <Button Grid.Column="2" Content="Copy" Click="CopyEndpoint_Click" Margin="0" />
 
-                            <TextBlock Grid.Row="1" Text="Named pipe" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Center" />
-                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PipeName}" Margin="0,10,0,0" VerticalAlignment="Center" />
-                            <Button Grid.Row="1" Grid.Column="2" Content="Copy" Click="CopyPipe_Click" Margin="0,10,0,0" />
+                            <TextBlock Grid.Row="1" Text="Web automation" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Center" />
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding McpWebAutomationEndpoint}" Margin="0,10,0,0" VerticalAlignment="Center" />
+                            <Button Grid.Row="1" Grid.Column="2" Content="Copy" Click="CopyWebAutomationEndpoint_Click" Margin="0,10,0,0" />
 
-                            <TextBlock Grid.Row="2" Text="Start at login" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Center" />
-                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding AutostartStatus}" Margin="0,10,0,0" VerticalAlignment="Center" />
-                            <Button Grid.Row="2" Grid.Column="2" Content="Toggle" Click="ToggleAutostart_Click" Margin="0,10,0,0" />
+                            <TextBlock Grid.Row="2" Text="Named pipe" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Center" />
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PipeName}" Margin="0,10,0,0" VerticalAlignment="Center" />
+                            <Button Grid.Row="2" Grid.Column="2" Content="Copy" Click="CopyPipe_Click" Margin="0,10,0,0" />
 
-                            <TextBlock Grid.Row="3" Text="Logs folder" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Center" />
-                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LogsFolder}" Margin="0,10,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                            <Button Grid.Row="3" Grid.Column="2" Content="Open" Click="OpenLogs_Click" Margin="0,10,0,0" />
+                            <TextBlock Grid.Row="3" Text="Start at login" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Center" />
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding AutostartStatus}" Margin="0,10,0,0" VerticalAlignment="Center" />
+                            <Button Grid.Row="3" Grid.Column="2" Content="Toggle" Click="ToggleAutostart_Click" Margin="0,10,0,0" />
 
-                            <TextBlock Grid.Row="4" Text="Client config" FontWeight="SemiBold" Margin="0,10,0,0" />
-                            <TextBox Grid.Row="4" Grid.Column="1"
+                            <TextBlock Grid.Row="4" Text="Logs folder" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Center" />
+                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LogsFolder}" Margin="0,10,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            <Button Grid.Row="4" Grid.Column="2" Content="Open" Click="OpenLogs_Click" Margin="0,10,0,0" />
+
+                            <TextBlock Grid.Row="5" Text="Client config" FontWeight="SemiBold" Margin="0,10,0,0" />
+                            <TextBox Grid.Row="5" Grid.Column="1"
                                      Text="{Binding McpRegistrationJson, Mode=OneWay}"
                                      Margin="0,10,0,0"
                                      FontFamily="Consolas"
@@ -105,7 +110,7 @@
                                      TextWrapping="NoWrap"
                                      VerticalScrollBarVisibility="Auto"
                                      HorizontalScrollBarVisibility="Auto" />
-                            <Button Grid.Row="4" Grid.Column="2" Content="Copy" Click="CopyConfig_Click" Style="{StaticResource AccentButtonStyle}" Margin="0,10,0,0" VerticalAlignment="Top" />
+                            <Button Grid.Row="5" Grid.Column="2" Content="Copy" Click="CopyConfig_Click" Style="{StaticResource AccentButtonStyle}" Margin="0,10,0,0" VerticalAlignment="Top" />
                         </Grid>
                     </GroupBox>
 

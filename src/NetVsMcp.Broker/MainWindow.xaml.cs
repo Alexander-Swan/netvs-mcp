@@ -26,6 +26,8 @@ public partial class MainWindow : Window
 
     private void CopyEndpoint_Click(object sender, RoutedEventArgs e) => _viewModel.CopyEndpoint();
 
+    private void CopyWebAutomationEndpoint_Click(object sender, RoutedEventArgs e) => _viewModel.CopyWebAutomationEndpoint();
+
     private void CopyPipe_Click(object sender, RoutedEventArgs e) => _viewModel.CopyPipeName();
 
     private void ToggleAutostart_Click(object sender, RoutedEventArgs e) => _viewModel.ToggleAutostart();

@@ -100,6 +100,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public string McpEndpoint => _runtime.Options.McpEndpoint;
 
+    public string McpWebAutomationEndpoint => _runtime.Options.McpWebAutomationEndpoint;
+
     public string PipeName => _runtime.CurrentPipeName;
 
     public string McpRegistrationJson => _runtime.Options.McpRegistrationJson;
@@ -229,6 +231,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public void CopyMcpConfig() => System.Windows.Clipboard.SetText(McpRegistrationJson);
 
     public void CopyEndpoint() => System.Windows.Clipboard.SetText(McpEndpoint);
+
+    public void CopyWebAutomationEndpoint() => System.Windows.Clipboard.SetText(McpWebAutomationEndpoint);
 
     public void CopyPipeName() => System.Windows.Clipboard.SetText(PipeName);
 

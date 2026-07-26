@@ -116,6 +116,11 @@ public sealed record BrokerOptions(
 
     public int Port => Uri.TryCreate(McpEndpoint, UriKind.Absolute, out var uri) ? uri.Port : DefaultPort;
 
+    public string McpWebAutomationEndpoint =>
+        McpEndpoint.EndsWith("/mcp", StringComparison.Ordinal)
+            ? McpEndpoint[..^"/mcp".Length] + "/mcp-wu"
+            : McpEndpoint + "-wu";
+
     public BrokerOptions WithPort(int port) => this with { McpEndpoint = ReplaceEndpointPort(McpEndpoint, port.ToString()) };
 
     private static BrokerOptions ApplyOption(BrokerOptions options, string name, string? value)
@@ -209,6 +214,10 @@ public sealed record BrokerOptions(
             "netvs": {
               "type": "http",
               "url": "{{McpEndpoint}}"
+            },
+            "netvs-web-automation": {
+              "type": "http",
+              "url": "{{McpWebAutomationEndpoint}}"
             }
           }
         }
