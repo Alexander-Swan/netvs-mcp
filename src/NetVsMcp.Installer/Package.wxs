@@ -36,10 +36,10 @@
     <Property Id="AUTOSTART_ENABLED" Value="1" />
     <Property Id="LAUNCH_AFTER_INSTALL" Value="1" />
 
-    <WixVariable Id="WixUILicenseRtf" Value="..\..\LICENSE" />
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
     <UIRef Id="NetVsMcpUI" />
 
-    <Property Id="WixShellExecTarget" Value="[#NetVsMcp.Broker.exe]" />
+    <Property Id="WixShellExecTarget" Value="[INSTALLFOLDER]NetVsMcp.Broker.exe" />
     <CustomAction Id="LaunchBrokerAfterInstall" BinaryRef="Wix4UtilCA_X86" DllEntry="WixShellExec" Impersonate="yes" />
   </Package>
 
