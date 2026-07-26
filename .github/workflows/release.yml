@@ -42,7 +42,11 @@ jobs:
           if (git rev-parse -q --verify "refs/tags/$tag") {
             throw "Tag $tag already exists locally."
           }
-          if (git ls-remote --exit-code --tags origin "refs/tags/$tag") {
+          $remoteTag = git ls-remote --tags origin "refs/tags/$tag"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Unable to check whether tag $tag exists on origin."
+          }
+          if ($remoteTag) {
             throw "Tag $tag already exists on origin."
           }
 
