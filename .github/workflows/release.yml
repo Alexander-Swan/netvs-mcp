@@ -6,11 +6,17 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -28,6 +34,17 @@ jobs:
           "suffix=$suffix" >> $env:GITHUB_OUTPUT
           "full=$full" >> $env:GITHUB_OUTPUT
           "tag=v$full" >> $env:GITHUB_OUTPUT
+
+      - name: Verify tag is new
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          if (git rev-parse -q --verify "refs/tags/$tag") {
+            throw "Tag $tag already exists locally."
+          }
+          if (git ls-remote --exit-code --tags origin "refs/tags/$tag") {
+            throw "Tag $tag already exists on origin."
+          }
 
       - name: Run tests
         run: dotnet test tests/NetVsMcp.Broker.Tests/NetVsMcp.Broker.Tests.csproj -c Release
@@ -53,36 +70,47 @@ jobs:
           New-Item -ItemType Directory -Force -Path release-assets | Out-Null
           Copy-Item "src/NetVsMcp.Installer/bin/Release/NetVsMcp.Broker.msi" "release-assets/NetVsMcp.Broker-${{ steps.version.outputs.full }}.msi"
           $vsix = Get-ChildItem -Recurse -Filter "NetVsMcp.Vsix.vsix" -Path "src/NetVsMcp.Vsix/bin/Release" | Select-Object -First 1
+          if (-not $vsix) {
+            throw "NetVsMcp.Vsix.vsix was not produced."
+          }
           Copy-Item $vsix.FullName "release-assets/NetVsMcp.Vsix-${{ steps.version.outputs.full }}.vsix"
 
       - name: Revert manifest patch
+        if: always()
         run: git checkout -- src/NetVsMcp.Vsix/source.extension.vsixmanifest
 
       - name: Create tag and GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: pwsh
         run: |
-          git tag ${{ steps.version.outputs.tag }}
-          git push origin ${{ steps.version.outputs.tag }}
-          gh release create ${{ steps.version.outputs.tag }} release-assets/* --title "NetVsMcp ${{ steps.version.outputs.full }}" --generate-notes
+          $tag = "${{ steps.version.outputs.tag }}"
+          $full = "${{ steps.version.outputs.full }}"
+          $suffix = "${{ steps.version.outputs.suffix }}"
+          $prerelease = @()
+          if ($suffix) {
+            $prerelease = @("--prerelease")
+          }
+
+          git tag -a $tag -m "Release $full"
+          git push origin $tag
+          gh release create $tag release-assets/* --title "NetVsMcp $full" --generate-notes @prerelease
 
       - name: Bump version for next dev cycle
         shell: pwsh
         run: |
-          $suffix = "${{ steps.version.outputs.suffix }}"
-          if ($suffix -match '^(.*)\.(\d+)$') {
-            $next = "$($Matches[1]).$([int]$Matches[2] + 1)"
-          } elseif ($suffix) {
-            $next = "$suffix.2"
-          } else {
-            $next = $suffix
-          }
           $path = "Directory.Build.props"
           $content = Get-Content $path -Raw
-          $content = $content -replace '<VersionSuffix>[^<]*</VersionSuffix>', "<VersionSuffix>$next</VersionSuffix>"
+          [xml]$props = $content
+          $prefix = [version]$props.Project.PropertyGroup.VersionPrefix
+          $nextPrefix = "$($prefix.Major).$($prefix.Minor).$($prefix.Build + 1)"
+          $suffix = "${{ steps.version.outputs.suffix }}"
+          $content = $content -replace '<VersionPrefix>[^<]*</VersionPrefix>', "<VersionPrefix>$nextPrefix</VersionPrefix>"
+          $content = $content -replace '<VersionSuffix>[^<]*</VersionSuffix>', "<VersionSuffix>$suffix</VersionSuffix>"
           Set-Content $path $content -NoNewline
 
       - name: Commit version bump
+        shell: pwsh
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
