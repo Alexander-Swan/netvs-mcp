@@ -21,7 +21,7 @@ public sealed class TrayIconController : IDisposable
 
         _notifyIcon = new Forms.NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = Icon.ExtractAssociatedIcon(Environment.ProcessPath!) ?? SystemIcons.Application,
             Text = "NetVsMcp: starting",
             Visible = true,
             ContextMenuStrip = BuildMenu()
