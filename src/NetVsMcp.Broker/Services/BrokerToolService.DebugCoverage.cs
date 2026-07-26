@@ -234,28 +234,6 @@ public sealed partial class BrokerToolService
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ExceptionSettingsSetAsync(request, ct), cancellationToken);
     }
 
-    [McpServerTool(Name = "memory_read")]
-    [Description("Reads debugger memory when the active Visual Studio debug engine exposes it.")]
-    public Task<ToolResponse<MemoryReadResult>> MemoryRead(string addressExpression, int byteCount = 64, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(addressExpression))
-        {
-            return Task.FromResult(FailWithCode<MemoryReadResult>("Address expression is required.", ToolErrorCodes.InvalidRequest));
-        }
-
-        if (byteCount <= 0 || byteCount > 4096)
-        {
-            return Task.FromResult(FailWithCode<MemoryReadResult>("Byte count must be between 1 and 4096.", ToolErrorCodes.InvalidRequest));
-        }
-
-        var request = new MemoryReadRequest
-        {
-            AddressExpression = addressExpression,
-            ByteCount = byteCount
-        };
-        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.MemoryReadAsync(request, ct), cancellationToken);
-    }
-
     [McpServerTool(Name = "parallel_stacks")]
     [Description("Returns parallel stack information when the active Visual Studio debug engine exposes it.")]
     public Task<ToolResponse<ParallelStacksResult>> ParallelStacks(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
@@ -265,9 +243,4 @@ public sealed partial class BrokerToolService
     [Description("Returns parallel watch expressions when the active Visual Studio debug engine exposes them.")]
     public Task<ToolResponse<ParallelWatchResult>> ParallelWatch(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.ParallelWatchAsync(ct), cancellationToken);
-
-    [McpServerTool(Name = "parallel_tasks_list")]
-    [Description("Lists parallel tasks when the active Visual Studio debug engine exposes them.")]
-    public Task<ToolResponse<ParallelTasksResult>> ParallelTasksList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.ParallelTasksListAsync(ct), cancellationToken);
 }

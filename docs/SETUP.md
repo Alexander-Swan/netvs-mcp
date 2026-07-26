@@ -33,6 +33,7 @@ By default the broker listens only on loopback:
 - Status root: `http://127.0.0.1:5050/`
 - Health check: `http://127.0.0.1:5050/health`
 - MCP HTTP endpoint: `http://127.0.0.1:5050/mcp`
+- MCP web/UI automation endpoint: `http://127.0.0.1:5050/mcp-wu` (rarely used `ui_*`/`web_*` tools only, kept off `/mcp` to keep the default tool list smaller)
 
 The broker also opens a per-user named pipe for VSIX registration. The tray/status UI is intended to show the running state, MCP registration snippet, and registered Visual Studio sessions.
 
@@ -51,7 +52,7 @@ Configure your MCP client to use HTTP on localhost:
 }
 ```
 
-Use `127.0.0.1` or `localhost`; the broker rejects non-loopback hosts.
+Use `127.0.0.1` or `localhost`; the broker rejects non-loopback hosts. Add a second `mcpServers` entry pointing at `http://127.0.0.1:5050/mcp-wu` if you need the `ui_*`/`web_*` debuggee automation tools; they are intentionally excluded from `/mcp`.
 
 ## VSIX Registration Model
 

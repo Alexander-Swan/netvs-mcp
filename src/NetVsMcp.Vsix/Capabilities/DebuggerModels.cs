@@ -756,32 +756,6 @@ internal sealed class ExceptionSettingsResult
     public IReadOnlyCollection<ExceptionSettingInfo> Settings { get; }
 }
 
-internal sealed class MemoryReadRequest
-{
-    public string AddressExpression { get; set; } = string.Empty;
-    public int ByteCount { get; set; } = 64;
-}
-
-internal sealed class MemoryReadResult
-{
-    public MemoryReadResult(bool supported, bool success, string? message, string addressExpression, int byteCount, string? hex)
-    {
-        Supported = supported;
-        Success = success;
-        Message = message;
-        AddressExpression = addressExpression;
-        ByteCount = byteCount;
-        Hex = hex;
-    }
-
-    public bool Supported { get; }
-    public bool Success { get; }
-    public string? Message { get; }
-    public string AddressExpression { get; }
-    public int ByteCount { get; }
-    public string? Hex { get; }
-}
-
 internal sealed class ParallelStackFrameInfo
 {
     public ParallelStackFrameInfo(int threadId, string? threadName, string? functionName, string? file, int line, int column)
@@ -830,32 +804,3 @@ internal sealed class ParallelWatchResult
     public IReadOnlyCollection<DebugExpressionInfo> Expressions { get; }
 }
 
-internal sealed class ParallelTaskInfo
-{
-    public ParallelTaskInfo(string? id, string? status, string? location, int? threadId)
-    {
-        Id = id;
-        Status = status;
-        Location = location;
-        ThreadId = threadId;
-    }
-
-    public string? Id { get; }
-    public string? Status { get; }
-    public string? Location { get; }
-    public int? ThreadId { get; }
-}
-
-internal sealed class ParallelTasksResult
-{
-    public ParallelTasksResult(bool supported, string? message, IReadOnlyCollection<ParallelTaskInfo> tasks)
-    {
-        Supported = supported;
-        Message = message;
-        Tasks = tasks;
-    }
-
-    public bool Supported { get; }
-    public string? Message { get; }
-    public IReadOnlyCollection<ParallelTaskInfo> Tasks { get; }
-}

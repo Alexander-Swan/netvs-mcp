@@ -293,10 +293,8 @@ Breakpoint variants:
 - `module_list`
 - `exception_settings_get`
 - `exception_settings_set`
-- `memory_read`
 - `parallel_stacks`
 - `parallel_watch`
-- `parallel_tasks_list`
 
 ### Debuggee Console
 
@@ -305,6 +303,8 @@ Breakpoint variants:
 - `console_get_info`
 
 ### Debuggee UI Automation
+
+Served from the separate `/mcp-wu` endpoint rather than the default `/mcp` (rarely used, kept off the default advertised tool list).
 
 - `ui_capture_window`
 - `ui_capture_region`
@@ -323,6 +323,8 @@ Breakpoint variants:
 - `ui_wait_idle`
 
 ### Web Debugging
+
+Served from the separate `/mcp-wu` endpoint rather than the default `/mcp` (rarely used, kept off the default advertised tool list).
 
 - `web_connect`
 - `web_disconnect`
@@ -354,7 +356,7 @@ Current broker MCP tools include (all live-tested — see `docs/TOOL_LIVE_TEST_R
 - tests: `test_discover`, `test_run`, `test_results`, `test_run_and_get_results`
 - NuGet: `nuget_list`, `nuget_search`, `nuget_install`, `nuget_update`, `nuget_uninstall`, `package_restore`
 - debugging/breakpoints: `debug_status`, `debug_get_mode`, `debug_start`, `debug_start_without_debugging`, `debug_stop`, `debug_restart`, `debug_attach`, `debug_continue`, `debug_break`, `debug_step`, `debug_get_callstack`, `debug_get_locals`, `debug_get_threads`, `debug_evaluate`, `debug_eval_many`, `debug_set_variable`, `debug_snapshot`, `breakpoint_set`, `breakpoint_list`, `breakpoint_remove`, `breakpoint_enable`, `breakpoint_group_list`, `breakpoint_group_enable`, `breakpoint_group_remove`
-- advanced debug: `watch_add`, `watch_remove`, `watch_list`, `thread_switch`, `thread_set_frozen`, `thread_get_callstack`, `process_list_debugged`, `process_list_local`, `process_detach`, `process_terminate`, `immediate_execute`, `module_list`, `exception_settings_get`, `exception_settings_set`, `memory_read`, `parallel_stacks`, `parallel_watch`, `parallel_tasks_list`
+- advanced debug: `watch_add`, `watch_remove`, `watch_list`, `thread_switch`, `thread_set_frozen`, `thread_get_callstack`, `process_list_debugged`, `process_list_local`, `process_detach`, `process_terminate`, `immediate_execute`, `module_list`, `exception_settings_get`, `exception_settings_set`, `parallel_stacks`, `parallel_watch`
 - debuggee console: `console_read`, `console_send`, `console_get_info`
 - debuggee UI automation: `ui_capture_window`, `ui_capture_region`, `ui_snapshot`, `ui_get_tree`, `ui_find_elements`, `ui_get_element`, `ui_click`, `ui_double_click`, `ui_right_click`, `ui_drag`, `ui_set_value`, `ui_invoke`, `ui_send_keys`, `ui_wait_for_element`, `ui_wait_idle`
 - web debugging: `web_connect`, `web_disconnect`, `web_status`, `web_navigate`, `web_screenshot`, `web_dom_get`, `web_dom_query`, `web_console`, `web_js_execute`, `web_network`, `web_element_click`, `web_element_set_value`
@@ -437,7 +439,7 @@ Acceptance criteria:
 
 ### Missing Advanced Debug Tools
 
-**Implemented.** `watch_add`, `watch_remove`, `watch_list`, `thread_switch`, `thread_set_frozen`, `thread_get_callstack`, `process_list_debugged`, `process_list_local`, `process_detach`, `process_terminate`, `immediate_execute`, `module_list`, `exception_settings_get`, `exception_settings_set`, `memory_read`, `parallel_stacks`, `parallel_watch`, `parallel_tasks_list` are all live and exposed. `exception_settings_get`/`set` are implemented via `EnvDTE90.Debugger3.ExceptionGroups`/`ExceptionSettings`. `immediate_execute` is implemented via `EnvDTE.Debugger.GetExpression`, reusing the same evaluator backing the Immediate Window. `parallel_tasks_list` remains a documented-limitation stub: enumerating Parallel Tasks/Stacks data requires the Concord/DkM debug engine data model, which is not reachable from the EnvDTE automation surface this extension is built on.
+**Implemented.** `watch_add`, `watch_remove`, `watch_list`, `thread_switch`, `thread_set_frozen`, `thread_get_callstack`, `process_list_debugged`, `process_list_local`, `process_detach`, `process_terminate`, `immediate_execute`, `module_list`, `exception_settings_get`, `exception_settings_set`, `parallel_stacks`, `parallel_watch` are all live and exposed. `exception_settings_get`/`set` are implemented via `EnvDTE90.Debugger3.ExceptionGroups`/`ExceptionSettings`. `immediate_execute` is implemented via `EnvDTE.Debugger.GetExpression`, reusing the same evaluator backing the Immediate Window. `memory_read` and `parallel_tasks_list` were removed (2026-07-26): EnvDTE does not expose a stable memory-read surface or the Parallel Tasks window data, so these tools always returned `supported:false`. Rather than keep permanently-unimplementable stub tools, they were removed from the tool catalog and RPC surface entirely.
 
 Acceptance criteria:
 

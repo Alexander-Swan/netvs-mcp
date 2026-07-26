@@ -2,7 +2,7 @@
 
 NetVsMcp has two public-ish contracts:
 
-- MCP client to Broker: HTTP MCP tools on `http://127.0.0.1:5050/mcp`.
+- MCP client to Broker: HTTP MCP tools on `http://127.0.0.1:5050/mcp`, plus a second endpoint at `http://127.0.0.1:5050/mcp-wu` scoped to the rarely used `ui_*`/`web_*` debuggee UI automation and web debugging tools (kept off the default endpoint to keep the advertised tool list smaller).
 - Broker to VSIX: per-user named pipe with StreamJsonRpc.
 
 The broker is the only MCP server. VSIX instances register with the broker and execute routed Visual Studio operations.
@@ -132,4 +132,3 @@ High-impact tools, especially edits and debugger controls, should fail closed on
 - End-to-end runtime validation inside an experimental Visual Studio instance is still required.
 - VSIX mirrors shared wire DTOs locally because it targets `net472` while `NetVsMcp.Contracts` targets `net10.0`.
 - Token authentication and audit logging are planned but not complete.
-- Some advanced debugger operations intentionally return unsupported skeleton responses until richer Visual Studio debugger APIs are wired.

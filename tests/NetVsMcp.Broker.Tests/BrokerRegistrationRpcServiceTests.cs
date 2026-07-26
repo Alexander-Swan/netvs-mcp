@@ -514,13 +514,9 @@ public sealed class BrokerRegistrationRpcServiceTests
 
         public Task<ExceptionSettingsResult> ExceptionSettingsSetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<MemoryReadResult> MemoryReadAsync(MemoryReadRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-
         public Task<ParallelStacksResult> ParallelStacksAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<ParallelWatchResult> ParallelWatchAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<ParallelTasksResult> ParallelTasksListAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<AutomationResult> ConsoleReadAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<AutomationResult> DiagnosticsBindingErrorsAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();

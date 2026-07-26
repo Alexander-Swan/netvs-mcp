@@ -49,6 +49,8 @@ The broker status window will show the final ready-to-copy MCP configuration. Th
 }
 ```
 
+The `ui_*`/`web_*` debuggee UI automation and web debugging tools are rarely needed, so they are kept off the default `/mcp` endpoint and served instead from `/mcp-wu`. Register a second `mcpServers` entry pointing at `http://127.0.0.1:5050/mcp-wu` only if you need those tools.
+
 ## Broker MSI
 
 Build the broker tray app MSI with:

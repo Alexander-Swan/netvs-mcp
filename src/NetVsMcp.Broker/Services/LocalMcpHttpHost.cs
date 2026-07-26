@@ -56,6 +56,7 @@ public sealed class LocalMcpHttpHost : IAsyncDisposable
             .WithHttpTransport(options =>
             {
                 options.Stateless = true;
+                options.ConfigureSessionOptions = ConfigureSessionOptionsForEndpoint;
             })
             .WithTools<BrokerToolService>(_tools);
 
@@ -91,6 +92,7 @@ public sealed class LocalMcpHttpHost : IAsyncDisposable
             transport = "MCP Streamable HTTP",
             endpoint = _options.McpEndpoint,
             mcp = "/mcp",
+            mcpWebAutomation = "/mcp-wu",
             health = "/health"
         }));
 
@@ -101,6 +103,40 @@ public sealed class LocalMcpHttpHost : IAsyncDisposable
         }));
 
         app.MapMcp("/mcp");
+        app.MapMcp("/mcp-wu");
+    }
+
+    private static Task ConfigureSessionOptionsForEndpoint(
+        HttpContext httpContext,
+        McpServerOptions options,
+        CancellationToken cancellationToken)
+    {
+        var toolCollection = options.ToolCollection;
+        if (toolCollection is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        // "/mcp-wu" is the opt-in endpoint for the rarely used web/UI automation
+        // tools; "/mcp" excludes them to keep the default tool list smaller.
+        var isWebAutomationEndpoint = httpContext.Request.Path.StartsWithSegments("/mcp-wu");
+
+        foreach (var tool in toolCollection.ToArray())
+        {
+            var isWebAutomationTool = IsWebAutomationTool(tool.ProtocolTool.Name);
+            if (isWebAutomationTool != isWebAutomationEndpoint)
+            {
+                toolCollection.Remove(tool);
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static bool IsWebAutomationTool(string toolName)
+    {
+        return toolName.StartsWith("ui_", StringComparison.Ordinal) ||
+            toolName.StartsWith("web_", StringComparison.Ordinal);
     }
 
     private static Uri ParseEndpoint(string endpoint)

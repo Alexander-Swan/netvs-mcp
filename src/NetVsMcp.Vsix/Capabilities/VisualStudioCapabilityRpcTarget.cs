@@ -307,17 +307,11 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<ExceptionSettingsResult> ExceptionSettingsSetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken) =>
         debugger.ExceptionSettingsSetAsync(request, cancellationToken);
 
-    public Task<MemoryReadResult> MemoryReadAsync(MemoryReadRequest request, CancellationToken cancellationToken) =>
-        debugger.MemoryReadAsync(request, cancellationToken);
-
     public Task<ParallelStacksResult> ParallelStacksAsync(CancellationToken cancellationToken) =>
         debugger.ParallelStacksAsync(cancellationToken);
 
     public Task<ParallelWatchResult> ParallelWatchAsync(CancellationToken cancellationToken) =>
         debugger.ParallelWatchAsync(cancellationToken);
-
-    public Task<ParallelTasksResult> ParallelTasksListAsync(CancellationToken cancellationToken) =>
-        debugger.ParallelTasksListAsync(cancellationToken);
 
     public Task<AutomationResult> ConsoleReadAsync(AutomationRequest request, CancellationToken cancellationToken) =>
         automation.ConsoleReadAsync(request, cancellationToken);

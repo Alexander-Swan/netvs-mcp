@@ -911,21 +911,6 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
-    public async Task MemoryRead_RoutesBoundedRequestToConnectedSession()
-    {
-        var runtime = CreateRuntime();
-        var session = new FakeVisualStudioSessionRpc("Editor.cs");
-        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
-        runtime.Connections.AddOrUpdate("vs-1", session);
-
-        var response = await runtime.Tools.MemoryRead("&count", byteCount: 16, sessionId: "vs-1");
-
-        Assert.True(response.Success);
-        Assert.Equal("&count", session.LastMemoryReadRequest!.AddressExpression);
-        Assert.Equal(16, response.Value!.ByteCount);
-    }
-
-    [Fact]
     public async Task ParallelTools_RouteToConnectedSession()
     {
         var runtime = CreateRuntime();
@@ -934,14 +919,11 @@ public sealed class BrokerToolServiceTests
 
         var stacks = await runtime.Tools.ParallelStacks(sessionId: "vs-1");
         var watch = await runtime.Tools.ParallelWatch(sessionId: "vs-1");
-        var tasks = await runtime.Tools.ParallelTasksList(sessionId: "vs-1");
 
         Assert.True(stacks.Success);
         Assert.Single(stacks.Value!.Frames);
         Assert.True(watch.Success);
         Assert.Single(watch.Value!.Expressions);
-        Assert.True(tasks.Success);
-        Assert.Single(tasks.Value!.Tasks);
     }
 
     [Fact]
@@ -2224,8 +2206,6 @@ public sealed class BrokerToolServiceTests
 
         public ProcessDetachRequest? LastProcessDetachRequest { get; private set; }
 
-        public MemoryReadRequest? LastMemoryReadRequest { get; private set; }
-
         public bool DocumentListCalled { get; private set; }
 
         public EditorFindRequest? LastEditorFindRequest { get; private set; }
@@ -3023,12 +3003,6 @@ public sealed class BrokerToolServiceTests
         public Task<ExceptionSettingsResult> ExceptionSettingsSetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(new ExceptionSettingsResult(true, true, null));
 
-        public Task<MemoryReadResult> MemoryReadAsync(MemoryReadRequest request, CancellationToken cancellationToken)
-        {
-            LastMemoryReadRequest = request;
-            return Task.FromResult(new MemoryReadResult(false, false, "Memory reads require native debugger APIs.", request.AddressExpression, request.ByteCount, null));
-        }
-
         public Task<ParallelStacksResult> ParallelStacksAsync(CancellationToken cancellationToken)
         {
             IReadOnlyCollection<ParallelStackFrameInfo> frames = [new(1, "Main Thread", "Program.Main", "Program.cs", 42, 1)];
@@ -3039,12 +3013,6 @@ public sealed class BrokerToolServiceTests
         {
             IReadOnlyCollection<DebugExpressionInfo> expressions = [new("count", "42", "int", true)];
             return Task.FromResult(new ParallelWatchResult(true, null, expressions));
-        }
-
-        public Task<ParallelTasksResult> ParallelTasksListAsync(CancellationToken cancellationToken)
-        {
-            IReadOnlyCollection<ParallelTaskInfo> tasks = [new("1", "Running", "Program.cs:42", 1)];
-            return Task.FromResult(new ParallelTasksResult(true, null, tasks));
         }
 
         public Task<AutomationResult> ConsoleReadAsync(AutomationRequest request, CancellationToken cancellationToken) => AutomationAsync(request);

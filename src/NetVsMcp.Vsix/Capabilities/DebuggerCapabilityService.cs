@@ -45,10 +45,8 @@ internal interface IDebuggerCapabilityService
     Task<ImmediateExecuteResult> ExecuteImmediateAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken);
     Task<ExceptionSettingsResult> GetExceptionSettingsAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken);
     Task<ExceptionSettingsResult> SetExceptionSettingsAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken);
-    Task<MemoryReadResult> ReadMemoryAsync(MemoryReadRequest request, CancellationToken cancellationToken);
     Task<ParallelStacksResult> GetParallelStacksAsync(CancellationToken cancellationToken);
     Task<ParallelWatchResult> GetParallelWatchAsync(CancellationToken cancellationToken);
-    Task<ParallelTasksResult> ListParallelTasksAsync(CancellationToken cancellationToken);
 }
 
 internal enum DebugStepKind
@@ -751,18 +749,6 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         }
     }
 
-    public Task<MemoryReadResult> ReadMemoryAsync(MemoryReadRequest request, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(new MemoryReadResult(
-            false,
-            false,
-            "Debugger memory reads require lower-level Visual Studio debug engine APIs; EnvDTE does not expose a stable memory-read surface.",
-            request.AddressExpression,
-            request.ByteCount,
-            null));
-    }
-
     public async Task<ParallelStacksResult> GetParallelStacksAsync(CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
@@ -798,15 +784,6 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
     {
         var watches = await ListWatchesAsync(cancellationToken);
         return new ParallelWatchResult(watches.Supported, watches.Message, watches.Watches);
-    }
-
-    public Task<ParallelTasksResult> ListParallelTasksAsync(CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(new ParallelTasksResult(
-            false,
-            "Parallel task enumeration requires lower-level Visual Studio debugger APIs; EnvDTE does not expose the Parallel Tasks window data.",
-            Array.Empty<ParallelTaskInfo>()));
     }
 
     private async Task<DTE> GetDteAsync()

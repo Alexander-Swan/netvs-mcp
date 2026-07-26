@@ -177,11 +177,6 @@ internal sealed class DebuggerRpcTarget
         return debugger.SetExceptionSettingsAsync(request, cancellationToken);
     }
 
-    public Task<MemoryReadResult> MemoryReadAsync(MemoryReadRequest request, CancellationToken cancellationToken)
-    {
-        return debugger.ReadMemoryAsync(request, cancellationToken);
-    }
-
     public Task<ParallelStacksResult> ParallelStacksAsync(CancellationToken cancellationToken)
     {
         return debugger.GetParallelStacksAsync(cancellationToken);
@@ -190,10 +185,5 @@ internal sealed class DebuggerRpcTarget
     public Task<ParallelWatchResult> ParallelWatchAsync(CancellationToken cancellationToken)
     {
         return debugger.GetParallelWatchAsync(cancellationToken);
-    }
-
-    public Task<ParallelTasksResult> ParallelTasksListAsync(CancellationToken cancellationToken)
-    {
-        return debugger.ListParallelTasksAsync(cancellationToken);
     }
 }

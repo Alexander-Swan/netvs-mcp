@@ -899,20 +899,6 @@ public sealed record ExceptionSettingsResult(
     string? Message,
     IReadOnlyCollection<ExceptionSettingInfo>? Settings = null);
 
-public sealed class MemoryReadRequest
-{
-    public string AddressExpression { get; set; } = string.Empty;
-    public int ByteCount { get; set; } = 64;
-}
-
-public sealed record MemoryReadResult(
-    bool Supported,
-    bool Success,
-    string? Message,
-    string AddressExpression,
-    int ByteCount,
-    string? Hex);
-
 public sealed record ParallelStackFrameInfo(
     int ThreadId,
     string? ThreadName,
@@ -930,17 +916,6 @@ public sealed record ParallelWatchResult(
     bool Supported,
     string? Message,
     IReadOnlyCollection<DebugExpressionInfo> Expressions);
-
-public sealed record ParallelTaskInfo(
-    string? Id,
-    string? Status,
-    string? Location,
-    int? ThreadId);
-
-public sealed record ParallelTasksResult(
-    bool Supported,
-    string? Message,
-    IReadOnlyCollection<ParallelTaskInfo> Tasks);
 
 public sealed class DebugStepRequest
 {
@@ -1609,15 +1584,9 @@ public interface IVisualStudioSessionRpc
         ExceptionSettingsRequest request,
         CancellationToken cancellationToken);
 
-    Task<MemoryReadResult> MemoryReadAsync(
-        MemoryReadRequest request,
-        CancellationToken cancellationToken);
-
     Task<ParallelStacksResult> ParallelStacksAsync(CancellationToken cancellationToken);
 
     Task<ParallelWatchResult> ParallelWatchAsync(CancellationToken cancellationToken);
-
-    Task<ParallelTasksResult> ParallelTasksListAsync(CancellationToken cancellationToken);
 
     Task<AutomationResult> ConsoleReadAsync(
         AutomationRequest request,
