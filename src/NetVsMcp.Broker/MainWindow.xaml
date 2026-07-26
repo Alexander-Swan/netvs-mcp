@@ -15,7 +15,10 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel>
-                <TextBlock Text="NetVsMcp Broker" Style="{StaticResource PageTitleStyle}" />
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="NetVsMcp Broker" Style="{StaticResource PageTitleStyle}" />
+                    <TextBlock Text="{Binding Version}" Margin="8,0,0,0" VerticalAlignment="Bottom" Style="{StaticResource MutedTextStyle}" />
+                </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                     <Border BorderThickness="1" Padding="9,3" CornerRadius="12" Margin="0,0,10,0">
                         <Border.Style>

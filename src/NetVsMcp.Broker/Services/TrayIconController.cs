@@ -35,12 +35,8 @@ public sealed class TrayIconController : IDisposable
     public void UpdateStatus()
     {
         var sessionCount = _runtime.Sessions.ListSessions().Count;
-        _notifyIcon.Text = sessionCount switch
-        {
-            0 => "NetVsMcp: running, no Visual Studio instances connected",
-            1 => "NetVsMcp: 1 Visual Studio instance connected",
-            _ => $"NetVsMcp: {sessionCount} Visual Studio instances connected"
-        };
+        var suffix = sessionCount == 1 ? "1 VS instance connected" : $"{sessionCount} VS instances connected";
+        _notifyIcon.Text = $"NetVsMcp {_viewModel.Version} — {suffix}";
     }
 
     public void Dispose()

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using NetVsMcp.Broker.Services;
@@ -90,6 +91,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             }
         }
     }
+
+    public string Version { get; } =
+        Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            is { Length: > 0 } informationalVersion
+            ? $"v{informationalVersion}"
+            : $"v{Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0"}";
 
     public string McpEndpoint => _runtime.Options.McpEndpoint;
 
