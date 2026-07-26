@@ -1612,7 +1612,7 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
         public long WindowHandle { get; }
     }
 
-    private sealed class ElementMatch
+    private readonly struct ElementMatch
     {
         public ElementMatch(string id, AutomationElement? element)
         {
@@ -1620,7 +1620,7 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
             Element = element;
         }
 
-        public string Id { get; }
+        public string? Id { get; }
         public AutomationElement? Element { get; }
     }
 
