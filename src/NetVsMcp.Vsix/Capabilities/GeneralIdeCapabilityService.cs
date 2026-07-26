@@ -83,12 +83,41 @@ internal sealed class GeneralIdeCapabilityService : IGeneralIdeCapabilityService
         var dte = await GetDteAsync()
             ?? throw new InvalidOperationException("Visual Studio DTE2 service is unavailable.");
         var activeWindow = dte.ActiveWindow;
-        var windows = dte.Windows
-            .Cast<Window>()
-            .Select(window => CreateWindowInfo(window, activeWindow))
-            .ToArray();
+        var windowsCollection = dte.Windows;
+        var windows = new List<WindowInfo>(windowsCollection.Count);
 
-        return new WindowListResult(windows);
+        // Iterate by index and skip individual entries that fail to marshal instead of using
+        // Cast<Window>()/Select(), which aborts the entire call on the first bad window. Some
+        // windows (e.g. orphaned or third-party frames without a valid document interface) can
+        // fail QueryInterface (E_NOINTERFACE) partway through enumeration or property access.
+        for (var i = 1; i <= windowsCollection.Count; i++)
+        {
+            var info = TryCreateWindowInfo(windowsCollection, i, activeWindow);
+            if (info is not null)
+            {
+                windows.Add(info);
+            }
+        }
+
+        return new WindowListResult(windows.ToArray());
+    }
+
+    private static WindowInfo? TryCreateWindowInfo(EnvDTE.Windows windowsCollection, int index, Window? activeWindow)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        try
+        {
+            var window = windowsCollection.Item(index);
+            return CreateWindowInfo(window, activeWindow);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException
+            or System.Runtime.InteropServices.COMException
+            or System.Runtime.InteropServices.InvalidComObjectException
+            or InvalidCastException)
+        {
+            return null;
+        }
     }
 
     public async Task<WindowActivateResult> WindowActivateAsync(
