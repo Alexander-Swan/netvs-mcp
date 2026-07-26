@@ -22,3 +22,9 @@ dotnet build .\src\NetVsMcp.Installer\NetVsMcp.Installer.wixproj -c Release /p:B
 ```
 
 The MSI installs the tray app under `%LocalAppData%\NetVsMcp\Broker` (a true per-user install, so no UAC elevation is required), adds a Start Menu shortcut, and installs the MIT license as `LICENSE.txt`.
+
+Setup shows the MIT license for acceptance, then a Setup Options screen with checkboxes (all checked by default):
+
+- **Create a desktop shortcut** for NetVsMcp Broker
+- **Start NetVsMcp Broker automatically when I log in** (writes the same `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` entry the app itself uses)
+- **Launch NetVsMcp Broker after setup finishes**

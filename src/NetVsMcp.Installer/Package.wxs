@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
   <Package
     Name="NetVsMcp Broker"
     Manufacturer="NetVsMcp contributors"
@@ -14,6 +15,8 @@
       <ComponentGroupRef Id="BrokerComponents" />
       <ComponentGroupRef Id="ShortcutComponents" />
       <ComponentRef Id="LicenseComponent" />
+      <ComponentRef Id="DesktopShortcutComponent" />
+      <ComponentRef Id="AutostartComponent" />
     </Feature>
 
     <StandardDirectory Id="LocalAppDataFolder">
@@ -25,7 +28,80 @@
     <StandardDirectory Id="ProgramMenuFolder">
       <Directory Id="ApplicationProgramsFolder" Name="NetVsMcp" />
     </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <!-- Setup options, defaulted to checked -->
+    <Property Id="DESKTOP_SHORTCUT" Value="1" />
+    <Property Id="AUTOSTART_ENABLED" Value="1" />
+    <Property Id="LAUNCH_AFTER_INSTALL" Value="1" />
+
+    <WixVariable Id="WixUILicenseRtf" Value="..\..\LICENSE" />
+    <UIRef Id="NetVsMcpUI" />
+
+    <Property Id="WixShellExecTarget" Value="[#NetVsMcp.Broker.exe]" />
+    <CustomAction Id="LaunchBrokerAfterInstall" BinaryRef="Wix4UtilCA_X86" DllEntry="WixShellExec" Impersonate="yes" />
   </Package>
+
+  <Fragment>
+    <!--
+      Custom dialog sequence (no maintenance/modify UI needed, since this is a
+      perUser MajorUpgrade-only installer):
+        WelcomeDlg -> LicenseAgreementDlg -> OptionsDlg -> VerifyReadyDlg -> ProgressDlg -> ExitDialog
+    -->
+    <UI Id="NetVsMcpUI">
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes" />
+
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="UserExit" />
+
+      <Dialog Id="OptionsDlg" Width="370" Height="270" Title="!(loc.InstallDirDlgTitle)">
+        <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="!(loc.InstallDirDlgBannerBitmap)" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="Setup Options" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="Choose how NetVsMcp Broker is set up on this computer." />
+
+        <Control Id="DesktopShortcutCheckBox" Type="CheckBox" X="20" Y="60" Width="330" Height="18" Property="DESKTOP_SHORTCUT" CheckBoxValue="1" Text="Create a desktop shortcut for NetVsMcp Broker" />
+        <Control Id="AutostartCheckBox" Type="CheckBox" X="20" Y="85" Width="330" Height="18" Property="AUTOSTART_ENABLED" CheckBoxValue="1" Text="Start NetVsMcp Broker automatically when I log in" />
+        <Control Id="LaunchAfterInstallCheckBox" Type="CheckBox" X="20" Y="110" Width="330" Height="18" Property="LAUNCH_AFTER_INSTALL" CheckBoxValue="1" Text="Launch NetVsMcp Broker after setup finishes" />
+
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999" />
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchBrokerAfterInstall" Order="1" Condition="LAUNCH_AFTER_INSTALL = 1 AND NOT Installed" />
+
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="LicenseAgreementDlg" Condition="NOT Installed" />
+
+      <Publish Dialog="LicenseAgreementDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" />
+      <Publish Dialog="LicenseAgreementDlg" Control="Next" Event="NewDialog" Value="OptionsDlg" Condition="LicenseAccepted = &quot;1&quot;" />
+
+      <Publish Dialog="OptionsDlg" Control="Back" Event="NewDialog" Value="LicenseAgreementDlg" />
+      <Publish Dialog="OptionsDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" />
+
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="OptionsDlg" Order="1" Condition="NOT Installed" />
+
+      <Property Id="ARPNOMODIFY" Value="1" />
+    </UI>
+
+    <UIRef Id="WixUI_Common" />
+  </Fragment>
 
   <Fragment>
     <ComponentGroup Id="BrokerComponents" Directory="INSTALLFOLDER">
@@ -47,6 +123,20 @@
 
     <Component Id="LicenseComponent" Directory="INSTALLFOLDER" Guid="8194E1BD-9A67-4F95-92BF-F4D4514C6130">
       <File Id="MitLicenseFile" Source="..\..\LICENSE" Name="LICENSE.txt" />
+    </Component>
+
+    <Component Id="DesktopShortcutComponent" Directory="DesktopFolder" Guid="C3E2C4D8-2C3E-4B7C-9A1D-2B7C6F8E9A10" Condition="DESKTOP_SHORTCUT = &quot;1&quot;">
+      <Shortcut
+        Id="DesktopShortcut"
+        Name="NetVsMcp Broker"
+        Description="Starts the local NetVsMcp Visual Studio MCP broker."
+        Target="[INSTALLFOLDER]NetVsMcp.Broker.exe"
+        WorkingDirectory="INSTALLFOLDER" />
+      <RegistryValue Root="HKCU" Key="Software\NetVsMcp\Broker" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Component Id="AutostartComponent" Directory="INSTALLFOLDER" Guid="9B1E6C2A-4F3D-4A5E-8C6B-1D2E3F4A5B6C" Condition="AUTOSTART_ENABLED = &quot;1&quot;">
+      <RegistryValue Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="NetVsMcp.Broker" Type="string" Value="&quot;[INSTALLFOLDER]NetVsMcp.Broker.exe&quot;" KeyPath="yes" />
     </Component>
   </Fragment>
 </Wix>

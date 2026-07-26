@@ -16,6 +16,11 @@
     <ProjectReference Include="..\NetVsMcp.Broker\NetVsMcp.Broker.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="6.0.1" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="6.0.1" />
+  </ItemGroup>
+
   <Target Name="PublishBrokerForInstaller" BeforeTargets="CoreCompile;Compile;Build">
     <MSBuild
       Projects="..\NetVsMcp.Broker\NetVsMcp.Broker.csproj"
