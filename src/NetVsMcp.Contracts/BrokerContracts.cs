@@ -153,6 +153,12 @@ public sealed record VsSessionInfo(
     DateTimeOffset LastSeenUtc,
     IReadOnlyCollection<VsCapability> Capabilities);
 
+public sealed record VsLaunchInstanceResult(
+    bool Success,
+    string? Message,
+    int? ProcessId,
+    VsSessionInfo? Session);
+
 public sealed record VsSessionRegistration(
     string SessionId,
     int ProcessId,

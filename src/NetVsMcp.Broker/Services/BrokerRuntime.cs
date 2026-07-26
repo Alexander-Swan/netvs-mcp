@@ -18,6 +18,7 @@ public sealed class BrokerRuntime
         StartedUtc = DateTimeOffset.UtcNow;
         Connections = new VsSessionConnectionMap();
         Dispatcher = new VsSessionDispatcher(sessions, Connections);
+        Launcher = new VisualStudioLauncher(sessions);
         Registration = new BrokerRegistrationRpcService(sessions);
         AuditLog = new AuditLogService(options.EffectiveLogsDirectory);
         SessionManifests = new SessionManifestService(options.EffectiveSessionsDirectory);
@@ -101,6 +102,8 @@ public sealed class BrokerRuntime
     public IVsSessionConnectionMap Connections { get; }
 
     public IVsSessionDispatcher Dispatcher { get; }
+
+    public VisualStudioLauncher Launcher { get; }
 
     public BrokerToolService Tools { get; }
 

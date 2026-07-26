@@ -19,6 +19,7 @@ public sealed partial class BrokerToolService
         new("vs_get_session", "Resolves a Visual Studio session and returns its current broker status.", false),
         new("vs_select_session", "Resolves a Visual Studio session using broker routing rules without persisting selection.", false),
         new("vs_ping", "Returns lightweight broker health and optional routed Visual Studio session status.", false),
+        new("vs_launch_instance", "Launches a new Visual Studio (devenv.exe) process and waits for it to register with the broker.", false),
         new("vs_context_snapshot", "Returns a compact routed Visual Studio context snapshot.", true),
         new("execute_command", "Executes a Visual Studio command in a routed session.", true),
         new("get_status", "Returns Visual Studio session status through a routed session.", true),
@@ -341,6 +342,28 @@ public sealed partial class BrokerToolService
         var status = GetSessionStatus(route.Session);
         var response = ToolResponse<BrokerPing>.Ok(CreatePing(status));
         AuditToolResult(nameof(VsPing), target, response.Success, route.Session.SessionId, response.Message);
+        return response;
+    }
+
+    [McpServerTool(Name = "vs_launch_instance")]
+    [Description("Launches a new Visual Studio (devenv.exe) process, optionally opening a solution and/or running experimental (/rootsuffix Exp), and waits for it to register with the broker.")]
+    public async Task<ToolResponse<VsLaunchInstanceResult>> VsLaunchInstance(
+        string? solutionPath = null,
+        bool experimental = false,
+        string? edition = null,
+        int timeoutSeconds = 60,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateToolAccess(nameof(VsLaunchInstance), null) is { } denied)
+        {
+            return denied.As<VsLaunchInstanceResult>();
+        }
+
+        var result = await _runtime.Launcher.LaunchAsync(solutionPath, experimental, edition, timeoutSeconds, cancellationToken);
+        var response = result.Success
+            ? ToolResponse<VsLaunchInstanceResult>.Ok(result)
+            : new ToolResponse<VsLaunchInstanceResult>(false, result, result.Message);
+        AuditToolResult(nameof(VsLaunchInstance), null, response.Success, result.Session?.SessionId, response.Message);
         return response;
     }
 
@@ -3164,6 +3187,11 @@ public sealed partial class BrokerToolService
 
     private static BrokerToolCategory CategorizeTool(string toolName)
     {
+        if (toolName is "vs_launch_instance")
+        {
+            return BrokerToolCategory.Admin;
+        }
+
         if (toolName.StartsWith("vs_", StringComparison.Ordinal) &&
             toolName is not "vs_context_snapshot")
         {

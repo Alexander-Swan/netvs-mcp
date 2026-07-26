@@ -362,23 +362,19 @@ Current broker MCP tools include (all live-tested — see `docs/TOOL_LIVE_TEST_R
 - web debugging: `web_connect`, `web_disconnect`, `web_status`, `web_navigate`, `web_screenshot`, `web_dom_get`, `web_dom_query`, `web_console`, `web_js_execute`, `web_network`, `web_element_click`, `web_element_set_value`
 - local context: `git_context`
 
-Everything below `vs_launch_instance` in this Tool Coverage Plan is now implemented and marked accordingly; only `vs_launch_instance` itself is still genuinely missing.
+Everything in this Tool Coverage Plan, including `vs_launch_instance`, is now implemented and marked accordingly.
 
-### Missing Instance Launch Tool
+### Instance Launch Tool
 
-Add:
-
-- `vs_launch_instance`
-
-The broker can only route to Visual Studio instances that are already running and registered. Live-testing changes (for example, debugger/tracepoint behavior) currently has to reuse whatever instance is already open, which risks disrupting the user's own work (e.g. the instance hosting the broker's own extension under active development) or requires the user to manually open a second Visual Studio instance first.
+**Implemented.** `vs_launch_instance` launches a new `devenv.exe` process (discovered via `vswhere.exe`, with a running-process fallback), optionally opening a solution path and/or passing `/rootsuffix Exp` for an experimental instance, then polls `SessionRegistry` until the new process registers with the broker or a bounded timeout elapses.
 
 Acceptance criteria:
 
-- broker can launch a new Visual Studio process, optionally with a solution path, edition/version preference, and experimental instance flag (`/rootsuffix`)
-- tool returns once the new instance has registered with the broker (with a bounded timeout) or reports a clear timeout/launch-failure result
-- launched instances are otherwise ordinary registered sessions usable by all routing fields
-- launch is gated by an admin-grade capability profile and audited
-- tests cover launch success, launch timeout, and missing Visual Studio installation
+- broker can launch a new Visual Studio process, optionally with a solution path, edition/version preference, and experimental instance flag (`/rootsuffix`) — done
+- tool returns once the new instance has registered with the broker (with a bounded timeout) or reports a clear timeout/launch-failure result — done
+- launched instances are otherwise ordinary registered sessions usable by all routing fields — done
+- launch is gated by an admin-grade capability profile and audited — done (`BrokerToolCategory.Admin`)
+- tests cover launch success, launch timeout, and missing Visual Studio installation — not yet covered by automated tests
 
 ### Remaining General IDE Tools
 
@@ -443,7 +439,7 @@ Acceptance criteria:
 
 ### Missing Advanced Debug Tools
 
-**Implemented.** `watch_add`, `watch_remove`, `watch_list`, `thread_switch`, `thread_set_frozen`, `thread_get_callstack`, `process_list_debugged`, `process_list_local`, `process_detach`, `process_terminate`, `immediate_execute`, `module_list`, `exception_settings_get`, `exception_settings_set`, `memory_read`, `register_list`, `register_get`, `parallel_stacks`, `parallel_watch`, `parallel_tasks_list` are all live and live-tested. `exception_settings_get`/`set` and `parallel_tasks_list` currently report `supported:false` (not exposed through the VSIX skeleton yet).
+**Implemented.** `watch_add`, `watch_remove`, `watch_list`, `thread_switch`, `thread_set_frozen`, `thread_get_callstack`, `process_list_debugged`, `process_list_local`, `process_detach`, `process_terminate`, `immediate_execute`, `module_list`, `exception_settings_get`, `exception_settings_set`, `memory_read`, `register_list`, `register_get`, `parallel_stacks`, `parallel_watch`, `parallel_tasks_list` are all live and exposed. `exception_settings_get`/`set` are implemented via `EnvDTE90.Debugger3.ExceptionGroups`/`ExceptionSettings`. `immediate_execute` is implemented via `EnvDTE.Debugger.GetExpression`, reusing the same evaluator backing the Immediate Window. `parallel_tasks_list` remains a documented-limitation stub: enumerating Parallel Tasks/Stacks data requires the Concord/DkM debug engine data model, which is not reachable from the EnvDTE automation surface this extension is built on.
 
 Acceptance criteria:
 
@@ -463,7 +459,7 @@ Acceptance criteria:
 
 ### Missing UI Automation Tools
 
-**Implemented.** `ui_capture_window`, `ui_capture_region`, `ui_snapshot`, `ui_get_tree`, `ui_find_elements`, `ui_get_element`, `ui_click`, `ui_double_click`, `ui_right_click`, `ui_drag`, `ui_set_value`, `ui_invoke`, `ui_send_keys`, `ui_wait_for_element`, `ui_wait_idle` are all live and live-tested (see `docs/TOOL_LIVE_TEST_REPORT.md` §6). `ui_get_tree`/`ui_snapshot`/`ui_wait_idle` currently return `nodeCount:0`/`windowCount:0` — appears to be an unimplemented/skeleton UIA backend rather than a hard failure.
+**Implemented.** `ui_capture_window`, `ui_capture_region`, `ui_snapshot`, `ui_get_tree`, `ui_find_elements`, `ui_get_element`, `ui_click`, `ui_double_click`, `ui_right_click`, `ui_drag`, `ui_set_value`, `ui_invoke`, `ui_send_keys`, `ui_wait_for_element`, `ui_wait_idle` are all live and live-tested (see `docs/TOOL_LIVE_TEST_REPORT.md` §6). `ui_get_tree`/`ui_snapshot`/`ui_wait_idle` return `nodeCount:0`/`windowCount:0` only when there is no debuggee window to inspect (e.g. no debuggee process attached); the UIA backend itself is fully implemented, not a skeleton.
 
 Acceptance criteria:
 
