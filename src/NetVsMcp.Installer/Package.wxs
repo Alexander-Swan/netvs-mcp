@@ -41,6 +41,15 @@
 
     <Property Id="WixShellExecTarget" Value="[INSTALLFOLDER]NetVsMcp.Broker.exe" />
     <CustomAction Id="LaunchBrokerAfterInstall" BinaryRef="Wix4UtilCA_X86" DllEntry="WixShellExec" Impersonate="yes" />
+
+    <util:CloseApplication
+      Id="CloseRunningBroker"
+      Target="NetVsMcp.Broker.exe"
+      CloseMessage="yes"
+      Timeout="5"
+      RebootPrompt="no"
+      TerminateProcess="1"
+      Condition="REMOVE = &quot;ALL&quot;" />
   </Package>
 
   <Fragment>
