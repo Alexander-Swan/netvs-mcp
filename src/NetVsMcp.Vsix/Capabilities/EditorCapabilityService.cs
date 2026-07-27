@@ -941,25 +941,7 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
     private static string ResolveDocumentPath(DTE? dte, string path)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
-
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            throw new ArgumentException("Document path is required.", nameof(path));
-        }
-
-        if (Path.IsPathRooted(path))
-        {
-            return Path.GetFullPath(path);
-        }
-
-        var solutionPath = dte?.Solution?.FullName;
-        if (string.IsNullOrWhiteSpace(solutionPath))
-        {
-            return Path.GetFullPath(path);
-        }
-
-        var solutionDirectory = Path.GetDirectoryName(solutionPath);
-        return Path.GetFullPath(Path.Combine(solutionDirectory ?? Environment.CurrentDirectory, path));
+        return DocumentPathResolver.Resolve(dte, path, parameterName: nameof(path));
     }
 
     private sealed class PendingEdit

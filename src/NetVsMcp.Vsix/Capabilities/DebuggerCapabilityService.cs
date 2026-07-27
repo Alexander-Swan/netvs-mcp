@@ -809,36 +809,13 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
     private static string ResolveDocumentPath(DTE dte, string documentPath)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
-
-        if (string.IsNullOrWhiteSpace(documentPath))
-        {
-            throw new ArgumentException("Document path is required.", nameof(documentPath));
-        }
-
-        if (Path.IsPathRooted(documentPath))
-        {
-            return Path.GetFullPath(documentPath);
-        }
-
-        var solutionPath = dte.Solution?.FullName;
-        var solutionDirectory = string.IsNullOrWhiteSpace(solutionPath)
-            ? Environment.CurrentDirectory
-            : Path.GetDirectoryName(solutionPath) ?? Environment.CurrentDirectory;
-
-        return Path.GetFullPath(Path.Combine(solutionDirectory, documentPath));
+        return DocumentPathResolver.Resolve(dte, documentPath);
     }
 
     private static string? ResolveOptionalDocumentPath(DTE dte, string? documentPath)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
-
-        if (documentPath is not string path || string.IsNullOrWhiteSpace(path))
-        {
-            return null;
-        }
-
-        var nonEmptyDocumentPath = path.Trim();
-        return ResolveDocumentPath(dte, nonEmptyDocumentPath);
+        return DocumentPathResolver.ResolveOptional(dte, documentPath);
     }
 
     private static bool MatchesBreakpoint(Breakpoint breakpoint, string? name, string? resolvedDocumentPath, int line)

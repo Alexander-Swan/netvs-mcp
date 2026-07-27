@@ -296,29 +296,7 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
     private static string ResolveDocumentPath(DTE? dte, string? documentPath)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
-
-        var path = string.IsNullOrWhiteSpace(documentPath)
-            ? dte?.ActiveDocument?.FullName
-            : documentPath;
-
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            throw new ArgumentException("Document path is required when there is no active document.", nameof(documentPath));
-        }
-
-        if (Path.IsPathRooted(path))
-        {
-            return Path.GetFullPath(path);
-        }
-
-        var solutionPath = dte?.Solution?.FullName;
-        if (string.IsNullOrWhiteSpace(solutionPath))
-        {
-            return Path.GetFullPath(path);
-        }
-
-        var solutionDirectory = Path.GetDirectoryName(solutionPath);
-        return Path.GetFullPath(Path.Combine(solutionDirectory ?? Environment.CurrentDirectory, path));
+        return DocumentPathResolver.Resolve(dte, documentPath, allowActiveDocument: true);
     }
 
     private static Microsoft.CodeAnalysis.Document? FindWorkspaceDocument(Microsoft.CodeAnalysis.Solution solution, string resolvedPath)
