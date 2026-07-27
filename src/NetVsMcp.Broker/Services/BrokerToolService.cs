@@ -14,6 +14,8 @@ public sealed partial class BrokerToolService
     private const string DocumentPathParameterDescription = "Document path relative to the solution or absolute path. Prefer forward slashes, for example src/Project/File.cs; if using Windows backslashes in JSON, escape them as double backslashes.";
     private const string OptionalDocumentPathParameterDescription = "Optional document path relative to the solution or absolute path. Prefer forward slashes, for example src/Project/File.cs; if using Windows backslashes in JSON, escape them as double backslashes.";
     private const string DocumentPathsParameterDescription = "Document paths relative to the solution or absolute paths. Prefer forward slashes, for example src/Project/File.cs; if using Windows backslashes in JSON, escape them as double backslashes.";
+    private const string LineParameterDescription = "1-based line number as shown in the Visual Studio editor.";
+    private const string ColumnParameterDescription = "1-based column number.";
 
     private static readonly BrokerToolDescriptor[] ToolDescriptors =
     [
@@ -588,7 +590,9 @@ public sealed partial class BrokerToolService
     public Task<ToolResponse<GoToDefinitionResult>> CodeGoToDefinition(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
+        [Description(LineParameterDescription)]
         int line,
+        [Description(ColumnParameterDescription)]
         int column,
         string? sessionId = null,
         string? solutionName = null,
@@ -620,7 +624,9 @@ public sealed partial class BrokerToolService
     public Task<ToolResponse<FindReferencesResult>> CodeFindReferences(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
+        [Description(LineParameterDescription)]
         int line,
+        [Description(ColumnParameterDescription)]
         int column,
         string? sessionId = null,
         string? solutionName = null,
@@ -652,7 +658,9 @@ public sealed partial class BrokerToolService
     public Task<ToolResponse<SymbolContextResult>> SymbolContext(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
+        [Description(LineParameterDescription)]
         int line,
+        [Description(ColumnParameterDescription)]
         int column,
         int contextLines = 4,
         string? sessionId = null,
@@ -716,7 +724,9 @@ public sealed partial class BrokerToolService
     public Task<ToolResponse<FindImplementationsResult>> FindImplementations(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
+        [Description(LineParameterDescription)]
         int line,
+        [Description(ColumnParameterDescription)]
         int column,
         string? sessionId = null,
         string? solutionName = null,
@@ -742,7 +752,9 @@ public sealed partial class BrokerToolService
     public Task<ToolResponse<RenameSymbolPreviewResult>> RenameSymbolPreview(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
+        [Description(LineParameterDescription)]
         int line,
+        [Description(ColumnParameterDescription)]
         int column,
         string newName,
         string? sessionId = null,
@@ -945,7 +957,9 @@ public sealed partial class BrokerToolService
     public Task<ToolResponse<DocumentMutationResult>> EditorInsert(
         [Description(DocumentPathParameterDescription)]
         string path,
+        [Description(LineParameterDescription)]
         int line,
+        [Description(ColumnParameterDescription)]
         int column,
         string text,
         bool saveAfterEdit = false,
@@ -991,9 +1005,13 @@ public sealed partial class BrokerToolService
     public Task<ToolResponse<DocumentMutationResult>> EditorReplace(
         [Description(DocumentPathParameterDescription)]
         string path,
+        [Description(LineParameterDescription)]
         int startLine,
+        [Description(ColumnParameterDescription)]
         int startColumn,
+        [Description(LineParameterDescription)]
         int endLine,
+        [Description(ColumnParameterDescription)]
         int endColumn,
         string text,
         bool saveAfterEdit = false,
@@ -1041,7 +1059,9 @@ public sealed partial class BrokerToolService
     public Task<ToolResponse<EditorDocumentInfo>> EditorGotoLine(
         [Description(DocumentPathParameterDescription)]
         string path,
+        [Description(LineParameterDescription)]
         int line,
+        [Description(ColumnParameterDescription)]
         int column = 1,
         string? sessionId = null,
         string? solutionName = null,
@@ -1078,9 +1098,13 @@ public sealed partial class BrokerToolService
     public Task<ToolResponse<SelectionInfo>> SelectionSet(
         [Description(DocumentPathParameterDescription)]
         string path,
+        [Description(LineParameterDescription)]
         int startLine,
+        [Description(ColumnParameterDescription)]
         int startColumn,
+        [Description(LineParameterDescription)]
         int endLine,
+        [Description(ColumnParameterDescription)]
         int endColumn,
         string? sessionId = null,
         string? solutionName = null,
@@ -1190,11 +1214,17 @@ public sealed partial class BrokerToolService
         string text,
         bool createIfMissing = false,
         bool saveAfterEdit = false,
+        [Description("1-based line number; required when operation is 'insert'.")]
         int line = 0,
+        [Description("1-based column number; required when operation is 'insert'.")]
         int column = 0,
+        [Description("1-based start line number; required when operation is 'replace'.")]
         int startLine = 0,
+        [Description("1-based start column number; required when operation is 'replace'.")]
         int startColumn = 0,
+        [Description("1-based end line number; required when operation is 'replace'.")]
         int endLine = 0,
+        [Description("1-based end column number; required when operation is 'replace'.")]
         int endColumn = 0,
         string? sessionId = null,
         string? solutionName = null,
@@ -1239,11 +1269,17 @@ public sealed partial class BrokerToolService
         string text,
         bool createIfMissing = false,
         bool saveAfterEdit = false,
+        [Description("1-based line number; required when operation is 'insert'.")]
         int line = 0,
+        [Description("1-based column number; required when operation is 'insert'.")]
         int column = 0,
+        [Description("1-based start line number; required when operation is 'replace'.")]
         int startLine = 0,
+        [Description("1-based start column number; required when operation is 'replace'.")]
         int startColumn = 0,
+        [Description("1-based end line number; required when operation is 'replace'.")]
         int endLine = 0,
+        [Description("1-based end column number; required when operation is 'replace'.")]
         int endColumn = 0,
         string? sessionId = null,
         string? solutionName = null,
@@ -2146,7 +2182,9 @@ public sealed partial class BrokerToolService
     public async Task<ToolResponse<BreakpointInfo>> BreakpointSet(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
+        [Description(LineParameterDescription)]
         int line,
+        [Description(ColumnParameterDescription)]
         int column = 1,
         string? condition = null,
         string? action = null,
@@ -2259,6 +2297,7 @@ public sealed partial class BrokerToolService
         string? name = null,
         [Description(OptionalDocumentPathParameterDescription)]
         string? documentPath = null,
+        [Description("1-based line number; used with documentPath to identify the breakpoint to remove.")]
         int line = 0,
         string? sessionId = null,
         string? solutionName = null,
@@ -2293,6 +2332,7 @@ public sealed partial class BrokerToolService
         string? name = null,
         [Description(OptionalDocumentPathParameterDescription)]
         string? documentPath = null,
+        [Description("1-based line number; used with documentPath to identify the breakpoint to enable or disable.")]
         int line = 0,
         string? sessionId = null,
         string? solutionName = null,
