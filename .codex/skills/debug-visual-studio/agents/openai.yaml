@@ -1,0 +1,4 @@
+interface:
+  display_name: "Debug Visual Studio"
+  short_description: "Debug Visual Studio projects with NetVsMcp"
+  default_prompt: "Use $debug-visual-studio to debug the active Visual Studio project."
