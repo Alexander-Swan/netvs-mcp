@@ -1,4 +1,5 @@
 using NetVsMcp.Contracts;
+using System.IO;
 
 namespace NetVsMcp.Broker.Services;
 
@@ -12,6 +13,8 @@ public interface IVsSessionDispatcher
 
 public sealed class VsSessionDispatcher : IVsSessionDispatcher
 {
+    private const string DocumentPathGuidance = "Use forward slashes in documentPath/path values, for example src/Project/File.cs. If you use Windows backslashes in JSON, escape them as double backslashes.";
+
     private readonly SessionRegistry _sessions;
     private readonly IVsSessionConnectionMap _connections;
 
@@ -75,9 +78,26 @@ public sealed class VsSessionDispatcher : IVsSessionDispatcher
         {
             return VsSessionDispatchResult<T>.Failed(
                 VsSessionDispatchFailureReason.RpcFailure,
-                $"Visual Studio session '{route.Session.SessionId}' RPC call failed: {ex.Message}",
+                $"Visual Studio session '{route.Session.SessionId}' RPC call failed: {AddDocumentPathGuidance(ex)}",
                 route.Session);
         }
+    }
+
+    private static string AddDocumentPathGuidance(Exception exception)
+    {
+        var message = exception.Message;
+        if (!LooksLikePathParsingFailure(exception, message) || message.Contains(DocumentPathGuidance, StringComparison.OrdinalIgnoreCase))
+        {
+            return message;
+        }
+
+        return $"{message} {DocumentPathGuidance}";
+    }
+
+    private static bool LooksLikePathParsingFailure(Exception exception, string message)
+    {
+        return exception is ArgumentException or NotSupportedException or PathTooLongException
+            && message.Contains("path", StringComparison.OrdinalIgnoreCase);
     }
 
     private static VsSessionDispatchFailureReason MapRouteFailure(RouteFailureReason reason)

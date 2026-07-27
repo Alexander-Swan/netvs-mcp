@@ -11,6 +11,10 @@ namespace NetVsMcp.Broker.Services;
 [McpServerToolType]
 public sealed partial class BrokerToolService
 {
+    private const string DocumentPathParameterDescription = "Document path relative to the solution or absolute path. Prefer forward slashes, for example src/Project/File.cs; if using Windows backslashes in JSON, escape them as double backslashes.";
+    private const string OptionalDocumentPathParameterDescription = "Optional document path relative to the solution or absolute path. Prefer forward slashes, for example src/Project/File.cs; if using Windows backslashes in JSON, escape them as double backslashes.";
+    private const string DocumentPathsParameterDescription = "Document paths relative to the solution or absolute paths. Prefer forward slashes, for example src/Project/File.cs; if using Windows backslashes in JSON, escape them as double backslashes.";
+
     private static readonly BrokerToolDescriptor[] ToolDescriptors =
     [
         new("vs_list_sessions", "Lists Visual Studio instances registered with the local broker.", false),
@@ -29,13 +33,13 @@ public sealed partial class BrokerToolService
         new("toolwindow_show", "Shows a Visual Studio tool window in a routed session.", true),
         new("toolwindow_hide", "Hides a Visual Studio tool window in a routed session.", true),
         new("document_active", "Returns the active document for a routed Visual Studio session.", true),
-        new("code_document_symbols", "Lists document symbols through a routed Visual Studio session.", true),
-        new("code_go_to_definition", "Finds and navigates to a symbol definition through a routed Visual Studio session.", true),
-        new("code_find_references", "Finds symbol references through a routed Visual Studio session.", true),
-        new("symbol_context", "Returns document text, nearby snippet, definition, and references for a code position.", true),
-        new("document_outline", "Returns document symbol outline information.", true),
-        new("find_implementations", "Returns best-effort implementation lookup status for a code position.", true),
-        new("rename_symbol_preview", "Returns a safe rename preview status for a code position.", true),
+        new("code_document_symbols", "Lists document symbols through a routed Visual Studio session. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
+        new("code_go_to_definition", "Finds and navigates to a symbol definition through a routed Visual Studio session. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
+        new("code_find_references", "Finds symbol references through a routed Visual Studio session. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
+        new("symbol_context", "Returns document text, nearby snippet, definition, and references for a code position. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
+        new("document_outline", "Returns document symbol outline information. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
+        new("find_implementations", "Returns best-effort implementation lookup status for a code position. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
+        new("rename_symbol_preview", "Returns a safe rename preview status for a code position. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
         new("diagnostics_for_document", "Filters routed diagnostics to one document.", true),
         new("workspace_search", "Searches files under the routed solution root.", true),
         new("git_context", "Returns best-effort git status for the routed solution root.", true),
@@ -68,19 +72,19 @@ public sealed partial class BrokerToolService
         new("debug_get_callstack", "Returns the current call stack from a routed Visual Studio session.", true),
         new("debug_get_locals", "Returns locals from a routed Visual Studio session.", true),
         new("debug_evaluate", "Evaluates an expression in a routed Visual Studio session.", true),
-        new("document_read", "Reads a document through a routed Visual Studio session.", true),
-        new("document_open", "Opens a document through a routed Visual Studio session.", true),
+        new("document_read", "Reads a document through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
+        new("document_open", "Opens a document through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
         new("selection_get", "Returns the current editor selection from a routed Visual Studio session.", true),
-        new("document_write", "Replaces a document buffer through a routed Visual Studio session.", true),
-        new("document_save", "Saves a document through a routed Visual Studio session.", true),
-        new("editor_insert", "Inserts text through a routed Visual Studio session.", true),
-        new("editor_replace", "Replaces a text range through a routed Visual Studio session.", true),
-        new("editor_goto_line", "Moves the caret through a routed Visual Studio session.", true),
-        new("selection_set", "Sets the editor selection through a routed Visual Studio session.", true),
-        new("document_cleanup", "Formats/cleans up a document through a routed Visual Studio session.", true),
-        new("format_and_organize", "Formats/cleans up a document and reports organize-import status.", true),
-        new("edit_preview", "Creates a pending safe-edit preview through a routed Visual Studio session.", true),
-        new("prepare_safe_edit", "Reads a document and creates a safe-edit preview.", true),
+        new("document_write", "Replaces a document buffer through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
+        new("document_save", "Saves a document through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
+        new("editor_insert", "Inserts text through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
+        new("editor_replace", "Replaces a text range through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
+        new("editor_goto_line", "Moves the caret through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
+        new("selection_set", "Sets the editor selection through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
+        new("document_cleanup", "Formats/cleans up a document through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
+        new("format_and_organize", "Formats/cleans up a document and reports organize-import status. Prefer forward slashes in path values like src/Project/File.cs.", true),
+        new("edit_preview", "Creates a pending safe-edit preview through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
+        new("prepare_safe_edit", "Reads a document and creates a safe-edit preview. Prefer forward slashes in path values like src/Project/File.cs.", true),
         new("edit_approve", "Approves a pending safe edit through a routed Visual Studio session.", true),
         new("apply_safe_edit_and_build", "Approves a pending edit, builds, and returns errors.", true),
         new("edit_reject", "Rejects a pending safe edit through a routed Visual Studio session.", true),
@@ -102,10 +106,10 @@ public sealed partial class BrokerToolService
         new("test_run", "Runs tests through a routed Visual Studio session.", true),
         new("test_results", "Returns test results through a routed Visual Studio session.", true),
         new("document_list", "Lists open documents in a routed Visual Studio session.", true),
-        new("document_close", "Closes an open document with save, discard, or no-save policy.", true),
-        new("editor_find", "Finds text in one editor document.", true),
-        new("find_in_files", "Searches files under a Visual Studio solution or root path.", true),
-        new("code_go_to_implementation", "Finds implementation locations for a symbol at a code position.", true),
+        new("document_close", "Closes an open document with save, discard, or no-save policy. Prefer forward slashes in path values like src/Project/File.cs.", true),
+        new("editor_find", "Finds text in one editor document. Prefer forward slashes in path values like src/Project/File.cs.", true),
+        new("find_in_files", "Searches files under a Visual Studio solution or root path. Prefer forward slashes in rootPath values like src/Project.", true),
+        new("code_go_to_implementation", "Finds implementation locations for a symbol at a code position. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
         new("code_workspace_symbols", "Searches symbols in the live Visual Studio workspace.", true),
         new("build_project", "Builds one project in the routed Visual Studio session.", true),
         new("build_cancel", "Cancels an active Visual Studio build.", true),
@@ -557,6 +561,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "code_document_symbols")]
     [Description("Lists document symbols for a document in a routed Visual Studio session.")]
     public async Task<ToolResponse<IReadOnlyCollection<string>>> CodeDocumentSymbols(
+        [Description(DocumentPathParameterDescription)]
         string documentPath,
         string? sessionId = null,
         string? solutionName = null,
@@ -581,6 +586,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "code_go_to_definition")]
     [Description("Finds and navigates to a symbol definition through a routed Visual Studio session.")]
     public Task<ToolResponse<GoToDefinitionResult>> CodeGoToDefinition(
+        [Description(DocumentPathParameterDescription)]
         string documentPath,
         int line,
         int column,
@@ -612,6 +618,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "code_find_references")]
     [Description("Finds symbol references through a routed Visual Studio session.")]
     public Task<ToolResponse<FindReferencesResult>> CodeFindReferences(
+        [Description(DocumentPathParameterDescription)]
         string documentPath,
         int line,
         int column,
@@ -643,6 +650,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "symbol_context")]
     [Description("Returns document text, nearby snippet, definition, and references for a code position.")]
     public Task<ToolResponse<SymbolContextResult>> SymbolContext(
+        [Description(DocumentPathParameterDescription)]
         string documentPath,
         int line,
         int column,
@@ -677,6 +685,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "document_outline")]
     [Description("Returns document symbol outline information.")]
     public async Task<ToolResponse<DocumentOutlineResult>> DocumentOutline(
+        [Description(DocumentPathParameterDescription)]
         string documentPath,
         string? sessionId = null,
         string? solutionName = null,
@@ -705,6 +714,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "find_implementations")]
     [Description("Returns best-effort implementation lookup status for a code position.")]
     public Task<ToolResponse<FindImplementationsResult>> FindImplementations(
+        [Description(DocumentPathParameterDescription)]
         string documentPath,
         int line,
         int column,
@@ -730,6 +740,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "rename_symbol_preview")]
     [Description("Returns safe rename preview status for a code position.")]
     public Task<ToolResponse<RenameSymbolPreviewResult>> RenameSymbolPreview(
+        [Description(DocumentPathParameterDescription)]
         string documentPath,
         int line,
         int column,
@@ -768,6 +779,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "document_read")]
     [Description("Reads a document through a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentReadResult>> DocumentRead(
+        [Description(DocumentPathParameterDescription)]
         string path,
         string? sessionId = null,
         string? solutionName = null,
@@ -791,6 +803,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "document_open")]
     [Description("Opens a document through a routed Visual Studio session.")]
     public Task<ToolResponse<EditorDocumentInfo>> DocumentOpen(
+        [Description(DocumentPathParameterDescription)]
         string path,
         string? sessionId = null,
         string? solutionName = null,
@@ -814,6 +827,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "open_relevant_files")]
     [Description("Opens a set of relevant files in the routed Visual Studio session.")]
     public Task<ToolResponse<OpenRelevantFilesResult>> OpenRelevantFiles(
+        [Description(DocumentPathsParameterDescription)]
         string[] paths,
         string? sessionId = null,
         string? solutionName = null,
@@ -871,6 +885,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "document_write")]
     [Description("Replaces a document buffer through a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentMutationResult>> DocumentWrite(
+        [Description(DocumentPathParameterDescription)]
         string path,
         string text,
         bool createIfMissing = false,
@@ -909,6 +924,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "document_save")]
     [Description("Saves a document through a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentMutationResult>> DocumentSave(
+        [Description(OptionalDocumentPathParameterDescription)]
         string? path = null,
         string? sessionId = null,
         string? solutionName = null,
@@ -927,6 +943,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "editor_insert")]
     [Description("Inserts text through a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentMutationResult>> EditorInsert(
+        [Description(DocumentPathParameterDescription)]
         string path,
         int line,
         int column,
@@ -972,6 +989,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "editor_replace")]
     [Description("Replaces a text range through a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentMutationResult>> EditorReplace(
+        [Description(DocumentPathParameterDescription)]
         string path,
         int startLine,
         int startColumn,
@@ -1021,6 +1039,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "editor_goto_line")]
     [Description("Moves the caret through a routed Visual Studio session.")]
     public Task<ToolResponse<EditorDocumentInfo>> EditorGotoLine(
+        [Description(DocumentPathParameterDescription)]
         string path,
         int line,
         int column = 1,
@@ -1057,6 +1076,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "selection_set")]
     [Description("Sets the editor selection through a routed Visual Studio session.")]
     public Task<ToolResponse<SelectionInfo>> SelectionSet(
+        [Description(DocumentPathParameterDescription)]
         string path,
         int startLine,
         int startColumn,
@@ -1097,6 +1117,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "document_cleanup")]
     [Description("Formats/cleans up a document through a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentCleanupResult>> DocumentCleanup(
+        [Description(DocumentPathParameterDescription)]
         string path,
         bool saveAfterCleanup = false,
         string? sessionId = null,
@@ -1126,6 +1147,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "format_and_organize")]
     [Description("Formats/cleans up a document and reports organize-import status.")]
     public Task<ToolResponse<FormatAndOrganizeResult>> FormatAndOrganize(
+        [Description(DocumentPathParameterDescription)]
         string path,
         bool saveAfterCleanup = false,
         string? sessionId = null,
@@ -1163,6 +1185,7 @@ public sealed partial class BrokerToolService
     [Description("Creates a pending safe-edit preview through a routed Visual Studio session.")]
     public Task<ToolResponse<EditPreviewResult>> EditPreview(
         string operation,
+        [Description(DocumentPathParameterDescription)]
         string path,
         string text,
         bool createIfMissing = false,
@@ -1211,6 +1234,7 @@ public sealed partial class BrokerToolService
     [Description("Reads a document and creates a safe-edit preview through a routed Visual Studio session.")]
     public Task<ToolResponse<PrepareSafeEditResult>> PrepareSafeEdit(
         string operation,
+        [Description(DocumentPathParameterDescription)]
         string path,
         string text,
         bool createIfMissing = false,
@@ -1876,6 +1900,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "diagnostics_for_document")]
     [Description("Filters routed diagnostics to one document path.")]
     public Task<ToolResponse<DiagnosticsForDocumentResult>> DiagnosticsForDocument(
+        [Description(DocumentPathParameterDescription)]
         string documentPath,
         bool includeWarnings = true,
         int maxItems = 200,
@@ -2119,6 +2144,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "breakpoint_set")]
     [Description("Sets a breakpoint in a routed Visual Studio session.")]
     public async Task<ToolResponse<BreakpointInfo>> BreakpointSet(
+        [Description(DocumentPathParameterDescription)]
         string documentPath,
         int line,
         int column = 1,
@@ -2231,6 +2257,7 @@ public sealed partial class BrokerToolService
     [Description("Removes breakpoints in a routed Visual Studio session.")]
     public Task<ToolResponse<BreakpointRemoveResult>> BreakpointRemove(
         string? name = null,
+        [Description(OptionalDocumentPathParameterDescription)]
         string? documentPath = null,
         int line = 0,
         string? sessionId = null,
@@ -2264,6 +2291,7 @@ public sealed partial class BrokerToolService
     public Task<ToolResponse<BreakpointEnableResult>> BreakpointEnable(
         bool enabled,
         string? name = null,
+        [Description(OptionalDocumentPathParameterDescription)]
         string? documentPath = null,
         int line = 0,
         string? sessionId = null,

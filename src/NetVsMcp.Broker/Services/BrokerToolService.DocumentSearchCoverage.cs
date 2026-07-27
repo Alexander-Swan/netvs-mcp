@@ -19,6 +19,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "document_close")]
     [Description("Closes an open document with save, discard, or no-save policy.")]
     public Task<ToolResponse<DocumentCloseResult>> DocumentClose(
+        [Description(DocumentPathParameterDescription)]
         string path = "",
         DocumentClosePolicy policy = DocumentClosePolicy.NoSave,
         bool allowDirtyDiscard = false,
@@ -46,6 +47,7 @@ public sealed partial class BrokerToolService
     [Description("Finds text in one editor document.")]
     public Task<ToolResponse<TextSearchResult>> EditorFind(
         string query,
+        [Description(OptionalDocumentPathParameterDescription)]
         string path = "",
         bool matchCase = false,
         bool wholeWord = false,
@@ -88,6 +90,7 @@ public sealed partial class BrokerToolService
     [Description("Searches files under a Visual Studio solution or root path.")]
     public Task<ToolResponse<TextSearchResult>> FindInFiles(
         string query,
+        [Description("Optional search root relative to the solution or an absolute path. Prefer forward slashes, for example src/Project; if using Windows backslashes in JSON, escape them as double backslashes.")]
         string? rootPath = null,
         string? filePattern = null,
         bool matchCase = false,
@@ -131,6 +134,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "code_go_to_implementation")]
     [Description("Finds implementation locations for a symbol at a code position.")]
     public Task<ToolResponse<FindImplementationsResult>> CodeGoToImplementation(
+        [Description(DocumentPathParameterDescription)]
         string documentPath,
         int line,
         int column,

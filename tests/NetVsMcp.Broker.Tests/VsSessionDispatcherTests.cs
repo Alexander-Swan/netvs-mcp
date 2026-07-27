@@ -92,6 +92,26 @@ public sealed class VsSessionDispatcherTests
         Assert.Equal("vs-1", result.Session?.SessionId);
     }
 
+    [Fact]
+    public async Task DispatchAsync_AddsDocumentPathGuidance_WhenRpcPathParsingFails()
+    {
+        var registry = new SessionRegistry();
+        registry.Register(CreateRegistration("vs-1", "NetVsMcp", @"C:\Code\NetVsMcp\NetVsMcp.slnx", isActive: true));
+        var connections = new VsSessionConnectionMap();
+        connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Program.cs"));
+        var dispatcher = CreateDispatcher(registry, connections);
+
+        var result = await dispatcher.DispatchAsync<string>(
+            new RoutingTarget(SessionId: "vs-1"),
+            static (_, _) => throw new ArgumentException("Illegal characters in path."),
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(VsSessionDispatchFailureReason.RpcFailure, result.FailureReason);
+        Assert.Contains("Use forward slashes", result.Message, StringComparison.Ordinal);
+        Assert.Contains("double backslashes", result.Message, StringComparison.Ordinal);
+    }
+
     private static VsSessionDispatcher CreateDispatcher(
         SessionRegistry registry,
         IVsSessionConnectionMap connections)
