@@ -117,6 +117,20 @@ public sealed class SessionRegistryTests
     }
 
     [Fact]
+    public void Register_RaisesSessionConnectedOnlyForNewSession()
+    {
+        var registry = new SessionRegistry();
+        var connected = new List<VsSessionInfo>();
+        registry.SessionConnected += (_, args) => connected.Add(args.Session);
+
+        registry.Register(CreateRegistration("vs-1", "One", @"C:\Code\One\One.sln", isActive: true));
+        registry.Register(CreateRegistration("vs-1", "One", @"C:\Code\One\One.sln", isActive: true));
+        registry.Register(CreateRegistration("vs-2", "Two", @"C:\Code\Two\Two.sln", isActive: false));
+
+        Assert.Equal(["vs-1", "vs-2"], connected.Select(session => session.SessionId));
+    }
+
+    [Fact]
     public void Resolve_UsesSolutionName_WhenPathIsNotProvided()
     {
         var registry = new SessionRegistry();

@@ -16,6 +16,7 @@ public sealed class SessionRegistry
     }
 
     public event EventHandler? SessionsChanged;
+    public event EventHandler<SessionConnectedEventArgs>? SessionConnected;
 
     public IReadOnlyCollection<VsSessionInfo> ListSessions()
     {
@@ -64,12 +65,19 @@ public sealed class SessionRegistry
             _utcNow(),
             registration.Capabilities);
 
+        var isNewSession = false;
         lock (_gate)
         {
+            isNewSession = !_sessions.ContainsKey(session.SessionId);
             _sessions[session.SessionId] = session;
         }
 
         OnSessionsChanged();
+        if (isNewSession)
+        {
+            OnSessionConnected(session);
+        }
+
         return ToolResponse.Ok($"Registered Visual Studio session '{session.SessionId}'.");
     }
 
@@ -326,4 +334,16 @@ public sealed class SessionRegistry
     }
 
     private void OnSessionsChanged() => SessionsChanged?.Invoke(this, EventArgs.Empty);
+
+    private void OnSessionConnected(VsSessionInfo session) => SessionConnected?.Invoke(this, new SessionConnectedEventArgs(session));
+}
+
+public sealed class SessionConnectedEventArgs : EventArgs
+{
+    public SessionConnectedEventArgs(VsSessionInfo session)
+    {
+        Session = session;
+    }
+
+    public VsSessionInfo Session { get; }
 }

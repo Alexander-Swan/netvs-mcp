@@ -1,6 +1,8 @@
 using System.Drawing;
+using System.IO;
 using System.Windows;
 using NetVsMcp.Broker.ViewModels;
+using NetVsMcp.Contracts;
 using Forms = System.Windows.Forms;
 
 namespace NetVsMcp.Broker.Services;
@@ -29,6 +31,7 @@ public sealed class TrayIconController : IDisposable
 
         _notifyIcon.DoubleClick += (_, _) => ShowStatusWindow();
         _runtime.Sessions.SessionsChanged += (_, _) => UpdateStatus();
+        _runtime.Sessions.SessionConnected += OnSessionConnected;
         UpdateStatus();
     }
 
@@ -47,6 +50,7 @@ public sealed class TrayIconController : IDisposable
         }
 
         _notifyIcon.Visible = false;
+        _runtime.Sessions.SessionConnected -= OnSessionConnected;
         _notifyIcon.Dispose();
         _disposed = true;
     }
@@ -77,6 +81,33 @@ public sealed class TrayIconController : IDisposable
     }
 
     private string BuildAutostartMenuText() => $"Start at Login: {_viewModel.AutostartStatus}";
+
+    private void OnSessionConnected(object? sender, SessionConnectedEventArgs e)
+    {
+        System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            UpdateStatus();
+            _notifyIcon.ShowBalloonTip(
+                5000,
+                "Visual Studio connected",
+                BuildSessionConnectedMessage(e.Session),
+                Forms.ToolTipIcon.Info);
+        });
+    }
+
+    private static string BuildSessionConnectedMessage(VsSessionInfo session)
+    {
+        var name = string.IsNullOrWhiteSpace(session.SolutionName)
+            ? Path.GetFileNameWithoutExtension(session.SolutionPath) ?? "Visual Studio"
+            : session.SolutionName;
+
+        return $"{name} registered with NetVsMcp Broker. Process id: {session.ProcessId}.";
+    }
 
     private void ShowStatusWindow()
     {
