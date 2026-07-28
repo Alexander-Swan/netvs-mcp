@@ -4,7 +4,7 @@
         Title="NetVsMcp Broker"
         Icon="Assets/broker.ico"
         Height="720"
-        MinHeight="560"
+        MinHeight="640"
         Width="1120"
         MinWidth="860">
     <DockPanel Margin="20">
@@ -57,100 +57,87 @@
 
         <TabControl>
             <TabItem Header="STATUS">
+                <GroupBox Header="Connection" Margin="0,4,0,0">
+                    <Grid Margin="14">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Text="MCP endpoint" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding McpEndpoint}" VerticalAlignment="Center" />
+                        <Button Grid.Column="2" Content="Copy" Click="CopyEndpoint_Click" Margin="0" />
+
+                        <TextBlock Grid.Row="1" Text="Web automation" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding McpWebAutomationEndpoint}" Margin="0,10,0,0" VerticalAlignment="Center" />
+                        <Button Grid.Row="1" Grid.Column="2" Content="Copy" Click="CopyWebAutomationEndpoint_Click" Margin="0,10,0,0" />
+
+                        <TextBlock Grid.Row="2" Text="Named pipe" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PipeName}" Margin="0,10,0,0" VerticalAlignment="Center" />
+                        <Button Grid.Row="2" Grid.Column="2" Content="Copy" Click="CopyPipe_Click" Margin="0,10,0,0" />
+
+                        <TextBlock Grid.Row="3" Text="Start at login" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding AutostartStatus}" Margin="0,10,0,0" VerticalAlignment="Center" />
+                        <Button Grid.Row="3" Grid.Column="2" Content="Toggle" Click="ToggleAutostart_Click" Margin="0,10,0,0" />
+
+                        <TextBlock Grid.Row="4" Text="Logs folder" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LogsFolder}" Margin="0,10,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <Button Grid.Row="4" Grid.Column="2" Content="Open" Click="OpenLogs_Click" Margin="0,10,0,0" />
+
+                        <TextBlock Grid.Row="5" Text="Client config" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Top" />
+                        <TextBox Grid.Row="5" Grid.Column="1"
+                                 Text="{Binding McpRegistrationJson, Mode=OneWay}"
+                                 Margin="0,10,0,0"
+                                 FontFamily="Consolas"
+                                 FontSize="11"
+                                 MinHeight="80"
+                                 IsReadOnly="True"
+                                 TextWrapping="NoWrap"
+                                 VerticalScrollBarVisibility="Auto"
+                                 HorizontalScrollBarVisibility="Auto" />
+                        <Button Grid.Row="5" Grid.Column="2" Content="Copy" Click="CopyConfig_Click" Style="{StaticResource AccentButtonStyle}" Margin="0,10,0,0" VerticalAlignment="Top" />
+                    </Grid>
+                </GroupBox>
+            </TabItem>
+
+            <TabItem Header="SESSIONS">
                 <Grid Margin="0,4,0,0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
+                    <DataGrid ItemsSource="{Binding Sessions}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal"
+                              Visibility="{Binding HasSessions, Converter={StaticResource BoolToVis}}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Session ID" Binding="{Binding SessionId}" Width="Auto" />
+                            <DataGridTextColumn Header="Debugger" Binding="{Binding DebuggerMode}" Width="Auto" />
+                            <DataGridTextColumn Header="Solution" Binding="{Binding SolutionPath}" Width="*"/>
+                            <DataGridTextColumn Header="Capabilities" Binding="{Binding Capabilities}" Width="*" />
+                            <DataGridTextColumn Header="PID" Binding="{Binding ProcessId}" Width="Auto" />
+                        </DataGrid.Columns>
+                    </DataGrid>
 
-                    <GroupBox Header="Connection" Grid.Row="0">
-                        <Grid Margin="14">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="140" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-
-                            <TextBlock Text="MCP endpoint" FontWeight="SemiBold" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1" Text="{Binding McpEndpoint}" VerticalAlignment="Center" />
-                            <Button Grid.Column="2" Content="Copy" Click="CopyEndpoint_Click" Margin="0" />
-
-                            <TextBlock Grid.Row="1" Text="Web automation" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Center" />
-                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding McpWebAutomationEndpoint}" Margin="0,10,0,0" VerticalAlignment="Center" />
-                            <Button Grid.Row="1" Grid.Column="2" Content="Copy" Click="CopyWebAutomationEndpoint_Click" Margin="0,10,0,0" />
-
-                            <TextBlock Grid.Row="2" Text="Named pipe" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Center" />
-                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PipeName}" Margin="0,10,0,0" VerticalAlignment="Center" />
-                            <Button Grid.Row="2" Grid.Column="2" Content="Copy" Click="CopyPipe_Click" Margin="0,10,0,0" />
-
-                            <TextBlock Grid.Row="3" Text="Start at login" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Center" />
-                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding AutostartStatus}" Margin="0,10,0,0" VerticalAlignment="Center" />
-                            <Button Grid.Row="3" Grid.Column="2" Content="Toggle" Click="ToggleAutostart_Click" Margin="0,10,0,0" />
-
-                            <TextBlock Grid.Row="4" Text="Logs folder" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Center" />
-                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LogsFolder}" Margin="0,10,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                            <Button Grid.Row="4" Grid.Column="2" Content="Open" Click="OpenLogs_Click" Margin="0,10,0,0" />
-
-                            <TextBlock Grid.Row="5" Text="Client config" FontWeight="SemiBold" Margin="0,10,0,0" />
-                            <TextBox Grid.Row="5" Grid.Column="1"
-                                     Text="{Binding McpRegistrationJson, Mode=OneWay}"
-                                     Margin="0,10,0,0"
-                                     FontFamily="Consolas"
-                                     FontSize="11"
-                                     Height="80"
-                                     IsReadOnly="True"
-                                     TextWrapping="NoWrap"
-                                     VerticalScrollBarVisibility="Auto"
-                                     HorizontalScrollBarVisibility="Auto" />
-                            <Button Grid.Row="5" Grid.Column="2" Content="Copy" Click="CopyConfig_Click" Style="{StaticResource AccentButtonStyle}" Margin="0,10,0,0" VerticalAlignment="Top" />
-                        </Grid>
-                    </GroupBox>
-
-                    <GroupBox Header="Registered Visual Studio sessions" Grid.Row="1">
-                        <Grid Margin="14">
-                            <DataGrid ItemsSource="{Binding Sessions}"
-                                      AutoGenerateColumns="False"
-                                      CanUserAddRows="False"
-                                      IsReadOnly="True"
-                                      HeadersVisibility="Column"
-                                      GridLinesVisibility="Horizontal"
-                                      Visibility="{Binding HasSessions, Converter={StaticResource BoolToVis}}">
-                                <DataGrid.Columns>
-                                    <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActiveWindow, Mode=OneWay}" Width="60" />
-                                    <DataGridTextColumn Header="Health" Binding="{Binding Health}" Width="80" />
-                                    <DataGridTextColumn Header="Solution" Binding="{Binding SolutionName}" Width="150" />
-                                    <DataGridTextColumn Header="PID" Binding="{Binding ProcessId}" Width="70" />
-                                    <DataGridTextColumn Header="Debugger" Binding="{Binding DebuggerMode}" Width="90" />
-                                    <DataGridTextColumn Header="Active Document" Binding="{Binding ActiveDocument}" Width="1.4*" />
-                                    <DataGridTextColumn Header="Last Seen" Binding="{Binding LastSeen}" Width="120" />
-                                    <DataGridTextColumn Header="Age" Binding="{Binding Age}" Width="70" />
-                                    <DataGridTextColumn Header="Solution Path" Binding="{Binding SolutionPath}" Width="1.6*" />
-                                    <DataGridTextColumn Header="Session ID" Binding="{Binding SessionId}" Width="150" />
-                                    <DataGridTextColumn Header="Capabilities" Binding="{Binding Capabilities}" Width="1.6*" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-
-                            <StackPanel Visibility="{Binding NoSessions, Converter={StaticResource BoolToVis}}"
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center">
-                                <TextBlock Text="No Visual Studio sessions yet"
-                                           FontWeight="SemiBold"
-                                           HorizontalAlignment="Center" />
-                                <TextBlock Text="Open Visual Studio with the NetVsMcp VSIX installed and it will register here automatically."
-                                           Style="{StaticResource MutedTextStyle}"
-                                           Margin="0,4,0,0"
-                                           HorizontalAlignment="Center" />
-                            </StackPanel>
-                        </Grid>
-                    </GroupBox>
+                    <StackPanel Visibility="{Binding NoSessions, Converter={StaticResource BoolToVis}}"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="No Visual Studio sessions yet"
+                                   FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" />
+                        <TextBlock Text="Open Visual Studio with the NetVsMcp VSIX installed and it will register here automatically."
+                                   Style="{StaticResource MutedTextStyle}"
+                                   Margin="0,4,0,0"
+                                   HorizontalAlignment="Center" />
+                    </StackPanel>
                 </Grid>
             </TabItem>
 

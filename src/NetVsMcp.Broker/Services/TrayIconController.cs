@@ -37,9 +37,15 @@ public sealed class TrayIconController : IDisposable
 
     public void UpdateStatus()
     {
-        var sessionCount = _runtime.Sessions.ListSessions().Count;
-        var suffix = sessionCount == 1 ? "1 VS instance connected" : $"{sessionCount} VS instances connected";
-        _notifyIcon.Text = $"NetVsMcp {_viewModel.Version} — {suffix}";
+        var sessions = _runtime.Sessions.ListSessions();
+        var suffix = sessions.Count == 1 ? "1 VS instance connected" : $"{sessions.Count} VS instances connected";
+        var header = $"NetVsMcp {_viewModel.Version} — {suffix}";
+        var recentIds = sessions
+            .OrderByDescending(s => s.LastSeenUtc)
+            .Take(3)
+            .Select(s => s.SessionId);
+        var text = sessions.Count == 0 ? header : header + "\n" + string.Join("\n", recentIds);
+        _notifyIcon.Text = text.Length > 127 ? text[..127] : text;
     }
 
     public void Dispose()

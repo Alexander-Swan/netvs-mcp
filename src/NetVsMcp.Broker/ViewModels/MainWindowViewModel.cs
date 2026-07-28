@@ -92,11 +92,21 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
-    public string Version { get; } =
-        Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-            is { Length: > 0 } informationalVersion
-            ? $"v{informationalVersion}"
-            : $"v{Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0"}";
+    public string Version { get; } = GetVersion();
+
+    private static string GetVersion()
+    {
+        var informationalVersion = Assembly.GetExecutingAssembly()
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        if (informationalVersion is { Length: > 0 })
+        {
+            var plusIndex = informationalVersion.IndexOf('+');
+            var clean = plusIndex >= 0 ? informationalVersion[..plusIndex] : informationalVersion;
+            return $"v{clean}";
+        }
+
+        return $"v{Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0"}";
+    }
 
     public string McpEndpoint => _runtime.Options.McpEndpoint;
 
@@ -220,6 +230,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             Sessions.Add(SessionStatusViewModel.FromStatus(session));
         }
 
+#if DEBUG
+        if (Sessions.Count == 0)
+        {
+            foreach (var sample in SessionStatusViewModel.DebugSamples)
+                Sessions.Add(sample);
+        }
+#endif
+
         OnPropertyChanged(nameof(HasSessions));
         OnPropertyChanged(nameof(NoSessions));
     }
@@ -293,78 +311,49 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
 public sealed class SessionStatusViewModel
 {
-    private SessionStatusViewModel(
-        string sessionId,
-        int processId,
-        string solutionName,
-        string solutionPath,
-        string health,
-        string lastSeen,
-        string age,
-        string debuggerMode,
-        string activeDocument,
-        string capabilities,
-        bool isActiveWindow)
+    private SessionStatusViewModel(int processId, string solutionFileName, string solutionDirectory, string solutionPath, string debuggerMode, string capabilities, string sessionId)
     {
-        SessionId = sessionId;
         ProcessId = processId;
-        SolutionName = solutionName;
+        SolutionFileName = solutionFileName;
+        SolutionDirectory = solutionDirectory;
         SolutionPath = solutionPath;
-        Health = health;
-        LastSeen = lastSeen;
-        Age = age;
         DebuggerMode = debuggerMode;
-        ActiveDocument = activeDocument;
         Capabilities = capabilities;
-        IsActiveWindow = isActiveWindow;
+        SessionId = sessionId;
     }
 
-    public string SessionId { get; }
     public int ProcessId { get; }
-    public string SolutionName { get; }
+    public string SolutionFileName { get; }
+    public string SolutionDirectory { get; }
     public string SolutionPath { get; }
-    public string Health { get; }
-    public string LastSeen { get; }
-    public string Age { get; }
     public string DebuggerMode { get; }
-    public string ActiveDocument { get; }
     public string Capabilities { get; }
-    public bool IsActiveWindow { get; }
+    public string SessionId { get; }
+
+#if DEBUG
+    public static IReadOnlyList<SessionStatusViewModel> DebugSamples { get; } =
+    [
+        new(12345, "MyApp.sln", @"C:\Work\MyApp\", @"C:\Work\MyApp\MyApp.sln", "Design", "Editor, Navigation, Build, Debugger", "vs-12345"),
+        new(67890, "WebApi.sln", @"C:\Projects\WebApi\", @"C:\Projects\WebApi\WebApi.sln", "Break", "Editor, Build, Debugger", "vs-67890"),
+        new(54321, "SharedLib.sln", @"C:\Work\Shared\", @"C:\Work\Shared\SharedLib.sln", "Run", "Editor, Navigation", "vs-54321"),
+    ];
+#endif
 
     public static SessionStatusViewModel FromStatus(VsSessionStatus status)
     {
         var session = status.Session;
+        var solutionPath = string.IsNullOrWhiteSpace(session.SolutionPath) ? string.Empty : session.SolutionPath!;
+        var solutionName = string.IsNullOrWhiteSpace(session.SolutionName) ? "(no solution)" : session.SolutionName!;
+        var solutionFileName = string.IsNullOrEmpty(solutionPath) ? solutionName : Path.GetFileName(solutionPath);
+        var solutionDirectory = string.IsNullOrEmpty(solutionPath) ? string.Empty
+            : Path.GetDirectoryName(solutionPath) is { Length: > 0 } dir ? dir + Path.DirectorySeparatorChar : string.Empty;
         return new SessionStatusViewModel(
-            session.SessionId,
             session.ProcessId,
-            string.IsNullOrWhiteSpace(session.SolutionName) ? "(no solution)" : session.SolutionName!,
-            string.IsNullOrWhiteSpace(session.SolutionPath) ? string.Empty : session.SolutionPath!,
-            status.Health.ToString(),
-            session.LastSeenUtc.LocalDateTime.ToString("g"),
-            FormatAge(status.Age),
+            solutionFileName,
+            solutionDirectory,
+            solutionPath,
             session.DebuggerMode.ToString(),
-            session.ActiveDocument ?? string.Empty,
             string.Join(", ", session.Capabilities),
-            session.IsActiveWindow);
-    }
-
-    private static string FormatAge(TimeSpan age)
-    {
-        if (age.TotalSeconds < 1)
-        {
-            return "now";
-        }
-
-        if (age.TotalMinutes < 1)
-        {
-            return $"{Math.Round(age.TotalSeconds)}s ago";
-        }
-
-        if (age.TotalHours < 1)
-        {
-            return $"{Math.Round(age.TotalMinutes)}m ago";
-        }
-
-        return $"{Math.Round(age.TotalHours)}h ago";
+            session.SessionId);
     }
 }
