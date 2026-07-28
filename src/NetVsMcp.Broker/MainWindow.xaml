@@ -52,8 +52,36 @@
                 </StackPanel>
             </StackPanel>
 
-            <Button Grid.Column="1" Content="Refresh" Click="Refresh_Click" VerticalAlignment="Center" Margin="0" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="Check for Updates" Click="CheckForUpdates_Click" />
+                <Button Content="Refresh" Click="Refresh_Click" />
+                <Button Content="Exit" Click="Exit_Click" Margin="0" />
+            </StackPanel>
         </Grid>
+
+        <Border DockPanel.Dock="Top"
+                Background="#FFF8E6"
+                BorderBrush="#E8A000"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="14,10"
+                Margin="0,0,0,12"
+                Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding UpdateBannerText}" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#7A4800" />
+                <Button Grid.Column="1"
+                        Content="{Binding InstallButtonContent}"
+                        IsEnabled="{Binding IsNotInstallingUpdate}"
+                        Click="InstallUpdate_Click"
+                        Style="{StaticResource AccentButtonStyle}"
+                        VerticalAlignment="Center"
+                        Margin="12,0,0,0" />
+            </Grid>
+        </Border>
 
         <TabControl>
             <TabItem Header="STATUS">

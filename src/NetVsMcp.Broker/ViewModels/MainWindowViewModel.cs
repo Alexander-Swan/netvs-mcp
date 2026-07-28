@@ -14,6 +14,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
     private readonly BrokerRuntime _runtime;
     private readonly IAutostartService _autostart;
+    private readonly UpdateCheckService _updateCheckService;
     private string _statusText = string.Empty;
     private string _runningState = string.Empty;
     private string _autostartStatus = string.Empty;
@@ -21,11 +22,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string _portText = string.Empty;
     private string _logsDirectoryText = string.Empty;
     private string _sessionsDirectoryText = string.Empty;
+    private UpdateInfo? _updateInfo;
+    private bool _isInstallingUpdate;
 
-    public MainWindowViewModel(BrokerRuntime runtime, IAutostartService autostart)
+    public MainWindowViewModel(BrokerRuntime runtime, IAutostartService autostart, UpdateCheckService updateCheckService)
     {
         _runtime = runtime;
         _autostart = autostart;
+        _updateCheckService = updateCheckService;
         _runtime.Sessions.SessionsChanged += (_, _) => Refresh();
         _portText = (_runtime.PendingPort ?? _runtime.CurrentPort).ToString();
         _logsDirectoryText = _runtime.PendingLogsDirectory ?? _runtime.CurrentLogsDirectory;
@@ -106,6 +110,64 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
 
         return $"v{Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0"}";
+    }
+
+    public bool UpdateAvailable => _updateInfo is not null;
+
+    public string UpdateVersionText => _updateInfo?.Version ?? string.Empty;
+
+    public string UpdateBannerText => _updateInfo is null
+        ? string.Empty
+        : $"Update available: v{_updateInfo.Version} — A new version of NetVsMcp Broker is ready to install.";
+
+    public bool IsInstallingUpdate
+    {
+        get => _isInstallingUpdate;
+        private set
+        {
+            if (_isInstallingUpdate != value)
+            {
+                _isInstallingUpdate = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsNotInstallingUpdate));
+                OnPropertyChanged(nameof(InstallButtonContent));
+            }
+        }
+    }
+
+    public bool IsNotInstallingUpdate => !_isInstallingUpdate;
+
+    public string InstallButtonContent => _isInstallingUpdate ? "Downloading..." : "Install Update";
+
+    public async Task CheckForUpdatesAsync(CancellationToken ct = default)
+    {
+        var currentVersion = Version.TrimStart('v');
+        _updateInfo = await _updateCheckService.CheckAsync(currentVersion, ct);
+        OnPropertyChanged(nameof(UpdateAvailable));
+        OnPropertyChanged(nameof(UpdateVersionText));
+        OnPropertyChanged(nameof(UpdateBannerText));
+    }
+
+    public async Task InstallUpdateAsync()
+    {
+        if (_updateInfo is null || _isInstallingUpdate)
+            return;
+
+        IsInstallingUpdate = true;
+        try
+        {
+            await _updateCheckService.DownloadAndInstallAsync(_updateInfo);
+            System.Windows.Application.Current.Shutdown();
+        }
+        catch (Exception ex)
+        {
+            IsInstallingUpdate = false;
+            System.Windows.MessageBox.Show(
+                $"Update failed: {ex.Message}",
+                "NetVsMcp Update",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+        }
     }
 
     public string McpEndpoint => _runtime.Options.McpEndpoint;

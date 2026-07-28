@@ -35,4 +35,10 @@ public partial class MainWindow : Window
     private void OpenLogs_Click(object sender, RoutedEventArgs e) => _viewModel.OpenLogsFolder();
 
     private void ApplySettings_Click(object sender, RoutedEventArgs e) => _viewModel.ApplyStartupSettings();
+
+    private async void CheckForUpdates_Click(object sender, RoutedEventArgs e) => await _viewModel.CheckForUpdatesAsync();
+
+    private void Exit_Click(object sender, RoutedEventArgs e) => System.Windows.Application.Current.Shutdown();
+
+    private async void InstallUpdate_Click(object sender, RoutedEventArgs e) => await _viewModel.InstallUpdateAsync();
 }

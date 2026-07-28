@@ -61,6 +61,15 @@ public sealed class TrayIconController : IDisposable
         _disposed = true;
     }
 
+    public void ShowUpdateAvailableBalloon(string version)
+    {
+        _notifyIcon.ShowBalloonTip(
+            8000,
+            "Update available",
+            $"NetVsMcp Broker v{version} is ready to install. Open the status window to update.",
+            Forms.ToolTipIcon.Info);
+    }
+
     private Forms.ContextMenuStrip BuildMenu()
     {
         var menu = new Forms.ContextMenuStrip();
@@ -74,6 +83,21 @@ public sealed class TrayIconController : IDisposable
             autostartItem.Text = BuildAutostartMenuText();
         };
         menu.Items.Add(autostartItem);
+        var checkUpdateItem = new Forms.ToolStripMenuItem("Check for Updates");
+        checkUpdateItem.Click += async (_, _) =>
+        {
+            checkUpdateItem.Enabled = false;
+            checkUpdateItem.Text = "Checking...";
+            await _viewModel.CheckForUpdatesAsync();
+            checkUpdateItem.Text = "Check for Updates";
+            checkUpdateItem.Enabled = true;
+
+            if (_viewModel.UpdateAvailable)
+                ShowUpdateAvailableBalloon(_viewModel.UpdateVersionText);
+            else
+                _notifyIcon.ShowBalloonTip(3000, "NetVsMcp", "You're up to date.", Forms.ToolTipIcon.Info);
+        };
+        menu.Items.Add(checkUpdateItem);
         menu.Items.Add("Open Logs Folder", null, (_, _) => _viewModel.OpenLogsFolder());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => System.Windows.Application.Current.Shutdown());

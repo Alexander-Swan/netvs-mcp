@@ -23,10 +23,21 @@ public partial class App : System.Windows.Application
         _runtime = new BrokerRuntime(options, sessions);
         await _runtime.StartAsync(CancellationToken.None);
 
-        var viewModel = new MainWindowViewModel(_runtime, _autostart);
+        var updateCheckService = new UpdateCheckService();
+        var viewModel = new MainWindowViewModel(_runtime, _autostart, updateCheckService);
         _mainWindow = new MainWindow(viewModel);
         _trayIcon = new TrayIconController(_runtime, viewModel, () => _mainWindow);
         _mainWindow.Show();
+
+        _ = CheckForUpdatesOnStartupAsync(viewModel, _trayIcon);
+    }
+
+    private static async Task CheckForUpdatesOnStartupAsync(MainWindowViewModel viewModel, TrayIconController tray)
+    {
+        await Task.Delay(TimeSpan.FromSeconds(5));
+        await viewModel.CheckForUpdatesAsync();
+        if (viewModel.UpdateAvailable)
+            tray.ShowUpdateAvailableBalloon(viewModel.UpdateVersionText);
     }
 
     protected override async void OnExit(ExitEventArgs e)
