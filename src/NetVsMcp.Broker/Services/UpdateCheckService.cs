@@ -9,7 +9,7 @@ public record UpdateInfo(string Version, string MsiDownloadUrl, string ReleasePa
 
 public class UpdateCheckService
 {
-    private const string GitHubApiUrl = "https://api.github.com/repos/Alexander-Swan/netvs-mcp/releases/latest";
+    private const string GitHubApiUrl = "https://api.github.com/repos/Alexander-Swan/netvs-mcp/releases?per_page=10";
     private const string GitHubReleasesUrl = "https://github.com/Alexander-Swan/netvs-mcp/releases/latest";
 
     public async Task<UpdateInfo?> CheckAsync(string currentVersion, CancellationToken ct = default)
@@ -22,7 +22,29 @@ public class UpdateCheckService
 
             var json = await http.GetStringAsync(GitHubApiUrl, ct);
             using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
+
+            var currentSuffix = currentVersion.Contains('-')
+                ? currentVersion.Split('-', 2)[1]
+                : string.Empty;
+
+            JsonElement root = default;
+            bool found = false;
+            foreach (var release in doc.RootElement.EnumerateArray())
+            {
+                var tag = release.GetProperty("tag_name").GetString() ?? string.Empty;
+                var tagVersion = tag.TrimStart('v');
+                var tagSuffix = tagVersion.Contains('-')
+                    ? tagVersion.Split('-', 2)[1]
+                    : string.Empty;
+                if (string.Equals(tagSuffix, currentSuffix, StringComparison.OrdinalIgnoreCase))
+                {
+                    root = release;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+                return null;
 
             var tagName = root.GetProperty("tag_name").GetString() ?? string.Empty;
             var htmlUrl = root.GetProperty("html_url").GetString() ?? GitHubReleasesUrl;
