@@ -278,6 +278,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return;
         }
 
+        _runtime.Sessions.RemoveStaleSessions();
+
         var status = _runtime.GetStatus();
         RunningState = status.IsRunning ? "Running" : "Stopped";
         StatusText = status.IsRunning

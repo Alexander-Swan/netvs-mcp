@@ -190,7 +190,7 @@ public sealed class BrokerRegistrationRpcServiceTests
     }
 
     [Fact]
-    public async Task RemoveRegisteredConnections_RemovesConnectionsForDisconnectedPipe()
+    public async Task RemoveRegisteredConnections_RemovesConnectionsAndSessionsForDisconnectedPipe()
     {
         var registry = new SessionRegistry();
         var connections = new VsSessionConnectionMap();
@@ -205,7 +205,7 @@ public sealed class BrokerRegistrationRpcServiceTests
 
         Assert.False(connections.TryGet("vs-1", out _));
         Assert.False(connections.TryGet("vs-2", out _));
-        Assert.Equal(2, registry.ListSessions().Count);
+        Assert.Empty(registry.ListSessions());
     }
 
     [Fact]

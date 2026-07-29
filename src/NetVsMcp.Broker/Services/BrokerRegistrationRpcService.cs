@@ -99,6 +99,7 @@ public sealed class BrokerRegistrationRpcService : IBrokerRegistrationRpc
     {
         foreach (var sessionId in RegisteredSessionIds)
         {
+            _sessions.Unregister(sessionId);
             RemoveConnection(sessionId);
         }
     }
