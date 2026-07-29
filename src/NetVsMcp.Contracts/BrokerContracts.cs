@@ -26,6 +26,15 @@ public enum DebugStepKind
     Out
 }
 
+public enum DebugAdvanceAction
+{
+    StepInto,
+    StepOver,
+    StepOut,
+    Continue,
+    Break
+}
+
 public enum SessionHealth
 {
     Unknown,
@@ -1090,7 +1099,13 @@ public sealed record DebugSnapshotResult(
     DebuggerStateInfo State,
     CallStackResult? CallStack,
     LocalsResult? Locals,
-    BreakpointListResult? Breakpoints);
+    BreakpointListResult? Breakpoints,
+    WatchListResult? Watch = null,
+    DebugThreadListResult? Threads = null,
+    ModuleListResult? Modules = null,
+    ParallelStacksResult? ParallelStacks = null,
+    ParallelWatchResult? ParallelWatch = null,
+    IReadOnlyCollection<string>? UnrecognizedInclude = null);
 
 public sealed record DebugEvalManyResult(
     DebuggerStateInfo State,

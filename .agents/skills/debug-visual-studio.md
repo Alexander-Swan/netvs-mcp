@@ -107,6 +107,27 @@ debug_set_variable({ "name": "retryCount", "value": "3", "sessionId": "..." })
 
 Treat expression evaluation as code execution in the debuggee context. Avoid expressions with side effects unless the user explicitly wants state changed.
 
+## Advancing And Inspecting In One Call: `debug_snapshot`
+
+Prefer `debug_snapshot` over separately calling `debug_step`/`debug_continue`/`debug_break` followed by `debug_get_callstack`/`debug_get_locals`. It optionally advances the debugger, waits for it to settle, and returns state plus locals (and anything else requested) in a single round trip:
+
+```json
+debug_snapshot({ "action": "stepOver", "include": ["callStack"], "sessionId": "..." })
+debug_snapshot({ "action": "continue", "include": ["callStack", "threads"], "sessionId": "..." })
+debug_snapshot({ "action": "break", "sessionId": "..." })
+debug_snapshot({ "sessionId": "..." })
+```
+
+Key behavior:
+
+- `action` is optional. Omit it for a pure, non-mutating inspection of the current state (equivalent to `debug_status` plus the requested `include`). Set it to `stepInto`, `stepOver`, `stepOut`, `continue`, or `break` to advance the debugger first.
+- When `action` is set, `debug_snapshot` polls debugger status every 50ms until it leaves `dbgRunMode` or `settleTimeoutMilliseconds` (default 300) elapses, then reports the settled state.
+- Locals are always fetched best-effort once the debugger is paused; there is no way to opt out.
+- `include` accepts any of `callStack`, `breakpoints`, `watch`, `threads`, `modules`, `parallelStacks`, `parallelWatch`. Omit `include` entirely to default to `callStack` only; pass `[]` to fetch none of the optional categories. Unknown keys are echoed back in `unrecognizedInclude` so a typo can be corrected.
+- If the debugger is still running after the settle timeout, or the program has exited (`dbgDesignMode`), only `state` is populated — increase `settleTimeoutMilliseconds` or call `debug_snapshot` again once the program is actually paused.
+
+`debug_step`, `debug_continue`, and `debug_break` still exist for simple fire-and-forget use when no follow-up inspection is needed.
+
 ## Watches And Immediate Evaluation
 
 ```json

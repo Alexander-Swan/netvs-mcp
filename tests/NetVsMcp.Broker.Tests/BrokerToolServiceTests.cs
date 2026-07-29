@@ -813,16 +813,70 @@ public sealed class BrokerToolServiceTests
     public async Task DebugSnapshot_ReturnsCompositeDebuggerState()
     {
         var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { DebugStatusMode = "dbgBreakMode" };
         runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
-        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
 
-        var response = await runtime.Tools.DebugSnapshot(sessionId: "vs-1");
+        var response = await runtime.Tools.DebugSnapshot(
+            include: ["callStack", "breakpoints"],
+            sessionId: "vs-1");
 
         Assert.True(response.Success);
-        Assert.Equal("Break", response.Value!.State.Mode);
+        Assert.Equal("dbgBreakMode", response.Value!.State.Mode);
         Assert.Single(response.Value.CallStack!.Frames);
         Assert.Single(response.Value.Locals!.Locals);
         Assert.Single(response.Value.Breakpoints!.Breakpoints);
+        Assert.Null(response.Value.UnrecognizedInclude);
+    }
+
+    [Fact]
+    public async Task DebugSnapshot_StepsAdvancesAndSettlesBeforeInspecting()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { DebugStatusMode = "dbgBreakMode" };
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DebugSnapshot(
+            action: DebugAdvanceAction.StepOver,
+            include: ["callStack"],
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal(DebugStepKind.Over, session.LastDebugStepRequest!.StepKind);
+        Assert.Equal("dbgBreakMode", response.Value!.State.Mode);
+        Assert.Single(response.Value.CallStack!.Frames);
+        Assert.Single(response.Value.Locals!.Locals);
+        Assert.Null(response.Value.Breakpoints);
+    }
+
+    [Fact]
+    public async Task DebugSnapshot_RejectsNegativeSettleTimeout()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.DebugSnapshot(settleTimeoutMilliseconds: -1, sessionId: "vs-1");
+
+        Assert.False(response.Success);
+        Assert.Equal("settleTimeoutMilliseconds must be zero or greater.", response.Message);
+    }
+
+    [Fact]
+    public async Task DebugSnapshot_ReportsUnrecognizedIncludeKeys()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { DebugStatusMode = "dbgBreakMode" };
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DebugSnapshot(
+            include: ["callStack", "bogus"],
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("bogus", Assert.Single(response.Value!.UnrecognizedInclude!));
     }
 
     [Fact]
@@ -2815,9 +2869,11 @@ public sealed class BrokerToolServiceTests
             return Task.FromResult(new OutputReadResult(request.PaneName ?? "NetVsMcp", $"Build output{Environment.NewLine}{request.Text}", false));
         }
 
+        public string DebugStatusMode { get; set; } = "Break";
+
         public Task<DebuggerStateInfo> DebugStatusAsync(CancellationToken cancellationToken)
         {
-            return Task.FromResult(new DebuggerStateInfo("Break"));
+            return Task.FromResult(new DebuggerStateInfo(DebugStatusMode));
         }
 
         public Task<DebuggerStateInfo> DebugGetModeAsync(CancellationToken cancellationToken)
@@ -2860,7 +2916,7 @@ public sealed class BrokerToolServiceTests
             CancellationToken cancellationToken)
         {
             LastDebugStepRequest = request;
-            return Task.FromResult(new DebuggerStateInfo("Break"));
+            return Task.FromResult(new DebuggerStateInfo(DebugStatusMode));
         }
 
         public Task<BreakpointInfo> BreakpointSetAsync(

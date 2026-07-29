@@ -56,7 +56,7 @@ public sealed partial class BrokerToolService
         new("package_restore", "Returns package restore support status for a routed project.", true),
         new("test_run_and_get_results", "Runs tests and returns captured results.", true),
         new("debug_status", "Returns debugger status from a routed Visual Studio session.", true),
-        new("debug_snapshot", "Returns debugger state, call stack, locals, and breakpoints.", true),
+        new("debug_snapshot", "Optionally advances the debugger (step/continue/break), waits for it to settle, then returns state, locals, and the requested include categories in one call.", true),
         new("debug_eval_many", "Evaluates multiple debugger expressions.", true),
         new("debug_get_mode", "Returns debugger mode from a routed Visual Studio session.", true),
         new("debug_start", "Starts debugging in a routed Visual Studio session.", true),
@@ -2512,30 +2512,130 @@ public sealed partial class BrokerToolService
             cancellationToken);
     }
 
+    private const int DebugSnapshotPollIntervalMilliseconds = 50;
+
+    private static readonly string[] DebugSnapshotKnownIncludeKeys =
+    [
+        "callStack",
+        "breakpoints",
+        "watch",
+        "threads",
+        "modules",
+        "parallelStacks",
+        "parallelWatch"
+    ];
+
     [McpServerTool(Name = "debug_snapshot")]
-    [Description("Returns debugger state, call stack, locals, and breakpoints.")]
+    [Description("Optionally advances the debugger (stepInto, stepOver, stepOut, continue, or break), waits for it to settle, and returns state plus locals in one call. Use 'include' to also fetch any of callStack, breakpoints, watch, threads, modules, parallelStacks, parallelWatch (defaults to callStack only when omitted; pass an empty array to fetch none of them). Locals are always fetched best-effort while paused. When 'action' is omitted this is a pure, non-mutating inspection of current state.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugSnapshot(
-        bool includeCallStack = true,
-        bool includeLocals = true,
-        bool includeBreakpoints = true,
+        DebugAdvanceAction? action = null,
+        string[]? include = null,
+        int settleTimeoutMilliseconds = 300,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
         CancellationToken cancellationToken = default)
     {
+        if (settleTimeoutMilliseconds < 0)
+        {
+            return Task.FromResult(ToolResponse<DebugSnapshotResult>.Fail("settleTimeoutMilliseconds must be zero or greater."));
+        }
+
+        var (includeKeys, unrecognizedInclude) = ParseDebugSnapshotInclude(include);
+
         return DispatchValueAsync(
             sessionId,
             solutionName,
             solutionPath,
             async (connection, ct) =>
             {
-                var state = await connection.DebugStatusAsync(ct);
-                var callStack = includeCallStack ? await connection.DebugGetCallstackAsync(ct) : null;
-                var locals = includeLocals ? await connection.DebugGetLocalsAsync(ct) : null;
-                var breakpoints = includeBreakpoints ? await connection.BreakpointListAsync(ct) : null;
-                return new DebugSnapshotResult(state, callStack, locals, breakpoints);
+                DebuggerStateInfo state;
+
+                if (action is null)
+                {
+                    state = await connection.DebugStatusAsync(ct);
+                }
+                else
+                {
+                    state = action.Value switch
+                    {
+                        DebugAdvanceAction.StepInto => await connection.DebugStepAsync(new DebugStepRequest { StepKind = DebugStepKind.Into }, ct),
+                        DebugAdvanceAction.StepOver => await connection.DebugStepAsync(new DebugStepRequest { StepKind = DebugStepKind.Over }, ct),
+                        DebugAdvanceAction.StepOut => await connection.DebugStepAsync(new DebugStepRequest { StepKind = DebugStepKind.Out }, ct),
+                        DebugAdvanceAction.Continue => await connection.DebugContinueAsync(ct),
+                        DebugAdvanceAction.Break => await connection.DebugBreakAsync(ct),
+                        _ => await connection.DebugStatusAsync(ct)
+                    };
+
+                    var stopwatch = Stopwatch.StartNew();
+                    while (state.Mode == "dbgRunMode" && stopwatch.ElapsedMilliseconds < settleTimeoutMilliseconds)
+                    {
+                        await Task.Delay(DebugSnapshotPollIntervalMilliseconds, ct);
+                        state = await connection.DebugStatusAsync(ct);
+                    }
+                }
+
+                if (state.Mode != "dbgBreakMode")
+                {
+                    return new DebugSnapshotResult(state, null, null, null, UnrecognizedInclude: unrecognizedInclude);
+                }
+
+                var locals = await connection.DebugGetLocalsAsync(ct);
+                var callStack = includeKeys.Contains("callStack") ? await connection.DebugGetCallstackAsync(ct) : null;
+                var breakpoints = includeKeys.Contains("breakpoints") ? await connection.BreakpointListAsync(ct) : null;
+                var watch = includeKeys.Contains("watch") ? await connection.WatchListAsync(ct) : null;
+                var threads = includeKeys.Contains("threads") ? await connection.DebugGetThreadsAsync(ct) : null;
+                var modules = includeKeys.Contains("modules") ? await connection.ModuleListAsync(ct) : null;
+                var parallelStacks = includeKeys.Contains("parallelStacks") ? await connection.ParallelStacksAsync(ct) : null;
+                var parallelWatch = includeKeys.Contains("parallelWatch") ? await connection.ParallelWatchAsync(ct) : null;
+
+                return new DebugSnapshotResult(
+                    state,
+                    callStack,
+                    locals,
+                    breakpoints,
+                    watch,
+                    threads,
+                    modules,
+                    parallelStacks,
+                    parallelWatch,
+                    unrecognizedInclude);
             },
             cancellationToken);
+    }
+
+    private static (HashSet<string> Keys, IReadOnlyCollection<string>? Unrecognized) ParseDebugSnapshotInclude(string[]? include)
+    {
+        if (include is null)
+        {
+            return (new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "callStack" }, null);
+        }
+
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        List<string>? unrecognized = null;
+
+        foreach (var entry in include)
+        {
+            if (entry is null)
+            {
+                continue;
+            }
+
+            var matched = Array.Find(
+                DebugSnapshotKnownIncludeKeys,
+                known => string.Equals(known, entry, StringComparison.OrdinalIgnoreCase));
+
+            if (matched is not null)
+            {
+                keys.Add(matched);
+            }
+            else
+            {
+                (unrecognized ??= []).Add(entry);
+            }
+        }
+
+        return (keys, unrecognized is { Count: > 0 } ? unrecognized : null);
     }
 
     [McpServerTool(Name = "debug_eval_many")]
