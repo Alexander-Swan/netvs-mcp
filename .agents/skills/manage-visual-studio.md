@@ -92,16 +92,16 @@ Key behavior:
 - Visual Studio discovery order: `vswhere.exe` under `Program Files (x86)\Microsoft Visual Studio\Installer` is queried first for any installed `devenv.exe`. If `vswhere.exe` is unavailable or returns nothing, the launcher falls back to the executable path of any already-running `devenv.exe` process. If neither succeeds, the call fails with "No Visual Studio installation was found".
 - The result (`VsLaunchInstanceResult`) reports `success`, `message`, the launched `processId`, and the registered `session` (null if the process started but never registered within the timeout).
 
-3. If `vs_launch_instance` is not available in the current tool set, launch Visual Studio manually instead:
+3. If `vs_launch_instance` is not available in the current tool set, launch Visual Studio manually instead. Locate `devenv.exe` with `vswhere.exe` (see the discovery order below) rather than assuming a fixed path, and substitute the target solution's path:
 
 ```powershell
-Start-Process -FilePath 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\devenv.exe' -ArgumentList '.\NetVsMcp.slnx' -WorkingDirectory (Resolve-Path '.').Path
+Start-Process -FilePath '<path to devenv.exe>' -ArgumentList '<path to the target .sln or .slnx>'
 ```
 
 Use `/RootSuffix Exp` when the extension under test is only installed in the experimental Visual Studio instance:
 
 ```powershell
-Start-Process -FilePath 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\devenv.exe' -ArgumentList '/RootSuffix Exp .\NetVsMcp.slnx' -WorkingDirectory (Resolve-Path '.').Path
+Start-Process -FilePath '<path to devenv.exe>' -ArgumentList '/RootSuffix Exp <path to the target .sln or .slnx>'
 ```
 
 Then wait briefly and call `vs_list_sessions()` again.
