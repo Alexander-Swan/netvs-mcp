@@ -14,8 +14,6 @@ No cloud services. No telemetry. No per-project configuration files. Everything 
 
 **Full debugger control.** Start, stop, attach, and step through code. Set conditional breakpoints, read locals and the call stack, evaluate arbitrary expressions in the current frame, manage watch expressions, switch threads, and take structured snapshots of debugger state — all from MCP.
 
-**Capability profiles.** The broker enforces an active capability profile (`read-only`, `edit-preview`, `edit-direct`, `debug`, `admin`) that limits which tool categories are reachable. Change the profile from the status window; the broker denies out-of-scope calls immediately with structured metadata explaining why.
-
 **Audit log.** Every routed tool call is appended to a local JSONL audit log — tool name, target session, routing fields, success/failure, and failure reason. Enough to reconstruct what happened, without capturing full source text or secret values.
 
 ## Tool coverage

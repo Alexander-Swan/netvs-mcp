@@ -171,19 +171,6 @@
 
             <TabItem Header="SETTINGS">
                 <StackPanel Margin="0,4,0,0">
-                    <GroupBox Header="Capability profile">
-                        <StackPanel Orientation="Horizontal" Margin="14">
-                            <ComboBox ItemsSource="{Binding AvailableCapabilityProfiles}"
-                                      SelectedItem="{Binding CapabilityProfile}"
-                                      Width="160"
-                                      HorizontalAlignment="Left" />
-                            <TextBlock Text="Controls which broker tools MCP clients may call. Changes are saved and take effect immediately."
-                                       VerticalAlignment="Center"
-                                       Style="{StaticResource MutedTextStyle}"
-                                       Margin="14,0,0,0" />
-                        </StackPanel>
-                    </GroupBox>
-
                     <GroupBox Header="Startup settings (restart required to apply)">
                         <Grid Margin="14">
                             <Grid.RowDefinitions>

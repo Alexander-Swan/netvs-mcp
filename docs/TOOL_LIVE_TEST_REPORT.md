@@ -2,7 +2,6 @@
 
 Date: 2026-07-25
 Broker version under test: 0.1.2.0 (Debug config, session `vs-71428`, solution `NetVsMcp.slnx`)
-Capability profile: Admin (full tool catalog visible)
 
 This report documents a live, end-to-end pass over every `mcp__netvs__*` tool exposed by the
 broker, executed against the real running Visual Studio instance / broker (not mocked). For each

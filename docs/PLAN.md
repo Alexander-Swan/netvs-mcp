@@ -373,7 +373,7 @@ Acceptance criteria:
 - broker can launch a new Visual Studio process, optionally with a solution path, edition/version preference, and experimental instance flag (`/rootsuffix`) — done
 - tool returns once the new instance has registered with the broker (with a bounded timeout) or reports a clear timeout/launch-failure result — done
 - launched instances are otherwise ordinary registered sessions usable by all routing fields — done
-- launch is gated by an admin-grade capability profile and audited — done (`BrokerToolCategory.Admin`)
+- launch calls are audited with tool category metadata — done (`BrokerToolCategory.Admin`)
 - tests cover launch success, launch timeout, and missing Visual Studio installation — not yet covered by automated tests
 
 ### Remaining General IDE Tools
@@ -388,11 +388,11 @@ Acceptance criteria:
 
 ### Missing Solution And Project Mutation Tools
 
-**Implemented.** `solution_open`, `project_remove_file`, `project_add_reference`, `project_remove_reference` are all live and live-tested (see `docs/TOOL_LIVE_TEST_REPORT.md` §8). Remaining acceptance criteria below (capability-profile policy, audit logging) are still open as part of the broader auth/profile workstream.
+**Implemented.** `solution_open`, `project_remove_file`, `project_add_reference`, `project_remove_reference` are all live and live-tested (see `docs/TOOL_LIVE_TEST_REPORT.md` §8). Remaining acceptance criteria below are still open as part of the broader auth/audit workstream.
 
 Acceptance criteria:
 
-- mutation tools use capability-profile policy and audit logging
+- mutation tools use audit logging
 - path inputs are normalized and constrained to the routed solution where applicable
 - responses include before/after project or solution identity and any Visual Studio reload/build implications
 - tests cover routing failure, invalid paths, and successful fake-RPC dispatch
@@ -415,7 +415,7 @@ Acceptance criteria:
 
 - build operations preserve existing routed error behavior
 - build configuration responses include solution configuration and platform
-- setters are denied outside profiles that allow build/config mutation
+- setters are audited with clear success/failure metadata
 
 ### Missing Output And Diagnostics Tools
 
@@ -423,7 +423,7 @@ Acceptance criteria:
 
 Acceptance criteria:
 
-- output pane writes and clears are profile-gated and audited
+- output pane writes and clears are audited
 - pane reads and diagnostics support result limits
 - XAML/WPF binding diagnostics parse useful file, line, path, and message fields when available
 
@@ -434,7 +434,7 @@ Acceptance criteria:
 Acceptance criteria:
 
 - attach supports process id and process name with ambiguity responses
-- state-changing debug operations are denied outside debug/admin profiles
+- state-changing debug operations are audited
 - variable mutation reports whether the debugger engine accepted the change
 
 ### Missing Advanced Debug Tools
@@ -454,7 +454,7 @@ Acceptance criteria:
 Acceptance criteria:
 
 - console targeting is tied to the routed debuggee process
-- input/send operations are debug-profile gated and audited
+- input/send operations are audited
 - responses report unsupported cases for non-console debuggees
 
 ### Missing UI Automation Tools
@@ -484,7 +484,7 @@ Acceptance criteria:
 
 Acceptance criteria:
 
-- package mutation is profile-gated and audited
+- package mutation is audited
 - search uses NuGet APIs with result limits and version metadata
 - install/update/uninstall responses include affected project, package id, requested version, and restore status
 
@@ -548,8 +548,7 @@ Primary differentiators:
 - safe editing workflow with preview, approve/reject, pending edit visibility, and audit logging
 - debugger workflows shaped around snapshots, break reasons, locals, call stack, breakpoints, and current source location
 - tray/status app that makes the invisible broker visible and trustworthy
-- local-only security with loopback binding, per-user authentication, approval gates, and audit logs
-- capability profiles such as `read-only`, `edit-preview`, `edit-direct`, `debug`, and `admin`
+- local-only security with loopback binding, per-user authentication, approval gates where needed, and audit logs
 - agent-friendly high-level tools that return useful context in one call
 
 High-level tools to add after the current routed surface is stable:
@@ -579,7 +578,7 @@ Patterns to adopt:
 - workspace/root-path based auto-selection, including walking upward from a client-provided path to find a solution
 - optional per-session manifest files under `%LOCALAPPDATA%\NetVsMcp\Sessions` for debugging, recovery, and manual inspection
 - stale-session cleanup for both broker registry entries and optional manifest files
-- tool category filtering or capability profiles so users can expose only read, edit, debug, or admin-grade tools
+- tool category metadata so users can inspect read, edit, debug, or admin-grade tools
 - clear ambiguous-session responses with candidate sessions and selection hints
 
 Patterns not to adopt:
@@ -675,18 +674,6 @@ Acceptance criteria:
 - stale manifests are cleaned when the process exits or last-seen exceeds the configured threshold
 - broker status window can open the session manifest folder
 
-### Add Capability Profiles
-
-Users should be able to constrain what agents can do.
-
-Acceptance criteria:
-
-- broker supports at least `read-only`, `edit-preview`, `edit-direct`, `debug`, and `admin` profiles
-- status window displays active profile
-- dangerous tools are rejected when the current profile does not allow them
-- audit logs record the active profile and whether a call was allowed or denied
-- docs show recommended profiles for everyday use and development/debugging
-
 ### Add Agent-Friendly Snapshot Tools
 
 Reduce the number of calls an agent needs for common workflows.
@@ -719,7 +706,7 @@ Acceptance criteria:
 4. Safe editing
 5. Debugging
 6. Tests and project operations
-7. Authentication, capability profiles, and audit polish
+7. Authentication and audit polish
 8. Session selection, optional manifests, and stale cleanup
 9. Snapshot tools and product demos
 10. Advanced debug, UI automation, and web debugging

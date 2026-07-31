@@ -7,7 +7,7 @@
 The status window is split into two tabs:
 
 - **Status**: a "Connection" card listing MCP endpoint, named pipe, start-at-login state, logs folder, and the MCP client JSON snippet, each with its copy/open/toggle action inline right next to the value (no separate footer to hunt for the matching button); and a "Registered Visual Studio sessions" table (solution name, PID, debugger mode, active document, last seen, age, solution path, session id, advertised capabilities) that shows a contextual "No sessions yet" message in place of the table when nothing is registered.
-- **Settings**: active capability profile, editable through a dropdown that saves immediately, and editable startup settings (port, logs folder, sessions folder) that save immediately but require a broker restart to take effect.
+- **Settings**: editable startup settings (port, logs folder, sessions folder) that save immediately but require a broker restart to take effect.
 
 The header (running state badge, refresh) stays visible above the tabs regardless of which tab is selected.
 
@@ -19,7 +19,6 @@ All broker settings are configured from the status window and persisted to a sin
 %LOCALAPPDATA%\NetVsMcp\settings.json
 ```
 
-- **Capability profile**: the "Capability profile" dropdown selects one of `ReadOnly`, `EditPreview`, `EditDirect`, `Debug`, or `Admin`. Changing the selection takes effect immediately for all subsequent tool calls. `BrokerToolAccessPolicy` still enforces which tool categories each profile allows; see `docs/PLAN.md` for the category-to-profile mapping.
 - **Port, logs folder, sessions folder**: edited in the "Startup Settings" group and saved with the "Save Settings" button. These are read once at broker startup (the HTTP listener and log/session directories are fixed for the life of a run), so changes only apply after restarting NetVsMcp Broker (exit via the tray icon, then relaunch).
 - **Named pipe**: not user-configurable. It is always derived from the current Windows user SID (and Debug/Release build) so the VSIX, which computes the same value independently, can always find the broker without any coordination step.
 

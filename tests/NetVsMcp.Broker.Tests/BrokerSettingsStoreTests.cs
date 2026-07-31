@@ -1,5 +1,4 @@
 using NetVsMcp.Broker.Services;
-using NetVsMcp.Contracts;
 
 namespace NetVsMcp.Broker.Tests;
 
@@ -15,7 +14,6 @@ public sealed class BrokerSettingsStoreTests
         Assert.Null(settings.Port);
         Assert.Null(settings.LogsDirectory);
         Assert.Null(settings.SessionsDirectory);
-        Assert.Null(settings.CapabilityProfile);
     }
 
     [Fact]
@@ -23,12 +21,12 @@ public sealed class BrokerSettingsStoreTests
     {
         var store = new BrokerSettingsStore(CreateTempFilePath());
 
-        store.Update(s => s with { CapabilityProfile = BrokerCapabilityProfile.EditPreview });
+        store.Update(s => s with { SessionsDirectory = @"C:\Sessions\netvs-mcp-test" });
         store.Update(s => s with { Port = 5099 });
 
         var loaded = store.Load();
 
-        Assert.Equal(BrokerCapabilityProfile.EditPreview, loaded.CapabilityProfile);
+        Assert.Equal(@"C:\Sessions\netvs-mcp-test", loaded.SessionsDirectory);
         Assert.Equal(5099, loaded.Port);
     }
 

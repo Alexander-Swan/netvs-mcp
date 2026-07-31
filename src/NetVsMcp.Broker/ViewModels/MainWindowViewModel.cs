@@ -182,24 +182,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public string SessionsFolder => _runtime.CurrentSessionsDirectory;
 
-    public IReadOnlyList<BrokerCapabilityProfile> AvailableCapabilityProfiles { get; } =
-        Enum.GetValues<BrokerCapabilityProfile>();
-
-    public BrokerCapabilityProfile CapabilityProfile
-    {
-        get => _runtime.CapabilityProfile;
-        set
-        {
-            if (_runtime.CapabilityProfile == value)
-            {
-                return;
-            }
-
-            _runtime.CapabilityProfile = value;
-            OnPropertyChanged();
-        }
-    }
-
     public string PortText
     {
         get => _portText;

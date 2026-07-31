@@ -1,7 +1,6 @@
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using NetVsMcp.Contracts;
 
 namespace NetVsMcp.Broker.Services;
 
@@ -9,8 +8,7 @@ namespace NetVsMcp.Broker.Services;
 public sealed record BrokerSettings(
     int? Port = null,
     string? LogsDirectory = null,
-    string? SessionsDirectory = null,
-    BrokerCapabilityProfile? CapabilityProfile = null);
+    string? SessionsDirectory = null);
 
 public interface IBrokerSettingsStore
 {

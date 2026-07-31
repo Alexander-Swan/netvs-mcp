@@ -10,7 +10,6 @@ public sealed record BrokerOptions(
     string? LogsDirectory = null,
     string? TokenFilePath = null,
     string? SessionsDirectory = null,
-    BrokerCapabilityProfile CapabilityProfile = BrokerCapabilityProfile.Admin,
     string? SettingsFilePath = null)
 {
     public static BrokerOptions LocalDefault { get; } = new(
@@ -51,11 +50,6 @@ public sealed record BrokerOptions(
         if (!string.IsNullOrWhiteSpace(settings.SessionsDirectory))
         {
             options = options with { SessionsDirectory = settings.SessionsDirectory };
-        }
-
-        if (settings.CapabilityProfile is { } profile)
-        {
-            options = options with { CapabilityProfile = profile };
         }
 
         return options;

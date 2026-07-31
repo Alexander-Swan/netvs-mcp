@@ -9,7 +9,6 @@ public sealed class BrokerRuntime
     private readonly LocalMcpHttpHost _httpHost;
     private readonly VsixRegistrationPipeListener _registrationPipeListener;
     private readonly IBrokerSettingsStore _settingsStore;
-    private BrokerCapabilityProfile _capabilityProfile;
 
     public BrokerRuntime(BrokerOptions options, SessionRegistry sessions)
     {
@@ -23,7 +22,6 @@ public sealed class BrokerRuntime
         AuditLog = new AuditLogService(options.EffectiveLogsDirectory);
         SessionManifests = new SessionManifestService(options.EffectiveSessionsDirectory);
         _settingsStore = new BrokerSettingsStore(options.EffectiveSettingsFilePath);
-        _capabilityProfile = options.CapabilityProfile;
         Tools = new BrokerToolService(this);
         _httpHost = new LocalMcpHttpHost(options, Tools);
         _registrationPipeListener = new VsixRegistrationPipeListener(options, sessions, Connections);
@@ -31,25 +29,6 @@ public sealed class BrokerRuntime
     }
 
     public BrokerOptions Options { get; }
-
-    public BrokerCapabilityProfile CapabilityProfile
-    {
-        get => _capabilityProfile;
-        set
-        {
-            if (_capabilityProfile == value)
-            {
-                return;
-            }
-
-            _capabilityProfile = value;
-            _settingsStore.Update(s => s with { CapabilityProfile = value });
-            Trace.WriteLine($"NetVsMcp broker capability profile changed to '{value}'.");
-            CapabilityProfileChanged?.Invoke(this, EventArgs.Empty);
-        }
-    }
-
-    public event EventHandler? CapabilityProfileChanged;
 
     /// <summary>The port the broker is actually listening on for this run.</summary>
     public int CurrentPort => Options.Port;
@@ -128,7 +107,6 @@ public sealed class BrokerRuntime
         Options.PipeName,
         StartedUtc,
         Version,
-        CapabilityProfile,
         Sessions.ListSessionStatuses());
 
     public async Task StartAsync(CancellationToken cancellationToken)

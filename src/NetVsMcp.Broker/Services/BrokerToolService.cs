@@ -224,8 +224,7 @@ public sealed partial class BrokerToolService
     {
         var capabilities = new BrokerCapabilities(
             _runtime.Options.McpEndpoint,
-            _runtime.CapabilityProfile,
-            ToolDescriptors.Select(WithAccessMetadata).ToArray(),
+            ToolDescriptors.Select(WithCategoryMetadata).ToArray(),
             VisualStudioCapabilities);
 
         var response = ToolResponse<BrokerCapabilities>.Ok(capabilities);
@@ -238,12 +237,11 @@ public sealed partial class BrokerToolService
     public ToolResponse<BrokerCapabilities> GetHelp(bool? requiresVisualStudioSession = null)
     {
         var tools = ToolDescriptors
-            .Select(WithAccessMetadata)
+            .Select(WithCategoryMetadata)
             .Where(tool => requiresVisualStudioSession is null || tool.RequiresVisualStudioSession == requiresVisualStudioSession.Value)
             .ToArray();
         var capabilities = new BrokerCapabilities(
             _runtime.Options.McpEndpoint,
-            _runtime.CapabilityProfile,
             tools,
             VisualStudioCapabilities);
 
@@ -356,11 +354,6 @@ public sealed partial class BrokerToolService
         int timeoutSeconds = 60,
         CancellationToken cancellationToken = default)
     {
-        if (ValidateToolAccess(nameof(VsLaunchInstance), null) is { } denied)
-        {
-            return denied.As<VsLaunchInstanceResult>();
-        }
-
         var result = await _runtime.Launcher.LaunchAsync(solutionPath, experimental, edition, timeoutSeconds, cancellationToken);
         var response = result.Success
             ? ToolResponse<VsLaunchInstanceResult>.Ok(result)
@@ -436,11 +429,6 @@ public sealed partial class BrokerToolService
         CancellationToken cancellationToken = default)
     {
         var target = CreateTarget(sessionId, solutionName, solutionPath);
-        if (ValidateToolAccess(nameof(GetStatus), target) is { } denied)
-        {
-            return denied.As<VsSessionInfo>();
-        }
-
         var dispatch = await _runtime.Dispatcher.DispatchAsync(
             target,
             static (connection, ct) => connection.GetStatusAsync(ct),
@@ -1830,11 +1818,6 @@ public sealed partial class BrokerToolService
         CancellationToken cancellationToken = default)
     {
         var target = CreateTarget(sessionId, solutionName, solutionPath);
-        if (ValidateToolAccess(nameof(BuildSolution), target) is { } denied)
-        {
-            return denied.As<BuildSolutionResult>();
-        }
-
         var request = new BuildSolutionRequest
         {
             WaitForBuildToFinish = waitForBuildToFinish
@@ -3237,11 +3220,6 @@ public sealed partial class BrokerToolService
         [CallerMemberName] string toolName = "")
     {
         var target = CreateTarget(sessionId, solutionName, solutionPath);
-        if (ValidateToolAccess(toolName, target) is { } denied)
-        {
-            return denied.As<T>();
-        }
-
         var dispatch = await _runtime.Dispatcher.DispatchAsync(
             target,
             operation,
@@ -3250,27 +3228,6 @@ public sealed partial class BrokerToolService
         var response = ToValueToolResponse(dispatch);
         AuditToolResult(toolName, target, response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
         return response;
-    }
-
-    private ToolAccessDenied? ValidateToolAccess(string toolName, RoutingTarget? target)
-    {
-        var mcpToolName = ToMcpToolName(toolName);
-        var category = CategorizeTool(mcpToolName);
-        if (BrokerToolAccessPolicy.IsAllowed(_runtime.CapabilityProfile, category))
-        {
-            return null;
-        }
-
-        var message = $"Tool '{mcpToolName}' requires profile '{BrokerToolAccessPolicy.MinimumProfile(category)}' or higher; active profile is '{_runtime.CapabilityProfile}'.";
-        AuditToolResult(toolName, target, false, null, message, "CapabilityProfileDenied");
-        return new ToolAccessDenied(message, new Dictionary<string, string>
-        {
-            ["error_code"] = ToolErrorCodes.InvalidRequest,
-            ["failureReason"] = "CapabilityProfileDenied",
-            ["activeProfile"] = _runtime.CapabilityProfile.ToString(),
-            ["requiredProfile"] = BrokerToolAccessPolicy.MinimumProfile(category).ToString(),
-            ["category"] = category.ToString()
-        });
     }
 
     private void AuditToolResult(
@@ -3339,13 +3296,11 @@ public sealed partial class BrokerToolService
         return new string([.. chars]);
     }
 
-    private static BrokerToolDescriptor WithAccessMetadata(BrokerToolDescriptor descriptor)
+    private static BrokerToolDescriptor WithCategoryMetadata(BrokerToolDescriptor descriptor)
     {
-        var category = CategorizeTool(descriptor.Name);
         return descriptor with
         {
-            Category = category,
-            MinimumProfile = BrokerToolAccessPolicy.MinimumProfile(category)
+            Category = CategorizeTool(descriptor.Name)
         };
     }
 
@@ -3583,13 +3538,6 @@ public sealed partial class BrokerToolService
         metadata["candidateActiveWindow"] = string.Join(",", candidates.Select(candidate => candidate.IsActiveWindow.ToString()));
         metadata["candidateLastSeenUtc"] = string.Join(",", candidates.Select(candidate => candidate.LastSeenUtc.ToString("O")));
     }
-}
-
-internal sealed record ToolAccessDenied(
-    string Message,
-    IReadOnlyDictionary<string, string> Metadata)
-{
-    public ToolResponse<T> As<T>() => new(false, default, Message, Metadata);
 }
 
 public sealed record BrokerPing(

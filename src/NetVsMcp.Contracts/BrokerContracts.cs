@@ -55,15 +55,6 @@ public enum RouteFailureReason
     Ambiguous
 }
 
-public enum BrokerCapabilityProfile
-{
-    ReadOnly,
-    EditPreview,
-    EditDirect,
-    Debug,
-    Admin
-}
-
 public enum BrokerToolCategory
 {
     Broker,
@@ -1165,19 +1156,16 @@ public sealed record BrokerStatus(
     string PipeName,
     DateTimeOffset StartedUtc,
     string Version,
-    BrokerCapabilityProfile CapabilityProfile,
     IReadOnlyCollection<VsSessionStatus> Sessions);
 
 public sealed record BrokerToolDescriptor(
     string Name,
     string Description,
     bool RequiresVisualStudioSession,
-    BrokerToolCategory Category = BrokerToolCategory.Read,
-    BrokerCapabilityProfile MinimumProfile = BrokerCapabilityProfile.ReadOnly);
+    BrokerToolCategory Category = BrokerToolCategory.Read);
 
 public sealed record BrokerCapabilities(
     string McpEndpoint,
-    BrokerCapabilityProfile ActiveProfile,
     IReadOnlyCollection<BrokerToolDescriptor> Tools,
     IReadOnlyCollection<VsCapability> VisualStudioCapabilities);
 

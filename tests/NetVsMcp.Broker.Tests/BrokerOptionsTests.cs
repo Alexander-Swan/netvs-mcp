@@ -50,10 +50,9 @@ public sealed class BrokerOptionsTests
     public void ApplyPersistedSettings_OverridesOnlyProvidedFields()
     {
         var options = BrokerOptions.LocalDefault.ApplyPersistedSettings(
-            new BrokerSettings(Port: 5099, CapabilityProfile: NetVsMcp.Contracts.BrokerCapabilityProfile.ReadOnly));
+            new BrokerSettings(Port: 5099));
 
         Assert.Equal("http://127.0.0.1:5099/mcp", options.McpEndpoint);
-        Assert.Equal(NetVsMcp.Contracts.BrokerCapabilityProfile.ReadOnly, options.CapabilityProfile);
         Assert.Equal(BrokerOptions.LocalDefault.PipeName, options.PipeName);
     }
 }
