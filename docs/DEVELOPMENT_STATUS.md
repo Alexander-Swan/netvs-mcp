@@ -710,14 +710,6 @@ Recommended next workstreams:
 - Follow-up: when bidirectional VSIX session RPC is added, expose `document_active`, `document_read`, `document_open`, and `selection_get` through the shared broker routing path.
 - Status: Mostly resolved by `1a28a51`, which attaches a combined VSIX capability RPC target to the broker pipe connection. Runtime validation still pending.
 
-### VSIX Broker Registration RPC Method Names
-
-- File: `src/NetVsMcp.Vsix/BrokerConnection.cs`
-- Commit: `1a28a51`
-- Issue: VSIX registration still invokes `RegisterVisualStudioSessionAsync`, `HeartbeatVisualStudioSessionAsync`, and `UnregisterVisualStudioSessionAsync`, while the broker exposes `RegisterAsync`, `HeartbeatAsync`, and `UnregisterAsync`.
-- Impact: the pipe can connect, but VSIX registration calls may fail to resolve at runtime.
-- Follow-up: Locke is aligning method names and DTOs with `IBrokerRegistrationRpc`.
-
 ### VSIX Breakpoint Removal Path Resolution
 
 - File: `src/NetVsMcp.Vsix/Capabilities/DebuggerCapabilityService.cs`

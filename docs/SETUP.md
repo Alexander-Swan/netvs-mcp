@@ -47,12 +47,16 @@ Configure your MCP client to use HTTP on localhost:
     "netvs": {
       "type": "http",
       "url": "http://127.0.0.1:5050/mcp"
+    },
+    "netvs-web-automation": {
+      "type": "http",
+      "url": "http://127.0.0.1:5050/mcp-wu"
     }
   }
 }
 ```
 
-Use `127.0.0.1` or `localhost`; the broker rejects non-loopback hosts. Add a second `mcpServers` entry pointing at `http://127.0.0.1:5050/mcp-wu` if you need the `ui_*`/`web_*` debuggee automation tools; they are intentionally excluded from `/mcp`.
+Use `127.0.0.1` or `localhost`; the broker rejects non-loopback hosts. The `netvs-web-automation` entry is optional if you do not need the `ui_*`/`web_*` debuggee automation tools; they are intentionally excluded from `/mcp`.
 
 ## VSIX Registration Model
 

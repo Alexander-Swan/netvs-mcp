@@ -79,12 +79,16 @@ Routing failures return a structured error with `failureReason`, `candidateCount
     "netvs": {
       "type": "http",
       "url": "http://127.0.0.1:5050/mcp"
+    },
+    "netvs-web-automation": {
+      "type": "http",
+      "url": "http://127.0.0.1:5050/mcp-wu"
     }
   }
 }
 ```
 
-The broker status window shows this snippet ready to copy. A second endpoint at `http://127.0.0.1:5050/mcp-wu` serves the rarely used `ui_*`/`web_*` debuggee UI automation tools, kept off the default endpoint to keep the advertised tool list smaller.
+The broker status window shows this snippet ready to copy. The `netvs-web-automation` endpoint serves the rarely used `ui_*`/`web_*` debuggee UI automation tools, kept off the default endpoint to keep the advertised tool list smaller.
 
 ## Projects
 

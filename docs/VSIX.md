@@ -88,13 +88,7 @@ Selection and build status events are still planned; they should be added beside
 
 ## Broker RPC Contract Expectation
 
-Until `NetVsMcp.Contracts` is integrated, the VSIX uses internal DTOs with the expected wire shape and calls these StreamJsonRpc methods:
-
-```text
-RegisterVisualStudioSessionAsync(VsRegistrationRequest request)
-HeartbeatVisualStudioSessionAsync(VsHeartbeatRequest request)
-UnregisterVisualStudioSessionAsync(string sessionId)
-```
+The VSIX uses internal DTOs with the expected wire shape and calls the shared broker registration method names over StreamJsonRpc.
 
 The per-user pipe name is:
 
@@ -107,8 +101,6 @@ Example:
 ```text
 netvs-mcp-S-1-5-21-...
 ```
-
-The broker should expose a matching named-pipe server and accept exactly one request object for registration/heartbeat. Once shared contracts land, replace `VsSessionSnapshot`, `VsRegistrationRequest`, and `VsHeartbeatRequest` in the VSIX with the shared DTOs rather than maintaining parallel types.
 
 The VSIX attaches a composed `VisualStudioCapabilityRpcTarget` to the same StreamJsonRpc connection used for registration and heartbeat. This lets the broker invoke VS-side capability methods over the existing named pipe after a session registers. Registration flows from VSIX to broker with the shared `IBrokerRegistrationRpc` method names:
 

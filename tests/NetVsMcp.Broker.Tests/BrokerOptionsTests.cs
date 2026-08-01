@@ -1,4 +1,5 @@
 using NetVsMcp.Broker.Services;
+using System.Text.Json;
 
 namespace NetVsMcp.Broker.Tests;
 
@@ -54,5 +55,17 @@ public sealed class BrokerOptionsTests
 
         Assert.Equal("http://127.0.0.1:5099/mcp", options.McpEndpoint);
         Assert.Equal(BrokerOptions.LocalDefault.PipeName, options.PipeName);
+    }
+
+    [Fact]
+    public void McpRegistrationJson_IncludesDefaultAndWebAutomationServers()
+    {
+        using var document = JsonDocument.Parse(BrokerOptions.LocalDefault.McpRegistrationJson);
+        var servers = document.RootElement.GetProperty("mcpServers");
+
+        Assert.Equal("http", servers.GetProperty("netvs").GetProperty("type").GetString());
+        Assert.Equal(BrokerOptions.LocalDefault.McpEndpoint, servers.GetProperty("netvs").GetProperty("url").GetString());
+        Assert.Equal("http", servers.GetProperty("netvs-web-automation").GetProperty("type").GetString());
+        Assert.Equal(BrokerOptions.LocalDefault.McpWebAutomationEndpoint, servers.GetProperty("netvs-web-automation").GetProperty("url").GetString());
     }
 }
