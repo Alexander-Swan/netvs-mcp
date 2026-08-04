@@ -28,7 +28,7 @@ No cloud services. No telemetry. No per-project configuration files. Everything 
 | Search | `editor_find`, `find_in_files`, `workspace_search`, `open_relevant_files` |
 | Build | `build_solution`, `build_project`, `build_and_get_errors`, `build_status`, `build_cancel`, `build_configuration_get`, `build_configuration_set`, `rebuild_solution`, `clean_solution`, `package_restore` |
 | Diagnostics | `errors_list`, `output_read`, `output_list_panes`, `diagnostics_for_document`, `diagnostics_binding_errors` |
-| Debugger | `debug_start`, `debug_stop`, `debug_restart`, `debug_continue`, `debug_break`, `debug_step`, `debug_attach`, `debug_status`, `debug_get_mode`, `debug_get_callstack`, `debug_get_locals`, `debug_evaluate`, `debug_eval_many`, `debug_set_variable`, `debug_snapshot` |
+| Debugger | `debug_start`, `debug_stop`, `debug_restart`, `debug_continue`, `debug_break`, `debug_step`, `debug_attach`, `debug_status`, `debug_get_mode`, `debug_get_callstack`, `debug_get_locals`, `debug_evaluate`, `debug_eval_many`, `debug_set_variable`, `debug_snapshot`, `debug_wait_for_break` |
 | Breakpoints | `breakpoint_set`, `breakpoint_list`, `breakpoint_remove`, `breakpoint_enable`, `breakpoint_group_list`, `breakpoint_group_enable`, `breakpoint_group_remove` |
 | Threads & processes | `debug_get_threads`, `thread_switch`, `thread_get_callstack`, `thread_set_frozen`, `parallel_stacks`, `parallel_watch`, `process_list_debugged`, `process_list_local`, `process_detach`, `process_terminate` |
 | Watches & immediate | `watch_add`, `watch_list`, `watch_remove`, `immediate_execute` |

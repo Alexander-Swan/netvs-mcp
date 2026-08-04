@@ -55,6 +55,7 @@ Start-Process -FilePath 'C:\Program Files\Microsoft Visual Studio\18\Community\C
 - `debug_continue({ ...route })`
 - `debug_step({ stepKind: "Into" | "Over" | "Out", ...route })`
 - `debug_stop({ ...route })`
+- `debug_wait_for_break({ timeoutSeconds?, include?, ...route })`
 
 Confirm before `debug_stop` unless the user explicitly asked to stop debugging.
 
@@ -130,6 +131,21 @@ Key behavior:
 - If the debugger is still running after the settle timeout, or the program has exited (`dbgDesignMode`), only `state` is populated — increase `settleTimeoutMilliseconds` or call `debug_snapshot` again once the program is actually paused.
 
 `debug_step`, `debug_continue`, and `debug_break` still exist for simple fire-and-forget use when no follow-up inspection is needed.
+
+## Waiting For A Breakpoint To Hit
+
+There is no push notification when a breakpoint fires — state-reporting tools only report the debugger's state at the moment they are called, and MCP itself has no standard mechanism for a server to wake an idle conversation outside of an active tool call. Do not ask the user to tell you when a breakpoint was hit; wait for it yourself with `debug_wait_for_break`.
+
+```json
+debug_continue({ "sessionId": "..." })
+debug_wait_for_break({ "timeoutSeconds": 30, "include": ["callStack"], "sessionId": "..." })
+```
+
+`debug_wait_for_break` polls the debugger's state server-side until it leaves `dbgRunMode` (typically because a breakpoint or tracepoint fired) or `timeoutSeconds` elapses (default 30), then returns the settled state, locals, and any requested `include` categories in the same response shape as `debug_snapshot` — one call, no manual sleep/retry loop, and no follow-up call needed to fetch call stack or locals once it hits. It never advances the debugger itself; issue `debug_continue`, `debug_snapshot` with an action, or `breakpoint_group_enable(..., continueExecution: true)` first if the debuggee is not already running.
+
+If `timeoutSeconds` elapses without a hit, only `state` is populated (still `dbgRunMode`) — call `debug_wait_for_break` again rather than assuming the breakpoint will never fire; long-running or rarely-hit code paths may need several calls.
+
+**When the user wants to keep working while waiting instead of the conversation blocking on a long-running `debug_wait_for_break` call:** spawn a background agent (`run_in_background: true`) whose only job is to call `debug_wait_for_break` (looping with a fresh call if it times out) and report the result back. Its completion arrives as an automatic notification that resumes the conversation, so the user is not blocked on the wait. Give the spawned agent explicit routing (`sessionId`/`solutionName`) — it has no memory of this conversation. This background-agent pattern is specific to agent harnesses that support background subagents with completion notifications (e.g. Claude Code); it is not a portable MCP feature. `debug_wait_for_break` itself, however, is a normal MCP tool and works the same way in any MCP client, including GitHub Copilot.
 
 ## Watches And Immediate Evaluation
 

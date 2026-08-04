@@ -57,6 +57,7 @@ public sealed partial class BrokerToolService
         new("test_run_and_get_results", "Runs tests and returns captured results.", true),
         new("debug_status", "Returns debugger status from a routed Visual Studio session.", true),
         new("debug_snapshot", "Optionally advances the debugger (step/continue/break), waits for it to settle, then returns state, locals, and the requested include categories in one call.", true),
+        new("debug_wait_for_break", "Waits for the debugger to leave dbgRunMode (e.g. a breakpoint fires), then returns state, locals, and the requested include categories in one call.", true),
         new("debug_eval_many", "Evaluates multiple debugger expressions.", true),
         new("debug_get_mode", "Returns debugger mode from a routed Visual Studio session.", true),
         new("debug_start", "Starts debugging in a routed Visual Studio session.", true),
@@ -2616,33 +2617,82 @@ public sealed partial class BrokerToolService
                     }
                 }
 
-                if (state.Mode != "dbgBreakMode")
-                {
-                    return new DebugSnapshotResult(state, null, null, null, UnrecognizedInclude: unrecognizedInclude);
-                }
-
-                var locals = await connection.DebugGetLocalsAsync(ct);
-                var callStack = includeKeys.Contains("callStack") ? await connection.DebugGetCallstackAsync(ct) : null;
-                var breakpoints = includeKeys.Contains("breakpoints") ? await connection.BreakpointListAsync(ct) : null;
-                var watch = includeKeys.Contains("watch") ? await connection.WatchListAsync(ct) : null;
-                var threads = includeKeys.Contains("threads") ? await connection.DebugGetThreadsAsync(ct) : null;
-                var modules = includeKeys.Contains("modules") ? await connection.ModuleListAsync(ct) : null;
-                var parallelStacks = includeKeys.Contains("parallelStacks") ? await connection.ParallelStacksAsync(ct) : null;
-                var parallelWatch = includeKeys.Contains("parallelWatch") ? await connection.ParallelWatchAsync(ct) : null;
-
-                return new DebugSnapshotResult(
-                    state,
-                    callStack,
-                    locals,
-                    breakpoints,
-                    watch,
-                    threads,
-                    modules,
-                    parallelStacks,
-                    parallelWatch,
-                    unrecognizedInclude);
+                return await CollectDebugSnapshotAsync(connection, state, includeKeys, unrecognizedInclude, ct);
             },
             cancellationToken);
+    }
+
+    [McpServerTool(Name = "debug_wait_for_break")]
+    [Description("Waits for a routed Visual Studio session's debugger to leave dbgRunMode - typically because a breakpoint or tracepoint fired - then returns state, locals, and the requested include categories in one call, the same shape as debug_snapshot. Does not itself advance the debugger; call debug_continue, debug_snapshot (with an action), or breakpoint_group_enable(..., continueExecution: true) first if the debuggee is not already running. Use 'include' the same way as debug_snapshot.")]
+    public Task<ToolResponse<DebugSnapshotResult>> DebugWaitForBreak(
+        [Description("Maximum time in seconds to wait for the debugger to leave dbgRunMode before giving up and returning the still-running state.")]
+        int timeoutSeconds = 30,
+        string[]? include = null,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (timeoutSeconds <= 0)
+        {
+            return Task.FromResult(ToolResponse<DebugSnapshotResult>.Fail("timeoutSeconds must be greater than zero."));
+        }
+
+        var (includeKeys, unrecognizedInclude) = ParseDebugSnapshotInclude(include);
+        var timeoutMilliseconds = timeoutSeconds * 1000L;
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            async (connection, ct) =>
+            {
+                var state = await connection.DebugStatusAsync(ct);
+
+                var stopwatch = Stopwatch.StartNew();
+                while (state.Mode == "dbgRunMode" && stopwatch.ElapsedMilliseconds < timeoutMilliseconds)
+                {
+                    await Task.Delay(DebugSnapshotPollIntervalMilliseconds, ct);
+                    state = await connection.DebugStatusAsync(ct);
+                }
+
+                return await CollectDebugSnapshotAsync(connection, state, includeKeys, unrecognizedInclude, ct);
+            },
+            cancellationToken);
+    }
+
+    private static async Task<DebugSnapshotResult> CollectDebugSnapshotAsync(
+        IVisualStudioSessionRpc connection,
+        DebuggerStateInfo state,
+        HashSet<string> includeKeys,
+        IReadOnlyCollection<string>? unrecognizedInclude,
+        CancellationToken cancellationToken)
+    {
+        if (state.Mode != "dbgBreakMode")
+        {
+            return new DebugSnapshotResult(state, null, null, null, UnrecognizedInclude: unrecognizedInclude);
+        }
+
+        var locals = await connection.DebugGetLocalsAsync(cancellationToken);
+        var callStack = includeKeys.Contains("callStack") ? await connection.DebugGetCallstackAsync(cancellationToken) : null;
+        var breakpoints = includeKeys.Contains("breakpoints") ? await connection.BreakpointListAsync(cancellationToken) : null;
+        var watch = includeKeys.Contains("watch") ? await connection.WatchListAsync(cancellationToken) : null;
+        var threads = includeKeys.Contains("threads") ? await connection.DebugGetThreadsAsync(cancellationToken) : null;
+        var modules = includeKeys.Contains("modules") ? await connection.ModuleListAsync(cancellationToken) : null;
+        var parallelStacks = includeKeys.Contains("parallelStacks") ? await connection.ParallelStacksAsync(cancellationToken) : null;
+        var parallelWatch = includeKeys.Contains("parallelWatch") ? await connection.ParallelWatchAsync(cancellationToken) : null;
+
+        return new DebugSnapshotResult(
+            state,
+            callStack,
+            locals,
+            breakpoints,
+            watch,
+            threads,
+            modules,
+            parallelStacks,
+            parallelWatch,
+            unrecognizedInclude);
     }
 
     private static (HashSet<string> Keys, IReadOnlyCollection<string>? Unrecognized) ParseDebugSnapshotInclude(string[]? include)
@@ -3475,6 +3525,7 @@ public sealed partial class BrokerToolService
             "debug_get_locals" or
             "debug_get_threads" or
             "debug_snapshot" or
+            "debug_wait_for_break" or
             "exception_settings_get" or
             "module_list" or
             "process_list_debugged" or

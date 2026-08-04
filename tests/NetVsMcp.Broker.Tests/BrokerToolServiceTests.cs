@@ -931,6 +931,54 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task DebugWaitForBreak_ReturnsImmediatelyWhenAlreadyPaused()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { DebugStatusMode = "dbgBreakMode" };
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DebugWaitForBreak(
+            include: ["callStack", "breakpoints"],
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("dbgBreakMode", response.Value!.State.Mode);
+        Assert.Single(response.Value.CallStack!.Frames);
+        Assert.Single(response.Value.Locals!.Locals);
+        Assert.Single(response.Value.Breakpoints!.Breakpoints);
+    }
+
+    [Fact]
+    public async Task DebugWaitForBreak_ReturnsRunningStateAfterTimeoutElapses()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { DebugStatusMode = "dbgRunMode" };
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DebugWaitForBreak(timeoutSeconds: 1, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("dbgRunMode", response.Value!.State.Mode);
+        Assert.Null(response.Value.Locals);
+        Assert.Null(response.Value.CallStack);
+    }
+
+    [Fact]
+    public async Task DebugWaitForBreak_RejectsNonPositiveTimeout()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.DebugWaitForBreak(timeoutSeconds: 0, sessionId: "vs-1");
+
+        Assert.False(response.Success);
+        Assert.Equal("timeoutSeconds must be greater than zero.", response.Message);
+    }
+
+    [Fact]
     public async Task DebugEvalMany_EvaluatesExpressions()
     {
         var runtime = CreateRuntime();
