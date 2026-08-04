@@ -67,6 +67,23 @@ public sealed class BrokerRuntime
         set => UpdatePendingSetting(s => s with { SessionsDirectory = value }, $"sessions folder override to '{value ?? "(default)"}'");
     }
 
+    /// <summary>Whether update checks should include dev/pre-release versions. Applies immediately, no restart required.</summary>
+    public bool IncludeDevVersionUpdates
+    {
+        get => _settingsStore.Load().IncludeDevVersionUpdates;
+        set => _settingsStore.Update(s => s with { IncludeDevVersionUpdates = value });
+    }
+
+    /// <summary>
+    /// The version of the last update the user chose to ignore, or <c>null</c> if none was ignored.
+    /// Suppresses the update banner for that specific version only; a newer release still surfaces.
+    /// </summary>
+    public string? IgnoredUpdateVersion
+    {
+        get => _settingsStore.Load().IgnoredUpdateVersion;
+        set => _settingsStore.Update(s => s with { IgnoredUpdateVersion = value });
+    }
+
     public event EventHandler? PendingSettingsChanged;
 
     private void UpdatePendingSetting(Func<BrokerSettings, BrokerSettings> mutate, string description)

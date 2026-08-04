@@ -139,10 +139,40 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public string InstallButtonContent => _isInstallingUpdate ? "Downloading..." : "Install Update";
 
+    public bool IncludeDevVersions
+    {
+        get => _runtime.IncludeDevVersionUpdates;
+        set
+        {
+            if (_runtime.IncludeDevVersionUpdates == value)
+                return;
+
+            _runtime.IncludeDevVersionUpdates = value;
+            OnPropertyChanged();
+            _ = CheckForUpdatesAsync();
+        }
+    }
+
     public async Task CheckForUpdatesAsync(CancellationToken ct = default)
     {
         var currentVersion = Version.TrimStart('v');
-        _updateInfo = await _updateCheckService.CheckAsync(currentVersion, ct);
+        _updateInfo = await _updateCheckService.CheckAsync(
+            currentVersion,
+            _runtime.IncludeDevVersionUpdates,
+            _runtime.IgnoredUpdateVersion,
+            ct);
+        OnPropertyChanged(nameof(UpdateAvailable));
+        OnPropertyChanged(nameof(UpdateVersionText));
+        OnPropertyChanged(nameof(UpdateBannerText));
+    }
+
+    public void IgnoreUpdate()
+    {
+        if (_updateInfo is null)
+            return;
+
+        _runtime.IgnoredUpdateVersion = _updateInfo.Version;
+        _updateInfo = null;
         OnPropertyChanged(nameof(UpdateAvailable));
         OnPropertyChanged(nameof(UpdateVersionText));
         OnPropertyChanged(nameof(UpdateBannerText));

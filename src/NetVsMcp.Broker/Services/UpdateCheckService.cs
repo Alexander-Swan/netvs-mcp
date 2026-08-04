@@ -12,7 +12,20 @@ public class UpdateCheckService
     private const string GitHubApiUrl = "https://api.github.com/repos/Alexander-Swan/netvs-mcp/releases?per_page=10";
     private const string GitHubReleasesUrl = "https://github.com/Alexander-Swan/netvs-mcp/releases/latest";
 
-    public async Task<UpdateInfo?> CheckAsync(string currentVersion, CancellationToken ct = default)
+    /// <param name="currentVersion">The running broker version, e.g. "0.1.8" or "0.1.8-dev".</param>
+    /// <param name="includeDevVersions">
+    /// When <c>false</c>, only stable (non-prerelease) GitHub releases are considered. When <c>true</c>,
+    /// dev/alpha/beta/etc. releases are considered too, and the newest overall release wins regardless of channel.
+    /// </param>
+    /// <param name="ignoredVersion">
+    /// A version the user previously chose to ignore. That specific version is skipped even if it would
+    /// otherwise be the newest available; a different (e.g. later) release still surfaces normally.
+    /// </param>
+    public async Task<UpdateInfo?> CheckAsync(
+        string currentVersion,
+        bool includeDevVersions = false,
+        string? ignoredVersion = null,
+        CancellationToken ct = default)
     {
         try
         {
@@ -23,35 +36,35 @@ public class UpdateCheckService
             var json = await http.GetStringAsync(GitHubApiUrl, ct);
             using var doc = JsonDocument.Parse(json);
 
-            var currentSuffix = currentVersion.Contains('-')
-                ? currentVersion.Split('-', 2)[1]
-                : string.Empty;
+            JsonElement? bestRelease = null;
+            string? bestVersion = null;
 
-            JsonElement root = default;
-            bool found = false;
             foreach (var release in doc.RootElement.EnumerateArray())
             {
-                var tag = release.GetProperty("tag_name").GetString() ?? string.Empty;
-                var tagVersion = tag.TrimStart('v');
-                var tagSuffix = tagVersion.Contains('-')
-                    ? tagVersion.Split('-', 2)[1]
-                    : string.Empty;
-                if (string.Equals(tagSuffix, currentSuffix, StringComparison.OrdinalIgnoreCase))
+                if (release.TryGetProperty("draft", out var draftProp) && draftProp.GetBoolean())
+                    continue;
+
+                var isPrerelease = release.TryGetProperty("prerelease", out var prereleaseProp) && prereleaseProp.GetBoolean();
+                if (isPrerelease && !includeDevVersions)
+                    continue;
+
+                var tagVersion = (release.GetProperty("tag_name").GetString() ?? string.Empty).TrimStart('v');
+                if (bestVersion is null || IsNewer(tagVersion, bestVersion))
                 {
-                    root = release;
-                    found = true;
-                    break;
+                    bestVersion = tagVersion;
+                    bestRelease = release;
                 }
             }
-            if (!found)
+
+            if (bestRelease is null || bestVersion is null || !IsNewer(bestVersion, currentVersion))
                 return null;
 
-            var tagName = root.GetProperty("tag_name").GetString() ?? string.Empty;
+            if (!string.IsNullOrEmpty(ignoredVersion) &&
+                string.Equals(bestVersion, ignoredVersion, StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var root = bestRelease.Value;
             var htmlUrl = root.GetProperty("html_url").GetString() ?? GitHubReleasesUrl;
-            var releaseVersion = tagName.TrimStart('v');
-
-            if (!IsNewer(releaseVersion, currentVersion))
-                return null;
 
             string? msiUrl = null;
             foreach (var asset in root.GetProperty("assets").EnumerateArray())
@@ -65,7 +78,7 @@ public class UpdateCheckService
                 }
             }
 
-            return msiUrl is null ? null : new UpdateInfo(releaseVersion, msiUrl, htmlUrl);
+            return msiUrl is null ? null : new UpdateInfo(bestVersion, msiUrl, htmlUrl);
         }
         catch
         {

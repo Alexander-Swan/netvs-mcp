@@ -71,15 +71,22 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="{Binding UpdateBannerText}" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#7A4800" />
                 <Button Grid.Column="1"
+                        Content="Ignore"
+                        IsEnabled="{Binding IsNotInstallingUpdate}"
+                        Click="IgnoreUpdate_Click"
+                        VerticalAlignment="Center"
+                        Margin="12,0,0,0" />
+                <Button Grid.Column="2"
                         Content="{Binding InstallButtonContent}"
                         IsEnabled="{Binding IsNotInstallingUpdate}"
                         Click="InstallUpdate_Click"
                         Style="{StaticResource AccentButtonStyle}"
                         VerticalAlignment="Center"
-                        Margin="12,0,0,0" />
+                        Margin="8,0,0,0" />
             </Grid>
         </Border>
 
@@ -200,6 +207,17 @@
                                            Style="{StaticResource MutedTextStyle}" />
                             </StackPanel>
                         </Grid>
+                    </GroupBox>
+
+                    <GroupBox Header="Updates" Margin="0,12,0,0">
+                        <StackPanel Margin="14">
+                            <CheckBox Content="Include dev/pre-release versions"
+                                      IsChecked="{Binding IncludeDevVersions}" />
+                            <TextBlock Text="When unchecked, only stable releases are offered. When checked, the newest release of any channel (stable, dev, alpha, etc.) is offered."
+                                       Margin="0,6,0,0"
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource MutedTextStyle}" />
+                        </StackPanel>
                     </GroupBox>
                 </StackPanel>
             </TabItem>

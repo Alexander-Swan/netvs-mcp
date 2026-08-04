@@ -8,7 +8,9 @@ namespace NetVsMcp.Broker.Services;
 public sealed record BrokerSettings(
     int? Port = null,
     string? LogsDirectory = null,
-    string? SessionsDirectory = null);
+    string? SessionsDirectory = null,
+    bool IncludeDevVersionUpdates = false,
+    string? IgnoredUpdateVersion = null);
 
 public interface IBrokerSettingsStore
 {

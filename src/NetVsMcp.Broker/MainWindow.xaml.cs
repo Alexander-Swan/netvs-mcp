@@ -41,4 +41,6 @@ public partial class MainWindow : Window
     private void Exit_Click(object sender, RoutedEventArgs e) => System.Windows.Application.Current.Shutdown();
 
     private async void InstallUpdate_Click(object sender, RoutedEventArgs e) => await _viewModel.InstallUpdateAsync();
+
+    private void IgnoreUpdate_Click(object sender, RoutedEventArgs e) => _viewModel.IgnoreUpdate();
 }
