@@ -971,7 +971,8 @@ public sealed class BreakpointEnableRequest
 
 public sealed record BreakpointEnableResult(
     int Updated,
-    IReadOnlyCollection<BreakpointInfo> Breakpoints);
+    IReadOnlyCollection<BreakpointInfo> Breakpoints,
+    DebuggerStateInfo? State = null);
 
 public sealed record BreakpointListResult(
     IReadOnlyCollection<BreakpointInfo> Breakpoints);
@@ -1000,7 +1001,8 @@ public sealed record BreakpointGroupOperationResult(
     string GroupName,
     int Matched,
     int Updated,
-    IReadOnlyCollection<BreakpointInfo> Breakpoints);
+    IReadOnlyCollection<BreakpointInfo> Breakpoints,
+    DebuggerStateInfo? State = null);
 
 public sealed record CallStackResult(
     DebuggerStateInfo State,

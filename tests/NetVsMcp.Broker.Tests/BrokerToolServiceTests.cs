@@ -648,6 +648,121 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task BreakpointEnable_WhenEnabling_DoesNotReturnState()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { DebugStatusMode = "dbgBreakMode" };
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.BreakpointEnable(
+            enabled: true,
+            name: "bp-1",
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Null(response.Value!.State);
+    }
+
+    [Fact]
+    public async Task BreakpointEnable_WhenDisabling_ReturnsCurrentState()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { DebugStatusMode = "dbgBreakMode" };
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.BreakpointEnable(
+            enabled: false,
+            name: "bp-1",
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("dbgBreakMode", response.Value!.State!.Mode);
+    }
+
+    [Fact]
+    public async Task BreakpointEnable_WhenDisablingWithContinueExecution_ResumesDebugger()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { DebugStatusMode = "dbgBreakMode" };
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.BreakpointEnable(
+            enabled: false,
+            name: "bp-1",
+            continueExecution: true,
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("Run", response.Value!.State!.Mode);
+    }
+
+    [Fact]
+    public async Task BreakpointEnable_RejectsNegativeSettleTimeout()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.BreakpointEnable(
+            enabled: false,
+            name: "bp-1",
+            settleTimeoutMilliseconds: -1,
+            sessionId: "vs-1");
+
+        Assert.False(response.Success);
+        Assert.Equal("settleTimeoutMilliseconds must be zero or greater.", response.Message);
+    }
+
+    [Fact]
+    public async Task BreakpointGroupEnable_WhenDisabling_ReturnsCurrentState()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { DebugStatusMode = "dbgBreakMode" };
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.BreakpointGroupEnable("critical", enabled: false, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("dbgBreakMode", response.Value!.State!.Mode);
+    }
+
+    [Fact]
+    public async Task BreakpointGroupEnable_WhenDisablingWithContinueExecution_ResumesDebugger()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { DebugStatusMode = "dbgBreakMode" };
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.BreakpointGroupEnable(
+            "critical",
+            enabled: false,
+            continueExecution: true,
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("Run", response.Value!.State!.Mode);
+    }
+
+    [Fact]
+    public async Task BreakpointGroupEnable_WhenEnabling_DoesNotReturnState()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { DebugStatusMode = "dbgBreakMode" };
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.BreakpointGroupEnable("critical", enabled: true, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Null(response.Value!.State);
+    }
+
+    [Fact]
     public async Task BreakpointRemove_RequiresNameOrDocumentPath()
     {
         var runtime = CreateRuntime();

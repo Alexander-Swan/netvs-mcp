@@ -2309,7 +2309,7 @@ public sealed partial class BrokerToolService
     }
 
     [McpServerTool(Name = "breakpoint_enable")]
-    [Description("Enables or disables breakpoints in a routed Visual Studio session.")]
+    [Description("Enables or disables breakpoints in a routed Visual Studio session. When disabling, the response also includes the current debugger state (similar to debug_snapshot); pass continueExecution to resume the debugger afterward.")]
     public Task<ToolResponse<BreakpointEnableResult>> BreakpointEnable(
         bool enabled,
         string? name = null,
@@ -2317,6 +2317,9 @@ public sealed partial class BrokerToolService
         string? documentPath = null,
         [Description("1-based line number; used with documentPath to identify the breakpoint to enable or disable.")]
         int line = 0,
+        [Description("When disabling, continue debugger execution afterward if it is paused.")]
+        bool continueExecution = false,
+        int settleTimeoutMilliseconds = 300,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
@@ -2326,6 +2329,11 @@ public sealed partial class BrokerToolService
         if (validation is not null)
         {
             return Task.FromResult(ToolResponse<BreakpointEnableResult>.Fail(validation));
+        }
+
+        if (settleTimeoutMilliseconds < 0)
+        {
+            return Task.FromResult(ToolResponse<BreakpointEnableResult>.Fail("settleTimeoutMilliseconds must be zero or greater."));
         }
 
         var request = new BreakpointEnableRequest
@@ -2340,15 +2348,29 @@ public sealed partial class BrokerToolService
             sessionId,
             solutionName,
             solutionPath,
-            (connection, ct) => connection.BreakpointEnableAsync(request, ct),
+            async (connection, ct) =>
+            {
+                var result = await connection.BreakpointEnableAsync(request, ct);
+
+                if (enabled)
+                {
+                    return result;
+                }
+
+                var state = await SettleDebuggerStateAsync(connection, continueExecution, settleTimeoutMilliseconds, ct);
+                return result with { State = state };
+            },
             cancellationToken);
     }
 
     [McpServerTool(Name = "breakpoint_group_enable")]
-    [Description("Enables or disables all breakpoints in a group through a routed Visual Studio session.")]
+    [Description("Enables or disables all breakpoints in a group through a routed Visual Studio session. When disabling, the response also includes the current debugger state (similar to debug_snapshot); pass continueExecution to resume the debugger afterward.")]
     public Task<ToolResponse<BreakpointGroupOperationResult>> BreakpointGroupEnable(
         string groupName,
         bool enabled,
+        [Description("When disabling, continue debugger execution afterward if it is paused.")]
+        bool continueExecution = false,
+        int settleTimeoutMilliseconds = 300,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
@@ -2357,6 +2379,11 @@ public sealed partial class BrokerToolService
         if (string.IsNullOrWhiteSpace(groupName))
         {
             return Task.FromResult(ToolResponse<BreakpointGroupOperationResult>.Fail("Breakpoint group name is required."));
+        }
+
+        if (settleTimeoutMilliseconds < 0)
+        {
+            return Task.FromResult(ToolResponse<BreakpointGroupOperationResult>.Fail("settleTimeoutMilliseconds must be zero or greater."));
         }
 
         var normalizedGroupName = groupName.Trim();
@@ -2384,7 +2411,13 @@ public sealed partial class BrokerToolService
                     updatedBreakpoints.AddRange(result.Breakpoints);
                 }
 
-                return new BreakpointGroupOperationResult(normalizedGroupName, matches.Length, updated, updatedBreakpoints);
+                DebuggerStateInfo? state = null;
+                if (!enabled)
+                {
+                    state = await SettleDebuggerStateAsync(connection, continueExecution, settleTimeoutMilliseconds, ct);
+                }
+
+                return new BreakpointGroupOperationResult(normalizedGroupName, matches.Length, updated, updatedBreakpoints, state);
             },
             cancellationToken);
     }
@@ -2496,6 +2529,31 @@ public sealed partial class BrokerToolService
     }
 
     private const int DebugSnapshotPollIntervalMilliseconds = 50;
+
+    private static async Task<DebuggerStateInfo> SettleDebuggerStateAsync(
+        IVisualStudioSessionRpc connection,
+        bool continueExecution,
+        int settleTimeoutMilliseconds,
+        CancellationToken cancellationToken)
+    {
+        var state = await connection.DebugStatusAsync(cancellationToken);
+
+        if (!continueExecution || state.Mode != "dbgBreakMode")
+        {
+            return state;
+        }
+
+        state = await connection.DebugContinueAsync(cancellationToken);
+
+        var stopwatch = Stopwatch.StartNew();
+        while (state.Mode == "dbgRunMode" && stopwatch.ElapsedMilliseconds < settleTimeoutMilliseconds)
+        {
+            await Task.Delay(DebugSnapshotPollIntervalMilliseconds, cancellationToken);
+            state = await connection.DebugStatusAsync(cancellationToken);
+        }
+
+        return state;
+    }
 
     private static readonly string[] DebugSnapshotKnownIncludeKeys =
     [

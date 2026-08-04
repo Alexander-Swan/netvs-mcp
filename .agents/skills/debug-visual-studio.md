@@ -86,12 +86,15 @@ breakpoint_list({ "sessionId": "..." })
 breakpoint_remove({ "documentPath": "...", "line": 42, "sessionId": "..." })
 breakpoint_enable({ "documentPath": "...", "line": 42, "enabled": false, "sessionId": "..." })
 breakpoint_group_list({ "sessionId": "..." })
+breakpoint_group_enable({ "groupName": "scenario-name", "enabled": false, "sessionId": "..." })
 breakpoint_group_remove({ "groupName": "scenario-name", "sessionId": "..." })
 ```
 
 Prefer grouping breakpoints created for one investigation. Confirm before broad removal unless the user asked for cleanup.
 
-When the debugging task is finished, deactivate or remove breakpoints created for the investigation, then continue execution if the debuggee is paused and the user has not asked to stop debugging. Prefer disabling grouped breakpoints with `breakpoint_enable(..., "enabled": false)` or removing the investigation group with `breakpoint_group_remove`; avoid changing unrelated user breakpoints.
+When disabling (`enabled: false`), both `breakpoint_enable` and `breakpoint_group_enable` also return the current debugger `state` in the response (like `debug_snapshot`), and accept an optional `continueExecution: true` (plus `settleTimeoutMilliseconds`, default 300) to resume the debuggee in the same call if it's paused. Enabling breakpoints does not fetch or return state.
+
+When the debugging task is finished, deactivate or remove breakpoints created for the investigation, then continue execution if the debuggee is paused and the user has not asked to stop debugging. Prefer disabling grouped breakpoints with `breakpoint_group_enable({ "groupName": "...", "enabled": false, "continueExecution": true })` in one call, or removing the investigation group with `breakpoint_group_remove`; avoid changing unrelated user breakpoints.
 
 ## Inspecting Paused State
 
