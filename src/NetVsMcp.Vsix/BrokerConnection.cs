@@ -54,6 +54,8 @@ internal sealed class NamedPipeBrokerConnectionFactory : IBrokerConnectionFactor
 
 internal sealed class JsonRpcBrokerConnection : IBrokerConnection
 {
+    private static readonly TimeSpan RpcTimeout = TimeSpan.FromSeconds(15);
+
     private readonly NamedPipeClientStream stream;
     private readonly JsonRpc rpc;
     private bool disposed;
@@ -69,7 +71,10 @@ internal sealed class JsonRpcBrokerConnection : IBrokerConnection
     public Task RegisterAsync(VsRegistrationRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return rpc.InvokeAsync("RegisterAsync", VsSessionRegistrationWire.FromRequest(request));
+        return InvokeAndValidateAsync(
+            "RegisterAsync",
+            cancellationToken,
+            VsSessionRegistrationWire.FromRequest(request));
     }
 
     public Task HeartbeatAsync(VsHeartbeatRequest request, CancellationToken cancellationToken)
@@ -81,15 +86,53 @@ internal sealed class JsonRpcBrokerConnection : IBrokerConnection
     public Task UnregisterAsync(string sessionId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return rpc.InvokeAsync("UnregisterAsync", sessionId);
+        return InvokeAndValidateAsync("UnregisterAsync", cancellationToken, sessionId);
     }
 
     private async Task HeartbeatAndUpdateAsync(VsHeartbeatRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await rpc.InvokeAsync("UpdateAsync", VsSessionUpdateWire.FromRequest(request));
+        await InvokeAndValidateAsync(
+            "UpdateAsync",
+            cancellationToken,
+            VsSessionUpdateWire.FromRequest(request));
         cancellationToken.ThrowIfCancellationRequested();
-        await rpc.InvokeAsync("HeartbeatAsync", request.Session.SessionId);
+        await InvokeAndValidateAsync("HeartbeatAsync", cancellationToken, request.Session.SessionId);
+    }
+
+    private async Task InvokeAndValidateAsync(
+        string targetName,
+        CancellationToken cancellationToken,
+        params object?[] arguments)
+    {
+        var response = await WithTimeoutAsync(
+            rpc.InvokeAsync<ToolResponseWire>(targetName, arguments),
+            targetName,
+            cancellationToken);
+
+        if (!response.Success)
+        {
+            throw new InvalidOperationException(response.Message ?? $"Broker RPC '{targetName}' failed.");
+        }
+    }
+
+    private static async Task<T> WithTimeoutAsync<T>(
+        Task<T> operation,
+        string targetName,
+        CancellationToken cancellationToken)
+    {
+#pragma warning disable VSTHRD003 // RPC tasks are started by StreamJsonRpc; this helper bounds how long the lifecycle waits on them.
+        var timeout = Task.Delay(RpcTimeout, cancellationToken);
+        var completed = await Task.WhenAny(operation, timeout).ConfigureAwait(false);
+
+        if (completed == operation)
+        {
+            return await operation.ConfigureAwait(false);
+        }
+#pragma warning restore VSTHRD003
+
+        cancellationToken.ThrowIfCancellationRequested();
+        throw new TimeoutException($"Broker RPC '{targetName}' timed out after {RpcTimeout.TotalSeconds:0} seconds.");
     }
 
     public void Dispose()
