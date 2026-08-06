@@ -6,7 +6,7 @@ No cloud services. No telemetry. No per-project configuration files. Everything 
 
 ## What makes it different
 
-**One broker, all your instances.** Install once; the broker tray app auto-starts on login and manages every Visual Studio session. Open three solutions simultaneously, and MCP clients can target any of them by solution path, solution name, or session ID — without reconfiguring anything.
+**One broker, all your instances.** Install once; the broker tray app auto-starts on login and manages every Visual Studio session. Open three solutions simultaneously, and MCP clients can target any of them by session ID, process ID, solution path, workspace path, or solution name — without reconfiguring anything.
 
 **Deep IDE integration, not just file access.** NetVsMcp routes tool calls through the Visual Studio SDK, so it works with what Visual Studio actually knows: live error lists, the active debugger state, in-memory editor buffers, Roslyn's symbol index, and the real build system. Reading files from disk is the floor, not the ceiling.
 
@@ -20,15 +20,15 @@ No cloud services. No telemetry. No per-project configuration files. Everything 
 
 | Area | Tools |
 | --- | --- |
-| Session management | `vs_list_sessions`, `vs_get_session`, `vs_select_session`, `vs_get_status`, `vs_get_capabilities`, `vs_ping` |
+| Session management | `vs_list_sessions`, `vs_get_session`, `vs_select_session`, `vs_get_status`, `vs_get_capabilities`, `vs_ping`, `vs_launch_instance`, `vs_get_logs`, `get_help` |
 | Documents & editor | `document_active`, `document_read`, `document_open`, `document_write`, `document_save`, `document_close`, `document_list`, `document_cleanup`, `document_outline` |
 | Editor mutations | `editor_insert`, `editor_replace`, `editor_goto_line`, `selection_get`, `selection_set` |
 | Safe-edit workflow | `edit_preview`, `edit_approve`, `edit_reject`, `edit_list_pending`, `prepare_safe_edit`, `apply_safe_edit_and_build` |
-| Code navigation | `code_document_symbols`, `code_workspace_symbols`, `code_go_to_definition`, `code_go_to_implementation`, `code_find_references`, `find_implementations` |
+| Code navigation | `code_document_symbols`, `code_workspace_symbols`, `code_go_to_definition`, `code_go_to_implementation`, `code_find_references`, `find_implementations`, `rename_symbol_preview` |
 | Search | `editor_find`, `find_in_files`, `workspace_search`, `open_relevant_files` |
 | Build | `build_solution`, `build_project`, `build_and_get_errors`, `build_status`, `build_cancel`, `build_configuration_get`, `build_configuration_set`, `rebuild_solution`, `clean_solution`, `package_restore` |
-| Diagnostics | `errors_list`, `output_read`, `output_list_panes`, `diagnostics_for_document`, `diagnostics_binding_errors` |
-| Debugger | `debug_start`, `debug_stop`, `debug_restart`, `debug_continue`, `debug_break`, `debug_step`, `debug_attach`, `debug_status`, `debug_get_mode`, `debug_get_callstack`, `debug_get_locals`, `debug_evaluate`, `debug_eval_many`, `debug_set_variable`, `debug_snapshot`, `debug_wait_for_break` |
+| Diagnostics | `errors_list`, `output_read`, `output_write`, `output_clear`, `output_list_panes`, `diagnostics_for_document`, `diagnostics_binding_errors` |
+| Debugger | `debug_start`, `debug_start_without_debugging`, `debug_stop`, `debug_restart`, `debug_continue`, `debug_break`, `debug_step`, `debug_attach`, `debug_status`, `debug_get_mode`, `debug_get_callstack`, `debug_get_locals`, `debug_evaluate`, `debug_eval_many`, `debug_set_variable`, `debug_snapshot`, `debug_wait_for_break` |
 | Breakpoints | `breakpoint_set`, `breakpoint_list`, `breakpoint_remove`, `breakpoint_enable`, `breakpoint_group_list`, `breakpoint_group_enable`, `breakpoint_group_remove` |
 | Threads & processes | `debug_get_threads`, `thread_switch`, `thread_get_callstack`, `thread_set_frozen`, `parallel_stacks`, `parallel_watch`, `process_list_debugged`, `process_list_local`, `process_detach`, `process_terminate` |
 | Watches & immediate | `watch_add`, `watch_list`, `watch_remove`, `immediate_execute` |
@@ -41,6 +41,8 @@ No cloud services. No telemetry. No per-project configuration files. Everything 
 | Snapshots | `vs_context_snapshot`, `symbol_context`, `debug_snapshot` |
 | Console | `console_get_info`, `console_read`, `console_send` |
 | Visual Studio UI | `window_activate`, `window_list`, `toolwindow_show`, `toolwindow_hide`, `execute_command`, `format_and_organize` |
+| Debuggee UI automation (`/mcp-wu`) | `ui_capture_window`, `ui_capture_region`, `ui_snapshot`, `ui_get_tree`, `ui_find_elements`, `ui_get_element`, `ui_click`, `ui_double_click`, `ui_right_click`, `ui_drag`, `ui_set_value`, `ui_invoke`, `ui_send_keys`, `ui_wait_for_element`, `ui_wait_idle` |
+| Browser automation (`/mcp-wu`) | `web_connect`, `web_disconnect`, `web_status`, `web_navigate`, `web_screenshot`, `web_dom_get`, `web_dom_query`, `web_console`, `web_js_execute`, `web_network`, `web_element_click`, `web_element_set_value` |
 
 ## Architecture
 
@@ -62,12 +64,15 @@ Every routed tool accepts optional routing fields:
 ```json
 {
   "sessionId": null,
-  "solutionName": null,
-  "solutionPath": null
+  "processId": null,
+  "solutionPath": null,
+  "workspacePath": null,
+  "rootPath": null,
+  "solutionName": null
 }
 ```
 
-Resolution order: explicit session ID → normalized solution path → solution name → active Visual Studio window → only registered instance → fail with candidate metadata.
+Resolution order: explicit session ID → process ID → normalized solution path → nearest solution found from `workspacePath`/`rootPath` → solution name → active Visual Studio window → only registered instance → fail with candidate metadata.
 
 Routing failures return a structured error with `failureReason`, `candidateCount`, and `candidateSessionIds` so the client can recover without guessing.
 
