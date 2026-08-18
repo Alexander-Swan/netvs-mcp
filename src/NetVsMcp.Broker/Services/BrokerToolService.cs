@@ -2656,7 +2656,8 @@ public sealed partial class BrokerToolService
                     state = await connection.DebugStatusAsync(ct);
                 }
 
-                return await CollectDebugSnapshotAsync(connection, state, includeKeys, unrecognizedInclude, ct);
+                var timedOut = state.Mode == "dbgRunMode" && stopwatch.ElapsedMilliseconds >= timeoutMilliseconds;
+                return await CollectDebugSnapshotAsync(connection, state, includeKeys, unrecognizedInclude, ct, timedOut);
             },
             cancellationToken);
     }
@@ -2666,11 +2667,12 @@ public sealed partial class BrokerToolService
         DebuggerStateInfo state,
         HashSet<string> includeKeys,
         IReadOnlyCollection<string>? unrecognizedInclude,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool timedOut = false)
     {
         if (state.Mode != "dbgBreakMode")
         {
-            return new DebugSnapshotResult(state, null, null, null, UnrecognizedInclude: unrecognizedInclude);
+            return new DebugSnapshotResult(state, null, null, null, UnrecognizedInclude: unrecognizedInclude, TimedOut: timedOut);
         }
 
         var locals = await connection.DebugGetLocalsAsync(cancellationToken);
@@ -2692,7 +2694,8 @@ public sealed partial class BrokerToolService
             modules,
             parallelStacks,
             parallelWatch,
-            unrecognizedInclude);
+            unrecognizedInclude,
+            timedOut);
     }
 
     private static (HashSet<string> Keys, IReadOnlyCollection<string>? Unrecognized) ParseDebugSnapshotInclude(string[]? include)

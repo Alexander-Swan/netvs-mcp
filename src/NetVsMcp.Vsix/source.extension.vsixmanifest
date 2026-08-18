@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011">
   <Metadata>
-    <Identity Id="NetVsMcp.Vsix" Version="0.1.3" Language="en-US" Publisher="NetVsMcp" />
+    <Identity Id="NetVsMcp.Vsix" Version="1.0.0" Language="en-US" Publisher="NetVsMcp" />
     <DisplayName>NetVsMcp Visual Studio Bridge</DisplayName>
     <Description xml:space="preserve">Connects Visual Studio to the NetVsMcp Broker, exposing editor, navigation, build, debugger, and test operations to MCP clients. Requires the NetVsMcp Broker app — download it from https://github.com/Alexander-Swan/netvs-mcp/releases/latest</Description>
     <Icon>Assets\broker.ico</Icon>

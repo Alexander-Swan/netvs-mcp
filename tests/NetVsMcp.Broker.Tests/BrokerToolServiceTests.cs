@@ -874,6 +874,7 @@ public sealed class BrokerToolServiceTests
 
         Assert.True(response.Success);
         Assert.Equal("dbgBreakMode", response.Value!.State.Mode);
+        Assert.False(response.Value.TimedOut);
         Assert.Single(response.Value.CallStack!.Frames);
         Assert.Single(response.Value.Locals!.Locals);
         Assert.Single(response.Value.Breakpoints!.Breakpoints);
@@ -961,6 +962,7 @@ public sealed class BrokerToolServiceTests
 
         Assert.True(response.Success);
         Assert.Equal("dbgRunMode", response.Value!.State.Mode);
+        Assert.True(response.Value.TimedOut);
         Assert.Null(response.Value.Locals);
         Assert.Null(response.Value.CallStack);
     }

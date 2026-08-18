@@ -1098,7 +1098,8 @@ public sealed record DebugSnapshotResult(
     ModuleListResult? Modules = null,
     ParallelStacksResult? ParallelStacks = null,
     ParallelWatchResult? ParallelWatch = null,
-    IReadOnlyCollection<string>? UnrecognizedInclude = null);
+    IReadOnlyCollection<string>? UnrecognizedInclude = null,
+    bool TimedOut = false);
 
 public sealed record DebugEvalManyResult(
     DebuggerStateInfo State,
