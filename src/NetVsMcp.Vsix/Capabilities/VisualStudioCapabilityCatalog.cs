@@ -8,6 +8,7 @@ internal interface IVisualStudioCapabilityCatalog
     IGeneralIdeCapabilityService GeneralIde { get; }
     IEditorCapabilityService Editor { get; }
     INavigationCapabilityService Navigation { get; }
+    ICodeActionsCapabilityService CodeActions { get; }
     IBuildCapabilityService Build { get; }
     IDebuggerCapabilityService Debugger { get; }
     IAutomationCapabilityService Automation { get; }
@@ -20,6 +21,7 @@ internal sealed class VisualStudioCapabilityCatalog : IVisualStudioCapabilityCat
         IGeneralIdeCapabilityService generalIde,
         IEditorCapabilityService editor,
         INavigationCapabilityService navigation,
+        ICodeActionsCapabilityService codeActions,
         IBuildCapabilityService build,
         IDebuggerCapabilityService debugger,
         IAutomationCapabilityService automation,
@@ -28,6 +30,7 @@ internal sealed class VisualStudioCapabilityCatalog : IVisualStudioCapabilityCat
         GeneralIde = generalIde;
         Editor = editor;
         Navigation = navigation;
+        CodeActions = codeActions;
         Build = build;
         Debugger = debugger;
         Automation = automation;
@@ -50,6 +53,7 @@ internal sealed class VisualStudioCapabilityCatalog : IVisualStudioCapabilityCat
     public IGeneralIdeCapabilityService GeneralIde { get; }
     public IEditorCapabilityService Editor { get; }
     public INavigationCapabilityService Navigation { get; }
+    public ICodeActionsCapabilityService CodeActions { get; }
     public IBuildCapabilityService Build { get; }
     public IDebuggerCapabilityService Debugger { get; }
     public IAutomationCapabilityService Automation { get; }

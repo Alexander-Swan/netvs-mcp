@@ -30,6 +30,7 @@ public sealed class NetVsMcpPackage : AsyncPackage
             new GeneralIdeCapabilityService(this),
             new EditorCapabilityService(this),
             new NavigationCapabilityService(this),
+            new CodeActionsCapabilityService(this),
             new BuildCapabilityService(this),
             new DebuggerCapabilityService(this),
             new AutomationCapabilityService(this),

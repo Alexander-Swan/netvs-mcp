@@ -192,6 +192,10 @@ public sealed class VsixRegistrationPipeListenerTests
 
         public Task<CallHierarchyResult> CallHierarchyGetAsync(CallHierarchyRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<CodeActionsListResult> CodeActionsListAsync(CodeActionsListRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<CodeActionsApplyResult> CodeActionsApplyAsync(CodeActionsApplyRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<PackageRestoreResult> PackageRestoreAsync(PackageRestoreRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<BuildSolutionResult> BuildSolutionAsync(

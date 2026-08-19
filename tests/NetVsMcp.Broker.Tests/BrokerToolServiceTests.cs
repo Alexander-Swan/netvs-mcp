@@ -2566,6 +2566,42 @@ public sealed class BrokerToolServiceTests
             return Task.FromResult(new CallHierarchyResult(true, "Found call hierarchy node(s).", position, request.Direction, symbol, incoming, outgoing));
         }
 
+        public CodeActionsListRequest? LastCodeActionsListRequest { get; private set; }
+
+        public CodeActionsApplyRequest? LastCodeActionsApplyRequest { get; private set; }
+
+        public Task<CodeActionsListResult> CodeActionsListAsync(
+            CodeActionsListRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastCodeActionsListRequest = request;
+            var position = new CodePositionRequest
+            {
+                DocumentPath = request.DocumentPath,
+                Line = request.Line,
+                Column = request.Column
+            };
+            IReadOnlyCollection<CodeActionInfo> actions =
+            [
+                new(0, "Remove unnecessary usings", "fix", "CS0105", "RemoveUnnecessaryUsings")
+            ];
+
+            return Task.FromResult(new CodeActionsListResult(position, actions));
+        }
+
+        public Task<CodeActionsApplyResult> CodeActionsApplyAsync(
+            CodeActionsApplyRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastCodeActionsApplyRequest = request;
+            IReadOnlyCollection<RenameSymbolChangeInfo> changes =
+            [
+                new(request.DocumentPath, request.Line, request.Column, request.Line, request.Column + 3, string.Empty)
+            ];
+
+            return Task.FromResult(new CodeActionsApplyResult(true, "Applied 'Remove unnecessary usings'.", "Remove unnecessary usings", changes));
+        }
+
         public Task<DocumentReadResult> DocumentReadAsync(
             DocumentReadRequest request,
             CancellationToken cancellationToken)

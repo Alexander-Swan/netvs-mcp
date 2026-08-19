@@ -11,6 +11,7 @@ internal sealed class VisualStudioCapabilityRpcTarget
     private readonly EditorRpcTarget editor;
     private readonly GeneralIdeRpcTarget generalIde;
     private readonly NavigationRpcTarget navigation;
+    private readonly CodeActionsRpcTarget codeActions;
     private readonly BuildRpcTarget build;
     private readonly DebuggerRpcTarget debugger;
     private readonly IAutomationCapabilityService automation;
@@ -27,6 +28,7 @@ internal sealed class VisualStudioCapabilityRpcTarget
         generalIde = new GeneralIdeRpcTarget(capabilities.GeneralIde);
         editor = new EditorRpcTarget(capabilities.Editor);
         navigation = new NavigationRpcTarget(capabilities.Navigation);
+        codeActions = new CodeActionsRpcTarget(capabilities.CodeActions);
         build = new BuildRpcTarget(capabilities.Build);
         debugger = new DebuggerRpcTarget(capabilities.Debugger);
         automation = capabilities.Automation;
@@ -171,6 +173,12 @@ internal sealed class VisualStudioCapabilityRpcTarget
 
     public Task<CallHierarchyResult> CallHierarchyGetAsync(CallHierarchyRequest request, CancellationToken cancellationToken) =>
         navigation.CallHierarchyGetAsync(request, cancellationToken);
+
+    public Task<CodeActionsListResult> CodeActionsListAsync(CodeActionsListRequest request, CancellationToken cancellationToken) =>
+        codeActions.CodeActionsListAsync(request, cancellationToken);
+
+    public Task<CodeActionsApplyResult> CodeActionsApplyAsync(CodeActionsApplyRequest request, CancellationToken cancellationToken) =>
+        codeActions.CodeActionsApplyAsync(request, cancellationToken);
 
     public Task<BuildSolutionResult> BuildSolutionAsync(BuildSolutionRequest request, CancellationToken cancellationToken) =>
         build.BuildSolutionAsync(request, cancellationToken);

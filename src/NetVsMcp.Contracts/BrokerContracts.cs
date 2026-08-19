@@ -651,6 +651,42 @@ public sealed record CallHierarchyResult(
     IReadOnlyCollection<CallHierarchyNode> Incoming,
     IReadOnlyCollection<CallHierarchyNode> Outgoing);
 
+public sealed class CodeActionsListRequest
+{
+    public string DocumentPath { get; set; } = string.Empty;
+    public int Line { get; set; }
+    public int Column { get; set; }
+    public int? EndLine { get; set; }
+    public int? EndColumn { get; set; }
+}
+
+public sealed class CodeActionsApplyRequest
+{
+    public string DocumentPath { get; set; } = string.Empty;
+    public int Line { get; set; }
+    public int Column { get; set; }
+    public int? EndLine { get; set; }
+    public int? EndColumn { get; set; }
+    public int Index { get; set; }
+}
+
+public sealed record CodeActionInfo(
+    int Index,
+    string Title,
+    string Kind,
+    string? DiagnosticId,
+    string? EquivalenceKey);
+
+public sealed record CodeActionsListResult(
+    CodePositionRequest Position,
+    IReadOnlyCollection<CodeActionInfo> Actions);
+
+public sealed record CodeActionsApplyResult(
+    bool Success,
+    string Message,
+    string? AppliedTitle,
+    IReadOnlyCollection<RenameSymbolChangeInfo> Changes);
+
 public sealed class RenameSymbolRequest
 {
     public string DocumentPath { get; set; } = string.Empty;
@@ -1492,6 +1528,14 @@ public interface IVisualStudioSessionRpc
 
     Task<CallHierarchyResult> CallHierarchyGetAsync(
         CallHierarchyRequest request,
+        CancellationToken cancellationToken);
+
+    Task<CodeActionsListResult> CodeActionsListAsync(
+        CodeActionsListRequest request,
+        CancellationToken cancellationToken);
+
+    Task<CodeActionsApplyResult> CodeActionsApplyAsync(
+        CodeActionsApplyRequest request,
         CancellationToken cancellationToken);
 
     Task<PackageRestoreResult> PackageRestoreAsync(

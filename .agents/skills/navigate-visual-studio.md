@@ -1,6 +1,6 @@
 # Navigate Visual Studio With NetVsMcp
 
-This is the agent-neutral code navigation, search, and diagnostics workflow for this repository. Any AI agent can follow it when asked to find a definition, find references or implementations, walk a call hierarchy, list symbols, preview a rename, check diagnostics for a file, search text across the workspace, inspect git status, or open a batch of relevant files through NetVsMcp.
+This is the agent-neutral code navigation, search, and diagnostics workflow for this repository. Any AI agent can follow it when asked to find a definition, find references or implementations, walk a call hierarchy, list symbols, preview a rename, list or apply code fixes and refactorings, check diagnostics for a file, search text across the workspace, inspect git status, or open a batch of relevant files through NetVsMcp.
 
 ## Session Routing
 
@@ -102,6 +102,34 @@ Key behavior:
 - `maxDepth` defaults to `3` and is clamped to `1`-`6`. Incoming calls use Roslyn's `SymbolFinder.FindCallersAsync`; outgoing calls are found by walking the symbol's C#-only declaring syntax for invocations/object-creations and resolving each through the semantic model, since Roslyn has no direct "find callees" API.
 - The tree is capped at roughly 500 total nodes across both directions to bound runaway trees; a node's `Truncated: true` means its children were cut off by the depth or node cap, and `IsRecursive: true` means expansion stopped because the symbol already appears earlier on the same path (a cycle).
 - The result is `{ Supported, Message, Position, Direction, Symbol?, Incoming, Outgoing }`. Check `Supported` — a position with no resolvable symbol returns `Supported: true` with an empty `Incoming`/`Outgoing` and an explanatory `Message`.
+
+## Code Actions (Fixes And Refactorings)
+
+`code_actions_list` and `code_actions_apply` mirror the Visual Studio lightbulb: they discover both diagnostic-driven fixes (`CodeFixProvider`) and selection-based refactorings (`CodeRefactoringProvider`, e.g. Extract Method) at a position or span, and apply the chosen one solution-wide.
+
+```json
+code_actions_list({
+  "documentPath": "src/NetVsMcp.Broker/Services/BrokerToolService.cs",
+  "line": 590,
+  "column": 24,
+  "sessionId": "..."
+})
+code_actions_apply({
+  "documentPath": "src/NetVsMcp.Broker/Services/BrokerToolService.cs",
+  "line": 590,
+  "column": 24,
+  "index": 0,
+  "sessionId": "..."
+})
+```
+
+Key behavior:
+
+- Pass `endLine`/`endColumn` alongside `line`/`column` to scope a selection span instead of a single position — useful for refactorings like Extract Method that need a range. `code_actions_apply` must be called with the exact same position/span as the `code_actions_list` call that produced the `index`, since indices are not stable across different spans.
+- Each action in `code_actions_list`'s `Actions` list is `{ Index, Title, Kind, DiagnosticId?, EquivalenceKey? }`, where `Kind` is `"fix"` or `"refactor"`.
+- `code_actions_apply` **recomputes** the action list at apply time rather than trusting a cached action from an earlier `code_actions_list` call — the workspace can change between calls — so always call `code_actions_list` first to pick an `index`, then apply promptly.
+- v1 limitation: actions with nested sub-actions (providers that need further interactive input, like an options picker) are filtered out of both the list and apply paths.
+- `code_actions_apply`'s result is `{ Success, Message, AppliedTitle?, Changes }`, using the same `RenameSymbolChangeInfo` shape as `rename_symbol_preview`'s `Changes` — but here the edit has already been applied, not just previewed. Follow up with `build_and_get_errors` to confirm the applied change compiles.
 
 ## Diagnostics
 

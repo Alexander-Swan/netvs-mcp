@@ -43,6 +43,8 @@ public sealed partial class BrokerToolService
         new("find_implementations", "Returns best-effort implementation lookup status for a code position. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
         new("rename_symbol_preview", "Returns a safe rename preview status for a code position. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
         new("call_hierarchy_get", "Returns the call hierarchy (incoming callers and/or outgoing callees) for a code position.", true),
+        new("code_actions_list", "Lists available code fixes and refactorings at a code position or selection.", true),
+        new("code_actions_apply", "Applies a code fix or refactoring by index. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
         new("diagnostics_for_document", "Filters routed diagnostics to one document.", true),
         new("workspace_search", "Searches files under the routed solution root.", true),
         new("git_context", "Returns best-effort git status for the routed solution root.", true),
@@ -819,6 +821,89 @@ public sealed partial class BrokerToolService
             solutionName,
             solutionPath,
             (connection, ct) => connection.CallHierarchyGetAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "code_actions_list")]
+    [Description("Lists available code fixes and refactorings (like the VS lightbulb) at a code position or selection through a routed Visual Studio session.")]
+    public Task<ToolResponse<CodeActionsListResult>> CodeActionsList(
+        [Description(DocumentPathParameterDescription)]
+        string documentPath,
+        [Description(LineParameterDescription)]
+        int line,
+        [Description(ColumnParameterDescription)]
+        int column,
+        [Description("Optional selection end line (1-based). Omit for a single-position lookup.")]
+        int? endLine = null,
+        [Description("Optional selection end column (1-based). Omit for a single-position lookup.")]
+        int? endColumn = null,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateCodePosition(documentPath, line, column) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<CodeActionsListResult>.Fail(validation));
+        }
+
+        var request = new CodeActionsListRequest
+        {
+            DocumentPath = documentPath.Trim(),
+            Line = line,
+            Column = column,
+            EndLine = endLine,
+            EndColumn = endColumn
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.CodeActionsListAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "code_actions_apply")]
+    [Description("Applies a code fix or refactoring by index (as returned by code_actions_list) through a routed Visual Studio session. Recomputes the action list before applying.")]
+    public Task<ToolResponse<CodeActionsApplyResult>> CodeActionsApply(
+        [Description(DocumentPathParameterDescription)]
+        string documentPath,
+        [Description(LineParameterDescription)]
+        int line,
+        [Description(ColumnParameterDescription)]
+        int column,
+        [Description("The action index, as returned by code_actions_list.")]
+        int index,
+        [Description("Optional selection end line (1-based). Must match the code_actions_list call that produced the index.")]
+        int? endLine = null,
+        [Description("Optional selection end column (1-based). Must match the code_actions_list call that produced the index.")]
+        int? endColumn = null,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateCodePosition(documentPath, line, column) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<CodeActionsApplyResult>.Fail(validation));
+        }
+
+        var request = new CodeActionsApplyRequest
+        {
+            DocumentPath = documentPath.Trim(),
+            Line = line,
+            Column = column,
+            EndLine = endLine,
+            EndColumn = endColumn,
+            Index = index
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.CodeActionsApplyAsync(request, ct),
             cancellationToken);
     }
 
@@ -3657,6 +3742,7 @@ public sealed partial class BrokerToolService
             "find_implementations" or
             "rename_symbol_preview" or
             "call_hierarchy_get" or
+            "code_actions_list" or
             "diagnostics_for_document" or
             "workspace_search" or
             "git_context" or
@@ -3702,7 +3788,8 @@ public sealed partial class BrokerToolService
             "edit_approve" or
             "task_list_add" or
             "task_list_remove" or
-            "task_list_set_checked" => BrokerToolCategory.EditDirect,
+            "task_list_set_checked" or
+            "code_actions_apply" => BrokerToolCategory.EditDirect,
 
             "build_solution" or
             "build_and_get_errors" or
