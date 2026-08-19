@@ -20,6 +20,10 @@ internal interface IBuildCapabilityService
     Task<BuildConfigurationInfo> GetBuildConfigurationAsync(CancellationToken cancellationToken);
     Task<BuildConfigurationInfo> SetBuildConfigurationAsync(BuildConfigurationSetRequest request, CancellationToken cancellationToken);
     Task<ErrorListResult> ListErrorsAsync(ErrorListRequest request, CancellationToken cancellationToken);
+    Task<TaskListResult> ListTaskItemsAsync(TaskListRequest request, CancellationToken cancellationToken);
+    Task<TaskListMutationResult> AddTaskItemAsync(TaskListAddRequest request, CancellationToken cancellationToken);
+    Task<TaskListMutationResult> RemoveTaskItemAsync(TaskListMutationRequest request, CancellationToken cancellationToken);
+    Task<TaskListMutationResult> SetTaskItemCheckedAsync(TaskListSetCheckedRequest request, CancellationToken cancellationToken);
     Task<OutputReadResult> ReadOutputAsync(OutputReadRequest request, CancellationToken cancellationToken);
     Task<OutputPaneListResult> ListOutputPanesAsync(CancellationToken cancellationToken);
     Task<OutputReadResult> ClearOutputAsync(OutputPaneRequest request, CancellationToken cancellationToken);
@@ -197,6 +201,129 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
         }
 
         return new ErrorListResult(items);
+    }
+
+    public async Task<TaskListResult> ListTaskItemsAsync(TaskListRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDte2Async()
+            ?? throw new InvalidOperationException("Visual Studio DTE2 service is unavailable.");
+        var taskItems = dte.ToolWindows?.TaskList?.TaskItems;
+        if (taskItems is null)
+        {
+            return new TaskListResult(Array.Empty<TaskListItemInfo>());
+        }
+
+        var items = new List<TaskListItemInfo>();
+        var maxItems = request.MaxItems <= 0 ? int.MaxValue : request.MaxItems;
+        for (var index = 1; index <= taskItems.Count && items.Count < maxItems; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var item = taskItems.Item(index);
+            if (item is null)
+            {
+                continue;
+            }
+
+            var info = TaskListItemInfo.FromTaskItem(index, item);
+            if (info.IsUserTask && !request.IncludeUserTasks)
+            {
+                continue;
+            }
+
+            if (!info.IsUserTask && !request.IncludeCommentTasks)
+            {
+                continue;
+            }
+
+            items.Add(info);
+        }
+
+        return new TaskListResult(items);
+    }
+
+    public async Task<TaskListMutationResult> AddTaskItemAsync(TaskListAddRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(request.Description))
+        {
+            return new TaskListMutationResult(false, "Description is required.");
+        }
+
+        if (!Enum.TryParse<vsTaskPriority>("vsTaskPriority" + request.Priority, true, out var priority))
+        {
+            return new TaskListMutationResult(false, $"Unrecognized priority '{request.Priority}'. Use High, Medium, or Low.");
+        }
+
+        var dte = await GetDte2Async()
+            ?? throw new InvalidOperationException("Visual Studio DTE2 service is unavailable.");
+        var taskItems = dte.ToolWindows?.TaskList?.TaskItems
+            ?? throw new InvalidOperationException("Visual Studio Task List service is unavailable.");
+
+        taskItems.Add(
+            TaskListCategories.User,
+            string.Empty,
+            request.Description,
+            priority,
+            vsTaskIcon.vsTaskIconUser,
+            Checkable: true);
+
+        return new TaskListMutationResult(true, "Task item added.");
+    }
+
+    public async Task<TaskListMutationResult> RemoveTaskItemAsync(TaskListMutationRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var item = await GetUserTaskItemAsync(request.Index, "removed", cancellationToken);
+        if (item is null)
+        {
+            return new TaskListMutationResult(false, $"No editable user task item was found at index {request.Index}.");
+        }
+
+        item.Delete();
+        return new TaskListMutationResult(true, "Task item removed.");
+    }
+
+    public async Task<TaskListMutationResult> SetTaskItemCheckedAsync(TaskListSetCheckedRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var item = await GetUserTaskItemAsync(request.Index, "checked", cancellationToken);
+        if (item is null)
+        {
+            return new TaskListMutationResult(false, $"No editable user task item was found at index {request.Index}.");
+        }
+
+        item.Checked = request.Checked;
+        return new TaskListMutationResult(true, "Task item updated.");
+    }
+
+    private async Task<TaskItem?> GetUserTaskItemAsync(int index, string action, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDte2Async()
+            ?? throw new InvalidOperationException("Visual Studio DTE2 service is unavailable.");
+        var taskItems = dte.ToolWindows?.TaskList?.TaskItems
+            ?? throw new InvalidOperationException("Visual Studio Task List service is unavailable.");
+
+        if (index < 1 || index > taskItems.Count)
+        {
+            return null;
+        }
+
+        var item = taskItems.Item(index);
+        if (item is null || !string.Equals(item.Category, TaskListCategories.User, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Task item at index {index} is not a user task and cannot be {action}. Only tasks added via task_list_add can be modified.");
+        }
+
+        return item;
     }
 
     public async Task<OutputReadResult> ReadOutputAsync(OutputReadRequest request, CancellationToken cancellationToken)

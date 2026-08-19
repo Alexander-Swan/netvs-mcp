@@ -196,6 +196,18 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<ErrorListResult> ErrorsListAsync(ErrorListRequest request, CancellationToken cancellationToken) =>
         build.ErrorsListAsync(request, cancellationToken);
 
+    public Task<TaskListResult> TaskListGetAsync(TaskListRequest request, CancellationToken cancellationToken) =>
+        build.TaskListGetAsync(request, cancellationToken);
+
+    public Task<TaskListMutationResult> TaskListAddAsync(TaskListAddRequest request, CancellationToken cancellationToken) =>
+        build.TaskListAddAsync(request, cancellationToken);
+
+    public Task<TaskListMutationResult> TaskListRemoveAsync(TaskListMutationRequest request, CancellationToken cancellationToken) =>
+        build.TaskListRemoveAsync(request, cancellationToken);
+
+    public Task<TaskListMutationResult> TaskListSetCheckedAsync(TaskListSetCheckedRequest request, CancellationToken cancellationToken) =>
+        build.TaskListSetCheckedAsync(request, cancellationToken);
+
     public Task<OutputReadResult> OutputReadAsync(OutputReadRequest request, CancellationToken cancellationToken) =>
         build.OutputReadAsync(request, cancellationToken);
 

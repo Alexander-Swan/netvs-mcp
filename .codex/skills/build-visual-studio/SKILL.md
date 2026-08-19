@@ -1,6 +1,6 @@
 ---
 name: build-visual-studio
-description: Build Visual Studio projects through the local NetVsMcp MCP tools. Use when Codex needs to build, rebuild, clean, or cancel a build; check build status or configuration; list or fix build errors and warnings; read, write, list, or clear Visual Studio output panes; or list, search, restore, install, update, or uninstall NuGet packages and project dependencies using the repo-neutral .agents build guide.
+description: Build Visual Studio projects through the local NetVsMcp MCP tools. Use when Codex needs to build, rebuild, clean, or cancel a build; check build status or configuration; list or fix build errors and warnings; read, write, list, or clear Visual Studio output panes; manage Task List items; or list, search, restore, install, update, or uninstall NuGet packages and project dependencies using the repo-neutral .agents build guide.
 ---
 
 # Build Visual Studio

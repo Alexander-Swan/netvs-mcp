@@ -83,6 +83,10 @@ public sealed partial class BrokerToolService
         new("editor_insert", "Inserts text through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
         new("editor_replace", "Replaces a text range through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
         new("editor_goto_line", "Moves the caret through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
+        new("task_list_get", "Lists Task List items (comment tasks and user tasks) from a routed Visual Studio session.", true),
+        new("task_list_add", "Adds a user task to the Task List through a routed Visual Studio session.", true),
+        new("task_list_remove", "Removes a user task from the Task List through a routed Visual Studio session.", true),
+        new("task_list_set_checked", "Checks or unchecks a user task in the Task List through a routed Visual Studio session.", true),
         new("selection_set", "Sets the editor selection through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
         new("document_cleanup", "Formats/cleans up a document through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
         new("format_and_organize", "Formats/cleans up a document and reports organize-import status. Prefer forward slashes in path values like src/Project/File.cs.", true),
@@ -1883,6 +1887,109 @@ public sealed partial class BrokerToolService
         return response;
     }
 
+    [McpServerTool(Name = "task_list_get")]
+    [Description("Lists Task List items (TODO/HACK/UNDONE comment tasks and user tasks) from a routed Visual Studio session.")]
+    public Task<ToolResponse<TaskListResult>> TaskListGet(
+        bool includeCommentTasks = true,
+        bool includeUserTasks = true,
+        int maxItems = 200,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (maxItems < 1)
+        {
+            return Task.FromResult(ToolResponse<TaskListResult>.Fail("Max items must be greater than zero."));
+        }
+
+        var request = new TaskListRequest
+        {
+            IncludeCommentTasks = includeCommentTasks,
+            IncludeUserTasks = includeUserTasks,
+            MaxItems = maxItems
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.TaskListGetAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "task_list_add")]
+    [Description("Adds a user task to the Task List through a routed Visual Studio session.")]
+    public Task<ToolResponse<TaskListMutationResult>> TaskListAdd(
+        [Description("The task description text.")]
+        string description,
+        [Description("Priority: High, Medium, or Low.")]
+        string priority = "Medium",
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            return Task.FromResult(ToolResponse<TaskListMutationResult>.Fail("Description is required."));
+        }
+
+        var request = new TaskListAddRequest
+        {
+            Description = description.Trim(),
+            Priority = priority
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.TaskListAddAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "task_list_remove")]
+    [Description("Removes a user task from the Task List through a routed Visual Studio session. Only user tasks (added via task_list_add) can be removed.")]
+    public Task<ToolResponse<TaskListMutationResult>> TaskListRemove(
+        [Description("The 1-based index of the task item, as returned by task_list_get.")]
+        int index,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new TaskListMutationRequest { Index = index };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.TaskListRemoveAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "task_list_set_checked")]
+    [Description("Checks or unchecks a user task in the Task List through a routed Visual Studio session. Only user tasks (added via task_list_add) support checking.")]
+    public Task<ToolResponse<TaskListMutationResult>> TaskListSetChecked(
+        [Description("The 1-based index of the task item, as returned by task_list_get.")]
+        int index,
+        bool @checked,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new TaskListSetCheckedRequest { Index = index, Checked = @checked };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.TaskListSetCheckedAsync(request, ct),
+            cancellationToken);
+    }
+
     [McpServerTool(Name = "build_and_get_errors")]
     [Description("Builds the routed solution and returns errors/warnings.")]
     public Task<ToolResponse<BuildAndGetErrorsResult>> BuildAndGetErrors(
@@ -3521,6 +3628,7 @@ public sealed partial class BrokerToolService
             "startup_project_get" or
             "build_status" or
             "errors_list" or
+            "task_list_get" or
             "output_read" or
             "debug_status" or
             "debug_get_mode" or
@@ -3549,7 +3657,10 @@ public sealed partial class BrokerToolService
             "selection_set" or
             "document_cleanup" or
             "format_and_organize" or
-            "edit_approve" => BrokerToolCategory.EditDirect,
+            "edit_approve" or
+            "task_list_add" or
+            "task_list_remove" or
+            "task_list_set_checked" => BrokerToolCategory.EditDirect,
 
             "build_solution" or
             "build_and_get_errors" or

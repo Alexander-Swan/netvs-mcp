@@ -2869,6 +2869,47 @@ public sealed class BrokerToolServiceTests
             return Task.FromResult(new ErrorListResult(items));
         }
 
+        public Task<TaskListResult> TaskListGetAsync(
+            TaskListRequest request,
+            CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<TaskListItemInfo> items =
+            [
+                new(
+                    Index: 1,
+                    Description: "Investigate flaky test.",
+                    File: @"C:\Code\NetVsMcp\Program.cs",
+                    Line: 42,
+                    Priority: "High",
+                    Category: "Comment",
+                    IsUserTask: false,
+                    Checked: null)
+            ];
+
+            return Task.FromResult(new TaskListResult(items));
+        }
+
+        public Task<TaskListMutationResult> TaskListAddAsync(
+            TaskListAddRequest request,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new TaskListMutationResult(true, "Task item added."));
+        }
+
+        public Task<TaskListMutationResult> TaskListRemoveAsync(
+            TaskListMutationRequest request,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new TaskListMutationResult(true, "Task item removed."));
+        }
+
+        public Task<TaskListMutationResult> TaskListSetCheckedAsync(
+            TaskListSetCheckedRequest request,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new TaskListMutationResult(true, "Task item updated."));
+        }
+
         public Task<OutputReadResult> OutputReadAsync(
             OutputReadRequest request,
             CancellationToken cancellationToken)

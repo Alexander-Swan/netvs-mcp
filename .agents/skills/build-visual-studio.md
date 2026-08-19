@@ -1,6 +1,6 @@
 # Build Visual Studio With NetVsMcp
 
-This is the agent-neutral build, output, and package workflow for this repository. Any AI agent can follow it when asked to build, rebuild, clean, or cancel a build; inspect build status, configuration, or errors; read or write Visual Studio output panes; or list, search, restore, install, update, or uninstall NuGet packages through NetVsMcp.
+This is the agent-neutral build, output, and package workflow for this repository. Any AI agent can follow it when asked to build, rebuild, clean, or cancel a build; inspect build status, configuration, or errors; read or write Visual Studio output panes; manage Task List items; or list, search, restore, install, update, or uninstall NuGet packages through NetVsMcp.
 
 ## Session Routing
 
@@ -90,6 +90,24 @@ Key behavior:
 - `output_write` creates the named pane if it does not already exist (falling back to a pane named `NetVsMcp` when `paneName` is also omitted), then writes `text` and returns the pane's full content. `text` is required (non-null).
 - `output_read`'s `maxChars` (default `20000`) must be greater than zero; the result reports `truncated: true` when the pane text exceeded the limit.
 - Pane name matching is case-insensitive.
+
+## Task List
+
+List, add, remove, and check off items in the Visual Studio Task List window:
+
+```json
+task_list_get({ "includeCommentTasks": true, "includeUserTasks": true, "maxItems": 200, "sessionId": "..." })
+task_list_add({ "description": "Investigate flaky test", "priority": "High", "sessionId": "..." })
+task_list_remove({ "index": 3, "sessionId": "..." })
+task_list_set_checked({ "index": 3, "checked": true, "sessionId": "..." })
+```
+
+Key behavior:
+
+- `task_list_get` returns comment-token tasks (TODO/HACK/UNDONE-style comments VS derives from source) and user tasks (added via `task_list_add` or typed directly into the Task List window) together; `includeCommentTasks`/`includeUserTasks` (both default `true`) filter which kind is returned. Each item is `{ Index, Description, File, Line, Priority, Category, IsUserTask, Checked }`.
+- `Index` is the item's 1-based position in the live Task List collection at the moment of the call — it can shift as items are added or removed elsewhere. Always call `task_list_get` again before acting on an index if time has passed or other tasks may have changed.
+- `task_list_add`'s `description` is required; `priority` is `High`, `Medium` (default), or `Low` and is validated before dispatch.
+- `task_list_remove` and `task_list_set_checked` only operate on user tasks (`IsUserTask: true`) — attempting either on a comment-token task fails with an explanatory error rather than silently no-opping, since VS derives those from source and doesn't support deleting/checking them directly.
 
 ## Packages: Restore, Dependencies, And NuGet
 

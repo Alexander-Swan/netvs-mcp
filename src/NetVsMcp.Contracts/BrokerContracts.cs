@@ -697,6 +697,47 @@ public sealed record ErrorListItemInfo(
     string Level,
     string? Project);
 
+public sealed class TaskListRequest
+{
+    public bool IncludeCommentTasks { get; set; } = true;
+    public bool IncludeUserTasks { get; set; } = true;
+    public int MaxItems { get; set; } = 200;
+}
+
+public sealed record TaskListResult(
+    IReadOnlyCollection<TaskListItemInfo> Items);
+
+public sealed record TaskListItemInfo(
+    int Index,
+    string? Description,
+    string? File,
+    int Line,
+    string Priority,
+    string Category,
+    bool IsUserTask,
+    bool? Checked);
+
+public sealed class TaskListAddRequest
+{
+    public string Description { get; set; } = string.Empty;
+    public string Priority { get; set; } = "Medium";
+}
+
+public sealed class TaskListMutationRequest
+{
+    public int Index { get; set; }
+}
+
+public sealed class TaskListSetCheckedRequest
+{
+    public int Index { get; set; }
+    public bool Checked { get; set; }
+}
+
+public sealed record TaskListMutationResult(
+    bool Success,
+    string Message);
+
 public sealed class OutputReadRequest
 {
     public string? PaneName { get; set; }
@@ -1474,6 +1515,22 @@ public interface IVisualStudioSessionRpc
 
     Task<ErrorListResult> ErrorsListAsync(
         ErrorListRequest request,
+        CancellationToken cancellationToken);
+
+    Task<TaskListResult> TaskListGetAsync(
+        TaskListRequest request,
+        CancellationToken cancellationToken);
+
+    Task<TaskListMutationResult> TaskListAddAsync(
+        TaskListAddRequest request,
+        CancellationToken cancellationToken);
+
+    Task<TaskListMutationResult> TaskListRemoveAsync(
+        TaskListMutationRequest request,
+        CancellationToken cancellationToken);
+
+    Task<TaskListMutationResult> TaskListSetCheckedAsync(
+        TaskListSetCheckedRequest request,
         CancellationToken cancellationToken);
 
     Task<OutputReadResult> OutputReadAsync(

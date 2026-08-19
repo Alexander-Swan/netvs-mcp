@@ -57,6 +57,26 @@ internal sealed class BuildRpcTarget
         return build.ListErrorsAsync(request, cancellationToken);
     }
 
+    public Task<TaskListResult> TaskListGetAsync(TaskListRequest request, CancellationToken cancellationToken)
+    {
+        return build.ListTaskItemsAsync(request, cancellationToken);
+    }
+
+    public Task<TaskListMutationResult> TaskListAddAsync(TaskListAddRequest request, CancellationToken cancellationToken)
+    {
+        return build.AddTaskItemAsync(request, cancellationToken);
+    }
+
+    public Task<TaskListMutationResult> TaskListRemoveAsync(TaskListMutationRequest request, CancellationToken cancellationToken)
+    {
+        return build.RemoveTaskItemAsync(request, cancellationToken);
+    }
+
+    public Task<TaskListMutationResult> TaskListSetCheckedAsync(TaskListSetCheckedRequest request, CancellationToken cancellationToken)
+    {
+        return build.SetTaskItemCheckedAsync(request, cancellationToken);
+    }
+
     public Task<OutputReadResult> OutputReadAsync(OutputReadRequest request, CancellationToken cancellationToken)
     {
         return build.ReadOutputAsync(request, cancellationToken);

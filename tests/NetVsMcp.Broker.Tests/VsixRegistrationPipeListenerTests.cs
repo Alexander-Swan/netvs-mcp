@@ -211,6 +211,34 @@ public sealed class VsixRegistrationPipeListenerTests
             throw new NotSupportedException();
         }
 
+        public Task<TaskListResult> TaskListGetAsync(
+            TaskListRequest request,
+            CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<TaskListMutationResult> TaskListAddAsync(
+            TaskListAddRequest request,
+            CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<TaskListMutationResult> TaskListRemoveAsync(
+            TaskListMutationRequest request,
+            CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<TaskListMutationResult> TaskListSetCheckedAsync(
+            TaskListSetCheckedRequest request,
+            CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
         public Task<OutputReadResult> OutputReadAsync(
             OutputReadRequest request,
             CancellationToken cancellationToken)

@@ -113,6 +113,119 @@ internal sealed class ErrorListItemInfo
     }
 }
 
+internal static class TaskListCategories
+{
+    // EnvDTE task categories are free-form strings, not an enum - VS has no
+    // built-in "user task" constant. This is our own convention: task_list_add
+    // always tags new items with this category so task_list_remove/set_checked
+    // can tell them apart from read-only comment-token tasks (typically "Comment").
+    public const string User = "NetVsMcp User Task";
+}
+
+internal sealed class TaskListRequest
+{
+    public bool IncludeCommentTasks { get; set; } = true;
+    public bool IncludeUserTasks { get; set; } = true;
+    public int MaxItems { get; set; } = 200;
+}
+
+internal sealed class TaskListResult
+{
+    public TaskListResult(IReadOnlyCollection<TaskListItemInfo> items)
+    {
+        Items = items;
+    }
+
+    public IReadOnlyCollection<TaskListItemInfo> Items { get; }
+}
+
+internal sealed class TaskListItemInfo
+{
+    public TaskListItemInfo(
+        int index,
+        string? description,
+        string? file,
+        int line,
+        string priority,
+        string category,
+        bool isUserTask,
+        bool? isChecked)
+    {
+        Index = index;
+        Description = description;
+        File = file;
+        Line = line;
+        Priority = priority;
+        Category = category;
+        IsUserTask = isUserTask;
+        Checked = isChecked;
+    }
+
+    public int Index { get; }
+    public string? Description { get; }
+    public string? File { get; }
+    public int Line { get; }
+    public string Priority { get; }
+    public string Category { get; }
+    public bool IsUserTask { get; }
+    public bool? Checked { get; }
+
+    public static TaskListItemInfo FromTaskItem(int index, TaskItem item)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        var isUserTask = string.Equals(item.Category, TaskListCategories.User, System.StringComparison.OrdinalIgnoreCase);
+        bool? isChecked = null;
+        try
+        {
+            isChecked = item.Checked;
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            // Not all task items expose a checkbox; leave Checked null in that case.
+        }
+
+        return new TaskListItemInfo(
+            index,
+            item.Description,
+            item.FileName,
+            item.Line,
+            item.Priority.ToString(),
+            item.Category,
+            isUserTask,
+            isChecked);
+    }
+}
+
+internal sealed class TaskListAddRequest
+{
+    public string Description { get; set; } = string.Empty;
+    public string Priority { get; set; } = "Medium";
+}
+
+internal sealed class TaskListMutationRequest
+{
+    public int Index { get; set; }
+}
+
+internal sealed class TaskListSetCheckedRequest
+{
+    public int Index { get; set; }
+    public bool Checked { get; set; }
+}
+
+internal sealed class TaskListMutationResult
+{
+    public TaskListMutationResult(bool success, string message)
+    {
+        Success = success;
+        Message = message;
+    }
+
+    public bool Success { get; }
+    public string Message { get; }
+}
+
 internal sealed class OutputReadRequest
 {
     public string? PaneName { get; set; }
