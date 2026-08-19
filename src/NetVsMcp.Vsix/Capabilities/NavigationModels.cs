@@ -21,6 +21,67 @@ internal sealed class CodeWorkspaceSymbolsRequest
     public int MaxResults { get; set; } = 100;
 }
 
+internal sealed class CallHierarchyRequest
+{
+    public string DocumentPath { get; set; } = string.Empty;
+    public int Line { get; set; }
+    public int Column { get; set; }
+    public string Direction { get; set; } = "incoming";
+    public int MaxDepth { get; set; } = 3;
+}
+
+internal sealed class CallHierarchyNode
+{
+    public CallHierarchyNode(
+        DocumentSymbolInfo symbol,
+        CodeLocationInfo? callSite,
+        IReadOnlyCollection<CallHierarchyNode> children,
+        bool isRecursive,
+        bool truncated)
+    {
+        Symbol = symbol;
+        CallSite = callSite;
+        Children = children;
+        IsRecursive = isRecursive;
+        Truncated = truncated;
+    }
+
+    public DocumentSymbolInfo Symbol { get; }
+    public CodeLocationInfo? CallSite { get; }
+    public IReadOnlyCollection<CallHierarchyNode> Children { get; }
+    public bool IsRecursive { get; }
+    public bool Truncated { get; }
+}
+
+internal sealed class CallHierarchyResult
+{
+    public CallHierarchyResult(
+        bool supported,
+        string message,
+        CodePositionRequest position,
+        string direction,
+        DocumentSymbolInfo? symbol,
+        IReadOnlyCollection<CallHierarchyNode> incoming,
+        IReadOnlyCollection<CallHierarchyNode> outgoing)
+    {
+        Supported = supported;
+        Message = message;
+        Position = position;
+        Direction = direction;
+        Symbol = symbol;
+        Incoming = incoming;
+        Outgoing = outgoing;
+    }
+
+    public bool Supported { get; }
+    public string Message { get; }
+    public CodePositionRequest Position { get; }
+    public string Direction { get; }
+    public DocumentSymbolInfo? Symbol { get; }
+    public IReadOnlyCollection<CallHierarchyNode> Incoming { get; }
+    public IReadOnlyCollection<CallHierarchyNode> Outgoing { get; }
+}
+
 internal sealed class RenameSymbolRequest
 {
     public string DocumentPath { get; set; } = string.Empty;

@@ -169,6 +169,9 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<RenameSymbolPreviewResult> CodeRenameSymbolPreviewAsync(RenameSymbolRequest request, CancellationToken cancellationToken) =>
         navigation.CodeRenameSymbolPreviewAsync(request, cancellationToken);
 
+    public Task<CallHierarchyResult> CallHierarchyGetAsync(CallHierarchyRequest request, CancellationToken cancellationToken) =>
+        navigation.CallHierarchyGetAsync(request, cancellationToken);
+
     public Task<BuildSolutionResult> BuildSolutionAsync(BuildSolutionRequest request, CancellationToken cancellationToken) =>
         build.BuildSolutionAsync(request, cancellationToken);
 

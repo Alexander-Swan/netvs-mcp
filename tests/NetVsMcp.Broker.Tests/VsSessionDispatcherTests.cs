@@ -246,6 +246,8 @@ public sealed class VsSessionDispatcherTests
 
         public Task<RenameSymbolPreviewResult> CodeRenameSymbolPreviewAsync(RenameSymbolRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<CallHierarchyResult> CallHierarchyGetAsync(CallHierarchyRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<PackageRestoreResult> PackageRestoreAsync(PackageRestoreRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<BuildSolutionResult> BuildSolutionAsync(

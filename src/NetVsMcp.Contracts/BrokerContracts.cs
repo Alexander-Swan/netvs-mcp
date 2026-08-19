@@ -626,6 +626,31 @@ public sealed record CodeWorkspaceSymbolsResult(
     bool Truncated,
     IReadOnlyCollection<DocumentSymbolInfo> Symbols);
 
+public sealed class CallHierarchyRequest
+{
+    public string DocumentPath { get; set; } = string.Empty;
+    public int Line { get; set; }
+    public int Column { get; set; }
+    public string Direction { get; set; } = "incoming";
+    public int MaxDepth { get; set; } = 3;
+}
+
+public sealed record CallHierarchyNode(
+    DocumentSymbolInfo Symbol,
+    CodeLocationInfo? CallSite,
+    IReadOnlyCollection<CallHierarchyNode> Children,
+    bool IsRecursive,
+    bool Truncated);
+
+public sealed record CallHierarchyResult(
+    bool Supported,
+    string Message,
+    CodePositionRequest Position,
+    string Direction,
+    DocumentSymbolInfo? Symbol,
+    IReadOnlyCollection<CallHierarchyNode> Incoming,
+    IReadOnlyCollection<CallHierarchyNode> Outgoing);
+
 public sealed class RenameSymbolRequest
 {
     public string DocumentPath { get; set; } = string.Empty;
@@ -1463,6 +1488,10 @@ public interface IVisualStudioSessionRpc
 
     Task<RenameSymbolPreviewResult> CodeRenameSymbolPreviewAsync(
         RenameSymbolRequest request,
+        CancellationToken cancellationToken);
+
+    Task<CallHierarchyResult> CallHierarchyGetAsync(
+        CallHierarchyRequest request,
         CancellationToken cancellationToken);
 
     Task<PackageRestoreResult> PackageRestoreAsync(

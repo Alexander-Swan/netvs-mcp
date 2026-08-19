@@ -1,6 +1,6 @@
 ---
 name: navigate-visual-studio
-description: Navigate and search Visual Studio projects through the local NetVsMcp MCP tools. Use when Codex needs to go to a definition, find references or implementations, look up document or workspace symbols, preview a rename, inspect diagnostics or binding errors for a file, search text across the workspace or in files, check git status, or open a batch of relevant files in a routed Visual Studio session using the repo-neutral .agents navigation guide.
+description: Navigate and search Visual Studio projects through the local NetVsMcp MCP tools. Use when Codex needs to go to a definition, find references or implementations, walk a call hierarchy, look up document or workspace symbols, preview a rename, inspect diagnostics or binding errors for a file, search text across the workspace or in files, check git status, or open a batch of relevant files in a routed Visual Studio session using the repo-neutral .agents navigation guide.
 ---
 
 # Navigate Visual Studio

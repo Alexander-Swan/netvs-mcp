@@ -2213,6 +2213,8 @@ public sealed class BrokerToolServiceTests
 
         public RenameSymbolRequest? LastRenameSymbolRequest { get; private set; }
 
+        public CallHierarchyRequest? LastCallHierarchyRequest { get; private set; }
+
         public ExecuteCommandRequest? LastExecuteCommandRequest { get; private set; }
 
         public WindowActivateRequest? LastWindowActivateRequest { get; private set; }
@@ -2538,6 +2540,30 @@ public sealed class BrokerToolServiceTests
             ];
 
             return Task.FromResult(new RenameSymbolPreviewResult(true, "Previewed rename.", position, request.NewName, CreateSymbol(position), changes));
+        }
+
+        public Task<CallHierarchyResult> CallHierarchyGetAsync(
+            CallHierarchyRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastCallHierarchyRequest = request;
+            var position = new CodePositionRequest
+            {
+                DocumentPath = request.DocumentPath,
+                Line = request.Line,
+                Column = request.Column
+            };
+            var symbol = CreateSymbol(position);
+            IReadOnlyCollection<CallHierarchyNode> incoming =
+                request.Direction is "incoming" or "both"
+                    ? [new(symbol, new CodeLocationInfo(request.DocumentPath, request.Line, request.Column, symbol), Array.Empty<CallHierarchyNode>(), false, false)]
+                    : Array.Empty<CallHierarchyNode>();
+            IReadOnlyCollection<CallHierarchyNode> outgoing =
+                request.Direction is "outgoing" or "both"
+                    ? [new(symbol, new CodeLocationInfo(request.DocumentPath, request.Line, request.Column, symbol), Array.Empty<CallHierarchyNode>(), false, false)]
+                    : Array.Empty<CallHierarchyNode>();
+
+            return Task.FromResult(new CallHierarchyResult(true, "Found call hierarchy node(s).", position, request.Direction, symbol, incoming, outgoing));
         }
 
         public Task<DocumentReadResult> DocumentReadAsync(

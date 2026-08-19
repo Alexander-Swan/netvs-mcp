@@ -1,6 +1,6 @@
 # Navigate Visual Studio With NetVsMcp
 
-This is the agent-neutral code navigation, search, and diagnostics workflow for this repository. Any AI agent can follow it when asked to find a definition, find references or implementations, list symbols, preview a rename, check diagnostics for a file, search text across the workspace, inspect git status, or open a batch of relevant files through NetVsMcp.
+This is the agent-neutral code navigation, search, and diagnostics workflow for this repository. Any AI agent can follow it when asked to find a definition, find references or implementations, walk a call hierarchy, list symbols, preview a rename, check diagnostics for a file, search text across the workspace, inspect git status, or open a batch of relevant files through NetVsMcp.
 
 ## Session Routing
 
@@ -80,6 +80,28 @@ Key behavior:
 - `newName` is required and trimmed; an empty value fails with `"New name is required."` before the request is dispatched.
 - The result is `{ Supported, Message, Position, NewName, Symbol?, Changes? }`. Check `Supported` before trusting `Changes`; some symbol kinds or languages report `Supported: false` with an explanatory `Message` instead of a change list.
 - There is no companion "apply rename" tool in this category — use this purely to inspect the blast radius of a rename before deciding whether to make the edit through the editor or safe-edit tools.
+
+## Call Hierarchy
+
+`call_hierarchy_get` returns who calls a symbol, what it calls, or both, as a tree:
+
+```json
+call_hierarchy_get({
+  "documentPath": "src/NetVsMcp.Broker/Services/BrokerToolService.cs",
+  "line": 590,
+  "column": 24,
+  "direction": "both",
+  "maxDepth": 3,
+  "sessionId": "..."
+})
+```
+
+Key behavior:
+
+- `direction` is `"incoming"` (callers, the default), `"outgoing"` (callees), or `"both"`.
+- `maxDepth` defaults to `3` and is clamped to `1`-`6`. Incoming calls use Roslyn's `SymbolFinder.FindCallersAsync`; outgoing calls are found by walking the symbol's C#-only declaring syntax for invocations/object-creations and resolving each through the semantic model, since Roslyn has no direct "find callees" API.
+- The tree is capped at roughly 500 total nodes across both directions to bound runaway trees; a node's `Truncated: true` means its children were cut off by the depth or node cap, and `IsRecursive: true` means expansion stopped because the symbol already appears earlier on the same path (a cycle).
+- The result is `{ Supported, Message, Position, Direction, Symbol?, Incoming, Outgoing }`. Check `Supported` — a position with no resolvable symbol returns `Supported: true` with an empty `Incoming`/`Outgoing` and an explanatory `Message`.
 
 ## Diagnostics
 

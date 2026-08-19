@@ -41,4 +41,9 @@ internal sealed class NavigationRpcTarget
     {
         return navigation.RenameSymbolPreviewAsync(request, cancellationToken);
     }
+
+    public Task<CallHierarchyResult> CallHierarchyGetAsync(CallHierarchyRequest request, CancellationToken cancellationToken)
+    {
+        return navigation.CallHierarchyAsync(request, cancellationToken);
+    }
 }

@@ -42,6 +42,7 @@ public sealed partial class BrokerToolService
         new("document_outline", "Returns document symbol outline information. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
         new("find_implementations", "Returns best-effort implementation lookup status for a code position. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
         new("rename_symbol_preview", "Returns a safe rename preview status for a code position. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
+        new("call_hierarchy_get", "Returns the call hierarchy (incoming callers and/or outgoing callees) for a code position.", true),
         new("diagnostics_for_document", "Filters routed diagnostics to one document.", true),
         new("workspace_search", "Searches files under the routed solution root.", true),
         new("git_context", "Returns best-effort git status for the routed solution root.", true),
@@ -778,6 +779,46 @@ public sealed partial class BrokerToolService
             solutionName,
             solutionPath,
             (connection, ct) => connection.CodeRenameSymbolPreviewAsync(request, ct),
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "call_hierarchy_get")]
+    [Description("Returns the call hierarchy (incoming callers and/or outgoing callees) for the symbol at a code position through a routed Visual Studio session.")]
+    public Task<ToolResponse<CallHierarchyResult>> CallHierarchyGet(
+        [Description(DocumentPathParameterDescription)]
+        string documentPath,
+        [Description(LineParameterDescription)]
+        int line,
+        [Description(ColumnParameterDescription)]
+        int column,
+        [Description("Direction: incoming, outgoing, or both. Defaults to incoming.")]
+        string direction = "incoming",
+        [Description("Maximum recursion depth (1-6). Defaults to 3.")]
+        int maxDepth = 3,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (ValidateCodePosition(documentPath, line, column) is { } validation)
+        {
+            return Task.FromResult(ToolResponse<CallHierarchyResult>.Fail(validation));
+        }
+
+        var request = new CallHierarchyRequest
+        {
+            DocumentPath = documentPath.Trim(),
+            Line = line,
+            Column = column,
+            Direction = direction,
+            MaxDepth = maxDepth
+        };
+
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => connection.CallHierarchyGetAsync(request, ct),
             cancellationToken);
     }
 
@@ -3615,6 +3656,7 @@ public sealed partial class BrokerToolService
             "document_outline" or
             "find_implementations" or
             "rename_symbol_preview" or
+            "call_hierarchy_get" or
             "diagnostics_for_document" or
             "workspace_search" or
             "git_context" or

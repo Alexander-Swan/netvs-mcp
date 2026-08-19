@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnvDTE;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.FindSymbols;
 using Microsoft.CodeAnalysis.Rename;
 using Microsoft.VisualStudio.ComponentModelHost;
@@ -21,6 +22,7 @@ internal interface INavigationCapabilityService
     Task<FindReferencesResult> FindReferencesAsync(string documentPath, int line, int column, CancellationToken cancellationToken);
     Task<FindImplementationsResult> FindImplementationsAsync(string documentPath, int line, int column, CancellationToken cancellationToken);
     Task<CodeWorkspaceSymbolsResult> WorkspaceSymbolsAsync(CodeWorkspaceSymbolsRequest request, CancellationToken cancellationToken);
+    Task<CallHierarchyResult> CallHierarchyAsync(CallHierarchyRequest request, CancellationToken cancellationToken);
     Task<RenameSymbolPreviewResult> RenameSymbolPreviewAsync(RenameSymbolRequest request, CancellationToken cancellationToken);
     Task<DocumentSymbolsResult> ListDocumentSymbolsAsync(string? documentPath, CancellationToken cancellationToken);
 }
@@ -181,6 +183,60 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
             .ThenBy(symbol => symbol.Column)
             .ToArray();
         return new CodeWorkspaceSymbolsResult(query, result.Length, truncated, result);
+    }
+
+    public async Task<CallHierarchyResult> CallHierarchyAsync(CallHierarchyRequest request, CancellationToken cancellationToken)
+    {
+        var position = new CodePositionRequest
+        {
+            DocumentPath = request.DocumentPath,
+            Line = request.Line,
+            Column = request.Column
+        };
+        var direction = NormalizeDirection(request.Direction);
+        var maxDepth = request.MaxDepth <= 0 ? 3 : Math.Min(request.MaxDepth, 6);
+
+        var resolvedSymbol = await ResolveSymbolAtPositionAsync(request.DocumentPath, request.Line, request.Column, cancellationToken);
+        if (resolvedSymbol.Symbol is null)
+        {
+            return new CallHierarchyResult(
+                true,
+                "No symbol found at the requested position.",
+                position,
+                direction,
+                null,
+                Array.Empty<CallHierarchyNode>(),
+                Array.Empty<CallHierarchyNode>());
+        }
+
+        var symbol = resolvedSymbol.Symbol;
+        var solution = resolvedSymbol.Document.Project.Solution;
+        var budget = new CallHierarchyBudget(500);
+
+        IReadOnlyList<CallHierarchyNode> incoming = Array.Empty<CallHierarchyNode>();
+        IReadOnlyList<CallHierarchyNode> outgoing = Array.Empty<CallHierarchyNode>();
+
+        if (direction is "incoming" or "both")
+        {
+            var visited = new HashSet<ISymbol>(SymbolEqualityComparer.Default) { symbol };
+            incoming = await BuildIncomingCallsAsync(symbol, solution, visited, 1, maxDepth, budget, cancellationToken);
+        }
+
+        if (direction is "outgoing" or "both")
+        {
+            var visited = new HashSet<ISymbol>(SymbolEqualityComparer.Default) { symbol };
+            outgoing = await BuildOutgoingCallsAsync(symbol, solution, visited, 1, maxDepth, budget, cancellationToken);
+        }
+
+        var nodeCount = CountNodes(incoming) + CountNodes(outgoing);
+        return new CallHierarchyResult(
+            true,
+            $"Found {nodeCount} call hierarchy node(s).",
+            position,
+            direction,
+            DocumentSymbolInfoFactory.FromSymbol(symbol, resolvedSymbol.Document.FilePath, request.Line, request.Column),
+            incoming,
+            outgoing);
     }
 
     public async Task<RenameSymbolPreviewResult> RenameSymbolPreviewAsync(RenameSymbolRequest request, CancellationToken cancellationToken)
@@ -482,6 +538,206 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
             .ThenBy(change => change.StartLine)
             .ThenBy(change => change.StartColumn)
             .ToArray();
+    }
+
+    private static string NormalizeDirection(string? direction)
+    {
+        return direction?.Trim().ToLowerInvariant() switch
+        {
+            "outgoing" => "outgoing",
+            "both" => "both",
+            _ => "incoming"
+        };
+    }
+
+    private static int CountNodes(IEnumerable<CallHierarchyNode> nodes)
+    {
+        var count = 0;
+        foreach (var node in nodes)
+        {
+            count += 1 + CountNodes(node.Children);
+        }
+
+        return count;
+    }
+
+    private async Task<IReadOnlyList<CallHierarchyNode>> BuildIncomingCallsAsync(
+        ISymbol symbol,
+        Microsoft.CodeAnalysis.Solution solution,
+        HashSet<ISymbol> visitedOnPath,
+        int depth,
+        int maxDepth,
+        CallHierarchyBudget budget,
+        CancellationToken cancellationToken)
+    {
+        if (!budget.TryConsume())
+        {
+            return Array.Empty<CallHierarchyNode>();
+        }
+
+        var callers = await SymbolFinder.FindCallersAsync(symbol, solution, cancellationToken);
+        var nodes = new List<CallHierarchyNode>();
+        foreach (var caller in callers)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!budget.TryConsume())
+            {
+                break;
+            }
+
+            var callingSymbol = caller.CallingSymbol;
+            var callSite = caller.Locations
+                .Select(location => CreateLocationInfo(location, callingSymbol))
+                .FirstOrDefault(location => location is not null);
+
+            var isRecursive = !visitedOnPath.Add(callingSymbol);
+            var atDepthLimit = depth >= maxDepth;
+            IReadOnlyList<CallHierarchyNode> children = Array.Empty<CallHierarchyNode>();
+            if (!isRecursive && !atDepthLimit)
+            {
+                children = await BuildIncomingCallsAsync(callingSymbol, solution, visitedOnPath, depth + 1, maxDepth, budget, cancellationToken);
+                visitedOnPath.Remove(callingSymbol);
+            }
+            else if (!isRecursive)
+            {
+                visitedOnPath.Remove(callingSymbol);
+            }
+
+            nodes.Add(new CallHierarchyNode(
+                DocumentSymbolInfoFactory.FromSymbol(callingSymbol, callSite?.File, callSite?.Line ?? 0, callSite?.Column ?? 0),
+                callSite,
+                children,
+                isRecursive,
+                atDepthLimit && !isRecursive));
+        }
+
+        return nodes;
+    }
+
+    private async Task<IReadOnlyList<CallHierarchyNode>> BuildOutgoingCallsAsync(
+        ISymbol symbol,
+        Microsoft.CodeAnalysis.Solution solution,
+        HashSet<ISymbol> visitedOnPath,
+        int depth,
+        int maxDepth,
+        CallHierarchyBudget budget,
+        CancellationToken cancellationToken)
+    {
+        if (!budget.TryConsume())
+        {
+            return Array.Empty<CallHierarchyNode>();
+        }
+
+        var callees = await FindOutgoingCalleesAsync(symbol, solution, cancellationToken);
+        var nodes = new List<CallHierarchyNode>();
+        foreach (var (calleeSymbol, callSite) in callees)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!budget.TryConsume())
+            {
+                break;
+            }
+
+            var isRecursive = !visitedOnPath.Add(calleeSymbol);
+            var atDepthLimit = depth >= maxDepth;
+            IReadOnlyList<CallHierarchyNode> children = Array.Empty<CallHierarchyNode>();
+            if (!isRecursive && !atDepthLimit)
+            {
+                children = await BuildOutgoingCallsAsync(calleeSymbol, solution, visitedOnPath, depth + 1, maxDepth, budget, cancellationToken);
+                visitedOnPath.Remove(calleeSymbol);
+            }
+            else if (!isRecursive)
+            {
+                visitedOnPath.Remove(calleeSymbol);
+            }
+
+            nodes.Add(new CallHierarchyNode(
+                DocumentSymbolInfoFactory.FromSymbol(calleeSymbol, callSite?.File, callSite?.Line ?? 0, callSite?.Column ?? 0),
+                callSite,
+                children,
+                isRecursive,
+                atDepthLimit && !isRecursive));
+        }
+
+        return nodes;
+    }
+
+    // No direct Roslyn "FindCallees" API exists, so outgoing calls are found by walking the
+    // symbol's declaring syntax (C# only) for invocation/object-creation/constructor-initializer
+    // nodes and resolving each one through the semantic model - still Roslyn's semantic APIs
+    // end-to-end, just without a single convenience method like SymbolFinder.FindCallersAsync.
+    private static async Task<IReadOnlyList<(ISymbol Symbol, CodeLocationInfo? CallSite)>> FindOutgoingCalleesAsync(
+        ISymbol symbol,
+        Microsoft.CodeAnalysis.Solution solution,
+        CancellationToken cancellationToken)
+    {
+        var results = new List<(ISymbol, CodeLocationInfo?)>();
+        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var syntaxRef in symbol.DeclaringSyntaxReferences)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var document = solution.GetDocument(syntaxRef.SyntaxTree);
+            var semanticModel = document is null ? null : await document.GetSemanticModelAsync(cancellationToken);
+            if (semanticModel is null)
+            {
+                continue;
+            }
+
+            var node = await syntaxRef.GetSyntaxAsync(cancellationToken);
+            foreach (var candidate in node.DescendantNodes())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (candidate is not (InvocationExpressionSyntax or ObjectCreationExpressionSyntax or ConstructorInitializerSyntax))
+                {
+                    continue;
+                }
+
+                var calleeSymbol = semanticModel.GetSymbolInfo(candidate, cancellationToken).Symbol;
+                if (calleeSymbol is null || !seen.Add(calleeSymbol))
+                {
+                    continue;
+                }
+
+                var lineSpan = candidate.SyntaxTree.GetLineSpan(candidate.Span, cancellationToken);
+                var callSite = new CodeLocationInfo(
+                    lineSpan.Path,
+                    lineSpan.StartLinePosition.Line + 1,
+                    lineSpan.StartLinePosition.Character + 1,
+                    DocumentSymbolInfoFactory.FromSymbol(
+                        calleeSymbol,
+                        lineSpan.Path,
+                        lineSpan.StartLinePosition.Line + 1,
+                        lineSpan.StartLinePosition.Character + 1));
+
+                results.Add((calleeSymbol, callSite));
+            }
+        }
+
+        return results;
+    }
+
+    private sealed class CallHierarchyBudget
+    {
+        private int remaining;
+
+        public CallHierarchyBudget(int max)
+        {
+            remaining = max;
+        }
+
+        public bool TryConsume()
+        {
+            if (remaining <= 0)
+            {
+                return false;
+            }
+
+            remaining--;
+            return true;
+        }
     }
 
     private async Task NavigateToLocationAsync(CodeLocationInfo location, CancellationToken cancellationToken)
