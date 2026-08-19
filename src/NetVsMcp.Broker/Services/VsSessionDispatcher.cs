@@ -1,5 +1,6 @@
 using NetVsMcp.Contracts;
 using System.IO;
+using StreamJsonRpc;
 
 namespace NetVsMcp.Broker.Services;
 
@@ -73,6 +74,13 @@ public sealed class VsSessionDispatcher : IVsSessionDispatcher
         catch (OperationCanceledException)
         {
             throw;
+        }
+        catch (RemoteMethodNotFoundException)
+        {
+            return VsSessionDispatchResult<T>.Failed(
+                VsSessionDispatchFailureReason.UnsupportedByVsix,
+                $"Your VSIX doesn't support this tool yet, reinstall the extension. (Visual Studio session '{route.Session.SessionId}' has no matching RPC method.)",
+                route.Session);
         }
         catch (Exception ex)
         {

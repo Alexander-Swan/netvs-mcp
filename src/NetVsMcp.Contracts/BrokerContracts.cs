@@ -82,6 +82,7 @@ public static class ToolErrorCodes
     public const string RpcFailure = "rpc_failure";
     public const string ProtocolMismatch = "protocol_mismatch";
     public const string ToolNotImplemented = "tool_not_implemented";
+    public const string UnsupportedByVsix = "unsupported_by_vsix";
     public const string VisualStudioError = "visual_studio_error";
 }
 

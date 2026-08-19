@@ -12,7 +12,8 @@ public enum VsSessionDispatchFailureReason
     AmbiguousTarget,
     StaleSession,
     MissingConnection,
-    RpcFailure
+    RpcFailure,
+    UnsupportedByVsix
 }
 
 public sealed record VsSessionDispatchResult<T>(

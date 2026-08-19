@@ -3887,6 +3887,7 @@ public sealed partial class BrokerToolService
             VsSessionDispatchFailureReason.StaleSession or
             VsSessionDispatchFailureReason.MissingConnection => ToolErrorCodes.SessionNotConnected,
             VsSessionDispatchFailureReason.RpcFailure => ToolErrorCodes.RpcFailure,
+            VsSessionDispatchFailureReason.UnsupportedByVsix => ToolErrorCodes.UnsupportedByVsix,
             _ => ToolErrorCodes.SessionRoutingFailed
         };
     }

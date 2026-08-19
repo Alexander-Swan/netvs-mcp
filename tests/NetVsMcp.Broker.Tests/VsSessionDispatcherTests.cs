@@ -1,5 +1,6 @@
 using NetVsMcp.Broker.Services;
 using NetVsMcp.Contracts;
+using StreamJsonRpc;
 
 namespace NetVsMcp.Broker.Tests;
 
@@ -110,6 +111,30 @@ public sealed class VsSessionDispatcherTests
         Assert.Equal(VsSessionDispatchFailureReason.RpcFailure, result.FailureReason);
         Assert.Contains("Use forward slashes", result.Message, StringComparison.Ordinal);
         Assert.Contains("double backslashes", result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DispatchAsync_ReturnsUnsupportedByVsix_WhenRemoteMethodIsMissing()
+    {
+        var registry = new SessionRegistry();
+        registry.Register(CreateRegistration("vs-1", "NetVsMcp", @"C:\Code\NetVsMcp\NetVsMcp.slnx", isActive: true));
+        var connections = new VsSessionConnectionMap();
+        connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Program.cs"));
+        var dispatcher = CreateDispatcher(registry, connections);
+
+        // RemoteMethodNotFoundException has no public constructor - StreamJsonRpc throws it
+        // internally when the remote target has no matching method. Bypass construction to
+        // get a real instance for the catch-clause type check under test.
+        var missingMethodException = (RemoteMethodNotFoundException)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(RemoteMethodNotFoundException));
+
+        var result = await dispatcher.DispatchAsync<string>(
+            new RoutingTarget(SessionId: "vs-1"),
+            (_, _) => throw missingMethodException,
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(VsSessionDispatchFailureReason.UnsupportedByVsix, result.FailureReason);
+        Assert.Contains("reinstall the extension", result.Message, StringComparison.Ordinal);
     }
 
     private static VsSessionDispatcher CreateDispatcher(
