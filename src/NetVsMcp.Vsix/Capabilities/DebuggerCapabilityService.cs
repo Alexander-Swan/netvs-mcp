@@ -21,6 +21,7 @@ internal interface IDebuggerCapabilityService
     Task<DebuggerStateInfo> BreakAsync(CancellationToken cancellationToken);
     Task<DebuggerStateInfo> StepAsync(DebugStepKind stepKind, CancellationToken cancellationToken);
     Task<DebuggerStateInfo> GetStatusAsync(CancellationToken cancellationToken);
+    Task<HotReloadApplyResult> ApplyHotReloadAsync(CancellationToken cancellationToken);
     Task<BreakpointInfo> SetBreakpointAsync(BreakpointSetRequest request, CancellationToken cancellationToken);
     Task<BreakpointListResult> ListBreakpointsAsync(CancellationToken cancellationToken);
     Task<BreakpointRemoveResult> RemoveBreakpointAsync(BreakpointRemoveRequest request, CancellationToken cancellationToken);
@@ -104,6 +105,70 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         var debugger = await GetDebuggerAsync();
         debugger.Go(WaitForBreakOrEnd: false);
         return GetDebuggerState(debugger);
+    }
+
+    public async Task<HotReloadApplyResult> ApplyHotReloadAsync(CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var dte = await GetDteAsync();
+        var debugger = dte.Debugger
+            ?? throw new InvalidOperationException("Visual Studio debugger service is unavailable.");
+
+        if (debugger.CurrentMode == dbgDebugMode.dbgDesignMode)
+        {
+            return new HotReloadApplyResult(
+                false,
+                "The debugger is not running; Hot Reload requires an active debug session.",
+                Array.Empty<ErrorListItemInfo>());
+        }
+
+        try
+        {
+            // Debug.ApplyCodeChanges is the underlying command for both classic Edit and
+            // Continue and Hot Reload (bound to Alt+F10) - VS has no separate public API
+            // for triggering Hot Reload specifically.
+            dte.ExecuteCommand("Debug.ApplyCodeChanges");
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.Runtime.InteropServices.COMException)
+        {
+            return new HotReloadApplyResult(false, $"Failed to apply code changes: {ex.Message}", Array.Empty<ErrorListItemInfo>());
+        }
+
+        // EnvDTE exposes no "did Hot Reload succeed" property, so success is reported as
+        // "the command ran without throwing", and any resulting compile errors are surfaced
+        // from the Error List so a failed apply doesn't look like a silent no-op.
+        var errors = ReadCompileErrors(dte as DTE2);
+        var success = errors.Count == 0;
+        var message = success
+            ? "Applied code changes."
+            : $"Applied code changes, but {errors.Count} compile error(s) were reported.";
+        return new HotReloadApplyResult(success, message, errors);
+    }
+
+    private static IReadOnlyCollection<ErrorListItemInfo> ReadCompileErrors(DTE2? dte2)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        var errorItems = dte2?.ToolWindows?.ErrorList?.ErrorItems;
+        if (errorItems is null)
+        {
+            return Array.Empty<ErrorListItemInfo>();
+        }
+
+        var items = new List<ErrorListItemInfo>();
+        for (var index = 1; index <= errorItems.Count; index++)
+        {
+            var item = errorItems.Item(index);
+            if (item is null || item.ErrorLevel != vsBuildErrorLevel.vsBuildErrorLevelHigh)
+            {
+                continue;
+            }
+
+            items.Add(ErrorListItemInfo.FromErrorItem(item));
+        }
+
+        return items;
     }
 
     public async Task<DebuggerStateInfo> BreakAsync(CancellationToken cancellationToken)

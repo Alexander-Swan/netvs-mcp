@@ -16,6 +16,20 @@ internal sealed class DebuggerStateInfo
     public string Mode { get; }
 }
 
+internal sealed class HotReloadApplyResult
+{
+    public HotReloadApplyResult(bool success, string message, IReadOnlyCollection<ErrorListItemInfo> errors)
+    {
+        Success = success;
+        Message = message;
+        Errors = errors;
+    }
+
+    public bool Success { get; }
+    public string Message { get; }
+    public IReadOnlyCollection<ErrorListItemInfo> Errors { get; }
+}
+
 internal sealed class DebugStepRequest
 {
     public DebugStepKind StepKind { get; set; } = DebugStepKind.Over;

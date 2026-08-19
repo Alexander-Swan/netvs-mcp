@@ -830,6 +830,11 @@ public sealed class OutputWriteRequest
 
 public sealed record DebuggerStateInfo(string Mode);
 
+public sealed record HotReloadApplyResult(
+    bool Success,
+    string Message,
+    IReadOnlyCollection<ErrorListItemInfo> Errors);
+
 public sealed record DebuggedProcessInfo(
     int ProcessId,
     string? Name,
@@ -1621,6 +1626,8 @@ public interface IVisualStudioSessionRpc
         CancellationToken cancellationToken);
 
     Task<DebuggerStateInfo> DebugStatusAsync(CancellationToken cancellationToken);
+
+    Task<HotReloadApplyResult> DebugHotReloadApplyAsync(CancellationToken cancellationToken);
 
     Task<DebuggerStateInfo> DebugGetModeAsync(CancellationToken cancellationToken);
 

@@ -3008,6 +3008,11 @@ public sealed class BrokerToolServiceTests
             return Task.FromResult(new DebuggerStateInfo(DebugStatusMode));
         }
 
+        public Task<HotReloadApplyResult> DebugHotReloadApplyAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new HotReloadApplyResult(true, "Applied code changes.", Array.Empty<ErrorListItemInfo>()));
+        }
+
         public Task<DebuggerStateInfo> DebugGetModeAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult(new DebuggerStateInfo("Break"));

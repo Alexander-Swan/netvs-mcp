@@ -52,6 +52,11 @@ internal sealed class DebuggerRpcTarget
         return debugger.GetStatusAsync(cancellationToken);
     }
 
+    public Task<HotReloadApplyResult> DebugHotReloadApplyAsync(CancellationToken cancellationToken)
+    {
+        return debugger.ApplyHotReloadAsync(cancellationToken);
+    }
+
     public Task<DebuggerStateInfo> DebugGetModeAsync(CancellationToken cancellationToken)
     {
         return debugger.GetStatusAsync(cancellationToken);

@@ -59,6 +59,7 @@ public sealed partial class BrokerToolService
         new("package_restore", "Returns package restore support status for a routed project.", true),
         new("test_run_and_get_results", "Runs tests and returns captured results.", true),
         new("debug_status", "Returns debugger status from a routed Visual Studio session.", true),
+        new("debug_hot_reload_apply", "Applies pending code changes via Hot Reload to the running debuggee.", true),
         new("debug_snapshot", "Optionally advances the debugger (step/continue/break), waits for it to settle, then returns state, locals, and the requested include categories in one call.", true),
         new("debug_wait_for_break", "Waits for the debugger to leave dbgRunMode (e.g. a breakpoint fires), then returns state, locals, and the requested include categories in one call.", true),
         new("debug_eval_many", "Evaluates multiple debugger expressions.", true),
@@ -2277,6 +2278,22 @@ public sealed partial class BrokerToolService
             cancellationToken);
     }
 
+    [McpServerTool(Name = "debug_hot_reload_apply")]
+    [Description("Applies pending code changes via Hot Reload (Debug.ApplyCodeChanges) to the running debuggee in a routed Visual Studio session. Requires an active debug session.")]
+    public Task<ToolResponse<HotReloadApplyResult>> DebugHotReloadApply(
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            static (connection, ct) => connection.DebugHotReloadApplyAsync(ct),
+            cancellationToken);
+    }
+
     [McpServerTool(Name = "debug_get_mode")]
     [Description("Returns debugger mode from a routed Visual Studio session.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugGetMode(
@@ -3800,6 +3817,7 @@ public sealed partial class BrokerToolService
             "debug_continue" or
             "debug_break" or
             "debug_step" or
+            "debug_hot_reload_apply" or
             "debug_evaluate" or
             "debug_eval_many" or
             "watch_add" or

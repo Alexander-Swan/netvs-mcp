@@ -234,6 +234,9 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<DebuggerStateInfo> DebugStatusAsync(CancellationToken cancellationToken) =>
         debugger.DebugStatusAsync(cancellationToken);
 
+    public Task<HotReloadApplyResult> DebugHotReloadApplyAsync(CancellationToken cancellationToken) =>
+        debugger.DebugHotReloadApplyAsync(cancellationToken);
+
     public Task<DebuggerStateInfo> DebugGetModeAsync(CancellationToken cancellationToken) =>
         debugger.DebugGetModeAsync(cancellationToken);
 

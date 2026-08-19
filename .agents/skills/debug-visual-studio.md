@@ -1,6 +1,6 @@
 # Debug Visual Studio With NetVsMcp
 
-This is the agent-neutral debugging workflow for this repository. Any AI agent can follow it when asked to debug, inspect, launch, attach to, pause, step through, or diagnose the Visual Studio solution through NetVsMcp.
+This is the agent-neutral debugging workflow for this repository. Any AI agent can follow it when asked to debug, inspect, launch, attach to, pause, step through, hot reload, or diagnose the Visual Studio solution through NetVsMcp.
 
 ## Session Routing
 
@@ -58,6 +58,20 @@ Start-Process -FilePath 'C:\Program Files\Microsoft Visual Studio\18\Community\C
 - `debug_wait_for_break({ timeoutSeconds?, include?, ...route })`
 
 Confirm before `debug_stop` unless the user explicitly asked to stop debugging.
+
+## Hot Reload
+
+`debug_hot_reload_apply({ ...route })` applies pending source edits to the running debuggee without stopping it (the same operation as the Hot Reload toolbar button / Alt+F10, backed by the `Debug.ApplyCodeChanges` command):
+
+```json
+debug_hot_reload_apply({ "sessionId": "..." })
+```
+
+Key behavior:
+
+- Requires an active debug session — `dbgDesignMode` fails fast with `Success: false` and an explanatory `Message` instead of attempting the command.
+- EnvDTE exposes no "did Hot Reload succeed" signal, so `Success` reflects whether the command ran without throwing *and* whether the routed Error List is free of `vsBuildErrorLevelHigh` items afterward. On failure, inspect the returned `Errors` (same `ErrorListItemInfo` shape as `errors_list`) rather than assuming a silent no-op.
+- Edit the source file(s) first (through the editor or `document_write`/`editor_replace`), then call this — it does not itself change any code.
 
 ## Breakpoints And Tracepoints
 
