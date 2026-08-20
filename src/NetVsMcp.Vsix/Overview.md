@@ -7,6 +7,16 @@ This extension connects Visual Studio to the **NetVsMcp Broker**, a lightweight 
 > **Requires the NetVsMcp Broker** — install it before using this extension.
 > **Download:** https://github.com/Alexander-Swan/netvs-mcp/releases/latest
 
+## Required broker app
+
+This Visual Studio extension does **not** run an MCP server by itself. To use it, install and run the NetVsMcp Broker desktop app first.
+
+1. Download the latest broker installer from the [NetVsMcp GitHub releases page](https://github.com/Alexander-Swan/netvs-mcp/releases/latest).
+2. Install `NetVsMcp.Broker-*.msi`.
+3. Start NetVsMcp Broker, then open Visual Studio with this extension installed.
+
+Project source, documentation, issues, and release assets are available in the [NetVsMcp GitHub repository](https://github.com/Alexander-Swan/netvs-mcp).
+
 ## What your agent can do
 
 ### Edit & navigate
@@ -39,4 +49,4 @@ Query solution structure, project dependencies, and NuGet packages. Discover and
 
 ## Project
 
-Source, documentation, and issue tracker: https://github.com/Alexander-Swan/netvs-mcp
+Source, documentation, issue tracker, and broker downloads: https://github.com/Alexander-Swan/netvs-mcp
