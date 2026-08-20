@@ -94,6 +94,8 @@ Useful optional fields:
 - `hitCountType`: `equals`, `multiple`, or `greaterThanOrEqual`.
 - `groupName`: label for cleanup or scenario grouping.
 
+Pass breakpoint conditions as literal code expressions in the JSON string. Do not HTML-encode logic or comparison operators: use `count > 3`, `count < 10`, `a && b`, and `items.Any(x => x.Id == id)`, not `count &gt; 3`, `count &lt; 10`, `a &amp;&amp; b`, or `x =&gt; ...`. The breakpoint tool and Visual Studio preserve condition text literally, so pre-encoded entities become broken breakpoint conditions.
+
 Inspect and clean up:
 
 ```json
