@@ -208,6 +208,8 @@ Key behavior:
 - Which transports are actually available depends on which Visual Studio workloads are installed (Linux development, Container Tools, etc.) — a `transport` that doesn't match anything returns the list of available transport names in the failure message rather than failing silently.
 - Omit `transport` entirely for the common local-attach case; `transportQualifier`/`engine` are ignored unless `transport` is set.
 
+**Known limitation — remote transports can block on a native VS dialog.** `Debugger2.GetProcesses(transport, qualifier)` is a synchronous COM call into Visual Studio's own transport client. For SSH specifically, connecting to a host Visual Studio hasn't seen before is documented to prompt a host-key verification dialog; other unfamiliar hosts/credentials may prompt similarly. That dialog is native Win32 UI waiting on a human — no timeout on the broker or MCP side can dismiss it, cancel it, or detect that it's open. The broker's dispatch-level timeout (`VsSessionDispatcher`) still bounds *broker-side* wall-clock time and returns a timeout error to the caller, but the abandoned call — and the dialog, if one opened — keeps sitting in Visual Studio until a person clicks through it or closes it. If `debug_attach` with `transport` set appears to hang, assume a dialog may be open in that VS instance and ask the user to check, rather than retrying or attempting further calls to that session. This has only been confirmed for SSH; WSL, Docker, Azure, and Remote Windows transports have not been tested for the same behavior.
+
 ## Threads, Parallel Stacks, And Modules
 
 ```json
