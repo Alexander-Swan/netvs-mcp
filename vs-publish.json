@@ -8,7 +8,7 @@
   },
   "overview": "src/NetVsMcp.Vsix/Overview.md",
   "priceCategory": "free",
-  "publisher": "Alexander-Swan",
+  "publisher": "AlexSwan",
   "private": false,
   "qna": true,
   "repo": "https://github.com/Alexander-Swan/netvs-mcp"
