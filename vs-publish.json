@@ -4,7 +4,7 @@
     "coding"
   ],
   "identity": {
-    "internalName": "NetVsMcp.Vsix"
+    "internalName": "NetVsMcp-VisualStudioBridge"
   },
   "overview": "src/NetVsMcp.Vsix/Overview.md",
   "priceCategory": "free",
