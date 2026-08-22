@@ -27,8 +27,17 @@ public sealed partial class BrokerToolService
             cancellationToken);
 
     [McpServerTool(Name = "debug_attach")]
-    [Description("Attaches the Visual Studio debugger to a local process by id or name.")]
-    public Task<ToolResponse<DebugAttachResult>> DebugAttach(int? processId = null, string? processName = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    [Description("Attaches the Visual Studio debugger to a local process by id or name, or to a process on a remote debugger transport (SSH/WSL/Docker/etc.) when transport is set.")]
+    public Task<ToolResponse<DebugAttachResult>> DebugAttach(
+        int? processId = null,
+        string? processName = null,
+        string? transport = null,
+        string? transportQualifier = null,
+        string? engine = null,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
     {
         if (processId is null && string.IsNullOrWhiteSpace(processName))
         {
@@ -38,7 +47,10 @@ public sealed partial class BrokerToolService
         var request = new DebugAttachRequest
         {
             ProcessId = processId,
-            ProcessName = NormalizeOptional(processName)
+            ProcessName = NormalizeOptional(processName),
+            Transport = NormalizeOptional(transport),
+            TransportQualifier = NormalizeOptional(transportQualifier),
+            Engine = NormalizeOptional(engine)
         };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.DebugAttachAsync(request, ct), cancellationToken);
     }

@@ -1054,6 +1054,27 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task DebugAttach_RoutesRemoteTransportSelectorToConnectedSession()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DebugAttach(
+            processId: 1234,
+            transport: "SSH",
+            transportQualifier: "dev-box:22",
+            engine: "Managed",
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("SSH", session.LastDebugAttachRequest!.Transport);
+        Assert.Equal("dev-box:22", session.LastDebugAttachRequest.TransportQualifier);
+        Assert.Equal("Managed", session.LastDebugAttachRequest.Engine);
+    }
+
+    [Fact]
     public async Task DebugAttach_RequiresProcessSelector()
     {
         var runtime = CreateRuntime();

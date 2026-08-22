@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using EnvDTE;
+using EnvDTE90;
 using Microsoft.VisualStudio.Shell;
 
 namespace NetVsMcp.Vsix;
@@ -50,14 +51,20 @@ internal sealed class DebuggedProcessInfo
     public string Transport { get; }
     public string UserName { get; }
 
-    public static DebuggedProcessInfo FromProcess(Process process)
+    public static DebuggedProcessInfo FromProcess(Process process, string? transportName = null)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
+        var userName = string.Empty;
+        if (process is EnvDTE90.Process3 process3)
+        {
+            userName = process3.UserName ?? string.Empty;
+        }
+
         return new DebuggedProcessInfo(
             process.ProcessID,
             process.Name ?? string.Empty,
-            string.Empty,
-            string.Empty);
+            transportName ?? string.Empty,
+            userName);
     }
 }
 
@@ -114,6 +121,9 @@ internal sealed class DebugAttachRequest
 {
     public int? ProcessId { get; set; }
     public string? ProcessName { get; set; }
+    public string? Transport { get; set; }
+    public string? TransportQualifier { get; set; }
+    public string? Engine { get; set; }
 }
 
 internal sealed class DebugAttachResult

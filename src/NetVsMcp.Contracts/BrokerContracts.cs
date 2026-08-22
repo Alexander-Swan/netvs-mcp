@@ -879,6 +879,25 @@ public sealed class DebugAttachRequest
 {
     public int? ProcessId { get; set; }
     public string? ProcessName { get; set; }
+
+    /// <summary>
+    /// Name (or substring) of a Visual Studio debugger transport, e.g. "Default", "SSH", "Docker",
+    /// "Windows Subsystem for Linux". When set, the process is looked up on that transport instead
+    /// of the local machine. Leave null for a local attach.
+    /// </summary>
+    public string? Transport { get; set; }
+
+    /// <summary>
+    /// Transport-specific connection string (e.g. "host:port" for SSH/remote, a container id for
+    /// Docker, or a distro name for WSL). Meaning depends on the selected transport.
+    /// </summary>
+    public string? TransportQualifier { get; set; }
+
+    /// <summary>
+    /// Optional debug engine name to force (e.g. "Managed", "Native"). When omitted, Visual Studio
+    /// auto-detects the engine, which is not always reliable for remote attaches.
+    /// </summary>
+    public string? Engine { get; set; }
 }
 
 public sealed record DebugAttachResult(

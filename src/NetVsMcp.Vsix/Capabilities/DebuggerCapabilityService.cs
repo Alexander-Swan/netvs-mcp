@@ -528,6 +528,12 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var debugger = await GetDebuggerAsync();
+
+        if (!string.IsNullOrWhiteSpace(request.Transport))
+        {
+            return AttachRemote(debugger, request);
+        }
+
         var matches = FindProcesses(debugger.LocalProcesses, request.ProcessId, request.ProcessName);
 
         if (matches.Count == 0)
@@ -543,6 +549,90 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         var process = matches[0];
         process.Attach();
         return new DebugAttachResult(true, null, DebuggedProcessInfo.FromProcess(process));
+    }
+
+    // Handles attaching over a non-local debugger transport (SSH/WSL/Docker/etc.), which Visual
+    // Studio exposes via Debugger3.Transports rather than debugger.LocalProcesses. Support for a
+    // given transport depends on which VS workloads (Linux, Container Tools, ...) are installed.
+    private static DebugAttachResult AttachRemote(Debugger debugger, DebugAttachRequest request)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        if (debugger is not EnvDTE90.Debugger3 debugger3)
+        {
+            return new DebugAttachResult(false, "Remote debugger transports are not available in this Visual Studio version.", null);
+        }
+
+        EnvDTE80.Transport? transport = null;
+        var availableTransports = new List<string>();
+        foreach (EnvDTE80.Transport candidate in debugger3.Transports)
+        {
+            availableTransports.Add(candidate.Name);
+            if (transport is null
+                && (string.Equals(candidate.Name, request.Transport, StringComparison.OrdinalIgnoreCase)
+                    || candidate.Name.IndexOf(request.Transport!, StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                transport = candidate;
+            }
+        }
+
+        if (transport is null)
+        {
+            return new DebugAttachResult(
+                false,
+                $"No debugger transport matching '{request.Transport}' was found. Available transports: {string.Join(", ", availableTransports)}.",
+                null);
+        }
+
+        EnvDTE.Processes remoteProcesses;
+        try
+        {
+            remoteProcesses = debugger3.GetProcesses(transport, request.TransportQualifier ?? string.Empty);
+        }
+        catch (Exception ex)
+        {
+            return new DebugAttachResult(false, $"Failed to enumerate processes for transport '{transport.Name}': {ex.Message}", null);
+        }
+
+        var matches = new List<EnvDTE90.Process3>();
+        foreach (EnvDTE90.Process3 candidate in remoteProcesses)
+        {
+            if (request.ProcessId is not null && candidate.ProcessID != request.ProcessId.Value)
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.ProcessName)
+                && !string.Equals(Path.GetFileName(candidate.Name), request.ProcessName, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(candidate.Name, request.ProcessName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            matches.Add(candidate);
+        }
+
+        if (matches.Count == 0)
+        {
+            return new DebugAttachResult(false, $"No matching process was found on transport '{transport.Name}'.", null);
+        }
+
+        if (matches.Count > 1)
+        {
+            return new DebugAttachResult(false, $"Process selector matched {matches.Count} processes on transport '{transport.Name}'; use processId.", null);
+        }
+
+        var process = matches[0];
+        if (!string.IsNullOrWhiteSpace(request.Engine))
+        {
+            process.Attach2(request.Engine);
+        }
+        else
+        {
+            process.Attach2(Type.Missing);
+        }
+
+        return new DebugAttachResult(true, null, DebuggedProcessInfo.FromProcess(process, transport.Name));
     }
 
     public async Task<ProcessDetachResult> DetachAsync(ProcessDetachRequest request, CancellationToken cancellationToken)

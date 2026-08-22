@@ -191,6 +191,23 @@ process_detach({ "processId": 12345, "sessionId": "..." })
 
 Use `process_terminate` only when the user explicitly wants the debugged process killed or has approved it.
 
+### Attaching Over A Remote Debugger Transport
+
+Set `transport` on `debug_attach` to attach to a process on a non-local debugger transport (SSH, WSL, Docker, etc.) instead of `debugger.LocalProcesses`:
+
+```json
+debug_attach({ "transport": "SSH", "transportQualifier": "dev-box:22", "processId": 4521, "sessionId": "..." })
+debug_attach({ "transport": "SSH", "transportQualifier": "dev-box:22", "processName": "dotnet", "engine": "Managed", "sessionId": "..." })
+```
+
+Key behavior:
+
+- `transport` is matched against the registered transport names (see Visual Studio's "Attach to Process" > Connection Type dropdown) by exact match first, then substring — for example `"SSH"` matches a transport literally named `"SSH"` or one whose name contains it.
+- `transportQualifier` is the transport-specific connection string (a `"host:port"` for SSH, a container id for Docker, a distro name for WSL); it is passed through to `Debugger2.GetProcesses(transport, qualifier)` largely unvalidated by NetVsMcp, so an invalid qualifier surfaces whatever error Visual Studio's transport plugin reports.
+- `engine` optionally forces the debug engine name (e.g. `"Managed"`, `"Native"`) instead of Visual Studio's auto-detection, which is not always reliable for remote attaches.
+- Which transports are actually available depends on which Visual Studio workloads are installed (Linux development, Container Tools, etc.) — a `transport` that doesn't match anything returns the list of available transport names in the failure message rather than failing silently.
+- Omit `transport` entirely for the common local-attach case; `transportQualifier`/`engine` are ignored unless `transport` is set.
+
 ## Threads, Parallel Stacks, And Modules
 
 ```json
