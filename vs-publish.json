@@ -4,7 +4,7 @@
     "coding"
   ],
   "identity": {
-    "internalName": "NetVsMcp"
+    "internalName": "NetVS-mcp"
   },
   "overview": "src/NetVsMcp.Vsix/Overview.md",
   "priceCategory": "free",
