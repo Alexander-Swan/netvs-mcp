@@ -137,6 +137,81 @@ public sealed class VsSessionDispatcherTests
         Assert.Contains("reinstall the extension", result.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task DispatchAsync_ReturnsOperationTimedOut_WhenOperationExceedsTimeout()
+    {
+        var registry = new SessionRegistry();
+        registry.Register(CreateRegistration("vs-1", "NetVsMcp", @"C:\Code\NetVsMcp\NetVsMcp.slnx", isActive: true));
+        var connections = new VsSessionConnectionMap();
+        connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Program.cs"));
+        var dispatcher = CreateDispatcher(registry, connections);
+
+        // Simulates a hung VSIX-side call (like the watch_add design-mode hang this guard was
+        // added after): an operation that never completes on its own, only when its token is
+        // cancelled - exactly how a well-behaved async RPC call responds to DispatchAsync's
+        // internal timeout tripping.
+        var result = await dispatcher.DispatchAsync<string>(
+            new RoutingTarget(SessionId: "vs-1"),
+            static async (_, cancellationToken) =>
+            {
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+                return "unreachable";
+            },
+            CancellationToken.None,
+            timeout: TimeSpan.FromMilliseconds(50));
+
+        Assert.False(result.Success);
+        Assert.Equal(VsSessionDispatchFailureReason.OperationTimedOut, result.FailureReason);
+        Assert.Contains("did not respond within", result.Message, StringComparison.Ordinal);
+        Assert.Equal("vs-1", result.Session?.SessionId);
+    }
+
+    [Fact]
+    public async Task DispatchAsync_Succeeds_WhenOperationCompletesWithinTimeout()
+    {
+        var registry = new SessionRegistry();
+        registry.Register(CreateRegistration("vs-1", "NetVsMcp", @"C:\Code\NetVsMcp\NetVsMcp.slnx", isActive: true));
+        var connections = new VsSessionConnectionMap();
+        connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Program.cs"));
+        var dispatcher = CreateDispatcher(registry, connections);
+
+        var result = await dispatcher.DispatchAsync(
+            new RoutingTarget(SessionId: "vs-1"),
+            static (_, _) => Task.FromResult("fast"),
+            CancellationToken.None,
+            timeout: TimeSpan.FromMilliseconds(50));
+
+        Assert.True(result.Success);
+        Assert.Equal("fast", result.Value);
+    }
+
+    [Fact]
+    public async Task DispatchAsync_PropagatesCancellation_WhenCallersOwnTokenIsCancelled()
+    {
+        var registry = new SessionRegistry();
+        registry.Register(CreateRegistration("vs-1", "NetVsMcp", @"C:\Code\NetVsMcp\NetVsMcp.slnx", isActive: true));
+        var connections = new VsSessionConnectionMap();
+        connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Program.cs"));
+        var dispatcher = CreateDispatcher(registry, connections);
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // The caller's own cancellation must still surface as a real OperationCanceledException
+        // (not get reinterpreted as an internal timeout, and not get swallowed into a Failed
+        // result) - callers/ASP.NET rely on this to distinguish "client went away" from "the
+        // operation failed".
+        await Assert.ThrowsAsync<OperationCanceledException>(() => dispatcher.DispatchAsync(
+            new RoutingTarget(SessionId: "vs-1"),
+            static async (_, cancellationToken) =>
+            {
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+                return "unreachable";
+            },
+            cts.Token,
+            timeout: TimeSpan.FromMinutes(5)));
+    }
+
     private static VsSessionDispatcher CreateDispatcher(
         SessionRegistry registry,
         IVsSessionConnectionMap connections)

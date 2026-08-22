@@ -104,6 +104,7 @@ public static class ToolErrorCodes
     public const string ToolNotImplemented = "tool_not_implemented";
     public const string UnsupportedByVsix = "unsupported_by_vsix";
     public const string VisualStudioError = "visual_studio_error";
+    public const string OperationTimedOut = "operation_timed_out";
 }
 
 public sealed record RoutingTarget(

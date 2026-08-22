@@ -9,12 +9,19 @@ public interface IVsSessionDispatcher
     Task<VsSessionDispatchResult<T>> DispatchAsync<T>(
         RoutingTarget? target,
         Func<IVisualStudioSessionRpc, CancellationToken, Task<T>> operation,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        TimeSpan? timeout = null);
 }
 
 public sealed class VsSessionDispatcher : IVsSessionDispatcher
 {
     private const string DocumentPathGuidance = "Use forward slashes in documentPath/path values, for example src/Project/File.cs. If you use Windows backslashes in JSON, escape them as double backslashes.";
+
+    // Applies whenever a caller doesn't specify its own timeout. Generous enough not to
+    // false-positive on legitimately slow operations (a real build/test/restore can take
+    // minutes), but still finite - a VSIX-side call that hangs (see the watch_add design-mode
+    // hang this was added after) now fails cleanly instead of blocking the caller forever.
+    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(5);
 
     private readonly SessionRegistry _sessions;
     private readonly IVsSessionConnectionMap _connections;
@@ -30,7 +37,8 @@ public sealed class VsSessionDispatcher : IVsSessionDispatcher
     public async Task<VsSessionDispatchResult<T>> DispatchAsync<T>(
         RoutingTarget? target,
         Func<IVisualStudioSessionRpc, CancellationToken, Task<T>> operation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TimeSpan? timeout = null)
     {
         ArgumentNullException.ThrowIfNull(operation);
         cancellationToken.ThrowIfCancellationRequested();
@@ -66,10 +74,23 @@ public sealed class VsSessionDispatcher : IVsSessionDispatcher
                 route.Session);
         }
 
+        var effectiveTimeout = timeout ?? DefaultTimeout;
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(effectiveTimeout);
+
         try
         {
-            var value = await operation(connection, cancellationToken);
+            var value = await operation(connection, timeoutCts.Token);
             return VsSessionDispatchResult<T>.Ok(route.Session, value);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // The caller's own token wasn't cancelled, so this is our CancelAfter tripping -
+            // the VSIX session didn't respond in time (e.g. a hung COM call on its side).
+            return VsSessionDispatchResult<T>.Failed(
+                VsSessionDispatchFailureReason.OperationTimedOut,
+                $"Visual Studio session '{route.Session.SessionId}' did not respond within {effectiveTimeout.TotalSeconds:0}s.",
+                route.Session);
         }
         catch (OperationCanceledException)
         {

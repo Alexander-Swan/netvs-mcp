@@ -30,9 +30,8 @@ Unlike the phrasing "when a VSIX ... backend is available" in each tool's catalo
 
 - Every call returns `ToolResponse<AutomationResult>`. `AutomationResult` has its own `Supported`, `Success`, `Message`, `Text`, and `Metadata` fields nested inside the outer `ToolResponse.Value`. In the current implementation `Supported` is always `true` once the VSIX responds at all (there is no per-tool "not supported" flag from this backend); a failed operation instead reports `Success: false` with an explanation in `Message` (for example "No target window was found to capture.", "No matching UI element was found.", or "JavaScript execution requires a connected browser debug protocol backend; call web_connect with a CDP endpoint first.").
 - `Metadata` always includes a `backend` key describing which mechanism actually served the call (see the per-family notes below). Use it to tell a real capability (`uia`, `cdp`, `windows-console`) from a degraded fallback (`sendkeys`, `sendkeys-fallback`, `browser-shell-uia`, `http-fetch`, `visual-studio-output`).
-- If the outer `ToolResponse.Success` is `false` with `error_code: "invalid_request"` and `failureReason: "CapabilityProfileDenied"`, the broker's active capability profile is blocking the tool category, not a VSIX limitation. `ui_*` and `web_*` tools require the `Admin` capability profile; `console_*` tools require `Debug` or higher. The broker's default profile is `Admin`, so this only occurs if someone lowered the profile in the broker tray UI.
 - If the outer `ToolResponse.Success` is `false` with `error_code: "rpc_failure"` or `"session_not_connected"`, this is an ordinary session-routing/connectivity failure, identical to any other routed tool — report it the same way you would a failed `debug_status` call.
-- There is no dedicated `VsCapability` entry for automation/browser/UI in `vs_get_capabilities`; you cannot pre-check availability that way. The reliable way to find out whether a given tool will work for the current target is to call it and inspect `backend`/`Success`/`Message`.
+- There is no dedicated `VsCapability` entry for automation/browser/UI in `vs_get_capabilities`. There is a way to pre-check whether a `ui_*`/`web_*` tool is reachable at all, though: check its `McpEndpointPath` in `get_help`/`vs_get_capabilities` — see "Endpoint Split" above. Whether a *reachable* tool will actually work for the current target still can't be pre-checked; call it and inspect `backend`/`Success`/`Message`.
 
 ## Debuggee Console Interaction
 
@@ -125,12 +124,12 @@ Report findings with evidence:
 
 - The `backend` value actually used for each call, since it determines whether you got a real result or a degraded fallback.
 - Screenshot/DOM/console/network payloads obtained, and their size/truncation (`Text` is truncated to roughly the last 20,000 characters for large captures).
-- Any `CapabilityProfileDenied` or session-routing failures, quoting the `error_code`/`failureReason`.
+- Any session-routing failures, quoting the `error_code`/`failureReason`.
 - Whether a browser or window was left connected/foregrounded, since `console_send`/`ui_send_keys`/`ui_set_value` fallbacks steal focus and `web_connect` leaves a CDP socket open until `web_disconnect` is called.
 
 ## Troubleshooting
 
-- All calls fail with `CapabilityProfileDenied`: the broker's capability profile was lowered below `Admin` (for `ui_*`/`web_*`) or below `Debug` (for `console_*`); ask the user to raise the profile in the broker tray UI, or use `debug_evaluate`/output-pane tools instead if elevation is not possible.
+- `ui_*`/`web_*` tools not found at all: confirm the client has a second MCP connection to `/mcp-wu` (see "Endpoint Split" above) — they're never reachable from the default `/mcp` connection.
 - `ui_*` calls report "No target window was found": confirm a process is actually being debugged (`process_list_debugged`) or pass an explicit `target` process id/name; the debuggee's window may not be visible yet.
 - `ui_find_elements`/`ui_click`/etc. report "No matching UI element was found": broaden or fix the selector (bare text matches Name/AutomationId/ClassName; verify with `ui_get_tree` first to see actual property values).
 - `web_js_execute`/real `web_console`/`web_network` return nothing useful: `web_connect` degraded to `browser-shell-uia`; retry `web_connect` with a browser actually launched with a remote-debugging port open, and check `cdpMessage` for why the CDP handshake failed.

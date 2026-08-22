@@ -13,7 +13,8 @@ public enum VsSessionDispatchFailureReason
     StaleSession,
     MissingConnection,
     RpcFailure,
-    UnsupportedByVsix
+    UnsupportedByVsix,
+    OperationTimedOut
 }
 
 public sealed record VsSessionDispatchResult<T>(

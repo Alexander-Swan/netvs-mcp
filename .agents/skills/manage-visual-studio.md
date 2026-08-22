@@ -15,7 +15,7 @@ vs_list_sessions()
 vs_get_status()
 ```
 
-`vs_list_sessions()` returns every `VsSessionInfo` currently registered with the local broker: `sessionId`, `processId`, `visualStudioVersion`, `edition`, `solutionName`, `solutionPath`, `activeDocument`, `debuggerMode`, `isActiveWindow`, `lastSeenUtc`, and `capabilities`. `vs_get_status()` additionally reports the broker's own endpoint, pipe name, uptime, capability profile, and version, plus the health (`Connected` or `Stale`) and age of each session.
+`vs_list_sessions()` returns every `VsSessionInfo` currently registered with the local broker: `sessionId`, `processId`, `visualStudioVersion`, `edition`, `solutionName`, `solutionPath`, `activeDocument`, `debuggerMode`, `isActiveWindow`, `lastSeenUtc`, and `capabilities`. `vs_get_status()` additionally reports the broker's own endpoint, pipe name, uptime, and version, plus the health (`Connected` or `Stale`) and age of each session.
 
 ### Routing resolution order
 
@@ -53,7 +53,7 @@ vs_get_capabilities()
 get_help({ "requiresVisualStudioSession": true })
 ```
 
-Both return the same `BrokerCapabilities` shape: the broker's MCP endpoint, active capability profile, the full tool catalog (name, description, and whether each tool requires a routed Visual Studio session), and the high-level Visual Studio capability categories (`Editor`, `Navigation`, `Build`, `Debugger`, `Diagnostics`, `Tests`, `ProjectSystem`). `get_help` additionally accepts an optional `requiresVisualStudioSession` filter to list only broker-only tools (`false`) or only session-routed tools (`true`).
+Both return the same `BrokerCapabilities` shape: the broker's MCP endpoint, the full tool catalog (name, description, category, `McpEndpointPath`, and whether each tool requires a routed Visual Studio session), and the high-level Visual Studio capability categories (`Editor`, `Navigation`, `Build`, `Debugger`, `Diagnostics`, `Tests`, `ProjectSystem`). `get_help` additionally accepts an optional `requiresVisualStudioSession` filter to list only broker-only tools (`false`) or only session-routed tools (`true`). Check each tool's `McpEndpointPath` before assuming it's callable from the current connection — most tools are on `/mcp`, but `ui_*`/`web_*` tools are only served from the separate opt-in `/mcp-wu` endpoint (see the automate-visual-studio guide).
 
 ### Broker and session logs
 
@@ -227,7 +227,6 @@ Report findings with evidence:
 - Which session (`sessionId`, solution name/path) the routed calls resolved to, and how (explicit `sessionId`, active window, or the only session).
 - Whether Visual Studio had to be launched, and with what solution/edition/experimental flag.
 - Key solution/project/test state: startup project, project list, test discovery/run results, and whether the test backend reported `supported: false`.
-- Any tool access denial (`CapabilityProfileDenied`) if the broker's active capability profile did not allow a requested tool.
 
 ## Troubleshooting
 
@@ -237,4 +236,5 @@ Report findings with evidence:
 - Session found but stale: `vs_get_session`/`vs_get_status` report health as `Stale` when a session has not been seen recently; treat it as unusable until it reconnects.
 - Wrong session targeted: prefer `sessionId` explicitly; `solutionName` and `workspacePath`/`rootPath` matches can be ambiguous across multiple open windows of similarly named solutions.
 - Test backend unsupported: report `supported: false` from `TestOperationResult` and fall back to `build_and_get_errors`/`execute_command` with a Test Explorer command, or ask the user how they prefer to run tests.
-- Tool denied by capability profile: report `CapabilityProfileDenied`, the active profile, and the minimum profile required; do not retry the same call.
+- Tool not found at all: check the tool's `McpEndpointPath` from `get_help`/`vs_get_capabilities` — `ui_*`/`web_*` tools are only served from `/mcp-wu`, a separate opt-in MCP connection (see the automate-visual-studio guide), not the default `/mcp` endpoint.
+- `error_code: "operation_timed_out"`: every routed call has a broker-side ceiling (5 minutes by default) independent of any tool-specific `timeoutMilliseconds` parameter — this fires when the routed Visual Studio session itself never responded (e.g. a stuck COM call on the VSIX side), not when the requested operation legitimately finished slowly. Report it distinctly from `rpc_failure`; retrying immediately rarely helps if the same underlying VS state caused it.
