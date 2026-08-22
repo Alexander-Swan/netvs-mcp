@@ -95,7 +95,11 @@ jobs:
         run: dotnet test tests/NetVsMcp.Broker.Tests/NetVsMcp.Broker.Tests.csproj -c Release
 
       - name: Build broker MSI
-        run: dotnet build src/NetVsMcp.Installer/NetVsMcp.Installer.wixproj -c Release
+        # VersionSuffix must be overridden here (not just left to whatever's committed in
+        # Directory.Build.props) so a "release" build's actual assembly metadata has no "-dev"
+        # baked in - the wixproj's PublishBrokerForInstaller target inherits this as a global
+        # MSBuild property when it publishes NetVsMcp.Broker.csproj.
+        run: dotnet build src/NetVsMcp.Installer/NetVsMcp.Installer.wixproj -c Release /p:VersionSuffix=${{ steps.version.outputs.suffix }}
 
       - name: Patch VSIX manifest version
         shell: pwsh
@@ -111,7 +115,7 @@ jobs:
           $manifest.Save((Resolve-Path $path).Path)
 
       - name: Build VSIX
-        run: dotnet build src/NetVsMcp.Vsix/NetVsMcp.Vsix.csproj -c Release
+        run: dotnet build src/NetVsMcp.Vsix/NetVsMcp.Vsix.csproj -c Release /p:VersionSuffix=${{ steps.version.outputs.suffix }}
 
       - name: Collect release assets
         shell: pwsh
