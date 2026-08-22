@@ -1280,6 +1280,29 @@ public sealed record BrokerCapabilities(
     IReadOnlyCollection<BrokerToolDescriptor> Tools,
     IReadOnlyCollection<VsCapability> VisualStudioCapabilities);
 
+public sealed record BestPracticeGuideFileInfo(
+    string Path,
+    string ResourceUri,
+    string MimeType);
+
+public sealed record BestPracticeGuideInfo(
+    string Name,
+    string Description,
+    string PrimaryResourceUri,
+    IReadOnlyCollection<BestPracticeGuideFileInfo> Files);
+
+public sealed record BestPracticeGuideContent(
+    string Guide,
+    string File,
+    string ResourceUri,
+    string MimeType,
+    string Text);
+
+public sealed record BestPracticeGuideToolResult(
+    string Message,
+    IReadOnlyCollection<BestPracticeGuideInfo> Guides,
+    BestPracticeGuideContent? Content);
+
 public sealed record RouteResult(
     bool Success,
     VsSessionInfo? Session,

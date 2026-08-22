@@ -97,6 +97,14 @@ Routing failures return a structured error with `failureReason`, `candidateCount
 
 The broker status window shows this snippet ready to copy. The `netvs-web-automation` endpoint serves the rarely used `ui_*`/`web_*` debuggee UI automation tools, kept off the default endpoint to keep the advertised tool list smaller.
 
+## Better results with best-practices guides
+
+NetVsMcp gives your AI agent tools to control Visual Studio. For better results, pair it with the included best-practices guides: domain knowledge that teaches the agent how to route to the right Visual Studio session and use the management, navigation, editing, build, debug, and automation tools safely.
+
+The broker exposes the bundled guides as MCP resources such as `guide://netvsmcp/manage-visual-studio.md`. Tool-only clients can call `netvs_get_best_practices` with no arguments to list guides, or with `guide` and optional `file` to read one. The bundled guides are agent-neutral defaults, not locked policy; users and projects can layer their own local instructions on top. A same-named user guide under `%APPDATA%\NetVsMcp\best-practices` overrides the bundled resource content.
+
+The same files are available in the repository for manual use under `.agents/skills`. They are not required for the broker to run, but they help agents avoid brittle workflows and choose native Visual Studio operations instead of guessing.
+
 ## Projects
 
 ```text

@@ -30,6 +30,7 @@ public sealed partial class BrokerToolService
         new("execute_command", "Executes a Visual Studio command in a routed session.", true),
         new("get_status", "Returns Visual Studio session status through a routed session.", true),
         new("get_help", "Lists NetVsMcp broker tools and Visual Studio capability categories.", false),
+        new("netvs_get_best_practices", "Lists or reads bundled agent-neutral NetVsMcp best-practices guides for Visual Studio MCP workflows.", false),
         new("window_list", "Lists Visual Studio windows in a routed session.", true),
         new("window_activate", "Activates a Visual Studio window in a routed session.", true),
         new("toolwindow_show", "Shows a Visual Studio tool window in a routed session.", true),
@@ -256,6 +257,17 @@ public sealed partial class BrokerToolService
 
         var response = ToolResponse<BrokerCapabilities>.Ok(capabilities);
         AuditToolResult(nameof(GetHelp), null, response.Success, null, response.Message);
+        return response;
+    }
+
+    [McpServerTool(Name = "netvs_get_best_practices")]
+    [Description("Lists bundled agent-neutral NetVsMcp best-practices guides, or reads one guide file. Call without arguments to list guides; pass guide and optional file to read content.")]
+    public ToolResponse<BestPracticeGuideToolResult> NetVsGetBestPractices(
+        string? guide = null,
+        string? file = null)
+    {
+        var response = _runtime.BestPracticeGuides.Read(guide, file);
+        AuditToolResult(nameof(NetVsGetBestPractices), null, response.Success, null, response.Message);
         return response;
     }
 

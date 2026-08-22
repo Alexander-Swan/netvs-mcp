@@ -22,8 +22,9 @@ public sealed class BrokerRuntime
         AuditLog = new AuditLogService(options.EffectiveLogsDirectory);
         SessionManifests = new SessionManifestService(options.EffectiveSessionsDirectory);
         _settingsStore = new BrokerSettingsStore(options.EffectiveSettingsFilePath);
+        BestPracticeGuides = new BestPracticeGuideCatalog();
         Tools = new BrokerToolService(this);
-        _httpHost = new LocalMcpHttpHost(options, Tools);
+        _httpHost = new LocalMcpHttpHost(options, Tools, BestPracticeGuides);
         _registrationPipeListener = new VsixRegistrationPipeListener(options, sessions, Connections);
         Sessions.SessionsChanged += OnSessionsChanged;
     }
@@ -108,6 +109,8 @@ public sealed class BrokerRuntime
     public IAuditLogService AuditLog { get; }
 
     public ISessionManifestService SessionManifests { get; }
+
+    public BestPracticeGuideCatalog BestPracticeGuides { get; }
 
     public DateTimeOffset StartedUtc { get; }
 

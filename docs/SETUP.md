@@ -58,6 +58,12 @@ Configure your MCP client to use HTTP on localhost:
 
 Use `127.0.0.1` or `localhost`; the broker rejects non-loopback hosts. The `netvs-web-automation` entry is optional if you do not need the `ui_*`/`web_*` debuggee automation tools; they are intentionally excluded from `/mcp`.
 
+## Best-Practices Guides
+
+After configuring the MCP client, load the included NetVsMcp best-practices guides if your agent supports MCP resources or instruction bundles. The broker exposes the guides as MCP resources such as `guide://netvsmcp/manage-visual-studio.md`; tool-only clients can call `netvs_get_best_practices` with no arguments to list guides, or with `guide` and optional `file` to read one.
+
+The MCP server provides the tools; the guides provide the Visual Studio operating judgment. They are not required for the broker to run, but they help agents choose the right session, prefer native IDE operations, and use the build, edit, debug, navigation, and automation tools safely. They are agent-neutral defaults, not locked policy: users can layer their own project or user instructions over the bundled guides, and a same-named guide under `%APPDATA%\NetVsMcp\best-practices` overrides the bundled resource content.
+
 ## VSIX Registration Model
 
 The Visual Studio extension connects to the local broker through the per-user named pipe when a VS instance starts. It registers session information such as the VS process, opened solution, active document, and current debugger state. The broker keeps those registrations in memory and uses solution name/path routing to select the correct VS instance for MCP tool calls.

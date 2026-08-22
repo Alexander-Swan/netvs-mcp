@@ -17,12 +17,14 @@ public sealed class LocalMcpHttpHost : IAsyncDisposable
 {
     private readonly BrokerOptions _options;
     private readonly BrokerToolService _tools;
+    private readonly BestPracticeGuideCatalog _bestPracticeGuides;
     private WebApplication? _application;
 
-    public LocalMcpHttpHost(BrokerOptions options, BrokerToolService tools)
+    public LocalMcpHttpHost(BrokerOptions options, BrokerToolService tools, BestPracticeGuideCatalog bestPracticeGuides)
     {
         _options = options;
         _tools = tools;
+        _bestPracticeGuides = bestPracticeGuides;
     }
 
     public bool IsRunning => _application is not null;
@@ -51,6 +53,7 @@ public sealed class LocalMcpHttpHost : IAsyncDisposable
             json.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
         });
         builder.Services.AddSingleton(_tools);
+        builder.Services.AddSingleton(_bestPracticeGuides);
         builder.Services
             .AddMcpServer()
             .WithHttpTransport(options =>
@@ -58,7 +61,8 @@ public sealed class LocalMcpHttpHost : IAsyncDisposable
                 options.Stateless = true;
                 options.ConfigureSessionOptions = ConfigureSessionOptionsForEndpoint;
             })
-            .WithTools<BrokerToolService>(_tools);
+            .WithTools<BrokerToolService>(_tools)
+            .WithResources(new BestPracticeGuideResources(_bestPracticeGuides));
 
         var app = builder.Build();
         MapRoutes(app);

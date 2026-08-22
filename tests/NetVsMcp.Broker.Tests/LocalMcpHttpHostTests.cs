@@ -81,6 +81,35 @@ public sealed class LocalMcpHttpHostTests
             Assert.Contains("vs_list_sessions", body);
             Assert.Contains("vs_get_status", body);
             Assert.Contains("vs_get_capabilities", body);
+            Assert.Contains("netvs_get_best_practices", body);
+
+            using var listResources = await PostMcpAsync(http, new
+            {
+                jsonrpc = "2.0",
+                id = 3,
+                method = "resources/list",
+                @params = new { }
+            });
+            listResources.EnsureSuccessStatusCode();
+
+            var resourcesBody = await listResources.Content.ReadAsStringAsync();
+            Assert.Contains("guide://netvsmcp/manage-visual-studio.md", resourcesBody);
+            Assert.Contains("guide://netvsmcp/build-visual-studio.md", resourcesBody);
+
+            using var readResource = await PostMcpAsync(http, new
+            {
+                jsonrpc = "2.0",
+                id = 4,
+                method = "resources/read",
+                @params = new
+                {
+                    uri = "guide://netvsmcp/manage-visual-studio.md"
+                }
+            });
+            readResource.EnsureSuccessStatusCode();
+
+            var readBody = await readResource.Content.ReadAsStringAsync();
+            Assert.Contains("Visual Studio", readBody);
         }
         finally
         {
