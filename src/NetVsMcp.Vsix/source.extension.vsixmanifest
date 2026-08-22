@@ -2,10 +2,10 @@
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011">
   <Metadata>
     <Identity Id="NetVsMcp.Vsix" Version="1.0.2" Language="en-US" Publisher="Alex Swan" />
-    <DisplayName>NetVsMcp Visual Studio Bridge</DisplayName>
-    <Description xml:space="preserve">Connects Visual Studio to NetVsMcp Broker so MCP clients can use live editor, navigation, build, debugger, and test tools. Requires the separate Broker app. Downloads and source: https://github.com/Alexander-Swan/netvs-mcp</Description>
+    <DisplayName>NetVsMcp - MCP Tools for Visual Studio</DisplayName>
+    <Description xml:space="preserve">Local MCP bridge for Visual Studio. Lets AI agents use live editor buffers, Roslyn navigation, build diagnostics, debugger control, tests, and UI/browser automation through NetVsMcp Broker. Requires the separate Broker app. Downloads and source: https://github.com/Alexander-Swan/netvs-mcp</Description>
     <Icon>Assets\broker.ico</Icon>
-    <Tags>mcp;visual studio;debugger;agent</Tags>
+    <Tags>mcp;ai agent;visual studio;vsix;debugger;build;tests;automation;roslyn;copilot;claude;local broker</Tags>
   </Metadata>
   <Installation>
     <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0,19.0)">
