@@ -1,4 +1,5 @@
 using NetVsMcp.Contracts;
+using System.Diagnostics;
 using System.IO;
 using StreamJsonRpc;
 
@@ -75,22 +76,39 @@ public sealed class VsSessionDispatcher : IVsSessionDispatcher
         }
 
         var effectiveTimeout = timeout ?? DefaultTimeout;
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCts.CancelAfter(effectiveTimeout);
+        var operationTask = InvokeSafely(operation, connection, cancellationToken);
 
-        try
+        // Cancelling a StreamJsonRpc call's token only sends a "$/cancelRequest" notification -
+        // the local await does NOT unblock until the *server* actually responds to it. A VSIX-
+        // side handler stuck in a synchronous, cancellation-oblivious COM call (e.g. attaching
+        // over a remote debugger transport to an unreachable host) never observes that
+        // notification, so it never responds, so passing a cancelled token here would hang for
+        // exactly as long as that COM call does - which is what happened in practice with a
+        // hung SSH attach. Race with a plain delay instead, so this always returns within
+        // effectiveTimeout regardless of whether the far side ever cooperates, and abandon
+        // (rather than keep awaiting) the operation if the delay wins.
+        var delayTask = Task.Delay(effectiveTimeout, cancellationToken);
+        var firstCompleted = await Task.WhenAny(operationTask, delayTask);
+
+        if (firstCompleted == delayTask)
         {
-            var value = await operation(connection, timeoutCts.Token);
-            return VsSessionDispatchResult<T>.Ok(route.Session, value);
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            // The caller's own token wasn't cancelled, so this is our CancelAfter tripping -
-            // the VSIX session didn't respond in time (e.g. a hung COM call on its side).
+            ObserveAbandonedOperation(operationTask, route.Session.SessionId);
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                throw new OperationCanceledException(cancellationToken);
+            }
+
             return VsSessionDispatchResult<T>.Failed(
                 VsSessionDispatchFailureReason.OperationTimedOut,
                 $"Visual Studio session '{route.Session.SessionId}' did not respond within {effectiveTimeout.TotalSeconds:0}s.",
                 route.Session);
+        }
+
+        try
+        {
+            var value = await operationTask;
+            return VsSessionDispatchResult<T>.Ok(route.Session, value);
         }
         catch (OperationCanceledException)
         {
@@ -110,6 +128,37 @@ public sealed class VsSessionDispatcher : IVsSessionDispatcher
                 $"Visual Studio session '{route.Session.SessionId}' RPC call failed: {AddDocumentPathGuidance(ex)}",
                 route.Session);
         }
+    }
+
+    // A delegate that throws synchronously (rather than returning a faulted Task) would
+    // otherwise escape uncaught, since the initial invocation happens before the try below -
+    // normalize it into a faulted Task so every failure mode flows through the same handling.
+    private static Task<T> InvokeSafely<T>(
+        Func<IVisualStudioSessionRpc, CancellationToken, Task<T>> operation,
+        IVisualStudioSessionRpc connection,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return operation(connection, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            return Task.FromException<T>(ex);
+        }
+    }
+
+    // The abandoned task keeps running in the background (there's no safe way to force-abort a
+    // synchronous COM call on the VSIX's STA thread from here); this just prevents an unobserved
+    // task exception if/when it eventually faults, and gives a trace breadcrumb rather than
+    // silently swallowing it.
+    private static void ObserveAbandonedOperation<T>(Task<T> operationTask, string sessionId)
+    {
+        _ = operationTask.ContinueWith(
+            t => Trace.WriteLine($"NetVsMcp: dispatch to session '{sessionId}' timed out, then later faulted: {t.Exception?.GetBaseException().Message}"),
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted,
+            TaskScheduler.Default);
     }
 
     private static string AddDocumentPathGuidance(Exception exception)
