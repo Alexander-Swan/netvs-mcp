@@ -9,8 +9,9 @@ name: Release
 #   "1.11.20-alpha" - Build only ever advances on a "dev" channel run (alpha runs reuse
 #   whatever Build dev has already reached, labeled "-alpha", rather than keeping a separate
 #   counter), and always counts up from the last stable release.
-# - After a "release" run ships Major.Minor, the next cycle resumes one minor ahead with the
-#   build counter reset: Major.(Minor+1).0-dev.
+# - After any "release" or "dev" run, the next cycle keeps the same Major.Minor and just
+#   advances Build: Major.Minor.(Build+1)-dev. Minor only changes when someone bumps it by
+#   hand in Directory.Build.props ahead of a release - it is never auto-incremented here.
 on:
   workflow_dispatch:
     inputs:
@@ -161,16 +162,10 @@ jobs:
           $content = Get-Content $path -Raw
           [xml]$props = $content
           $prefix = [version]$props.Project.PropertyGroup.VersionPrefix
-          $channel = "${{ inputs.channel }}"
-          if ($channel -eq "release") {
-            # Just shipped Major.Minor as stable; resume dev work one minor ahead with the
-            # build counter reset, so the next dev release becomes Major.(Minor+1).1-dev.
-            $nextPrefix = "$($prefix.Major).$($prefix.Minor + 1).0"
-            $nextSuffix = "dev"
-          } else {
-            $nextPrefix = "$($prefix.Major).$($prefix.Minor).$($prefix.Build + 1)"
-            $nextSuffix = "${{ steps.version.outputs.suffix }}"
-          }
+          # Both channels just advance Build under the same Major.Minor and resume as "dev";
+          # Minor is never bumped automatically here (see the versioning-scheme comment above).
+          $nextPrefix = "$($prefix.Major).$($prefix.Minor).$($prefix.Build + 1)"
+          $nextSuffix = "dev"
           $content = $content -replace '<VersionPrefix>[^<]*</VersionPrefix>', "<VersionPrefix>$nextPrefix</VersionPrefix>"
           $content = $content -replace '<VersionSuffix>[^<]*</VersionSuffix>', "<VersionSuffix>$nextSuffix</VersionSuffix>"
           Set-Content $path $content -NoNewline
