@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build solution
+        run: dotnet build NetVsMcp.slnx -c Debug
+
+      - name: Test broker
+        run: dotnet test tests/NetVsMcp.Broker.Tests/NetVsMcp.Broker.Tests.csproj -c Debug --no-build
+
+      - name: Test VSIX
+        run: dotnet test tests/NetVsMcp.Vsix.Tests/NetVsMcp.Vsix.Tests.csproj -c Debug --no-build

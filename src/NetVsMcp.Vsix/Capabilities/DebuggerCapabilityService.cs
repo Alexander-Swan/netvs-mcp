@@ -568,9 +568,7 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         foreach (EnvDTE80.Transport candidate in debugger3.Transports)
         {
             availableTransports.Add(candidate.Name);
-            if (transport is null
-                && (string.Equals(candidate.Name, request.Transport, StringComparison.OrdinalIgnoreCase)
-                    || candidate.Name.IndexOf(request.Transport!, StringComparison.OrdinalIgnoreCase) >= 0))
+            if (transport is null && AttachSelectors.MatchesTransportName(candidate.Name, request.Transport!))
             {
                 transport = candidate;
             }
@@ -597,14 +595,7 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         var matches = new List<EnvDTE90.Process3>();
         foreach (EnvDTE90.Process3 candidate in remoteProcesses)
         {
-            if (request.ProcessId is not null && candidate.ProcessID != request.ProcessId.Value)
-            {
-                continue;
-            }
-
-            if (!string.IsNullOrWhiteSpace(request.ProcessName)
-                && !string.Equals(Path.GetFileName(candidate.Name), request.ProcessName, StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(candidate.Name, request.ProcessName, StringComparison.OrdinalIgnoreCase))
+            if (!AttachSelectors.MatchesProcessSelector(candidate.ProcessID, candidate.Name, request.ProcessId, request.ProcessName))
             {
                 continue;
             }
@@ -1012,14 +1003,7 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
 
         foreach (Process process in processes)
         {
-            if (processId is not null && process.ProcessID != processId.Value)
-            {
-                continue;
-            }
-
-            if (!string.IsNullOrWhiteSpace(processName)
-                && !string.Equals(Path.GetFileName(process.Name), processName, StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(process.Name, processName, StringComparison.OrdinalIgnoreCase))
+            if (!AttachSelectors.MatchesProcessSelector(process.ProcessID, process.Name, processId, processName))
             {
                 continue;
             }

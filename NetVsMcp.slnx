@@ -7,5 +7,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/NetVsMcp.Broker.Tests/NetVsMcp.Broker.Tests.csproj" />
+    <Project Path="tests/NetVsMcp.Vsix.Tests/NetVsMcp.Vsix.Tests.csproj" />
   </Folder>
 </Solution>

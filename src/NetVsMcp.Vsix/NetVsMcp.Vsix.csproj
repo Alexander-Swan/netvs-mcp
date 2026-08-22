@@ -18,6 +18,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="NetVsMcp.Vsix.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="System.ComponentModel.Composition" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
