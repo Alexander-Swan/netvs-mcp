@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json.schemastore.org/vsix-publish",
+  "categories": [
+    "coding"
+  ],
+  "identity": {
+    "internalName": "NetVsMcp.Vsix"
+  },
+  "overview": "src/NetVsMcp.Vsix/Overview.md",
+  "priceCategory": "free",
+  "publisher": "Alexander-Swan",
+  "private": false,
+  "qna": true,
+  "repo": "https://github.com/Alexander-Swan/netvs-mcp"
+}

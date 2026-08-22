@@ -127,6 +127,14 @@ jobs:
           git push origin $tag
           gh release create $tag release-assets/* --title "NetVsMcp $full" --generate-notes @prerelease
 
+      - name: Publish VSIX to Visual Studio Marketplace
+        if: inputs.channel == 'release'
+        uses: madskristensen/publish-marketplace@v2
+        with:
+          extension-file: release-assets/NetVsMcp.Vsix-${{ steps.version.outputs.full }}.vsix
+          publish-manifest-file: vs-publish.json
+          personal-access-code: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+
       - name: Bump version for next dev cycle
         if: inputs.channel == 'dev' && inputs.ref == ''
         shell: pwsh
