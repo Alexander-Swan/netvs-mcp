@@ -68,6 +68,26 @@ public enum BrokerToolCategory
     Admin
 }
 
+/// <summary>
+/// Single source of truth for which MCP HTTP endpoint serves a given tool. The broker splits
+/// its tool surface across "/mcp" (the default) and "/mcp-wu" (opt-in debuggee UI/browser
+/// automation) to keep the default tool list smaller; every place that needs to know which
+/// endpoint a tool lives on (session filtering, get_help/vs_get_capabilities reporting, guide
+/// metadata) should go through this instead of re-deriving the prefix rule independently.
+/// </summary>
+public static class McpEndpointRouting
+{
+    public const string DefaultEndpointPath = "/mcp";
+    public const string WebAutomationEndpointPath = "/mcp-wu";
+
+    public static bool IsWebAutomationTool(string toolName) =>
+        toolName.StartsWith("ui_", StringComparison.Ordinal) ||
+        toolName.StartsWith("web_", StringComparison.Ordinal);
+
+    public static string ResolveEndpointPath(string toolName) =>
+        IsWebAutomationTool(toolName) ? WebAutomationEndpointPath : DefaultEndpointPath;
+}
+
 public static class VsRpcProtocol
 {
     public const string CurrentVersion = "1.1";
@@ -1273,7 +1293,8 @@ public sealed record BrokerToolDescriptor(
     string Name,
     string Description,
     bool RequiresVisualStudioSession,
-    BrokerToolCategory Category = BrokerToolCategory.Read);
+    BrokerToolCategory Category = BrokerToolCategory.Read,
+    string McpEndpointPath = McpEndpointRouting.DefaultEndpointPath);
 
 public sealed record BrokerCapabilities(
     string McpEndpoint,
@@ -1285,11 +1306,23 @@ public sealed record BestPracticeGuideFileInfo(
     string ResourceUri,
     string MimeType);
 
+/// <summary>
+/// Which MCP HTTP endpoint(s) the tools a guide covers are actually served from. Most guides
+/// cover only default-endpoint tools ("*" -> "/mcp"); a guide can list more than one entry when
+/// it spans tool families that live on different endpoints (see McpEndpointRouting), so an
+/// agent reading the guide catalog can tell up front whether it needs a second MCP server
+/// connection before any of the guide's tools will resolve.
+/// </summary>
+public sealed record BestPracticeGuideEndpointInfo(
+    string ToolNamePattern,
+    string McpEndpointPath);
+
 public sealed record BestPracticeGuideInfo(
     string Name,
     string Description,
     string PrimaryResourceUri,
-    IReadOnlyCollection<BestPracticeGuideFileInfo> Files);
+    IReadOnlyCollection<BestPracticeGuideFileInfo> Files,
+    IReadOnlyCollection<BestPracticeGuideEndpointInfo> Endpoints);
 
 public sealed record BestPracticeGuideContent(
     string Guide,

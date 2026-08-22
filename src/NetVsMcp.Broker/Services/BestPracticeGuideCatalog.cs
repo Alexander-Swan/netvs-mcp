@@ -29,6 +29,25 @@ public sealed class BestPracticeGuideCatalog
         ["automate-visual-studio"] = "Debuggee UI automation, browser control, screenshots, DOM access, and console I/O."
     };
 
+    private static readonly IReadOnlyDictionary<string, string> DefaultEndpointOnly = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["*"] = McpEndpointRouting.DefaultEndpointPath
+    };
+
+    // Every guide's tools live on the default endpoint except automate-visual-studio, which
+    // spans both: console_* tools are on the default endpoint, ui_*/web_* tools require the
+    // separate opt-in "/mcp-wu" endpoint (see McpEndpointRouting and LocalMcpHttpHost). Keep
+    // this in sync with McpEndpointRouting.IsWebAutomationTool if the tool split ever changes.
+    private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> EndpointsByGuide =
+        new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["automate-visual-studio"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["console_*"] = McpEndpointRouting.DefaultEndpointPath,
+                ["ui_*, web_*"] = McpEndpointRouting.WebAutomationEndpointPath
+            }
+        };
+
     private readonly string? bundledGuidesRoot;
     private readonly string? repositoryGuidesRoot;
     private readonly string? userGuidesRoot;
@@ -106,11 +125,16 @@ public sealed class BestPracticeGuideCatalog
             files.Add(new BestPracticeGuideFileInfo($"{guideName}.md", CreateResourceUri(guideName), MimeTypeMarkdown));
         }
 
+        var endpoints = (EndpointsByGuide.TryGetValue(guideName, out var guideEndpoints) ? guideEndpoints : DefaultEndpointOnly)
+            .Select(entry => new BestPracticeGuideEndpointInfo(entry.Key, entry.Value))
+            .ToArray();
+
         return new BestPracticeGuideInfo(
             guideName,
             Descriptions.TryGetValue(guideName, out var description) ? description : "NetVsMcp Visual Studio best-practices guide.",
             CreateResourceUri(guideName),
-            files);
+            files,
+            endpoints);
     }
 
     private bool TryReadFile(string guideName, string file, out string content, out string resourceUri, out string mimeType)

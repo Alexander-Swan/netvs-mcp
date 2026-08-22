@@ -232,12 +232,16 @@ public sealed partial class BrokerToolService
     [Description("Lists NetVsMcp broker tools and Visual Studio capability categories.")]
     public ToolResponse<BrokerCapabilities> VsGetCapabilities()
     {
+        var tools = ToolDescriptors.Select(WithCategoryMetadata).ToArray();
         var capabilities = new BrokerCapabilities(
             _runtime.Options.McpEndpoint,
-            ToolDescriptors.Select(WithCategoryMetadata).ToArray(),
+            tools,
             VisualStudioCapabilities);
 
-        var response = ToolResponse<BrokerCapabilities>.Ok(capabilities);
+        var message = tools.Any(tool => tool.McpEndpointPath != McpEndpointRouting.DefaultEndpointPath)
+            ? $"Some listed tools are only served from '{McpEndpointRouting.WebAutomationEndpointPath}', a separate opt-in endpoint, not this connection's endpoint. Check each tool's McpEndpointPath."
+            : null;
+        var response = ToolResponse<BrokerCapabilities>.Ok(capabilities, message);
         AuditToolResult(nameof(VsGetCapabilities), null, response.Success, null, response.Message);
         return response;
     }
@@ -255,7 +259,17 @@ public sealed partial class BrokerToolService
             tools,
             VisualStudioCapabilities);
 
-        var response = ToolResponse<BrokerCapabilities>.Ok(capabilities);
+        // This catalog lists every tool the broker knows how to serve, not just the ones
+        // reachable from whichever endpoint the caller is actually connected to — check each
+        // tool's McpEndpointPath before assuming it is callable here. Tools whose
+        // McpEndpointPath is "/mcp-wu" are only served from that separate opt-in endpoint and
+        // will report ToolNotFound if called through the default "/mcp" connection; see the
+        // automate-visual-studio best-practices guide and README for the second-server config
+        // needed to reach them.
+        var message = tools.Any(tool => tool.McpEndpointPath != McpEndpointRouting.DefaultEndpointPath)
+            ? $"Some listed tools are only served from '{McpEndpointRouting.WebAutomationEndpointPath}', a separate opt-in endpoint, not this connection's endpoint. Check each tool's McpEndpointPath."
+            : null;
+        var response = ToolResponse<BrokerCapabilities>.Ok(capabilities, message);
         AuditToolResult(nameof(GetHelp), null, response.Success, null, response.Message);
         return response;
     }
@@ -3673,7 +3687,8 @@ public sealed partial class BrokerToolService
     {
         return descriptor with
         {
-            Category = CategorizeTool(descriptor.Name)
+            Category = CategorizeTool(descriptor.Name),
+            McpEndpointPath = McpEndpointRouting.ResolveEndpointPath(descriptor.Name)
         };
     }
 

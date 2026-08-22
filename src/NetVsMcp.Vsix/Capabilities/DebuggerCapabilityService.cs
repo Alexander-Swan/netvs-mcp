@@ -360,6 +360,19 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         }
 
         var debugger = await GetDebuggerAsync();
+
+        // Debugger2.GetExpression's Timeout parameter only bounds slow evaluation against a
+        // live debuggee; in dbgDesignMode (no debuggee at all) it does not reliably return
+        // within that window and can block far longer than the caller's own RPC timeout. Fail
+        // fast here instead, matching the guard ApplyHotReloadAsync/ExecuteImmediateAsync
+        // already use.
+        if (debugger.CurrentMode == dbgDebugMode.dbgDesignMode)
+        {
+            return new EvaluateExpressionResult(
+                GetDebuggerState(debugger),
+                new DebugExpressionInfo(request.Expression, "The debugger is not running; expression evaluation requires an active debug session.", null, false));
+        }
+
         var timeout = request.TimeoutMilliseconds <= 0 ? 5000 : request.TimeoutMilliseconds;
         var expression = debugger.GetExpression(request.Expression, UseAutoExpandRules: true, Timeout: timeout);
         return new EvaluateExpressionResult(GetDebuggerState(debugger), DebugExpressionInfo.FromExpression(expression));

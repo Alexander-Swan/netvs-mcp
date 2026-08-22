@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ModelContextProtocol.AspNetCore;
 using ModelContextProtocol.Server;
+using NetVsMcp.Contracts;
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -127,7 +128,7 @@ public sealed class LocalMcpHttpHost : IAsyncDisposable
 
         foreach (var tool in toolCollection.ToArray())
         {
-            var isWebAutomationTool = IsWebAutomationTool(tool.ProtocolTool.Name);
+            var isWebAutomationTool = McpEndpointRouting.IsWebAutomationTool(tool.ProtocolTool.Name);
             if (isWebAutomationTool != isWebAutomationEndpoint)
             {
                 toolCollection.Remove(tool);
@@ -135,12 +136,6 @@ public sealed class LocalMcpHttpHost : IAsyncDisposable
         }
 
         return Task.CompletedTask;
-    }
-
-    private static bool IsWebAutomationTool(string toolName)
-    {
-        return toolName.StartsWith("ui_", StringComparison.Ordinal) ||
-            toolName.StartsWith("web_", StringComparison.Ordinal);
     }
 
     private static Uri ParseEndpoint(string endpoint)

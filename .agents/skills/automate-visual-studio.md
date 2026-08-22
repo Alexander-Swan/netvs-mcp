@@ -4,6 +4,15 @@ This is the agent-neutral guide for the UI automation, browser/web debugging, an
 
 Read `.agents/skills/debug-visual-studio.md` first for core debug-session workflow (starting, breakpoints, stepping, locals). This guide only covers the `console_*`, `ui_*`, and `web_*` tool families.
 
+## Endpoint Split: `console_*` Is Not On The Same Endpoint As `ui_*`/`web_*`
+
+The broker serves its tools over two separate MCP HTTP endpoints to keep the default tool list smaller:
+
+- `console_*` tools are served from the default endpoint (`/mcp`) — the one almost every MCP client is already connected to.
+- `ui_*` and `web_*` tools are served **only** from a separate, opt-in endpoint (`/mcp-wu`) — they do not exist on `/mcp` at all, even though `get_help`/`vs_get_capabilities` list them in the same catalog (each entry's `McpEndpointPath` tells you which one actually serves it) and `netvs_get_best_practices()`'s guide listing tags this guide with both endpoints.
+
+If a client is connected only to `/mcp`, every `ui_*`/`web_*` call will fail to resolve as a tool at all (not a runtime `Success: false` — the tool simply won't be found), regardless of anything in this guide's "Availability" section below. Before troubleshooting an individual `ui_*`/`web_*` call, confirm the client has a **second** MCP server connection pointed at `/mcp-wu`. See `README.md`'s "Debuggee UI automation"/"Browser automation" rows and its example two-server client config (`netvs-mcp` at `/mcp`, `netvs-web-automation` at `/mcp-wu`). `console_*` tools need no such second connection.
+
 ## Session Routing
 
 Every tool in this guide accepts the same optional `sessionId`, `solutionName`, and `solutionPath` routing parameters used by the core debug tools. Resolution order is `sessionId`, normalized `solutionPath`, exact `solutionName`, active Visual Studio window, only registered instance. Use explicit routing whenever multiple Visual Studio windows are open.

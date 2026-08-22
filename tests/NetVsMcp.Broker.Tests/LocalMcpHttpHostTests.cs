@@ -1,4 +1,6 @@
 using NetVsMcp.Broker.Services;
+using NetVsMcp.Contracts;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
@@ -117,6 +119,69 @@ public sealed class LocalMcpHttpHostTests
         }
     }
 
+    [Fact]
+    public async Task WebAutomationTools_AreOnlyServedFromTheOptInEndpoint()
+    {
+        var port = GetAvailablePort();
+        var runtime = CreateRuntime($"http://127.0.0.1:{port}");
+
+        await runtime.StartAsync(CancellationToken.None);
+
+        try
+        {
+            using var http = new HttpClient
+            {
+                BaseAddress = new Uri($"http://127.0.0.1:{port}")
+            };
+
+            var defaultEndpointTools = await ListToolNamesAsync(http, "/mcp");
+            Assert.Contains("vs_list_sessions", defaultEndpointTools);
+            Assert.Contains("console_get_info", defaultEndpointTools);
+            Assert.DoesNotContain(defaultEndpointTools, name => McpEndpointRouting.IsWebAutomationTool(name));
+
+            var webAutomationEndpointTools = await ListToolNamesAsync(http, "/mcp-wu");
+            Assert.Contains("ui_capture_region", webAutomationEndpointTools);
+            Assert.Contains("web_connect", webAutomationEndpointTools);
+            Assert.All(webAutomationEndpointTools, name => Assert.True(McpEndpointRouting.IsWebAutomationTool(name)));
+        }
+        finally
+        {
+            await runtime.StopAsync();
+        }
+    }
+
+    private static async Task<HashSet<string>> ListToolNamesAsync(HttpClient http, string path)
+    {
+        using var initialize = await PostMcpAsync(http, path, new
+        {
+            jsonrpc = "2.0",
+            id = 1,
+            method = "initialize",
+            @params = new
+            {
+                protocolVersion = "2025-11-25",
+                capabilities = new { },
+                clientInfo = new { name = "NetVsMcp.Broker.Tests", version = "1.0" }
+            }
+        });
+        initialize.EnsureSuccessStatusCode();
+
+        using var listTools = await PostMcpAsync(http, path, new
+        {
+            jsonrpc = "2.0",
+            id = 2,
+            method = "tools/list",
+            @params = new { }
+        });
+        listTools.EnsureSuccessStatusCode();
+
+        var body = await listTools.Content.ReadAsStringAsync();
+        var jsonStart = body.IndexOf('{');
+        using var document = JsonDocument.Parse(body[jsonStart..]);
+        var tools = document.RootElement.GetProperty("result").GetProperty("tools");
+        return tools.EnumerateArray().Select(tool => tool.GetProperty("name").GetString()!).ToHashSet();
+    }
+
     private static BrokerRuntime CreateRuntime(string endpoint)
     {
         return new BrokerRuntime(
@@ -124,11 +189,14 @@ public sealed class LocalMcpHttpHostTests
             new SessionRegistry());
     }
 
-    private static async Task<HttpResponseMessage> PostMcpAsync(HttpClient http, object request)
+    private static Task<HttpResponseMessage> PostMcpAsync(HttpClient http, object request) =>
+        PostMcpAsync(http, "/mcp", request);
+
+    private static async Task<HttpResponseMessage> PostMcpAsync(HttpClient http, string path, object request)
     {
         var json = JsonSerializer.Serialize(request);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
-        var message = new HttpRequestMessage(HttpMethod.Post, "/mcp")
+        var message = new HttpRequestMessage(HttpMethod.Post, path)
         {
             Content = content
         };

@@ -167,6 +167,35 @@ public sealed class BrokerToolServiceTests
     }
 
     [Fact]
+    public void GetHelp_TagsEachToolWithTheEndpointThatServesIt()
+    {
+        var runtime = CreateRuntime();
+
+        var response = runtime.Tools.GetHelp();
+
+        Assert.True(response.Success);
+        Assert.Contains(response.Value!.Tools, tool => tool is { Name: "vs_list_sessions", McpEndpointPath: McpEndpointRouting.DefaultEndpointPath });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "console_get_info", McpEndpointPath: McpEndpointRouting.DefaultEndpointPath });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "ui_capture_region", McpEndpointPath: McpEndpointRouting.WebAutomationEndpointPath });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "web_connect", McpEndpointPath: McpEndpointRouting.WebAutomationEndpointPath });
+        Assert.NotNull(response.Message);
+    }
+
+    [Fact]
+    public void GetHelp_EndpointTagging_StaysInSyncWithMcpEndpointRouting()
+    {
+        var runtime = CreateRuntime();
+
+        var response = runtime.Tools.GetHelp();
+
+        Assert.True(response.Success);
+        foreach (var tool in response.Value!.Tools)
+        {
+            Assert.Equal(McpEndpointRouting.ResolveEndpointPath(tool.Name), tool.McpEndpointPath);
+        }
+    }
+
+    [Fact]
     public void VsGetSession_SelectsByNormalizedSolutionPath()
     {
         var runtime = CreateRuntime();

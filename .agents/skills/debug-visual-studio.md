@@ -127,6 +127,8 @@ debug_set_variable({ "name": "retryCount", "value": "3", "sessionId": "..." })
 
 Treat expression evaluation as code execution in the debuggee context. Avoid expressions with side effects unless the user explicitly wants state changed.
 
+`debug_evaluate`, `debug_eval_many`, `debug_set_variable`, and `watch_add` all require an active debug session; call them only while `debug_status` reports `dbgRunMode` or `dbgBreakMode`. In `dbgDesignMode` they fail fast with a clear message rather than hanging.
+
 ## Advancing And Inspecting In One Call: `debug_snapshot`
 
 Prefer `debug_snapshot` over separately calling `debug_step`/`debug_continue`/`debug_break` followed by `debug_get_callstack`/`debug_get_locals`. It optionally advances the debugger, waits for it to settle, and returns state plus locals (and anything else requested) in a single round trip:
@@ -173,6 +175,8 @@ immediate_execute({ "statement": "someExpression", "sessionId": "..." })
 ```
 
 `immediate_execute` uses Visual Studio expression evaluation rather than sending keystrokes to the Immediate window. It only works while debugging.
+
+`watch_add` evaluates the expression immediately to populate the returned value, so it also requires an active debug session and fails fast (rather than hanging) in `dbgDesignMode`; `watch_list`/`watch_remove` themselves have no such requirement — they only fail to produce a meaningful value for a watch until a debug session evaluates it.
 
 ## Attach And Process Control
 
