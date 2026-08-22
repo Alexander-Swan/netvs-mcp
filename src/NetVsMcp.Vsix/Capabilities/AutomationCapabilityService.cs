@@ -618,7 +618,7 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
         if (roots.Count == 0 && !string.IsNullOrWhiteSpace(request.Target))
         {
             var desktop = AutomationElement.RootElement;
-            roots.AddRange(desktop.FindAll(TreeScope.Children, BuildTextCondition(request.Target ?? string.Empty)).Cast<AutomationElement>());
+            roots.AddRange(desktop.FindAll(TreeScope.Children, SelectorConditions.BuildTextCondition(request.Target ?? string.Empty)).Cast<AutomationElement>());
         }
 
         return roots;
@@ -642,7 +642,7 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
         }
 
         var roots = await ResolveAutomationRootsAsync(request, cancellationToken);
-        var condition = BuildSelectorCondition(selector);
+        var condition = SelectorConditions.BuildSelectorCondition(selector);
         var matches = new List<ElementMatch>();
         foreach (var root in roots)
         {
@@ -868,53 +868,6 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
 
             return true;
         }, IntPtr.Zero);
-    }
-
-    private static Condition BuildSelectorCondition(string selector)
-    {
-        var trimmed = (selector ?? string.Empty).Trim();
-        var separator = trimmed.IndexOf('=');
-        if (separator > 0)
-        {
-            var key = trimmed.Substring(0, separator).Trim().ToLowerInvariant();
-            var value = trimmed.Substring(separator + 1).Trim();
-            return key switch
-            {
-                "id" or "automationid" or "automation-id" => new PropertyCondition(AutomationElement.AutomationIdProperty, value),
-                "name" or "text" => new PropertyCondition(AutomationElement.NameProperty, value),
-                "class" or "classname" or "class-name" => new PropertyCondition(AutomationElement.ClassNameProperty, value),
-                "type" or "controltype" or "control-type" => ControlTypeCondition(value),
-                _ => BuildTextCondition(value)
-            };
-        }
-
-        return BuildTextCondition(trimmed);
-    }
-
-    private static Condition BuildTextCondition(string text) =>
-        new OrCondition(
-            new PropertyCondition(AutomationElement.NameProperty, text),
-            new PropertyCondition(AutomationElement.AutomationIdProperty, text),
-            new PropertyCondition(AutomationElement.ClassNameProperty, text));
-
-    private static Condition ControlTypeCondition(string value)
-    {
-        var normalized = value.Replace("ControlType.", string.Empty).Trim().ToLowerInvariant();
-        var controlType = normalized switch
-        {
-            "button" => ControlType.Button,
-            "edit" or "textbox" or "text-box" => ControlType.Edit,
-            "text" => ControlType.Text,
-            "window" => ControlType.Window,
-            "pane" => ControlType.Pane,
-            "document" => ControlType.Document,
-            "hyperlink" or "link" => ControlType.Hyperlink,
-            "menuitem" or "menu-item" => ControlType.MenuItem,
-            "tabitem" or "tab-item" => ControlType.TabItem,
-            "listitem" or "list-item" => ControlType.ListItem,
-            _ => ControlType.Custom
-        };
-        return new PropertyCondition(AutomationElement.ControlTypeProperty, controlType);
     }
 
     private static void AppendElementTree(AutomationElement element, int depth, StringBuilder builder, ref int count, CancellationToken cancellationToken)
