@@ -53,6 +53,7 @@ public sealed partial class BrokerToolService
         bool wholeWord = false,
         bool useRegex = false,
         int maxResults = 100,
+        int contextLines = 0,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
@@ -75,7 +76,8 @@ public sealed partial class BrokerToolService
             MatchCase = matchCase,
             WholeWord = wholeWord,
             UseRegex = useRegex,
-            MaxResults = maxResults
+            MaxResults = maxResults,
+            ContextLines = contextLines
         };
 
         return DispatchValueAsync(
@@ -97,6 +99,7 @@ public sealed partial class BrokerToolService
         bool wholeWord = false,
         bool useRegex = false,
         int maxResults = 100,
+        int contextLines = 0,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
@@ -120,7 +123,8 @@ public sealed partial class BrokerToolService
             MatchCase = matchCase,
             WholeWord = wholeWord,
             UseRegex = useRegex,
-            MaxResults = maxResults
+            MaxResults = maxResults,
+            ContextLines = contextLines
         };
 
         return DispatchValueAsync(

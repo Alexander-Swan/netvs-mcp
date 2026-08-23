@@ -160,6 +160,7 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
             request.WholeWord,
             request.UseRegex,
             maxResults,
+            request.ContextLines,
             cancellationToken,
             out var truncated);
 
@@ -182,37 +183,70 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
         var files = await Task.Run(
             () => EnumerateSearchFiles(rootPath, request.FilePattern).ToArray(),
             cancellationToken);
+
+        var resultsByFile = new IReadOnlyCollection<TextSearchMatch>?[files.Length];
+        await Task.Run(
+            () => Parallel.ForEach(
+                Enumerable.Range(0, files.Length),
+                new ParallelOptions
+                {
+                    CancellationToken = cancellationToken,
+                    MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount)
+                },
+                index =>
+                {
+                    var file = files[index];
+                    if (IsProbablyBinaryFile(file))
+                    {
+                        return;
+                    }
+
+                    string text;
+                    try
+                    {
+                        text = File.ReadAllText(file);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        return;
+                    }
+
+                    resultsByFile[index] = FindMatches(
+                        file,
+                        text,
+                        request.Query,
+                        request.MatchCase,
+                        request.WholeWord,
+                        request.UseRegex,
+                        maxResults,
+                        request.ContextLines,
+                        cancellationToken,
+                        out _);
+                }),
+            cancellationToken);
+
         var allMatches = new List<TextSearchMatch>();
         var truncated = false;
-
-        foreach (var file in files)
+        foreach (var fileMatches in resultsByFile)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            string text;
-            try
-            {
-                text = await Task.Run(() => File.ReadAllText(file), cancellationToken);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            if (fileMatches is null)
             {
                 continue;
             }
 
-            var remaining = maxResults - allMatches.Count;
-            var fileMatches = FindMatches(
-                file,
-                text,
-                request.Query,
-                request.MatchCase,
-                request.WholeWord,
-                request.UseRegex,
-                remaining,
-                cancellationToken,
-                out var fileTruncated);
-            allMatches.AddRange(fileMatches);
-            if (fileTruncated || allMatches.Count >= maxResults)
+            foreach (var match in fileMatches)
             {
-                truncated = true;
+                if (allMatches.Count >= maxResults)
+                {
+                    truncated = true;
+                    break;
+                }
+
+                allMatches.Add(match);
+            }
+
+            if (truncated)
+            {
                 break;
             }
         }
@@ -614,6 +648,7 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
         bool wholeWord,
         bool useRegex,
         int maxResults,
+        int contextLines,
         CancellationToken cancellationToken,
         out bool truncated)
     {
@@ -621,6 +656,7 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
         var matches = new List<TextSearchMatch>();
         var regex = CreateSearchRegex(query, matchCase, wholeWord, useRegex);
         var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        var contextSpan = Math.Max(0, contextLines);
         for (var i = 0; i < lines.Length; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -632,16 +668,54 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
                     return matches;
                 }
 
+                var beforeStart = Math.Max(0, i - contextSpan);
+                var before = contextSpan == 0 ? Array.Empty<string>() : CopyRange(lines, beforeStart, i);
+                var afterEnd = Math.Min(lines.Length, i + 1 + contextSpan);
+                var after = contextSpan == 0 ? Array.Empty<string>() : CopyRange(lines, i + 1, afterEnd);
+
                 matches.Add(new TextSearchMatch(
                     path,
                     i + 1,
                     match.Index + 1,
                     lines[i],
-                    match.Value));
+                    match.Value,
+                    before,
+                    after));
             }
         }
 
         return matches;
+    }
+
+    private static string[] CopyRange(string[] source, int start, int endExclusive)
+    {
+        var length = Math.Max(0, endExclusive - start);
+        var result = new string[length];
+        Array.Copy(source, start, result, 0, length);
+        return result;
+    }
+
+    private static bool IsProbablyBinaryFile(string file)
+    {
+        try
+        {
+            using var stream = File.OpenRead(file);
+            var buffer = new byte[8000];
+            var read = stream.Read(buffer, 0, buffer.Length);
+            for (var i = 0; i < read; i++)
+            {
+                if (buffer[i] == 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return true;
+        }
     }
 
     private static Regex CreateSearchRegex(string query, bool matchCase, bool wholeWord, bool useRegex)
@@ -709,7 +783,9 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
         return patterns.SelectMany(pattern => Directory.EnumerateFiles(rootPath, pattern, SearchOption.AllDirectories))
             .Where(path => !path.Contains(@"\bin\", StringComparison.OrdinalIgnoreCase) &&
                 !path.Contains(@"\obj\", StringComparison.OrdinalIgnoreCase) &&
-                !path.Contains(@"\.git\", StringComparison.OrdinalIgnoreCase))
+                !path.Contains(@"\.git\", StringComparison.OrdinalIgnoreCase) &&
+                !path.Contains(@"\.vs\", StringComparison.OrdinalIgnoreCase) &&
+                !path.Contains(@"\node_modules\", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 

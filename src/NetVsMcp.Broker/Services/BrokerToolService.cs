@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace NetVsMcp.Broker.Services;
@@ -2259,6 +2260,10 @@ public sealed partial class BrokerToolService
         string filePattern = "*.*",
         string? rootPath = null,
         int maxMatches = 100,
+        bool matchCase = false,
+        bool wholeWord = false,
+        bool useRegex = false,
+        int contextLines = 0,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
@@ -2282,7 +2287,16 @@ public sealed partial class BrokerToolService
             {
                 var solution = await connection.SolutionInfoAsync(ct);
                 var searchRoot = ResolveSearchRoot(rootPath, solution);
-                var result = SearchWorkspace(searchRoot, query.Trim(), string.IsNullOrWhiteSpace(filePattern) ? "*.*" : filePattern.Trim(), maxMatches, ct);
+                var result = SearchWorkspace(
+                    searchRoot,
+                    query.Trim(),
+                    string.IsNullOrWhiteSpace(filePattern) ? "*.*" : filePattern.Trim(),
+                    maxMatches,
+                    matchCase,
+                    wholeWord,
+                    useRegex,
+                    contextLines,
+                    ct);
                 return result;
             },
             cancellationToken);
@@ -3192,8 +3206,14 @@ public sealed partial class BrokerToolService
         string query,
         string filePattern,
         int maxMatches,
+        bool matchCase,
+        bool wholeWord,
+        bool useRegex,
+        int contextLines,
         CancellationToken cancellationToken)
     {
+        var regex = CreateSearchRegex(query, matchCase, wholeWord, useRegex);
+        var contextSpan = Math.Max(0, contextLines);
         var matches = new List<WorkspaceSearchMatch>();
         foreach (var file in EnumerateWorkspaceFiles(rootPath, filePattern))
         {
@@ -3203,22 +3223,55 @@ public sealed partial class BrokerToolService
                 continue;
             }
 
-            var lineNumber = 0;
-            foreach (var line in File.ReadLines(file))
+            string[] lines;
+            try
             {
-                lineNumber++;
-                if (line.Contains(query, StringComparison.OrdinalIgnoreCase))
+                lines = File.ReadAllLines(file);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                continue;
+            }
+
+            for (var i = 0; i < lines.Length; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!regex.IsMatch(lines[i]))
                 {
-                    matches.Add(new WorkspaceSearchMatch(file, lineNumber, line.Trim()));
-                    if (matches.Count >= maxMatches)
-                    {
-                        return new WorkspaceSearchResult(rootPath, matches, true);
-                    }
+                    continue;
+                }
+
+                var beforeStart = Math.Max(0, i - contextSpan);
+                var before = contextSpan == 0 ? Array.Empty<string>() : lines[beforeStart..i];
+                var afterEnd = Math.Min(lines.Length, i + 1 + contextSpan);
+                var after = contextSpan == 0 ? Array.Empty<string>() : lines[(i + 1)..afterEnd];
+
+                matches.Add(new WorkspaceSearchMatch(file, i + 1, lines[i].Trim(), before, after));
+                if (matches.Count >= maxMatches)
+                {
+                    return new WorkspaceSearchResult(rootPath, matches, true);
                 }
             }
         }
 
         return new WorkspaceSearchResult(rootPath, matches, false);
+    }
+
+    private static Regex CreateSearchRegex(string query, bool matchCase, bool wholeWord, bool useRegex)
+    {
+        var pattern = useRegex ? query : Regex.Escape(query);
+        if (wholeWord)
+        {
+            pattern = $@"\b(?:{pattern})\b";
+        }
+
+        var options = RegexOptions.CultureInvariant;
+        if (!matchCase)
+        {
+            options |= RegexOptions.IgnoreCase;
+        }
+
+        return new Regex(pattern, options, TimeSpan.FromSeconds(2));
     }
 
     private static bool IsProbablyBinaryFile(string file)

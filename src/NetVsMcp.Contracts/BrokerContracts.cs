@@ -248,6 +248,7 @@ public sealed class EditorFindRequest
     public bool WholeWord { get; set; }
     public bool UseRegex { get; set; }
     public int MaxResults { get; set; } = 100;
+    public int ContextLines { get; set; }
 }
 
 public sealed class FindInFilesRequest
@@ -259,6 +260,7 @@ public sealed class FindInFilesRequest
     public bool WholeWord { get; set; }
     public bool UseRegex { get; set; }
     public int MaxResults { get; set; } = 100;
+    public int ContextLines { get; set; }
 }
 
 public sealed record TextSearchMatch(
@@ -266,7 +268,9 @@ public sealed record TextSearchMatch(
     int Line,
     int Column,
     string LineText,
-    string MatchText);
+    string MatchText,
+    IReadOnlyCollection<string>? ContextBefore = null,
+    IReadOnlyCollection<string>? ContextAfter = null);
 
 public sealed record TextSearchResult(
     string Query,
@@ -1261,7 +1265,9 @@ public sealed record WorkspaceSearchResult(
 public sealed record WorkspaceSearchMatch(
     string Path,
     int? Line,
-    string? Preview);
+    string? Preview,
+    IReadOnlyCollection<string>? ContextBefore = null,
+    IReadOnlyCollection<string>? ContextAfter = null);
 
 public sealed record DocumentOutlineResult(
     string DocumentPath,

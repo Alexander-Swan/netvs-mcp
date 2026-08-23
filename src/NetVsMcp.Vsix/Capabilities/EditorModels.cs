@@ -109,6 +109,7 @@ internal sealed class EditorFindRequest
     public bool WholeWord { get; set; }
     public bool UseRegex { get; set; }
     public int MaxResults { get; set; } = 100;
+    public int ContextLines { get; set; }
 }
 
 internal sealed class FindInFilesRequest
@@ -120,17 +121,27 @@ internal sealed class FindInFilesRequest
     public bool WholeWord { get; set; }
     public bool UseRegex { get; set; }
     public int MaxResults { get; set; } = 100;
+    public int ContextLines { get; set; }
 }
 
 internal sealed class TextSearchMatch
 {
-    public TextSearchMatch(string path, int line, int column, string lineText, string matchText)
+    public TextSearchMatch(
+        string path,
+        int line,
+        int column,
+        string lineText,
+        string matchText,
+        IReadOnlyCollection<string>? contextBefore = null,
+        IReadOnlyCollection<string>? contextAfter = null)
     {
         Path = path;
         Line = line;
         Column = column;
         LineText = lineText;
         MatchText = matchText;
+        ContextBefore = contextBefore ?? Array.Empty<string>();
+        ContextAfter = contextAfter ?? Array.Empty<string>();
     }
 
     public string Path { get; }
@@ -138,6 +149,8 @@ internal sealed class TextSearchMatch
     public int Column { get; }
     public string LineText { get; }
     public string MatchText { get; }
+    public IReadOnlyCollection<string> ContextBefore { get; }
+    public IReadOnlyCollection<string> ContextAfter { get; }
 }
 
 internal sealed class TextSearchResult

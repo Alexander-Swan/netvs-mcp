@@ -148,21 +148,58 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
             throw new InvalidOperationException("Visual Studio Roslyn workspace service is unavailable.");
         }
 
-        var query = request.Query.Trim();
-        var maxResults = request.MaxResults <= 0 ? 100 : Math.Min(request.MaxResults, 1000);
+        return await SearchWorkspaceSymbolsAsync(workspace.CurrentSolution, request.Query, request.MaxResults, cancellationToken);
+    }
+
+    internal static async Task<CodeWorkspaceSymbolsResult> SearchWorkspaceSymbolsAsync(
+        Microsoft.CodeAnalysis.Solution solution,
+        string rawQuery,
+        int requestedMaxResults,
+        CancellationToken cancellationToken)
+    {
+        var query = rawQuery.Trim();
+        var maxResults = requestedMaxResults <= 0 ? 100 : Math.Min(requestedMaxResults, 1000);
         var symbols = new List<DocumentSymbolInfo>();
-        foreach (var document in workspace.CurrentSolution.Projects.SelectMany(project => project.Documents))
+        foreach (var project in solution.Projects)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var documentSymbols = await ReadDeclaredSymbolsAsync(document, cancellationToken);
-            foreach (var symbol in documentSymbols)
+
+            IEnumerable<ISymbol> declarations;
+            try
             {
-                if (symbol.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) < 0)
+                declarations = await SymbolFinder.FindSourceDeclarationsWithPatternAsync(
+                    project,
+                    query,
+                    SymbolFilter.All,
+                    cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                continue;
+            }
+
+            foreach (var symbol in declarations)
+            {
+                if (!ShouldInclude(symbol))
                 {
                     continue;
                 }
 
-                symbols.Add(symbol);
+                foreach (var location in GetSourceLocations(symbol))
+                {
+                    var lineSpan = location.GetLineSpan();
+                    symbols.Add(DocumentSymbolInfoFactory.FromSymbol(
+                        symbol,
+                        lineSpan.Path,
+                        lineSpan.StartLinePosition.Line + 1,
+                        lineSpan.StartLinePosition.Character + 1));
+
+                    if (symbols.Count > maxResults)
+                    {
+                        break;
+                    }
+                }
+
                 if (symbols.Count > maxResults)
                 {
                     break;
