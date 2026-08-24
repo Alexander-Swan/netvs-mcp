@@ -22,6 +22,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Shared wire DTOs/enums with the broker (see docs/IMPROVEMENT_PLAN.md ARCH-9). NetVsMcp.Contracts
+         multi-targets netstandard2.0 specifically so this net472 project can consume it directly. -->
+    <ProjectReference Include="..\NetVsMcp.Contracts\NetVsMcp.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="System.ComponentModel.Composition" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />

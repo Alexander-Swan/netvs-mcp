@@ -1,9 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <!--
+      Multi-targeted so NetVsMcp.Vsix (net472) can reference this assembly directly instead of
+      hand-maintaining a parallel "Wire" DTO hierarchy (see RegistrationModels.cs history / ARCH-9).
+      net472 can consume a netstandard2.0 binary, so that TFM is the shared surface; net10.0 stays
+      the primary target for the broker (net10.0) and everything else that only needs the modern TFM.
+    -->
+    <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
 </Project>

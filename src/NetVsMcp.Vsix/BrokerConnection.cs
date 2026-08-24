@@ -2,6 +2,7 @@ using System;
 using System.IO.Pipes;
 using System.Threading;
 using System.Threading.Tasks;
+using NetVsMcp.Contracts;
 using StreamJsonRpc;
 
 namespace NetVsMcp.Vsix;
@@ -74,7 +75,7 @@ internal sealed class JsonRpcBrokerConnection : IBrokerConnection
         return InvokeAndValidateAsync(
             "RegisterAsync",
             cancellationToken,
-            VsSessionRegistrationWire.FromRequest(request));
+            VsContractMapping.ToRegistration(request));
     }
 
     public Task HeartbeatAsync(VsHeartbeatRequest request, CancellationToken cancellationToken)
@@ -95,7 +96,7 @@ internal sealed class JsonRpcBrokerConnection : IBrokerConnection
         await InvokeAndValidateAsync(
             "UpdateAsync",
             cancellationToken,
-            VsSessionUpdateWire.FromRequest(request));
+            VsContractMapping.ToUpdate(request));
         cancellationToken.ThrowIfCancellationRequested();
         await InvokeAndValidateAsync("HeartbeatAsync", cancellationToken, request.Session.SessionId);
     }
@@ -106,7 +107,7 @@ internal sealed class JsonRpcBrokerConnection : IBrokerConnection
         params object?[] arguments)
     {
         var response = await WithTimeoutAsync(
-            rpc.InvokeAsync<ToolResponseWire>(targetName, arguments),
+            rpc.InvokeAsync<ToolResponse>(targetName, arguments),
             targetName,
             cancellationToken);
 

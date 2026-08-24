@@ -2,9 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using NetVsMcp.Contracts;
 
 namespace NetVsMcp.Vsix;
 
+/// <summary>
+/// VS-side snapshot of a session, captured with plain/string-typed fields (e.g.
+/// <see cref="DebuggerMode"/> as the raw DTE mode string) before being mapped onto the shared
+/// <see cref="NetVsMcp.Contracts"/> wire types via <see cref="VsContractMapping"/>.
+/// </summary>
 internal sealed class VsSessionSnapshot
 {
     public VsSessionSnapshot(
@@ -38,6 +44,8 @@ internal sealed class VsSessionSnapshot
     public string? SolutionName { get; }
     public string? SolutionPath { get; }
     public string? ActiveDocument { get; }
+
+    /// <summary>Raw DTE debugger-mode string (e.g. "dbgBreakMode"), not yet mapped to <see cref="DebuggerMode"/>.</summary>
     public string DebuggerMode { get; }
     public bool IsActiveWindow { get; }
     public DateTimeOffset LastSeenUtc { get; }
@@ -77,74 +85,20 @@ internal sealed class VsHeartbeatRequest
         => new(snapshot, capabilityCatalog.CapabilityNames);
 }
 
-internal enum VsCapabilityWire
+/// <summary>
+/// Maps VS-side string/DTE-flavored session data onto the shared <see cref="NetVsMcp.Contracts"/>
+/// wire types (<see cref="VsSessionRegistration"/>, <see cref="VsSessionUpdate"/>,
+/// <see cref="VsSessionInfo"/>) that both this project and the broker consume directly — see
+/// docs/IMPROVEMENT_PLAN.md ARCH-9. There used to be a second, hand-maintained "Wire" copy of every
+/// DTO in this file; it's gone now that NetVsMcp.Vsix can reference NetVsMcp.Contracts (multi-targeted
+/// to netstandard2.0) directly, so only this mapping layer (raw strings -> enums) remains VSIX-specific.
+/// </summary>
+internal static class VsContractMapping
 {
-    Editor,
-    Navigation,
-    Build,
-    Debugger,
-    Diagnostics,
-    Tests,
-    ProjectSystem
-}
-
-internal enum DebuggerModeWire
-{
-    Unknown,
-    Design,
-    Run,
-    Break
-}
-
-internal static class VsRpcProtocolWire
-{
-    public const string CurrentVersion = "1.1";
-}
-
-internal sealed class VsSessionRegistrationWire
-{
-    public VsSessionRegistrationWire(
-        string sessionId,
-        int processId,
-        string? visualStudioVersion,
-        string? edition,
-        string? solutionName,
-        string? solutionPath,
-        string? activeDocument,
-        DebuggerModeWire debuggerMode,
-        bool isActiveWindow,
-        IReadOnlyCollection<VsCapabilityWire> capabilities,
-        string protocolVersion)
-    {
-        SessionId = sessionId;
-        ProcessId = processId;
-        VisualStudioVersion = visualStudioVersion;
-        Edition = edition;
-        SolutionName = solutionName;
-        SolutionPath = solutionPath;
-        ActiveDocument = activeDocument;
-        DebuggerMode = debuggerMode;
-        IsActiveWindow = isActiveWindow;
-        Capabilities = capabilities;
-        ProtocolVersion = protocolVersion;
-    }
-
-    public string SessionId { get; }
-    public int ProcessId { get; }
-    public string? VisualStudioVersion { get; }
-    public string? Edition { get; }
-    public string? SolutionName { get; }
-    public string? SolutionPath { get; }
-    public string? ActiveDocument { get; }
-    public DebuggerModeWire DebuggerMode { get; }
-    public bool IsActiveWindow { get; }
-    public IReadOnlyCollection<VsCapabilityWire> Capabilities { get; }
-    public string ProtocolVersion { get; }
-
-    public static VsSessionRegistrationWire FromRequest(VsRegistrationRequest request)
+    public static VsSessionRegistration ToRegistration(VsRegistrationRequest request)
     {
         var session = request.Session;
-        return new VsSessionRegistrationWire(
+        return new VsSessionRegistration(
             session.SessionId,
             session.ProcessId,
             session.VisualStudioVersion,
@@ -152,100 +106,27 @@ internal sealed class VsSessionRegistrationWire
             session.SolutionName,
             session.SolutionPath,
             session.ActiveDocument,
-            VsContractWire.ToDebuggerMode(session.DebuggerMode),
+            ToDebuggerMode(session.DebuggerMode),
             session.IsActiveWindow,
-            VsContractWire.ToCapabilities(request.Capabilities),
-            VsRpcProtocolWire.CurrentVersion);
-    }
-}
-
-internal sealed class VsSessionUpdateWire
-{
-    public VsSessionUpdateWire(
-        string sessionId,
-        string? solutionName,
-        string? solutionPath,
-        string? activeDocument,
-        DebuggerModeWire debuggerMode,
-        bool isActiveWindow,
-        IReadOnlyCollection<VsCapabilityWire>? capabilities,
-        string protocolVersion)
-    {
-        SessionId = sessionId;
-        SolutionName = solutionName;
-        SolutionPath = solutionPath;
-        ActiveDocument = activeDocument;
-        DebuggerMode = debuggerMode;
-        IsActiveWindow = isActiveWindow;
-        Capabilities = capabilities;
-        ProtocolVersion = protocolVersion;
+            ToCapabilities(request.Capabilities),
+            VsRpcProtocol.CurrentVersion);
     }
 
-    public string SessionId { get; }
-    public string? SolutionName { get; }
-    public string? SolutionPath { get; }
-    public string? ActiveDocument { get; }
-    public DebuggerModeWire DebuggerMode { get; }
-    public bool IsActiveWindow { get; }
-    public IReadOnlyCollection<VsCapabilityWire>? Capabilities { get; }
-    public string ProtocolVersion { get; }
-
-    public static VsSessionUpdateWire FromRequest(VsHeartbeatRequest request)
+    public static VsSessionUpdate ToUpdate(VsHeartbeatRequest request)
     {
         var session = request.Session;
-        return new VsSessionUpdateWire(
+        return new VsSessionUpdate(
             session.SessionId,
             session.SolutionName,
             session.SolutionPath,
             session.ActiveDocument,
-            VsContractWire.ToDebuggerMode(session.DebuggerMode),
+            ToDebuggerMode(session.DebuggerMode),
             session.IsActiveWindow,
-            VsContractWire.ToCapabilities(request.Capabilities),
-            VsRpcProtocolWire.CurrentVersion);
-    }
-}
-
-internal sealed class VsSessionInfoWire
-{
-    public VsSessionInfoWire(
-        string sessionId,
-        int processId,
-        string? visualStudioVersion,
-        string? edition,
-        string? solutionName,
-        string? solutionPath,
-        string? activeDocument,
-        DebuggerModeWire debuggerMode,
-        bool isActiveWindow,
-        DateTimeOffset lastSeenUtc,
-        IReadOnlyCollection<VsCapabilityWire> capabilities)
-    {
-        SessionId = sessionId;
-        ProcessId = processId;
-        VisualStudioVersion = visualStudioVersion;
-        Edition = edition;
-        SolutionName = solutionName;
-        SolutionPath = solutionPath;
-        ActiveDocument = activeDocument;
-        DebuggerMode = debuggerMode;
-        IsActiveWindow = isActiveWindow;
-        LastSeenUtc = lastSeenUtc;
-        Capabilities = capabilities;
+            ToCapabilities(request.Capabilities),
+            VsRpcProtocol.CurrentVersion);
     }
 
-    public string SessionId { get; }
-    public int ProcessId { get; }
-    public string? VisualStudioVersion { get; }
-    public string? Edition { get; }
-    public string? SolutionName { get; }
-    public string? SolutionPath { get; }
-    public string? ActiveDocument { get; }
-    public DebuggerModeWire DebuggerMode { get; }
-    public bool IsActiveWindow { get; }
-    public DateTimeOffset LastSeenUtc { get; }
-    public IReadOnlyCollection<VsCapabilityWire> Capabilities { get; }
-
-    public static VsSessionInfoWire FromSnapshot(VsSessionSnapshot snapshot, IVisualStudioCapabilityCatalog capabilities)
+    public static VsSessionInfo ToSessionInfo(VsSessionSnapshot snapshot, IVisualStudioCapabilityCatalog capabilities)
         => new(
             snapshot.SessionId,
             snapshot.ProcessId,
@@ -254,62 +135,23 @@ internal sealed class VsSessionInfoWire
             snapshot.SolutionName,
             snapshot.SolutionPath,
             snapshot.ActiveDocument,
-            VsContractWire.ToDebuggerMode(snapshot.DebuggerMode),
+            ToDebuggerMode(snapshot.DebuggerMode),
             snapshot.IsActiveWindow,
             snapshot.LastSeenUtc,
-            VsContractWire.ToCapabilities(capabilities.CapabilityNames));
-}
+            ToCapabilities(capabilities.CapabilityNames));
 
-internal sealed class ToolResponseWire
-{
-    public ToolResponseWire(bool success, string? message = null, IReadOnlyDictionary<string, string>? metadata = null)
-    {
-        Success = success;
-        Message = message;
-        Metadata = metadata;
-    }
-
-    public bool Success { get; }
-    public string? Message { get; }
-    public IReadOnlyDictionary<string, string>? Metadata { get; }
-
-    public static ToolResponseWire Ok(string? message = null) => new(true, message);
-    public static ToolResponseWire Fail(string message) => new(false, message);
-}
-
-internal sealed class ToolResponseWire<T>
-{
-    public ToolResponseWire(bool success, T? value, string? message = null, IReadOnlyDictionary<string, string>? metadata = null)
-    {
-        Success = success;
-        Value = value;
-        Message = message;
-        Metadata = metadata;
-    }
-
-    public bool Success { get; }
-    public T? Value { get; }
-    public string? Message { get; }
-    public IReadOnlyDictionary<string, string>? Metadata { get; }
-
-    public static ToolResponseWire<T> Ok(T value, string? message = null) => new(true, value, message);
-    public static ToolResponseWire<T> Fail(string message) => new(false, default, message);
-}
-
-internal static class VsContractWire
-{
-    public static DebuggerModeWire ToDebuggerMode(string? debuggerMode)
+    public static DebuggerMode ToDebuggerMode(string? debuggerMode)
     {
         return debuggerMode switch
         {
-            "Break" or "dbgBreakMode" => DebuggerModeWire.Break,
-            "Run" or "dbgRunMode" => DebuggerModeWire.Run,
-            "Design" or "dbgDesignMode" => DebuggerModeWire.Design,
-            _ => DebuggerModeWire.Unknown
+            "Break" or "dbgBreakMode" => DebuggerMode.Break,
+            "Run" or "dbgRunMode" => DebuggerMode.Run,
+            "Design" or "dbgDesignMode" => DebuggerMode.Design,
+            _ => DebuggerMode.Unknown
         };
     }
 
-    public static IReadOnlyCollection<VsCapabilityWire> ToCapabilities(IReadOnlyCollection<string> capabilities)
+    public static IReadOnlyCollection<VsCapability> ToCapabilities(IReadOnlyCollection<string> capabilities)
     {
         return capabilities
             .Select(ToCapability)
@@ -319,17 +161,17 @@ internal static class VsContractWire
             .ToArray();
     }
 
-    private static VsCapabilityWire? ToCapability(string capability)
+    private static VsCapability? ToCapability(string capability)
     {
         return capability switch
         {
-            "editor" or "Editor" => VsCapabilityWire.Editor,
-            "navigation" or "Navigation" => VsCapabilityWire.Navigation,
-            "build" or "Build" => VsCapabilityWire.Build,
-            "debugger" or "Debugger" => VsCapabilityWire.Debugger,
-            "diagnostics" or "Diagnostics" => VsCapabilityWire.Diagnostics,
-            "tests" or "Tests" => VsCapabilityWire.Tests,
-            "projectSystem" or "ProjectSystem" => VsCapabilityWire.ProjectSystem,
+            "editor" or "Editor" => VsCapability.Editor,
+            "navigation" or "Navigation" => VsCapability.Navigation,
+            "build" or "Build" => VsCapability.Build,
+            "debugger" or "Debugger" => VsCapability.Debugger,
+            "diagnostics" or "Diagnostics" => VsCapability.Diagnostics,
+            "tests" or "Tests" => VsCapability.Tests,
+            "projectSystem" or "ProjectSystem" => VsCapability.ProjectSystem,
             _ => null
         };
     }
