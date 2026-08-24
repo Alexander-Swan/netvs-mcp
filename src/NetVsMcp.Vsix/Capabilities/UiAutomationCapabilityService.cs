@@ -22,7 +22,7 @@ namespace NetVsMcp.Vsix;
 /// <summary>
 /// Desktop UI Automation (UIA) backend: window discovery/capture, element tree traversal and
 /// find, and simulated mouse/keyboard input. Extracted from the former monolithic
-/// AutomationCapabilityService (see ARCH-7 in docs/IMPROVEMENT_PLAN.md).
+/// AutomationCapabilityService.
 /// </summary>
 internal sealed class UiAutomationCapabilityService
 {

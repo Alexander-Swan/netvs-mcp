@@ -123,7 +123,7 @@ public sealed record CodeActionsApplyResult(
     bool Success,
     string Message,
     string? AppliedTitle,
-    /// <summary>Text edits applied across all affected files, not just the requested document — this bypasses the preview/approve queue (see FEAT-2).</summary>
+    /// <summary>Text edits applied across all affected files, not just the requested document; this bypasses the preview/approve queue.</summary>
     IReadOnlyCollection<RenameSymbolChangeInfo> Changes);
 
 public sealed class RenameSymbolRequest

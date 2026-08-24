@@ -17,7 +17,7 @@
       NetVsMcp.Vsix.csproj references the VS SDK with ExcludeAssets="runtime" (VS supplies these at
       runtime when hosted in devenv.exe), so DocumentPathResolver's ThreadHelper.ThrowIfNotOnUIThread()
       call can't resolve Microsoft.VisualStudio.Interop outside VS. Pull the interop assembly in for
-      this test project only, so tests can run out-of-process (see TEST-1 in docs/IMPROVEMENT_PLAN.md).
+      this test project only, so tests can run out-of-process.
     -->
     <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.14.40265" />
     <PackageReference Include="Microsoft.VisualStudio.Sdk.TestFramework.Xunit" Version="17.11.66" />

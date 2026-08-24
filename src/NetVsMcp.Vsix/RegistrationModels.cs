@@ -88,10 +88,10 @@ internal sealed class VsHeartbeatRequest
 /// <summary>
 /// Maps VS-side string/DTE-flavored session data onto the shared <see cref="NetVsMcp.Contracts"/>
 /// wire types (<see cref="VsSessionRegistration"/>, <see cref="VsSessionUpdate"/>,
-/// <see cref="VsSessionInfo"/>) that both this project and the broker consume directly — see
-/// docs/IMPROVEMENT_PLAN.md ARCH-9. There used to be a second, hand-maintained "Wire" copy of every
-/// DTO in this file; it's gone now that NetVsMcp.Vsix can reference NetVsMcp.Contracts (multi-targeted
-/// to netstandard2.0) directly, so only this mapping layer (raw strings -> enums) remains VSIX-specific.
+/// <see cref="VsSessionInfo"/>) that both this project and the broker consume directly. There used to
+/// be a second, hand-maintained "Wire" copy of every DTO in this file; it's gone now that NetVsMcp.Vsix
+/// can reference NetVsMcp.Contracts (multi-targeted to netstandard2.0) directly, so only this mapping
+/// layer (raw strings -> enums) remains VSIX-specific.
 /// </summary>
 internal static class VsContractMapping
 {

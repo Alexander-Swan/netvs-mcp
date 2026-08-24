@@ -6,12 +6,12 @@ namespace NetVsMcp.Broker.Services;
 
 public sealed class BrokerRuntime
 {
-    // ARCH-5: stale-session sweeping previously only happened as a side effect of the WPF
+    // Stale-session sweeping previously only happened as a side effect of the WPF
     // MainWindowViewModel.Refresh() - a UI-layer method - so it would silently stop happening
     // if the status window were never opened. Own it here instead, as a runtime-level timer.
     private static readonly TimeSpan StaleSessionSweepInterval = TimeSpan.FromSeconds(15);
 
-    // ARCH-6: audit-yyyyMMdd.jsonl files were never pruned - unbounded growth on a long-lived
+    // Audit-yyyyMMdd.jsonl files were never pruned - unbounded growth on a long-lived
     // autostart tray app. Prune once at startup and then daily, similar in spirit to
     // SessionManifestService.CleanupStale.
     private static readonly TimeSpan AuditLogPruneInterval = TimeSpan.FromHours(24);

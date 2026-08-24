@@ -45,7 +45,7 @@ internal interface IAutomationCapabilityService
 /// This class previously contained all three concerns directly (~1600 lines); it now composes
 /// <see cref="UiAutomationCapabilityService"/>, <see cref="ConsoleAutomationCapabilityService"/>,
 /// and <see cref="WebDebugCapabilityService"/> so each backend can be read, tested, and changed
-/// independently (see ARCH-7 in docs/IMPROVEMENT_PLAN.md). The public
+/// independently. The public
 /// <see cref="IAutomationCapabilityService"/> surface, and this class's constructor signature,
 /// are unchanged so callers (DI wiring in <c>NetVsMcpPackage</c>, the RPC target) need no changes.
 /// </summary>

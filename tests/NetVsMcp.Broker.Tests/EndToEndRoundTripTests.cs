@@ -13,7 +13,7 @@ namespace NetVsMcp.Broker.Tests;
 /// <summary>
 /// Smoke test proving a full MCP tool call actually works end-to-end through the real transports:
 /// HTTP -> broker dispatch -> named pipe -> (fake) VS-side RPC target -> response back through HTTP
-/// as MCP. See TEST-2 in docs/IMPROVEMENT_PLAN.md -- the closest existing coverage,
+/// as MCP. The closest existing coverage,
 /// <see cref="VsixRegistrationPipeListenerTests"/>, exercises the real pipe/JSON-RPC transport but
 /// never drives a call through the real HTTP MCP endpoint, and <see cref="LocalMcpHttpHostTests"/>
 /// exercises the real HTTP transport but never has a live VSIX connection behind it. This test

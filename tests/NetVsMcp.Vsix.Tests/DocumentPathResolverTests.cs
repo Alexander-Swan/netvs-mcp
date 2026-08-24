@@ -9,9 +9,8 @@ namespace NetVsMcp.Vsix.Tests;
 /// <summary>
 /// Covers <see cref="DocumentPathResolver"/> -- pure path-resolution logic with no VS/COM dependency
 /// beyond the <see cref="ThreadHelper.ThrowIfNotOnUIThread"/> guard at the top of <c>Resolve</c>, which
-/// is why every test switches to the mocked main thread first (see docs/IMPROVEMENT_PLAN.md TEST-1:
-/// this file was implicated in a previously-shipped breakpoint set/remove path-mismatch bug and had
-/// zero tests before this).
+/// is why every test switches to the mocked main thread first. This file was implicated in a
+/// previously-shipped breakpoint set/remove path-mismatch bug and had zero tests before this.
 /// </summary>
 [Collection(MockedVS.Collection)]
 public class DocumentPathResolverTests

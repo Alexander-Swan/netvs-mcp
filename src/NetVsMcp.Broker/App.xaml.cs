@@ -9,8 +9,8 @@ namespace NetVsMcp.Broker;
 
 public partial class App : System.Windows.Application
 {
-    // ARCH-3: a second broker instance (autostart + a manual double-click is a plausible real
-    // scenario) would otherwise make Kestrel's Listen throw inside async void OnStartup -
+    // A second broker instance (autostart + a manual double-click is a plausible real scenario)
+    // would otherwise make Kestrel's Listen throw inside async void OnStartup -
     // unhandled, crashing the app ungracefully instead of exiting with a clear message.
     private const string SingleInstanceMutexName = "Global\\NetVsMcp.Broker.SingleInstance";
 

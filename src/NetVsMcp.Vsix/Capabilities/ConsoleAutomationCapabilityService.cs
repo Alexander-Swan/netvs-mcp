@@ -17,7 +17,7 @@ namespace NetVsMcp.Vsix;
 /// <summary>
 /// Win32-console P/Invoke automation (attach/read/write to a debuggee's console buffer) plus
 /// Visual Studio output-window reading. Extracted from the former monolithic
-/// AutomationCapabilityService (see ARCH-7 in docs/IMPROVEMENT_PLAN.md). Falls back to
+/// AutomationCapabilityService. Falls back to
 /// SendKeys-based window automation via <see cref="UiAutomationCapabilityService"/> when a
 /// process has no attachable console.
 /// </summary>

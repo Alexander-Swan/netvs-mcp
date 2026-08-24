@@ -5,8 +5,8 @@ using NetVsMcp.Broker.Services;
 namespace NetVsMcp.Broker.Tests;
 
 /// <summary>
-/// ARCH-2: <c>BrokerToolService.ToolDescriptors</c> is a hand-maintained array that duplicates
-/// each tool's name separately from the <c>[McpServerTool]</c> attribute on the actual method.
+/// <c>BrokerToolService.ToolDescriptors</c> is a hand-maintained array that duplicates each tool's
+/// name separately from the <c>[McpServerTool]</c> attribute on the actual method.
 /// Nothing in the compiler enforces the two stay in sync, so a renamed or newly added tool
 /// method that isn't mirrored in <c>ToolDescriptors</c> would silently produce a wrong or
 /// missing entry in <c>get_help</c>/<c>vs_get_capabilities</c> while still being callable.

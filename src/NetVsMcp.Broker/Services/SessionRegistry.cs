@@ -227,7 +227,7 @@ public sealed class SessionRegistry
                 sessions);
         }
 
-        // ARCH-4: no routing fields were given, so we're about to auto-select. Restrict the
+        // No routing fields were given, so we're about to auto-select. Restrict the
         // candidate pool to sessions that are actually connected (heartbeats still arriving)
         // before applying the "only active window" / "only registered session" heuristics -
         // otherwise a frozen VS instance (pipe open, heartbeats stopped, process not dead)

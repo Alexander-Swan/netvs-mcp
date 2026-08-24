@@ -8,7 +8,7 @@ namespace NetVsMcp.Broker.Services;
 
 /// <param name="Sha256ChecksumUrl">
 /// URL of a "&lt;asset-name&gt;.sha256" sidecar file published alongside the MSI, or <c>null</c>
-/// if the release has no such asset (older releases predate SEC-3's checksum publishing step
+/// if the release has no such asset (older releases predate checksum publishing
 /// in <c>.github/workflows/release.yml</c>). When null, <see cref="UpdateCheckService.DownloadAndInstallAsync"/>
 /// refuses to install rather than silently skipping verification.
 /// </param>
@@ -115,7 +115,7 @@ public class UpdateCheckService
     }
 
     /// <exception cref="InvalidOperationException">
-    /// Thrown if no SHA-256 checksum asset was published for this release (see SEC-3), or if the
+    /// Thrown if no SHA-256 checksum asset was published for this release, or if the
     /// downloaded MSI's checksum doesn't match the published one. In either case the temp MSI is
     /// deleted and <c>msiexec</c> is never invoked.
     /// </exception>

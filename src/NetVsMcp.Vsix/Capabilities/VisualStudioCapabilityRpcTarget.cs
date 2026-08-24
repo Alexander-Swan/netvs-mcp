@@ -513,7 +513,7 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<NugetMutationResult> NugetUninstallAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken) =>
         InvokeAsync(() => solution.NugetUninstallAsync(request, cancellationToken), nameof(NugetUninstallAsync));
 
-    // Uniform exception-handling boundary (ARCH-8): the ~140 delegate methods below forward
+    // Uniform exception-handling boundary: the delegate methods below forward
     // straight into a capability service with no local try/catch. Without this, an unexpected
     // exception (COMException, NullReferenceException from a stale DTE reference, etc.) would
     // propagate out of the target object that StreamJsonRpc invokes and cross the wire as a

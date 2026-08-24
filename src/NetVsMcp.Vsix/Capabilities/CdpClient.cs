@@ -14,8 +14,8 @@ namespace NetVsMcp.Vsix;
 /// <summary>
 /// Minimal Chrome DevTools Protocol (CDP) client: WebSocket framing plus JSON-RPC-style
 /// command/response matching against a single browser page target. Extracted from the former
-/// monolithic AutomationCapabilityService (see ARCH-7 in docs/IMPROVEMENT_PLAN.md) so it can be
-/// unit-tested and reasoned about independently of the web-debug capability service that owns it.
+/// monolithic AutomationCapabilityService so it can be unit-tested and reasoned about independently
+/// of the web-debug capability service that owns it.
 /// </summary>
 internal sealed class CdpClient : IDisposable
 {

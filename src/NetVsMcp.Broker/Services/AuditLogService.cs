@@ -12,7 +12,7 @@ public interface IAuditLogService
     void RecordToolCall(AuditToolCall entry);
 
     /// <summary>
-    /// ARCH-6: deletes "audit-yyyyMMdd.jsonl" files older than <paramref name="retentionDays"/>,
+    /// Deletes "audit-yyyyMMdd.jsonl" files older than <paramref name="retentionDays"/>,
     /// mirroring <see cref="SessionManifestService.CleanupStale"/>'s cleanup-pass shape. Audit log
     /// files are never otherwise pruned, which is unbounded growth on a long-lived autostart app.
     /// </summary>

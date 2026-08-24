@@ -8,7 +8,7 @@ namespace NetVsMcp.Vsix.Tests;
 /// <summary>
 /// Covers pure helper logic used by the web-debug/console automation capability services
 /// (endpoint parsing, CDP target selection, console buffer formatting) that has no VS/COM/network
-/// dependency -- see TEST-1 in docs/IMPROVEMENT_PLAN.md. ARCH-7 split the former monolithic
+/// dependency. The former monolithic
 /// AutomationCapabilityService, moving <c>CdpClient</c>/<c>CdpTarget</c> to top-level internal
 /// types (CdpClient.cs) and <c>ResolveCdpEndpoint</c> to an internal static method on
 /// WebDebugCapabilityService, both visible here via InternalsVisibleTo; FormatConsoleBuffer

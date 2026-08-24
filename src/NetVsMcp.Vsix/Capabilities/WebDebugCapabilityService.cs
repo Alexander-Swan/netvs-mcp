@@ -19,7 +19,7 @@ namespace NetVsMcp.Vsix;
 /// Browser web-debugging automation, backed by <see cref="CdpClient"/> (Chrome DevTools
 /// Protocol) when a debug endpoint is reachable, falling back to shell-launch + desktop UIA
 /// (via <see cref="UiAutomationCapabilityService"/>) otherwise. Extracted from the former
-/// monolithic AutomationCapabilityService (see ARCH-7 in docs/IMPROVEMENT_PLAN.md).
+/// monolithic AutomationCapabilityService.
 /// </summary>
 internal sealed class WebDebugCapabilityService
 {

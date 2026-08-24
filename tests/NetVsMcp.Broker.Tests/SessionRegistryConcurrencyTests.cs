@@ -5,7 +5,7 @@ namespace NetVsMcp.Broker.Tests;
 
 /// <summary>
 /// Stress test proving <see cref="SessionRegistry"/>'s <c>lock (_gate)</c> holds under real
-/// concurrent access -- see TEST-3 in docs/IMPROVEMENT_PLAN.md. The locking looked correct by
+/// concurrent access. The locking looked correct by
 /// inspection but nothing previously exercised register/update/resolve simultaneously from
 /// multiple threads, which is the actual traffic pattern in production (heartbeats + tool
 /// dispatch racing against each other).

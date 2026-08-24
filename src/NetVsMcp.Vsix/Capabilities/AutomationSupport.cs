@@ -6,8 +6,7 @@ namespace NetVsMcp.Vsix;
 /// <summary>
 /// Shared helpers for building <see cref="AutomationResult"/> instances and truncating large
 /// text payloads. Used by the desktop UIA, console, and web-debug automation services that were
-/// previously combined in a single <c>AutomationCapabilityService.cs</c> file (see ARCH-7 in
-/// docs/IMPROVEMENT_PLAN.md).
+/// previously combined in a single <c>AutomationCapabilityService.cs</c> file.
 /// </summary>
 internal static class AutomationSupport
 {

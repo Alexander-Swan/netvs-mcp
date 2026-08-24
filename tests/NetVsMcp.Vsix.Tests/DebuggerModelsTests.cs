@@ -8,12 +8,12 @@ namespace NetVsMcp.Vsix.Tests;
 /// <summary>
 /// Covers breakpoint/hit-count metadata mapping in DebuggerModels.cs (<c>BreakpointMetadata</c>) and
 /// DebuggerCapabilityService.cs (<c>ResolveHitCountType</c>) -- untested pure logic adjacent to a
-/// historical breakpoint set/remove bug, see TEST-1 in docs/IMPROVEMENT_PLAN.md.
+/// historical breakpoint set/remove bug.
 ///
 /// <c>BreakpointMetadata</c> lives in DebuggerModels.cs, which is fair game to edit, but its members
 /// are already public on an internal class so no changes were needed. <c>ResolveHitCountType</c> lives
-/// in DebuggerCapabilityService.cs, which is being worked on by another agent in parallel -- it's
-/// private, so it's reached via reflection instead of widening its visibility.
+/// in DebuggerCapabilityService.cs and is private, so it's reached via reflection instead of widening
+/// its visibility.
 /// </summary>
 public class DebuggerModelsTests
 {

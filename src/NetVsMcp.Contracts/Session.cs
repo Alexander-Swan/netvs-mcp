@@ -228,8 +228,8 @@ public sealed record BrokerStatus(
     IReadOnlyCollection<VsSessionStatus> Sessions);
 
 /// <summary>
-/// Hand-maintained metadata entry mirroring one <c>[McpServerTool]</c>-attributed method (see ARCH-2:
-/// nothing currently enforces the two stay in sync).
+/// Hand-maintained metadata entry mirroring one <c>[McpServerTool]</c>-attributed method; nothing
+/// currently enforces the two stay in sync.
 /// </summary>
 public sealed record BrokerToolDescriptor(
     string Name,

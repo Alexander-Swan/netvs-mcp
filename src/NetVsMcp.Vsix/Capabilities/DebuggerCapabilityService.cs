@@ -1015,7 +1015,7 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
     // Success/Message field to report a failure through (unlike DebugAttachResult,
     // ImmediateExecuteResult, etc.), so - unlike ApplyHotReloadAsync/ExecuteImmediateAsync, which
     // swallow the COM exception into a result object - these instead catch it, add operation
-    // context, and rethrow. The RPC dispatch boundary (ARCH-8) turns that into a clean, logged,
+    // context, and rethrow. The RPC dispatch boundary turns that into a clean, logged,
     // structured error instead of a raw COM fault crossing the wire.
     private static InvalidOperationException WrapComFailure(string operation, Exception ex) =>
         new($"Visual Studio debugger COM call failed while {operation}: {ex.Message}", ex);

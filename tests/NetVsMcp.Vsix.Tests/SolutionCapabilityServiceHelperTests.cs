@@ -9,9 +9,7 @@ namespace NetVsMcp.Vsix.Tests;
 
 /// <summary>
 /// Covers <c>SolutionCapabilityService</c>'s pure TRX/`dotnet test` output parsing
-/// (<c>ParseTrxResults</c>, <c>ParseListedTests</c>) -- see TEST-1 in docs/IMPROVEMENT_PLAN.md.
-/// SolutionCapabilityService.cs is being worked on by another agent in parallel, so this
-/// deliberately avoids editing it: both methods are private, so tests reach them via reflection
+/// (<c>ParseTrxResults</c>, <c>ParseListedTests</c>). Both methods are private, so tests reach them via reflection
 /// instead of widening their visibility.
 /// </summary>
 public class SolutionCapabilityServiceHelperTests
