@@ -37,6 +37,7 @@ internal interface ISolutionCapabilityService
     Task<StartupProjectResult> SetStartupProjectAsync(StartupProjectSetRequest request, CancellationToken cancellationToken);
     Task<TestOperationResult> DiscoverTestsAsync(TestDiscoverRequest request, CancellationToken cancellationToken);
     Task<TestOperationResult> RunTestsAsync(TestRunRequest request, CancellationToken cancellationToken);
+    Task<TestDebugResult> DebugTestAsync(TestDebugRequest request, CancellationToken cancellationToken);
     Task<TestOperationResult> GetTestResultsAsync(TestResultsRequest request, CancellationToken cancellationToken);
     Task<PackageRestoreResult> RestorePackagesAsync(PackageRestoreRequest request, CancellationToken cancellationToken);
 }
@@ -476,27 +477,155 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
                 .Append(QuoteArgument(filter));
         }
 
-        var process = await RunProcessAsync(
-            DotnetExecutable,
-            arguments.ToString(),
-            target.WorkingDirectory,
-            cancellationToken);
-        var resultPath = Path.Combine(resultsDirectory, $"{runId}.trx");
-        var results = File.Exists(resultPath)
-            ? ParseTrxResults(resultPath)
-            : Array.Empty<TestResultInfo>();
+        try
+        {
+            var process = await RunProcessAsync(
+                DotnetExecutable,
+                arguments.ToString(),
+                target.WorkingDirectory,
+                cancellationToken);
+            var resultPath = Path.Combine(resultsDirectory, $"{runId}.trx");
+            var results = File.Exists(resultPath)
+                ? ParseTrxResults(resultPath)
+                : Array.Empty<TestResultInfo>();
 
-        var result = new TestOperationResult(
-            supported: process.ExitCode == 0,
-            message: process.ExitCode == 0
-                ? $"Ran {results.Count} test result(s) from {target.DisplayName}. RunId: {runId}."
-                : CreateProcessFailureMessage($"Test run failed for {target.DisplayName}. RunId: {runId}", process),
-            tests: [],
-            results: results);
+            var result = new TestOperationResult(
+                supported: process.ExitCode == 0,
+                message: process.ExitCode == 0
+                    ? $"Ran {results.Count} test result(s) from {target.DisplayName}. RunId: {runId}."
+                    : CreateProcessFailureMessage($"Test run failed for {target.DisplayName}. RunId: {runId}", process),
+                tests: [],
+                results: results);
 
-        lastTestRunId = runId;
-        lastTestResult = result;
-        return result;
+            lastTestRunId = runId;
+            lastTestResult = result;
+            return result;
+        }
+        finally
+        {
+            // GetTestResultsAsync serves results from the in-memory lastTestResult cache above,
+            // never re-reads from disk, so it's safe to clean this run's directory up right
+            // away rather than letting %TEMP%\NetVsMcp\TestResults accumulate one directory per
+            // test_run call for the lifetime of the VS process. Best-effort: a locked/in-use
+            // file shouldn't fail the whole test run.
+            TryDeleteDirectory(resultsDirectory);
+        }
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Trace.TraceInformation("NetVsMcp: failed to clean up test-run temp directory '{0}': {1}", path, ex.Message);
+        }
+    }
+
+    public async Task<TestDebugResult> DebugTestAsync(TestDebugRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var filter = EmptyToNull(request.Filter);
+        if (filter is null)
+        {
+            return new TestDebugResult(
+                false,
+                "A test filter is required so test_debug does not start every test under the debugger.",
+                EmptyToNull(request.ProjectName),
+                null,
+                null,
+                null,
+                attachTimeoutSeconds: Math.Max(1, Math.Min(request.AttachTimeoutSeconds, 120)));
+        }
+
+        var dte = await GetDteAsync();
+        var target = ResolveTestTarget(dte, request.ProjectName);
+        var timeoutSeconds = Math.Max(1, Math.Min(request.AttachTimeoutSeconds, 120));
+        var timeout = TimeSpan.FromSeconds(timeoutSeconds);
+        var arguments = CreateTestDebugArguments(target.Path, filter, request);
+        var commandLine = $"{DotnetExecutable} {arguments}";
+
+        var process = StartDebugTestProcess(DotnetExecutable, arguments.ToString(), target.WorkingDirectory);
+        System.Diagnostics.Process? testHost = null;
+        try
+        {
+            testHost = await FindDebugTestHostAsync(process.Id, process.StartTime.ToUniversalTime(), timeout, cancellationToken);
+            if (testHost is null)
+            {
+                TryKill(process);
+                return new TestDebugResult(
+                    false,
+                    $"Timed out after {timeout.TotalSeconds:0} second(s) waiting for a testhost process to attach.",
+                    target.ProjectName,
+                    filter,
+                    null,
+                    null,
+                    process.Id,
+                    SafeProcessName(process),
+                    commandLine,
+                    target.WorkingDirectory,
+                    target.Path,
+                    timeoutSeconds);
+            }
+
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+            var localProcess = FindLocalDebuggerProcess(dte, testHost.Id);
+            if (localProcess is null)
+            {
+                TryKill(process);
+                return new TestDebugResult(
+                    false,
+                    $"Visual Studio did not expose testhost process '{testHost.Id}' for debugger attach.",
+                    target.ProjectName,
+                    filter,
+                    testHost.Id,
+                    SafeProcessName(testHost),
+                    process.Id,
+                    SafeProcessName(process),
+                    commandLine,
+                    target.WorkingDirectory,
+                    target.Path,
+                    timeoutSeconds);
+            }
+
+            AttachDebugger(localProcess);
+            return new TestDebugResult(
+                true,
+                $"Started '{target.DisplayName}' with VSTEST_HOST_DEBUG=1 and attached to testhost process '{testHost.Id}'.",
+                target.ProjectName,
+                filter,
+                testHost.Id,
+                SafeProcessName(testHost),
+                process.Id,
+                SafeProcessName(process),
+                commandLine,
+                target.WorkingDirectory,
+                target.Path,
+                timeoutSeconds);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
+        {
+            TryKill(process);
+            return new TestDebugResult(
+                false,
+                $"Unable to attach Visual Studio to the testhost process: {ex.Message}",
+                target.ProjectName,
+                filter,
+                testHost?.Id,
+                testHost is null ? null : SafeProcessName(testHost),
+                process.Id,
+                SafeProcessName(process),
+                commandLine,
+                target.WorkingDirectory,
+                target.Path,
+                timeoutSeconds);
+        }
     }
 
     public async Task<TestOperationResult> GetTestResultsAsync(TestResultsRequest request, CancellationToken cancellationToken)
@@ -1006,6 +1135,151 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
             cancellationToken.ThrowIfCancellationRequested();
             return new ProcessResult(process.ExitCode, output.ToString(), error.ToString());
         }, cancellationToken);
+    }
+
+    private static EnvDTE.Process? FindLocalDebuggerProcess(DTE2 dte, int processId)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        return dte.Debugger.LocalProcesses
+            .Cast<EnvDTE.Process>()
+#pragma warning disable VSTHRD010
+            .FirstOrDefault(candidate => candidate.ProcessID == processId);
+#pragma warning restore VSTHRD010
+    }
+
+    private static StringBuilder CreateTestDebugArguments(string targetPath, string filter, TestDebugRequest request)
+    {
+        var arguments = new StringBuilder()
+            .Append("test ")
+            .Append(QuoteArgument(targetPath))
+            .Append(" --filter ")
+            .Append(QuoteArgument(filter));
+
+        if (request.NoBuild)
+        {
+            arguments.Append(" --no-build");
+        }
+
+        var configuration = EmptyToNull(request.Configuration);
+        if (configuration is not null)
+        {
+            arguments
+                .Append(" --configuration ")
+                .Append(QuoteArgument(configuration));
+        }
+
+        var framework = EmptyToNull(request.Framework);
+        if (framework is not null)
+        {
+            arguments
+                .Append(" --framework ")
+                .Append(QuoteArgument(framework));
+        }
+
+        return arguments;
+    }
+
+    private static void AttachDebugger(EnvDTE.Process process)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        process.Attach();
+    }
+
+    private static System.Diagnostics.Process StartDebugTestProcess(
+        string fileName,
+        string arguments,
+        string workingDirectory)
+    {
+        var process = new System.Diagnostics.Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                WorkingDirectory = workingDirectory,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            },
+            EnableRaisingEvents = true
+        };
+        process.StartInfo.EnvironmentVariables["VSTEST_HOST_DEBUG"] = "1";
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+        return process;
+    }
+
+    private static string? SafeProcessName(System.Diagnostics.Process process)
+    {
+        try
+        {
+            return process.ProcessName;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    private static async Task<System.Diagnostics.Process?> FindDebugTestHostAsync(
+        int runnerProcessId,
+        DateTime startedAfterUtc,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var match = System.Diagnostics.Process.GetProcesses()
+                .Where(process => process.Id != runnerProcessId &&
+                    (process.ProcessName.StartsWith("testhost", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(process.ProcessName, "dotnet", StringComparison.OrdinalIgnoreCase)))
+                .Select(process => new { Process = process, StartTimeUtc = TryGetStartTimeUtc(process) })
+                .Where(candidate => candidate.StartTimeUtc is not null && candidate.StartTimeUtc >= startedAfterUtc)
+                .OrderByDescending(candidate => candidate.StartTimeUtc)
+                .Select(candidate => candidate.Process)
+                .FirstOrDefault();
+            if (match is not null)
+            {
+                return match;
+            }
+
+            await Task.Delay(500, cancellationToken);
+        }
+
+        return null;
+    }
+
+    private static DateTime? TryGetStartTimeUtc(System.Diagnostics.Process process)
+    {
+        try
+        {
+            return process.StartTime.ToUniversalTime();
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            process.Dispose();
+            return null;
+        }
+    }
+
+    private static void TryKill(System.Diagnostics.Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill();
+            }
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+        }
     }
 
     private static IReadOnlyCollection<TestCaseInfo> ParseListedTests(string output, string? projectName)

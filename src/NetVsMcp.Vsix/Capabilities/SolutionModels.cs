@@ -151,6 +151,16 @@ internal sealed class TestRunRequest
     public string? Filter { get; set; }
 }
 
+internal sealed class TestDebugRequest
+{
+    public string? ProjectName { get; set; }
+    public string? Filter { get; set; }
+    public int AttachTimeoutSeconds { get; set; } = 30;
+    public bool NoBuild { get; set; }
+    public string? Configuration { get; set; }
+    public string? Framework { get; set; }
+}
+
 internal sealed class TestResultsRequest
 {
     public string? RunId { get; set; }
@@ -283,6 +293,50 @@ internal sealed class TestResultInfo
     public string Outcome { get; }
     public string? Duration { get; }
     public string? Message { get; }
+}
+
+internal sealed class TestDebugResult
+{
+    public TestDebugResult(
+        bool supported,
+        string message,
+        string? projectName,
+        string? filter,
+        int? testHostProcessId,
+        string? testHostProcessName,
+        int? testRunnerProcessId = null,
+        string? testRunnerProcessName = null,
+        string? commandLine = null,
+        string? workingDirectory = null,
+        string? targetPath = null,
+        int attachTimeoutSeconds = 30)
+    {
+        Supported = supported;
+        Message = message;
+        ProjectName = projectName;
+        Filter = filter;
+        TestHostProcessId = testHostProcessId;
+        TestHostProcessName = testHostProcessName;
+        TestRunnerProcessId = testRunnerProcessId;
+        TestRunnerProcessName = testRunnerProcessName;
+        CommandLine = commandLine;
+        WorkingDirectory = workingDirectory;
+        TargetPath = targetPath;
+        AttachTimeoutSeconds = attachTimeoutSeconds;
+    }
+
+    public bool Supported { get; }
+    public string Message { get; }
+    public string? ProjectName { get; }
+    public string? Filter { get; }
+    public int? TestHostProcessId { get; }
+    public string? TestHostProcessName { get; }
+    public int? TestRunnerProcessId { get; }
+    public string? TestRunnerProcessName { get; }
+    public string? CommandLine { get; }
+    public string? WorkingDirectory { get; }
+    public string? TargetPath { get; }
+    public int AttachTimeoutSeconds { get; }
 }
 
 internal sealed class PackageRestoreResult

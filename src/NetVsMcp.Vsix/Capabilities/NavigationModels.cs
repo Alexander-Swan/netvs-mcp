@@ -287,6 +287,32 @@ internal sealed class RenameSymbolPreviewResult
     public IReadOnlyCollection<RenameSymbolChangeInfo>? Changes { get; }
 }
 
+internal sealed class RenameSymbolApplyResult
+{
+    public RenameSymbolApplyResult(
+        bool success,
+        string message,
+        CodePositionRequest position,
+        string newName,
+        DocumentSymbolInfo? symbol,
+        IReadOnlyCollection<RenameSymbolChangeInfo>? changes)
+    {
+        Success = success;
+        Message = message;
+        Position = position;
+        NewName = newName;
+        Symbol = symbol;
+        Changes = changes;
+    }
+
+    public bool Success { get; }
+    public string Message { get; }
+    public CodePositionRequest Position { get; }
+    public string NewName { get; }
+    public DocumentSymbolInfo? Symbol { get; }
+    public IReadOnlyCollection<RenameSymbolChangeInfo>? Changes { get; }
+}
+
 internal static class DocumentSymbolInfoFactory
 {
     public static DocumentSymbolInfo FromSymbol(ISymbol symbol, string? file, int line, int column)

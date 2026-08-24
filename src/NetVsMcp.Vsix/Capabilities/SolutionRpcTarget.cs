@@ -112,6 +112,11 @@ internal sealed class SolutionRpcTarget
         return solution.RunTestsAsync(request, cancellationToken);
     }
 
+    public Task<TestDebugResult> TestDebugAsync(TestDebugRequest request, CancellationToken cancellationToken)
+    {
+        return solution.DebugTestAsync(request, cancellationToken);
+    }
+
     public Task<TestOperationResult> TestResultsAsync(TestResultsRequest request, CancellationToken cancellationToken)
     {
         return solution.GetTestResultsAsync(request, cancellationToken);

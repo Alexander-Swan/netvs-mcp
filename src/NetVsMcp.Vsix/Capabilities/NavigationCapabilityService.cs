@@ -24,6 +24,7 @@ internal interface INavigationCapabilityService
     Task<CodeWorkspaceSymbolsResult> WorkspaceSymbolsAsync(CodeWorkspaceSymbolsRequest request, CancellationToken cancellationToken);
     Task<CallHierarchyResult> CallHierarchyAsync(CallHierarchyRequest request, CancellationToken cancellationToken);
     Task<RenameSymbolPreviewResult> RenameSymbolPreviewAsync(RenameSymbolRequest request, CancellationToken cancellationToken);
+    Task<RenameSymbolApplyResult> RenameSymbolApplyAsync(RenameSymbolRequest request, CancellationToken cancellationToken);
     Task<DocumentSymbolsResult> ListDocumentSymbolsAsync(string? documentPath, CancellationToken cancellationToken);
 }
 
@@ -315,6 +316,56 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
         return new RenameSymbolPreviewResult(
             true,
             $"Rename preview contains {changes.Count} text change(s).",
+            position,
+            request.NewName,
+            DocumentSymbolInfoFactory.FromSymbol(resolvedSymbol.Symbol, resolvedSymbol.Document.FilePath, request.Line, request.Column),
+            changes);
+    }
+
+    public async Task<RenameSymbolApplyResult> RenameSymbolApplyAsync(RenameSymbolRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.NewName))
+        {
+            throw new ArgumentException("New name is required.", nameof(request));
+        }
+
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var resolvedSymbol = await ResolveSymbolAtPositionAsync(request.DocumentPath, request.Line, request.Column, cancellationToken);
+        var position = new CodePositionRequest
+        {
+            DocumentPath = request.DocumentPath,
+            Line = request.Line,
+            Column = request.Column
+        };
+        if (resolvedSymbol.Symbol is null)
+        {
+            return new RenameSymbolApplyResult(
+                false,
+                "No symbol found at the requested position.",
+                position,
+                request.NewName,
+                null,
+                Array.Empty<RenameSymbolChangeInfo>());
+        }
+
+        var oldSolution = resolvedSymbol.Document.Project.Solution;
+#pragma warning disable CS0618
+        var newSolution = await Renamer.RenameSymbolAsync(
+            oldSolution,
+            resolvedSymbol.Symbol,
+            request.NewName,
+            oldSolution.Workspace.Options,
+            cancellationToken);
+#pragma warning restore CS0618
+        var changes = await CreateRenameChangesAsync(oldSolution, newSolution, cancellationToken);
+        var applied = oldSolution.Workspace.TryApplyChanges(newSolution);
+
+        return new RenameSymbolApplyResult(
+            applied,
+            applied
+                ? $"Applied rename with {changes.Count} text change(s)."
+                : "Visual Studio workspace rejected the rename changes.",
             position,
             request.NewName,
             DocumentSymbolInfoFactory.FromSymbol(resolvedSymbol.Symbol, resolvedSymbol.Document.FilePath, request.Line, request.Column),
