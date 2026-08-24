@@ -183,6 +183,21 @@ public sealed class SessionRegistryTests
     }
 
     [Fact]
+    public void Resolve_UsesOnlyConnectedSession_WhenStaleSessionWouldOtherwiseBeAmbiguous()
+    {
+        var now = DateTimeOffset.Parse("2026-07-22T20:00:00Z");
+        var registry = new SessionRegistry(() => now);
+        registry.Register(CreateRegistration("vs-stale", "Old", @"C:\Code\Old\Old.sln", isActive: true));
+        now = now.AddMinutes(1);
+        registry.Register(CreateRegistration("vs-connected", "New", @"C:\Code\New\New.sln", isActive: false));
+
+        var result = registry.Resolve(null);
+
+        Assert.True(result.Success);
+        Assert.Equal("vs-connected", result.Session?.SessionId);
+    }
+
+    [Fact]
     public void Resolve_ReturnsAmbiguous_WhenMultipleSessionsMatchSolutionName()
     {
         var registry = new SessionRegistry();
@@ -194,6 +209,64 @@ public sealed class SessionRegistryTests
         Assert.False(result.Success);
         Assert.Equal(RouteFailureReason.Ambiguous, result.FailureReason);
         Assert.Equal(2, result.Candidates.Count);
+    }
+
+    [Fact]
+    public void Resolve_ExcludesStaleSessionFromAutoSelection_WhenNoTargetIsProvided()
+    {
+        var now = DateTimeOffset.Parse("2026-07-22T20:00:00Z");
+        var registry = new SessionRegistry(() => now);
+        registry.Register(CreateRegistration("vs-1", "One", @"C:\Code\One\One.sln", isActive: false));
+        now = now.AddSeconds(60);
+        registry.Register(CreateRegistration("vs-2", "Two", @"C:\Code\Two\Two.sln", isActive: false));
+
+        var result = registry.Resolve(null);
+
+        Assert.True(result.Success);
+        Assert.Equal("vs-2", result.Session?.SessionId);
+    }
+
+    [Fact]
+    public void Resolve_ExcludesStaleSessionFromActiveWindowFallback()
+    {
+        var now = DateTimeOffset.Parse("2026-07-22T20:00:00Z");
+        var registry = new SessionRegistry(() => now);
+        registry.Register(CreateRegistration("vs-1", "One", @"C:\Code\One\One.sln", isActive: true));
+        now = now.AddSeconds(60);
+        registry.Register(CreateRegistration("vs-2", "Two", @"C:\Code\Two\Two.sln", isActive: false));
+
+        var result = registry.Resolve(null);
+
+        Assert.True(result.Success);
+        Assert.Equal("vs-2", result.Session?.SessionId);
+    }
+
+    [Fact]
+    public void Resolve_ReturnsNoRegisteredSessions_WhenAllSessionsAreStale()
+    {
+        var now = DateTimeOffset.Parse("2026-07-22T20:00:00Z");
+        var registry = new SessionRegistry(() => now);
+        registry.Register(CreateRegistration("vs-1", "One", @"C:\Code\One\One.sln", isActive: true));
+        now = now.AddMinutes(1);
+
+        var result = registry.Resolve(null);
+
+        Assert.False(result.Success);
+        Assert.Equal(RouteFailureReason.NoRegisteredSessions, result.FailureReason);
+    }
+
+    [Fact]
+    public void Resolve_ByExplicitSessionId_IgnoresStaleness()
+    {
+        var now = DateTimeOffset.Parse("2026-07-22T20:00:00Z");
+        var registry = new SessionRegistry(() => now);
+        registry.Register(CreateRegistration("vs-1", "One", @"C:\Code\One\One.sln", isActive: true));
+        now = now.AddMinutes(1);
+
+        var result = registry.Resolve(new RoutingTarget(SessionId: "vs-1"));
+
+        Assert.True(result.Success);
+        Assert.Equal("vs-1", result.Session?.SessionId);
     }
 
     [Fact]

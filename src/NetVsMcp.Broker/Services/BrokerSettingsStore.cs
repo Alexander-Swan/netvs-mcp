@@ -10,7 +10,8 @@ public sealed record BrokerSettings(
     string? LogsDirectory = null,
     string? SessionsDirectory = null,
     bool IncludeDevVersionUpdates = false,
-    string? IgnoredUpdateVersion = null);
+    string? IgnoredUpdateVersion = null,
+    int? AuditLogRetentionDays = null);
 
 public interface IBrokerSettingsStore
 {

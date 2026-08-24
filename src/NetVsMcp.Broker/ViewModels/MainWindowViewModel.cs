@@ -290,8 +290,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return;
         }
 
-        _runtime.Sessions.RemoveStaleSessions();
-
+        // ARCH-5: stale-session sweeping is owned by BrokerRuntime's own timer now, not this
+        // UI-layer Refresh() - this method just reacts to SessionsChanged (via the constructor
+        // subscription) and re-reads whatever the runtime currently reports.
         var status = _runtime.GetStatus();
         RunningState = status.IsRunning ? "Running" : "Stopped";
         StatusText = status.IsRunning

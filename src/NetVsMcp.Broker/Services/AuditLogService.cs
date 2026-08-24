@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -9,6 +10,14 @@ public interface IAuditLogService
     string LogsDirectory { get; }
     string CurrentLogFilePath { get; }
     void RecordToolCall(AuditToolCall entry);
+
+    /// <summary>
+    /// ARCH-6: deletes "audit-yyyyMMdd.jsonl" files older than <paramref name="retentionDays"/>,
+    /// mirroring <see cref="SessionManifestService.CleanupStale"/>'s cleanup-pass shape. Audit log
+    /// files are never otherwise pruned, which is unbounded growth on a long-lived autostart app.
+    /// </summary>
+    /// <returns>The number of files deleted.</returns>
+    int PruneOldLogs(int retentionDays, DateTimeOffset? now = null);
 }
 
 public sealed record AuditToolCall(
@@ -50,5 +59,60 @@ public sealed class AuditLogService : IAuditLogService
         {
             File.AppendAllText(CurrentLogFilePath, line + Environment.NewLine);
         }
+    }
+
+    public int PruneOldLogs(int retentionDays, DateTimeOffset? now = null)
+    {
+        if (retentionDays <= 0 || !Directory.Exists(LogsDirectory))
+        {
+            return 0;
+        }
+
+        var cutoff = (now ?? DateTimeOffset.UtcNow).UtcDateTime.Date.AddDays(-retentionDays);
+        var removed = 0;
+
+        lock (_gate)
+        {
+            foreach (var path in Directory.EnumerateFiles(LogsDirectory, "audit-*.jsonl"))
+            {
+                if (!TryGetLogFileDate(path, out var fileDate) || fileDate >= cutoff)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    File.Delete(path);
+                    removed++;
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
+        }
+
+        return removed;
+    }
+
+    private static bool TryGetLogFileDate(string path, out DateTime date)
+    {
+        const string prefix = "audit-";
+        var fileName = Path.GetFileNameWithoutExtension(path);
+
+        if (fileName.Length <= prefix.Length || !fileName.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            date = default;
+            return false;
+        }
+
+        return DateTime.TryParseExact(
+            fileName[prefix.Length..],
+            "yyyyMMdd",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out date);
     }
 }

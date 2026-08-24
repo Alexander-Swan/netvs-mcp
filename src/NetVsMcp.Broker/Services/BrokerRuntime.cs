@@ -6,9 +6,22 @@ namespace NetVsMcp.Broker.Services;
 
 public sealed class BrokerRuntime
 {
+    // ARCH-5: stale-session sweeping previously only happened as a side effect of the WPF
+    // MainWindowViewModel.Refresh() - a UI-layer method - so it would silently stop happening
+    // if the status window were never opened. Own it here instead, as a runtime-level timer.
+    private static readonly TimeSpan StaleSessionSweepInterval = TimeSpan.FromSeconds(15);
+
+    // ARCH-6: audit-yyyyMMdd.jsonl files were never pruned - unbounded growth on a long-lived
+    // autostart tray app. Prune once at startup and then daily, similar in spirit to
+    // SessionManifestService.CleanupStale.
+    private static readonly TimeSpan AuditLogPruneInterval = TimeSpan.FromHours(24);
+    public const int DefaultAuditLogRetentionDays = 30;
+
     private readonly LocalMcpHttpHost _httpHost;
     private readonly VsixRegistrationPipeListener _registrationPipeListener;
     private readonly IBrokerSettingsStore _settingsStore;
+    private System.Threading.Timer? _staleSessionSweepTimer;
+    private System.Threading.Timer? _auditLogPruneTimer;
 
     public BrokerRuntime(BrokerOptions options, SessionRegistry sessions)
     {
@@ -85,6 +98,17 @@ public sealed class BrokerRuntime
         set => _settingsStore.Update(s => s with { IgnoredUpdateVersion = value });
     }
 
+    /// <summary>
+    /// How many days of audit-yyyyMMdd.jsonl files to keep before the daily prune pass deletes
+    /// them (default <see cref="DefaultAuditLogRetentionDays"/>). Applies immediately, no
+    /// restart required - the next prune tick reads the current value.
+    /// </summary>
+    public int AuditLogRetentionDays
+    {
+        get => _settingsStore.Load().AuditLogRetentionDays ?? DefaultAuditLogRetentionDays;
+        set => _settingsStore.Update(s => s with { AuditLogRetentionDays = value });
+    }
+
     public event EventHandler? PendingSettingsChanged;
 
     private void UpdatePendingSetting(Func<BrokerSettings, BrokerSettings> mutate, string description)
@@ -137,13 +161,63 @@ public sealed class BrokerRuntime
         await _registrationPipeListener.StartAsync(cancellationToken);
         Trace.WriteLine($"NetVsMcp broker endpoint listening at {Options.McpEndpoint}.");
         Trace.WriteLine($"NetVsMcp VSIX registration pipe listening at {Options.PipeName}.");
+
+        _staleSessionSweepTimer = new System.Threading.Timer(
+            _ => SweepStaleSessions(),
+            null,
+            StaleSessionSweepInterval,
+            StaleSessionSweepInterval);
+
+        _auditLogPruneTimer = new System.Threading.Timer(
+            _ => PruneAuditLogs(),
+            null,
+            TimeSpan.Zero,
+            AuditLogPruneInterval);
     }
 
     public async Task StopAsync()
     {
+        _staleSessionSweepTimer?.Dispose();
+        _staleSessionSweepTimer = null;
+
+        _auditLogPruneTimer?.Dispose();
+        _auditLogPruneTimer = null;
+
         await _registrationPipeListener.StopAsync();
         await _httpHost.StopAsync();
         Sessions.SessionsChanged -= OnSessionsChanged;
+    }
+
+    private void SweepStaleSessions()
+    {
+        try
+        {
+            var removed = Sessions.RemoveStaleSessions();
+            if (removed > 0)
+            {
+                Trace.WriteLine($"NetVsMcp broker swept {removed} stale Visual Studio session(s).");
+            }
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine($"NetVsMcp broker stale-session sweep failed: {ex}");
+        }
+    }
+
+    private void PruneAuditLogs()
+    {
+        try
+        {
+            var removed = AuditLog.PruneOldLogs(AuditLogRetentionDays);
+            if (removed > 0)
+            {
+                Trace.WriteLine($"NetVsMcp broker pruned {removed} audit log file(s) older than {AuditLogRetentionDays} day(s).");
+            }
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine($"NetVsMcp broker audit log pruning failed: {ex}");
+        }
     }
 
     private void OnSessionsChanged(object? sender, EventArgs e)

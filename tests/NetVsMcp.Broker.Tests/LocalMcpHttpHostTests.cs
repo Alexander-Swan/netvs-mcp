@@ -1,11 +1,13 @@
 using NetVsMcp.Broker.Services;
 using NetVsMcp.Contracts;
+using System.IO.Pipes;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using StreamJsonRpc;
 
 namespace NetVsMcp.Broker.Tests;
 
@@ -150,6 +152,80 @@ public sealed class LocalMcpHttpHostTests
         }
     }
 
+    [Fact]
+    public async Task McpToolCall_RoundTripsThroughHttpBrokerPipeAndVsixRpc()
+    {
+        var port = GetAvailablePort();
+        var pipeName = $"netvs-mcp-test-{Guid.NewGuid():N}";
+        var runtime = CreateRuntime($"http://127.0.0.1:{port}", pipeName);
+
+        await runtime.StartAsync(CancellationToken.None);
+
+        await using var clientPipe = new NamedPipeClientStream(
+            ".",
+            pipeName,
+            PipeDirection.InOut,
+            PipeOptions.Asynchronous);
+        await clientPipe.ConnectAsync(5000);
+
+        using var jsonRpc = new JsonRpc(clientPipe);
+        jsonRpc.AddLocalRpcTarget(new FakeVisualStudioSessionRpc(@"C:\Code\NetVsMcp\Program.cs"));
+        var registration = jsonRpc.Attach<IBrokerRegistrationRpc>();
+        jsonRpc.StartListening();
+
+        using var http = new HttpClient
+        {
+            BaseAddress = new Uri($"http://127.0.0.1:{port}")
+        };
+
+        try
+        {
+            var registerResponse = await registration.RegisterAsync(
+                CreateRegistration("vs-e2e", "NetVsMcp"),
+                CancellationToken.None);
+            Assert.True(registerResponse.Success);
+
+            using var initialize = await PostMcpAsync(http, new
+            {
+                jsonrpc = "2.0",
+                id = 1,
+                method = "initialize",
+                @params = new
+                {
+                    protocolVersion = "2025-11-25",
+                    capabilities = new { },
+                    clientInfo = new { name = "NetVsMcp.Broker.Tests", version = "1.0" }
+                }
+            });
+            initialize.EnsureSuccessStatusCode();
+
+            using var toolCall = await PostMcpAsync(http, new
+            {
+                jsonrpc = "2.0",
+                id = 2,
+                method = "tools/call",
+                @params = new
+                {
+                    name = "document_active",
+                    arguments = new
+                    {
+                        sessionId = "vs-e2e"
+                    }
+                }
+            });
+            toolCall.EnsureSuccessStatusCode();
+
+            var toolResponse = await ReadMcpToolResponseAsync<string?>(toolCall);
+            Assert.True(toolResponse.Success);
+            Assert.Equal(@"C:\Code\NetVsMcp\Program.cs", toolResponse.Value);
+        }
+        finally
+        {
+            jsonRpc.Dispose();
+            await runtime.StopAsync();
+        }
+    }
+
     private static async Task<HashSet<string>> ListToolNamesAsync(HttpClient http, string path)
     {
         using var initialize = await PostMcpAsync(http, path, new
@@ -184,9 +260,29 @@ public sealed class LocalMcpHttpHostTests
 
     private static BrokerRuntime CreateRuntime(string endpoint)
     {
+        return CreateRuntime(endpoint, $"netvs-mcp-test-{Guid.NewGuid():N}");
+    }
+
+    private static BrokerRuntime CreateRuntime(string endpoint, string pipeName)
+    {
         return new BrokerRuntime(
-            new BrokerOptions(endpoint, $@"\\.\pipe\netvs-mcp-test-{Guid.NewGuid():N}"),
+            new BrokerOptions(endpoint, $@"\\.\pipe\{pipeName}"),
             new SessionRegistry());
+    }
+
+    private static VsSessionRegistration CreateRegistration(string sessionId, string solutionName)
+    {
+        return new VsSessionRegistration(
+            SessionId: sessionId,
+            ProcessId: 1234,
+            VisualStudioVersion: "18.0",
+            Edition: "Enterprise",
+            SolutionName: solutionName,
+            SolutionPath: $@"C:\Code\{solutionName}\{solutionName}.slnx",
+            ActiveDocument: @"C:\Code\NetVsMcp\Program.cs",
+            DebuggerMode: DebuggerMode.Design,
+            IsActiveWindow: true,
+            Capabilities: [VsCapability.Editor, VsCapability.Navigation]);
     }
 
     private static Task<HttpResponseMessage> PostMcpAsync(HttpClient http, object request) =>
@@ -206,10 +302,45 @@ public sealed class LocalMcpHttpHostTests
         return await http.SendAsync(message);
     }
 
+    private static async Task<ToolResponse<T>> ReadMcpToolResponseAsync<T>(HttpResponseMessage response)
+    {
+        var body = await response.Content.ReadAsStringAsync();
+        var jsonStart = body.IndexOf('{');
+        Assert.True(jsonStart >= 0, $"Expected JSON response body. Body: {body}");
+
+        using var document = JsonDocument.Parse(body[jsonStart..]);
+        var text = document.RootElement
+            .GetProperty("result")
+            .GetProperty("content")[0]
+            .GetProperty("text")
+            .GetString();
+
+        Assert.False(string.IsNullOrWhiteSpace(text));
+        return JsonSerializer.Deserialize<ToolResponse<T>>(text, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        })!;
+    }
+
     private static int GetAvailablePort()
     {
         using var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
         return ((IPEndPoint)listener.LocalEndpoint).Port;
+    }
+
+    private sealed class FakeVisualStudioSessionRpc
+    {
+        private readonly string _activeDocument;
+
+        public FakeVisualStudioSessionRpc(string activeDocument)
+        {
+            _activeDocument = activeDocument;
+        }
+
+        public Task<ToolResponse<string?>> GetActiveDocumentAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(ToolResponse<string?>.Ok(_activeDocument));
+        }
     }
 }

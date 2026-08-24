@@ -48,27 +48,27 @@ public sealed class VisualStudioLauncher
                 null);
         }
 
-        var arguments = new List<string>();
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = devenvPath,
+            UseShellExecute = false
+        };
+
         if (!string.IsNullOrWhiteSpace(solutionPath))
         {
-            arguments.Add($"\"{solutionPath}\"");
+            startInfo.ArgumentList.Add(solutionPath);
         }
 
         if (experimental)
         {
-            arguments.Add("/rootsuffix");
-            arguments.Add("Exp");
+            startInfo.ArgumentList.Add("/rootsuffix");
+            startInfo.ArgumentList.Add("Exp");
         }
 
         Process process;
         try
         {
-            process = Process.Start(new ProcessStartInfo
-            {
-                FileName = devenvPath,
-                Arguments = string.Join(' ', arguments),
-                UseShellExecute = false
-            }) ?? throw new InvalidOperationException("Process.Start returned null.");
+            process = Process.Start(startInfo) ?? throw new InvalidOperationException("Process.Start returned null.");
         }
         catch (Exception ex)
         {

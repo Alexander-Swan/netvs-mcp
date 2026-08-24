@@ -1,11 +1,18 @@
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace NetVsMcp.Broker.Services;
 
-public record UpdateInfo(string Version, string MsiDownloadUrl, string ReleasePageUrl);
+/// <param name="Sha256ChecksumUrl">
+/// URL of a "&lt;asset-name&gt;.sha256" sidecar file published alongside the MSI, or <c>null</c>
+/// if the release has no such asset (older releases predate SEC-3's checksum publishing step
+/// in <c>.github/workflows/release.yml</c>). When null, <see cref="UpdateCheckService.DownloadAndInstallAsync"/>
+/// refuses to install rather than silently skipping verification.
+/// </param>
+public record UpdateInfo(string Version, string MsiDownloadUrl, string ReleasePageUrl, string? Sha256ChecksumUrl = null);
 
 public class UpdateCheckService
 {
@@ -67,6 +74,7 @@ public class UpdateCheckService
             var htmlUrl = root.GetProperty("html_url").GetString() ?? GitHubReleasesUrl;
 
             string? msiUrl = null;
+            string? msiAssetName = null;
             foreach (var asset in root.GetProperty("assets").EnumerateArray())
             {
                 var name = asset.GetProperty("name").GetString() ?? string.Empty;
@@ -74,48 +82,104 @@ public class UpdateCheckService
                     name.EndsWith(".msi", StringComparison.OrdinalIgnoreCase))
                 {
                     msiUrl = asset.GetProperty("browser_download_url").GetString();
+                    msiAssetName = name;
                     break;
                 }
             }
 
-            return msiUrl is null ? null : new UpdateInfo(bestVersion, msiUrl, htmlUrl);
+            if (msiUrl is null)
+                return null;
+
+            string? checksumUrl = null;
+            if (msiAssetName is not null)
+            {
+                var checksumAssetName = msiAssetName + ".sha256";
+                foreach (var asset in root.GetProperty("assets").EnumerateArray())
+                {
+                    var name = asset.GetProperty("name").GetString() ?? string.Empty;
+                    if (string.Equals(name, checksumAssetName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        checksumUrl = asset.GetProperty("browser_download_url").GetString();
+                        break;
+                    }
+                }
+            }
+
+            return new UpdateInfo(bestVersion, msiUrl, htmlUrl, checksumUrl);
         }
-        catch
+        catch (Exception ex)
         {
+            Trace.WriteLine($"NetVsMcp update check failed: {ex}");
             return null;
         }
     }
 
+    /// <exception cref="InvalidOperationException">
+    /// Thrown if no SHA-256 checksum asset was published for this release (see SEC-3), or if the
+    /// downloaded MSI's checksum doesn't match the published one. In either case the temp MSI is
+    /// deleted and <c>msiexec</c> is never invoked.
+    /// </exception>
     public async Task DownloadAndInstallAsync(UpdateInfo update, IProgress<int>? progress = null, CancellationToken ct = default)
     {
+        if (string.IsNullOrEmpty(update.Sha256ChecksumUrl))
+        {
+            throw new InvalidOperationException(
+                $"Refusing to install update {update.Version}: no published SHA-256 checksum was found for this release, " +
+                "so the downloaded MSI can't be verified before running msiexec.");
+        }
+
         using var http = new HttpClient();
         http.DefaultRequestHeaders.UserAgent.ParseAdd("NetVsMcp-Broker");
 
+        var expectedHash = (await http.GetStringAsync(update.Sha256ChecksumUrl, ct)).Trim();
+
         var tempPath = Path.Combine(Path.GetTempPath(), $"NetVsMcp.Broker-{update.Version}.msi");
 
-        using (var response = await http.GetAsync(update.MsiDownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct))
+        try
         {
-            response.EnsureSuccessStatusCode();
-            var total = response.Content.Headers.ContentLength ?? -1L;
-            await using var stream = await response.Content.ReadAsStreamAsync(ct);
-            await using var file = File.Create(tempPath);
-
-            var buffer = new byte[81920];
-            long downloaded = 0;
-            int read;
-            while ((read = await stream.ReadAsync(buffer, ct)) > 0)
+            using (var response = await http.GetAsync(update.MsiDownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct))
             {
-                await file.WriteAsync(buffer.AsMemory(0, read), ct);
-                downloaded += read;
-                if (total > 0)
-                    progress?.Report((int)(downloaded * 100 / total));
+                response.EnsureSuccessStatusCode();
+                var total = response.Content.Headers.ContentLength ?? -1L;
+                await using var stream = await response.Content.ReadAsStreamAsync(ct);
+                await using var file = File.Create(tempPath);
+
+                var buffer = new byte[81920];
+                long downloaded = 0;
+                int read;
+                while ((read = await stream.ReadAsync(buffer, ct)) > 0)
+                {
+                    await file.WriteAsync(buffer.AsMemory(0, read), ct);
+                    downloaded += read;
+                    if (total > 0)
+                        progress?.Report((int)(downloaded * 100 / total));
+                }
             }
+
+            string actualHash;
+            await using (var verifyStream = File.OpenRead(tempPath))
+            {
+                var hashBytes = await SHA256.HashDataAsync(verifyStream, ct);
+                actualHash = Convert.ToHexString(hashBytes).ToLowerInvariant();
+            }
+
+            if (!string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"Downloaded MSI checksum mismatch for update {update.Version}: expected {expectedHash}, got {actualHash}. " +
+                    "Refusing to run msiexec.");
+            }
+        }
+        catch
+        {
+            try { File.Delete(tempPath); } catch { /* best-effort cleanup */ }
+            throw;
         }
 
         Process.Start(new ProcessStartInfo
         {
             FileName = "msiexec",
-            Arguments = $"/i \"{tempPath}\"",
+            ArgumentList = { "/i", tempPath },
             UseShellExecute = true
         });
     }

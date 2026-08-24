@@ -328,6 +328,8 @@ public sealed class BrokerRegistrationRpcServiceTests
 
         public Task<TestOperationResult> TestRunAsync(TestRunRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<TestDebugResult> TestDebugAsync(TestDebugRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<TestOperationResult> TestResultsAsync(TestResultsRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<GoToDefinitionResult> CodeGoToDefinitionAsync(CodePositionRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -339,6 +341,8 @@ public sealed class BrokerRegistrationRpcServiceTests
         public Task<CodeWorkspaceSymbolsResult> CodeWorkspaceSymbolsAsync(CodeWorkspaceSymbolsRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<RenameSymbolPreviewResult> CodeRenameSymbolPreviewAsync(RenameSymbolRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<RenameSymbolApplyResult> CodeRenameSymbolApplyAsync(RenameSymbolRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<CallHierarchyResult> CallHierarchyGetAsync(CallHierarchyRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 

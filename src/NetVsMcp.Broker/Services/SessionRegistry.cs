@@ -227,15 +227,32 @@ public sealed class SessionRegistry
                 sessions);
         }
 
-        var activeSessions = sessions.Where(session => session.IsActiveWindow).ToArray();
+        // ARCH-4: no routing fields were given, so we're about to auto-select. Restrict the
+        // candidate pool to sessions that are actually connected (heartbeats still arriving)
+        // before applying the "only active window" / "only registered session" heuristics -
+        // otherwise a frozen VS instance (pipe open, heartbeats stopped, process not dead)
+        // still counts toward those fallbacks and can turn a genuinely single *live* session
+        // into a confusing Ambiguous error.
+        var now = _utcNow();
+        var healthySessions = sessions.Where(session => now - session.LastSeenUtc <= StaleAfter).ToArray();
+
+        var activeSessions = healthySessions.Where(session => session.IsActiveWindow).ToArray();
         if (activeSessions.Length == 1)
         {
             return RouteResult.Found(activeSessions[0]);
         }
 
-        if (sessions.Count == 1)
+        if (healthySessions.Length == 1)
         {
-            return RouteResult.Found(sessions.Single());
+            return RouteResult.Found(healthySessions[0]);
+        }
+
+        if (healthySessions.Length == 0)
+        {
+            return RouteResult.Failed(
+                RouteFailureReason.NoRegisteredSessions,
+                "No connected Visual Studio sessions are available (all registered sessions appear stale). Specify sessionId, processId, solutionPath, workspacePath, or solutionName, or check that Visual Studio is still running.",
+                sessions);
         }
 
         return RouteResult.Failed(
