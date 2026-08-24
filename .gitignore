@@ -7,3 +7,6 @@ TestResults/
 *.suo
 *.pdb
 *.nupkg
+# Local staging dir the release workflow creates for MSI/VSIX build artifacts before uploading
+# them to a GitHub Release; never meant to be committed (see REL-2 in docs/IMPROVEMENT_PLAN.md).
+release-assets/

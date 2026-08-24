@@ -117,6 +117,28 @@ jobs:
       - name: Build VSIX
         run: dotnet build src/NetVsMcp.Vsix/NetVsMcp.Vsix.csproj -c Release /p:VersionSuffix=${{ steps.version.outputs.suffix }}
 
+      - name: Verify shipped binary version matches the intended channel version
+        # Verify the produced binary version before publishing MSI/VSIX assets.
+        shell: pwsh
+        run: |
+          $prefix = "${{ steps.version.outputs.prefix }}"
+          $suffix = "${{ steps.version.outputs.suffix }}"
+          $expectedInformational = if ($suffix) { "$prefix-$suffix" } else { $prefix }
+
+          $brokerDll = Get-ChildItem -Recurse -Filter "NetVsMcp.Broker.dll" -Path "src/NetVsMcp.Broker/bin/Release" |
+            Where-Object { $_.FullName -notmatch '\\refs?\\' } |
+            Select-Object -First 1
+          if (-not $brokerDll) {
+            throw "Could not find built NetVsMcp.Broker.dll to verify its version."
+          }
+
+          $info = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($brokerDll.FullName)
+          Write-Host "NetVsMcp.Broker.dll ProductVersion: $($info.ProductVersion); FileVersion: $($info.FileVersion)"
+
+          if ($info.ProductVersion -notlike "$expectedInformational*") {
+            throw "NetVsMcp.Broker.dll ProductVersion '$($info.ProductVersion)' does not match the intended channel version '$expectedInformational'. Aborting before publishing a mis-versioned release."
+          }
+
       - name: Collect release assets
         shell: pwsh
         run: |
@@ -127,6 +149,15 @@ jobs:
             throw "NetVsMcp.Vsix.vsix was not produced."
           }
           Copy-Item $vsix.FullName "release-assets/NetVsMcp.Vsix-${{ steps.version.outputs.full }}.vsix"
+
+      - name: Generate release asset checksums
+        shell: pwsh
+        run: |
+          # Publish SHA-256 sidecars for downloaded MSI verification.
+          Get-ChildItem -Path release-assets -File | ForEach-Object {
+            $hash = (Get-FileHash -Path $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            Set-Content -Path "$($_.FullName).sha256" -Value $hash -NoNewline -Encoding ascii
+          }
 
       - name: Revert manifest patch
         if: always()
@@ -158,6 +189,7 @@ jobs:
           personal-access-code: ${{ secrets.VS_MARKETPLACE_TOKEN }}
 
       - name: Bump version for next cycle
+        # Ref promotions do not bump master's dev version.
         if: (inputs.channel == 'dev' || inputs.channel == 'release') && inputs.ref == ''
         shell: pwsh
         run: |
@@ -167,8 +199,7 @@ jobs:
           $prefix = [version]$props.Project.PropertyGroup.VersionPrefix
           $channel = "${{ inputs.channel }}"
           if ($channel -eq "release") {
-            # Just shipped Major.Minor as stable; resume dev work one minor ahead with the
-            # build counter reset, so the next dev release becomes Major.(Minor+1).1-dev.
+            # Resume dev one minor ahead after a stable release.
             $nextPrefix = "$($prefix.Major).$($prefix.Minor + 1).0"
             $nextSuffix = "dev"
           } else {
@@ -180,6 +211,7 @@ jobs:
           Set-Content $path $content -NoNewline
 
       - name: Commit version bump
+        # Retry the version-bump push if master moved during the release.
         if: (inputs.channel == 'dev' || inputs.channel == 'release') && inputs.ref == ''
         shell: pwsh
         run: |
@@ -187,4 +219,25 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Directory.Build.props
           git commit -m "chore: bump version after releasing ${{ steps.version.outputs.full }}"
-          git push origin HEAD:master
+
+          $maxAttempts = 5
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            git push origin HEAD:master
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "Version bump pushed to master on attempt $attempt."
+              exit 0
+            }
+
+            if ($attempt -eq $maxAttempts) {
+              break
+            }
+
+            Write-Host "Push failed (attempt $attempt/$maxAttempts) -- master likely moved. Fetching and rebasing before retrying."
+            git fetch origin master
+            git rebase origin/master
+            if ($LASTEXITCODE -ne 0) {
+              throw "Rebase onto origin/master failed -- Directory.Build.props likely conflicts with a concurrent change. Manual recovery required: check out master, verify VersionPrefix/VersionSuffix, and commit by hand."
+            }
+          }
+
+          throw "Failed to push the version-bump commit to master after $maxAttempts attempts. Directory.Build.props is now stale relative to what was tagged/released as ${{ steps.version.outputs.full }} -- fix it manually before the next release run."
