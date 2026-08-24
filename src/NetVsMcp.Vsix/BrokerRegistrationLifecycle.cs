@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.VisualStudio.Shell;
 
 namespace NetVsMcp.Vsix;
 
@@ -51,7 +52,28 @@ internal sealed class BrokerRegistrationLifecycle : IDisposable
         disposed = true;
         stateMonitor.StateChanged -= OnVisualStudioStateChanged;
         stop.Cancel();
-        _ = UnregisterAndDisconnectAsync(CancellationToken.None);
+
+        // Await (with a short timeout) rather than fire-and-forget, so unregistration has a
+        // real chance to complete before the process tears down VS - and so this doesn't race
+        // the background connection loop's own `finally` (RunConnectionLoopAsync), which can
+        // observe the same cancellation and call UnregisterAndDisconnectAsync concurrently.
+        // UnregisterAndDisconnectAsync itself guards the shared `activeConnection` field with
+        // Interlocked.Exchange so only one caller ever owns and disposes a given connection.
+        // Dispose() must stay synchronous (IDisposable), so this uses JoinableTaskFactory.Run
+        // (not Task.Wait) to block without risking a UI-thread deadlock.
+        ThreadHelper.JoinableTaskFactory.Run(async () =>
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            try
+            {
+                await UnregisterAndDisconnectAsync(timeout.Token);
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceInformation("NetVsMcp broker disconnect-on-dispose skipped: {0}", ex.Message);
+            }
+        });
+
         stateChanged.Dispose();
         stop.Dispose();
     }
@@ -112,8 +134,11 @@ internal sealed class BrokerRegistrationLifecycle : IDisposable
 
     private async Task UnregisterAndDisconnectAsync(CancellationToken cancellationToken)
     {
-        var connection = activeConnection;
-        activeConnection = null;
+        // Interlocked.Exchange makes "take ownership of the current connection and null the
+        // field" atomic, so Dispose() (main thread) and RunConnectionLoopAsync's `finally`
+        // (background loop) can never both observe the same non-null connection and both try to
+        // unregister/dispose it - only one of them wins the exchange and does the work.
+        var connection = Interlocked.Exchange(ref activeConnection, null);
 
         if (connection is null)
         {

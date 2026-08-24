@@ -222,26 +222,32 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         var column = request.Column <= 0 ? 1 : request.Column;
         var hitCount = request.HitCount.GetValueOrDefault();
         var hitCountType = ResolveHitCountType(request.HitCountType, hitCount);
-        var breakpoints = debugger.Breakpoints.Add(
-            Function: string.Empty,
-            File: file,
-            Line: request.Line,
-            Column: column,
-            Condition: request.Condition ?? string.Empty,
-            ConditionType: string.IsNullOrWhiteSpace(request.Condition)
-                ? dbgBreakpointConditionType.dbgBreakpointConditionTypeWhenTrue
-                : dbgBreakpointConditionType.dbgBreakpointConditionTypeWhenTrue,
-            Language: string.Empty,
-            Data: string.Empty,
-            DataCount: 1,
-            Address: string.Empty,
-            HitCount: hitCount,
-            HitCountType: hitCountType);
 
-        var breakpoint = breakpoints.Item(1);
-        var metadata = BreakpointMetadata.FromRequest(request);
-        metadata.ApplyTo(breakpoint);
-        return BreakpointInfo.FromBreakpoint(breakpoint);
+        try
+        {
+            var breakpoints = debugger.Breakpoints.Add(
+                Function: string.Empty,
+                File: file,
+                Line: request.Line,
+                Column: column,
+                Condition: request.Condition ?? string.Empty,
+                ConditionType: dbgBreakpointConditionType.dbgBreakpointConditionTypeWhenTrue,
+                Language: string.Empty,
+                Data: string.Empty,
+                DataCount: 1,
+                Address: string.Empty,
+                HitCount: hitCount,
+                HitCountType: hitCountType);
+
+            var breakpoint = breakpoints.Item(1);
+            var metadata = BreakpointMetadata.FromRequest(request);
+            metadata.ApplyTo(breakpoint);
+            return BreakpointInfo.FromBreakpoint(breakpoint);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
+        {
+            throw WrapComFailure($"setting a breakpoint at '{file}:{request.Line}'", ex);
+        }
     }
 
     public async Task<BreakpointListResult> ListBreakpointsAsync(CancellationToken cancellationToken)
@@ -250,10 +256,17 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         var debugger = await GetDebuggerAsync();
         var breakpoints = new List<BreakpointInfo>();
 
-        foreach (Breakpoint breakpoint in debugger.Breakpoints)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            breakpoints.Add(BreakpointInfo.FromBreakpoint(breakpoint));
+            foreach (Breakpoint breakpoint in debugger.Breakpoints)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                breakpoints.Add(BreakpointInfo.FromBreakpoint(breakpoint));
+            }
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
+        {
+            throw WrapComFailure("listing breakpoints", ex);
         }
 
         return new BreakpointListResult(breakpoints);
@@ -268,20 +281,27 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         var removed = 0;
         var matches = new List<Breakpoint>();
 
-        foreach (Breakpoint breakpoint in debugger.Breakpoints)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (MatchesBreakpoint(breakpoint, request.Name, resolvedDocumentPath, request.Line))
+            foreach (Breakpoint breakpoint in debugger.Breakpoints)
             {
-                matches.Add(breakpoint);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (MatchesBreakpoint(breakpoint, request.Name, resolvedDocumentPath, request.Line))
+                {
+                    matches.Add(breakpoint);
+                }
+            }
+
+            foreach (var breakpoint in matches)
+            {
+                breakpoint.Delete();
+                removed++;
             }
         }
-
-        foreach (var breakpoint in matches)
+        catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
         {
-            breakpoint.Delete();
-            removed++;
+            throw WrapComFailure("removing breakpoints", ex);
         }
 
         return new BreakpointRemoveResult(removed);
@@ -320,13 +340,20 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         var debugger = await GetDebuggerAsync();
         var frames = new List<CallStackFrameInfo>();
 
-        if (debugger.CurrentThread?.StackFrames is StackFrames stackFrames)
+        try
         {
-            foreach (StackFrame frame in stackFrames)
+            if (debugger.CurrentThread?.StackFrames is StackFrames stackFrames)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                frames.Add(CallStackFrameInfo.FromStackFrame(frame));
+                foreach (StackFrame frame in stackFrames)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    frames.Add(CallStackFrameInfo.FromStackFrame(frame));
+                }
             }
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
+        {
+            throw WrapComFailure("reading the call stack", ex);
         }
 
         return new CallStackResult(GetDebuggerState(debugger), frames);
@@ -338,13 +365,20 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         var debugger = await GetDebuggerAsync();
         var locals = new List<DebugExpressionInfo>();
 
-        if (debugger.CurrentStackFrame?.Locals is Expressions expressions)
+        try
         {
-            foreach (Expression expression in expressions)
+            if (debugger.CurrentStackFrame?.Locals is Expressions expressions)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                locals.Add(DebugExpressionInfo.FromExpression(expression));
+                foreach (Expression expression in expressions)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    locals.Add(DebugExpressionInfo.FromExpression(expression));
+                }
             }
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
+        {
+            throw WrapComFailure("reading local variables", ex);
         }
 
         return new LocalsResult(GetDebuggerState(debugger), locals);
@@ -547,7 +581,19 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         }
 
         var process = matches[0];
-        process.Attach();
+        try
+        {
+            process.Attach();
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
+        {
+            // Local attach commonly fails with a COMException (access denied, engine/bitness
+            // mismatch, already attached to another debugger, etc.) - report it the same
+            // structured way as the no-match/ambiguous-match cases above, matching AttachRemote's
+            // existing try/catch below.
+            return new DebugAttachResult(false, $"Failed to attach to process '{process.Name}' (id {process.ProcessID}): {ex.Message}", null);
+        }
+
         return new DebugAttachResult(true, null, DebuggedProcessInfo.FromProcess(process));
     }
 
@@ -964,6 +1010,15 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         ThreadHelper.ThrowIfNotOnUIThread();
         return new DebuggerStateInfo(debugger.CurrentMode.ToString());
     }
+
+    // Breakpoint CRUD and call-stack/locals access (DBG-2) return plain data DTOs with no
+    // Success/Message field to report a failure through (unlike DebugAttachResult,
+    // ImmediateExecuteResult, etc.), so - unlike ApplyHotReloadAsync/ExecuteImmediateAsync, which
+    // swallow the COM exception into a result object - these instead catch it, add operation
+    // context, and rethrow. The RPC dispatch boundary (ARCH-8) turns that into a clean, logged,
+    // structured error instead of a raw COM fault crossing the wire.
+    private static InvalidOperationException WrapComFailure(string operation, Exception ex) =>
+        new($"Visual Studio debugger COM call failed while {operation}: {ex.Message}", ex);
 
     private static string ResolveDocumentPath(DTE dte, string documentPath)
     {

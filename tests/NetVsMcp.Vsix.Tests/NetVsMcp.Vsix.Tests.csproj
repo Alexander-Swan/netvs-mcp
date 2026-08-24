@@ -13,6 +13,14 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <!--
+      NetVsMcp.Vsix.csproj references the VS SDK with ExcludeAssets="runtime" (VS supplies these at
+      runtime when hosted in devenv.exe), so DocumentPathResolver's ThreadHelper.ThrowIfNotOnUIThread()
+      call can't resolve Microsoft.VisualStudio.Interop outside VS. Pull the interop assembly in for
+      this test project only, so tests can run out-of-process (see TEST-1 in docs/IMPROVEMENT_PLAN.md).
+    -->
+    <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.14.40265" />
+    <PackageReference Include="Microsoft.VisualStudio.Sdk.TestFramework.Xunit" Version="17.11.66" />
   </ItemGroup>
 
   <ItemGroup>

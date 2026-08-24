@@ -28,9 +28,17 @@ internal sealed class VisualStudioSessionSnapshotProvider : IVisualStudioSession
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
         var dte = await package.GetServiceAsync(typeof(DTE)) as DTE;
-        var solutionPath = dte?.Solution?.FullName;
-        var activeDocument = dte?.ActiveDocument?.FullName;
-        var debuggerMode = dte?.Debugger?.CurrentMode.ToString() ?? "Unknown";
+
+        // Each of these can throw a transient COMException during a solution-load/close race
+        // (e.g. dte.Solution briefly unavailable while a new one is being opened). Read them
+        // independently so one field's transient failure doesn't null out the others, and so a
+        // blip here degrades this single snapshot rather than throwing out of CaptureAsync -
+        // which, via SendHeartbeatAsync, would otherwise be caught only by
+        // BrokerRegistrationLifecycle's outer per-connection catch and tear down the whole
+        // broker connection (full unregister + backoff) for what should be a one-heartbeat blip.
+        var solutionPath = TryRead(() => dte?.Solution?.FullName);
+        var activeDocument = TryRead(() => dte?.ActiveDocument?.FullName);
+        var debuggerMode = TryRead(() => dte?.Debugger?.CurrentMode.ToString()) ?? "Unknown";
 
         return new VsSessionSnapshot(
             SessionIdentity.CurrentProcessSessionId(),
@@ -43,6 +51,21 @@ internal sealed class VisualStudioSessionSnapshotProvider : IVisualStudioSession
             debuggerMode,
             ActiveWindowTracker.IsCurrentProcessForegroundWindow(),
             DateTimeOffset.UtcNow);
+    }
+
+    private static string? TryRead(Func<string?> read)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        try
+        {
+            return read();
+        }
+        catch (System.Runtime.InteropServices.COMException ex)
+        {
+            Trace.TraceInformation("NetVsMcp: transient COM error reading VS session state, skipping this field for one snapshot: {0}", ex.Message);
+            return null;
+        }
     }
 
     private static string? GetSolutionName(string? solutionPath)
