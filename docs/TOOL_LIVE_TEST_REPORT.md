@@ -1,5 +1,11 @@
 # NetVsMcp Tool Live Test Report
 
+> **Coverage note (added 2026-08-23):** this report is a historical snapshot from 2026-07-25/26,
+> broker version 0.1.2.0. Tools added since then -- including `code_actions_list`/`code_actions_apply`,
+> `call_hierarchy_get`, `debug_hot_reload_apply`, the Task List tool family, and the unified text
+> search work -- are not covered here. Do not treat this report's tool count as current coverage;
+> see the README's tool table or `.agents/skills/*.md` guides for the current tool surface.
+
 Date: 2026-07-25
 Broker version under test: 0.1.2.0 (Debug config, session `vs-71428`, solution `NetVsMcp.slnx`)
 

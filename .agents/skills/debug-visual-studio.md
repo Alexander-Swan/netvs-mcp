@@ -56,8 +56,33 @@ Start-Process -FilePath 'C:\Program Files\Microsoft Visual Studio\18\Community\C
 - `debug_step({ stepKind: "Into" | "Over" | "Out", ...route })`
 - `debug_stop({ ...route })`
 - `debug_wait_for_break({ timeoutSeconds?, include?, ...route })`
+- `test_debug({ projectName?, filter, attachTimeoutSeconds?, noBuild?, configuration?, framework?, ...route })`
 
 Confirm before `debug_stop` unless the user explicitly asked to stop debugging.
+
+## Debugging A Single Test
+
+Use `test_debug` when the user wants to step through a specific test rather than merely run it:
+
+```json
+test_debug({
+  "projectName": "App.Tests",
+  "filter": "FullyQualifiedName~OrderTests.SubmitsOrder",
+  "attachTimeoutSeconds": 30,
+  "noBuild": true,
+  "configuration": "Debug",
+  "framework": "net10.0",
+  "sessionId": "..."
+})
+```
+
+Key behavior:
+
+- `filter` is required; the broker rejects an empty filter so a broad test run is not accidentally launched under the debugger.
+- The VSIX runs `dotnet test` with `VSTEST_HOST_DEBUG=1`, waits for the spawned test host process, and attaches Visual Studio to it. `noBuild`, `configuration`, and `framework` are passed through as `--no-build`, `--configuration`, and `--framework`. On .NET projects the attached process may be `dotnet.exe` rather than `testhost.exe`; rely on the returned `TestHostProcessId`.
+- The result also reports the launched runner process and command context: `TestRunnerProcessId`, `TestRunnerProcessName`, `CommandLine`, `WorkingDirectory`, `TargetPath`, and `AttachTimeoutSeconds`.
+- After attach succeeds, continue with the normal debugger tools: set breakpoints first if needed, then call `debug_wait_for_break`, `debug_get_locals`, `debug_get_callstack`, or `debug_snapshot`.
+- When the investigation is done, prefer `process_detach` for the returned `TestHostProcessId` if you only need to clean up the test debug session without killing the test process.
 
 ## Hot Reload
 
@@ -163,7 +188,7 @@ debug_wait_for_break({ "timeoutSeconds": 30, "include": ["callStack"], "sessionI
 
 If `timeoutSeconds` elapses without a hit, the call still succeeds with `timedOut: true` and only `state` populated (still `dbgRunMode`) — call `debug_wait_for_break` again rather than assuming the breakpoint will never fire; long-running or rarely-hit code paths may need several calls.
 
-**When the user wants to keep working while waiting instead of the conversation blocking on a long-running `debug_wait_for_break` call:** spawn a background agent (`run_in_background: true`) whose only job is to call `debug_wait_for_break` (looping with a fresh call if it times out) and report the result back. Its completion arrives as an automatic notification that resumes the conversation, so the user is not blocked on the wait. Give the spawned agent explicit routing (`sessionId`/`solutionName`) — it has no memory of this conversation. This background-agent pattern is specific to agent harnesses that support background subagents with completion notifications (e.g. Claude Code); it is not a portable MCP feature. `debug_wait_for_break` itself, however, is a normal MCP tool and works the same way in any MCP client, including GitHub Copilot.
+If the agent client supports background work, it can run `debug_wait_for_break` there with explicit routing (`sessionId` or `solutionName`) so the main conversation can continue. This is client-specific convenience only; `debug_wait_for_break` itself is a normal MCP tool.
 
 ## Watches And Immediate Evaluation
 

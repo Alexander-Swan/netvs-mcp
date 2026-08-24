@@ -1,6 +1,6 @@
 # Navigate Visual Studio With NetVsMcp
 
-This is the agent-neutral code navigation, search, and diagnostics workflow for this repository. Any AI agent can follow it when asked to find a definition, find references or implementations, walk a call hierarchy, list symbols, preview a rename, list or apply code fixes and refactorings, check diagnostics for a file, search text across the workspace, inspect git status, or open a batch of relevant files through NetVsMcp.
+This is the agent-neutral code navigation, search, and diagnostics workflow for this repository. Any AI agent can follow it when asked to find a definition, find references or implementations, walk a call hierarchy, list symbols, preview or apply a Roslyn rename, list or apply code fixes and refactorings, check diagnostics for a file, search text across the workspace, inspect git status, or open a batch of relevant files through NetVsMcp.
 
 ## Session Routing
 
@@ -61,12 +61,19 @@ Key behavior:
 - `documentPath` is required for both; an empty value fails with `"Document path is required."`.
 - `code_workspace_symbols` requires a non-empty `query` and `maxResults > 0` (default `100`). It returns `{ Query, MatchCount, Truncated, Symbols }`; `Symbols` are richer `DocumentSymbolInfo` entries than the plain strings from `code_document_symbols`, and `Truncated: true` means more matches existed than `maxResults` allowed.
 
-## Rename Preview
+## Rename Preview And Apply
 
-`rename_symbol_preview` is a preview-only tool — it never mutates source:
+`rename_symbol_preview` is a preview-only tool — it never mutates source. `rename_symbol_apply` runs the same Roslyn rename flow and applies the resulting solution changes:
 
 ```json
 rename_symbol_preview({
+  "documentPath": "src/NetVsMcp.Broker/Services/BrokerToolService.cs",
+  "line": 590,
+  "column": 24,
+  "newName": "CodeNavigateToDefinition",
+  "sessionId": "..."
+})
+rename_symbol_apply({
   "documentPath": "src/NetVsMcp.Broker/Services/BrokerToolService.cs",
   "line": 590,
   "column": 24,
@@ -79,7 +86,8 @@ Key behavior:
 
 - `newName` is required and trimmed; an empty value fails with `"New name is required."` before the request is dispatched.
 - The result is `{ Supported, Message, Position, NewName, Symbol?, Changes? }`. Check `Supported` before trusting `Changes`; some symbol kinds or languages report `Supported: false` with an explanatory `Message` instead of a change list.
-- There is no companion "apply rename" tool in this category — use this purely to inspect the blast radius of a rename before deciding whether to make the edit through the editor or safe-edit tools.
+- `rename_symbol_apply` returns `{ Success, Message, Position, NewName, Symbol?, Changes? }`; `Changes` uses the same file/range/new-text shape as the preview result, but the edit has already been applied to the Visual Studio workspace.
+- Prefer `rename_symbol_preview` first when the blast radius is uncertain, then call `rename_symbol_apply` with the same position and `newName` once the rename is intended. Follow up with `build_and_get_errors` for confidence on cross-file renames.
 
 ## Call Hierarchy
 

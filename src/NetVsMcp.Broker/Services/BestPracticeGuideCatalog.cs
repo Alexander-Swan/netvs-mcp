@@ -50,13 +50,10 @@ public sealed class BestPracticeGuideCatalog
 
     private readonly string? bundledGuidesRoot;
     private readonly string? repositoryGuidesRoot;
-    private readonly string? userGuidesRoot;
-
     public BestPracticeGuideCatalog()
     {
         bundledGuidesRoot = ResolveDirectory(Path.Combine("BundledGuides", "skills"), null);
         repositoryGuidesRoot = ResolveDirectory(null, Path.Combine(".agents", "skills"));
-        userGuidesRoot = ResolveUserDirectory("best-practices");
     }
 
     public BestPracticeGuideToolResult List()
@@ -111,7 +108,7 @@ public sealed class BestPracticeGuideCatalog
     private BestPracticeGuideInfo CreateInfo(string guideName)
     {
         var files = new List<BestPracticeGuideFileInfo>();
-        foreach (var root in EnumerateExistingRoots(userGuidesRoot, bundledGuidesRoot, repositoryGuidesRoot))
+        foreach (var root in EnumerateExistingRoots(bundledGuidesRoot, repositoryGuidesRoot))
         {
             var path = Path.Combine(root, $"{guideName}.md");
             if (File.Exists(path) && !files.Any(file => string.Equals(file.Path, $"{guideName}.md", StringComparison.OrdinalIgnoreCase)))
@@ -149,7 +146,7 @@ public sealed class BestPracticeGuideCatalog
             return false;
         }
 
-        foreach (var root in EnumerateExistingRoots(userGuidesRoot, bundledGuidesRoot, repositoryGuidesRoot))
+        foreach (var root in EnumerateExistingRoots(bundledGuidesRoot, repositoryGuidesRoot))
         {
             var fullPath = Path.GetFullPath(Path.Combine(root, normalizedFile));
             var fullRoot = Path.GetFullPath(root);
@@ -199,18 +196,6 @@ public sealed class BestPracticeGuideCatalog
         }
 
         return null;
-    }
-
-    private static string? ResolveUserDirectory(string relativePath)
-    {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        if (string.IsNullOrWhiteSpace(appData))
-        {
-            return null;
-        }
-
-        var path = Path.Combine(appData, "NetVsMcp", relativePath);
-        return Directory.Exists(path) ? path : null;
     }
 
     private static IEnumerable<string> EnumerateExistingRoots(params string?[] roots)

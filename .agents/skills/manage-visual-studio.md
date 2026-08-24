@@ -50,10 +50,13 @@ vs_ping({ "solutionName": "App" })
 
 ```json
 vs_get_capabilities()
+netvs_doctor()
 get_help({ "requiresVisualStudioSession": true })
 ```
 
-Both return the same `BrokerCapabilities` shape: the broker's MCP endpoint, the full tool catalog (name, description, category, `McpEndpointPath`, and whether each tool requires a routed Visual Studio session), and the high-level Visual Studio capability categories (`Editor`, `Navigation`, `Build`, `Debugger`, `Diagnostics`, `Tests`, `ProjectSystem`). `get_help` additionally accepts an optional `requiresVisualStudioSession` filter to list only broker-only tools (`false`) or only session-routed tools (`true`). Check each tool's `McpEndpointPath` before assuming it's callable from the current connection — most tools are on `/mcp`, but `ui_*`/`web_*` tools are only served from the separate opt-in `/mcp-wu` endpoint (see the automate-visual-studio guide).
+`vs_get_capabilities` and `get_help` return the same `BrokerCapabilities` shape: the broker's MCP endpoint, the full tool catalog (name, description, category, `McpEndpointPath`, and whether each tool requires a routed Visual Studio session), and the high-level Visual Studio capability categories (`Editor`, `Navigation`, `Build`, `Debugger`, `Diagnostics`, `Tests`, `ProjectSystem`). `get_help` additionally accepts an optional `requiresVisualStudioSession` filter to list only broker-only tools (`false`) or only session-routed tools (`true`). Check each tool's `McpEndpointPath` before assuming it's callable from the current connection — most tools are on `/mcp`, but `ui_*`/`web_*` tools are only served from the separate opt-in `/mcp-wu` endpoint (see the automate-visual-studio guide).
+
+`netvs_doctor()` returns a structured broker health report with checks for the HTTP endpoint, VSIX registration pipe, registered/connected/stale sessions, pending restart settings, protocol compatibility, and split endpoint tools. Use it when setup or routing looks wrong before trying random routed calls.
 
 ### Broker and session logs
 
@@ -208,6 +211,7 @@ Key behavior:
 ```json
 test_discover({ "projectName": "App.Tests", "sessionId": "..." })
 test_run({ "projectName": "App.Tests", "filter": "FullyQualifiedName~OrderTests", "sessionId": "..." })
+test_debug({ "projectName": "App.Tests", "filter": "FullyQualifiedName~OrderTests", "attachTimeoutSeconds": 30, "noBuild": true, "configuration": "Debug", "framework": "net10.0", "sessionId": "..." })
 test_results({ "runId": null, "sessionId": "..." })
 test_run_and_get_results({ "projectName": "App.Tests", "filter": null, "runId": null, "sessionId": "..." })
 ```
@@ -216,6 +220,7 @@ Key behavior:
 
 - `projectName` is optional on `test_discover` and `test_run`; omit it to target the whole solution.
 - `filter` on `test_run` is an optional test-filter expression passed through to the VSIX test backend (for example a `FullyQualifiedName~` substring filter).
+- `test_debug` requires a non-empty `filter` so it does not accidentally launch every test under the debugger. It starts `dotnet test` with `VSTEST_HOST_DEBUG=1`, waits for the test host, attaches Visual Studio to that process, and accepts optional `noBuild`, `configuration`, and `framework` values passed through to `dotnet test`. The result includes the attached test host (`TestHostProcessId`, `TestHostProcessName`), the launched runner (`TestRunnerProcessId`, `TestRunnerProcessName`), and launch diagnostics (`CommandLine`, `WorkingDirectory`, `TargetPath`, `AttachTimeoutSeconds`). After it attaches, use the normal debugger tools (`debug_status`, `debug_wait_for_break`, `process_list_debugged`, `process_detach`) to inspect or clean up.
 - `test_results` accepts an optional `runId` to fetch a specific prior run; omit it for the most recent run.
 - Every test tool returns a `TestOperationResult` with a `supported` flag, a `message`, `tests` (from discovery), and `results` (from a run). If `supported` is `false`, the active Visual Studio test backend does not support the requested operation; report that instead of retrying.
 - `test_run_and_get_results` is a convenience combo tool: it calls `test_run` and then `test_results` in sequence and returns both (`run` and `results`) in one round trip. Prefer it over separately calling `test_run` then `test_results` unless the caller specifically needs to inspect the run before fetching results.

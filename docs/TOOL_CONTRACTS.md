@@ -15,80 +15,43 @@ Every routed MCP tool accepts these optional fields:
 {
   "sessionId": null,
   "solutionName": null,
-  "solutionPath": null
+  "solutionPath": null,
+  "processId": null,
+  "workspacePath": null,
+  "rootPath": null
 }
 ```
 
 Resolution order:
 
-1. `sessionId`
-2. normalized `solutionPath`
-3. exact `solutionName`
-4. active Visual Studio window
-5. only registered Visual Studio instance
-6. fail with candidate session metadata
+1. explicit `sessionId`
+2. explicit `processId`
+3. normalized `solutionPath`
+4. normalized `workspacePath` or `rootPath` by walking upward to `.sln` or `.slnx`
+5. exact `solutionName`
+6. active Visual Studio window or configured default
+7. only registered Visual Studio instance
+8. otherwise fail with candidate session metadata
 
 Routing failures return `success: false`, a message, and metadata such as `failureReason`, `candidateCount`, and `candidateSessionIds`.
 
-## Broker-Only MCP Tools
+## Broker-Only And Broker-Routed MCP Tools
 
-| MCP tool | Owner | Notes |
-| --- | --- | --- |
-| `vs_list_sessions` | Broker | Returns registered `VsSessionInfo` records. |
-| `vs_get_status` | Broker | Returns broker endpoint, pipe name, uptime, and session health. |
-| `vs_get_capabilities` | Broker | Returns tool descriptors and VS capability categories. |
-| `vs_get_session` | Broker | Resolves a target and returns session status. |
-| `vs_select_session` | Broker | Resolver helper; does not persist global selection state. |
-| `vs_ping` | Broker | Broker health, optionally with routed target status. |
+The tool surface has grown to ~190 tools across session/solution/project/test management,
+editing, navigation, build, debugging, and automation, and a hand-maintained table here has
+already gone stale once (an earlier ~45-tool version of this table missed NuGet, advanced debug,
+UI automation, web debugging, tests, task list, code actions, call hierarchy, and snapshot tools).
+Rather than re-derive and re-drift another copy, the canonical, currently-accurate references are:
 
-## Broker-Routed MCP Tools
+- the README's tool table
+- the `.agents/skills/*.md` guides (one per tool category), which also document each tool's
+  request/response shape in more depth than a flat table would
 
-| MCP tool | VSIX RPC method |
-| --- | --- |
-| `document_active` | `GetActiveDocumentAsync` for the shared status path, `DocumentActiveAsync` for rich editor path |
-| `document_read` | `DocumentReadAsync` |
-| `document_open` | `DocumentOpenAsync` |
-| `selection_get` | `SelectionGetAsync` |
-| `document_write` | `DocumentWriteAsync` |
-| `document_save` | `DocumentSaveAsync` |
-| `editor_insert` | `EditorInsertAsync` |
-| `editor_replace` | `EditorReplaceAsync` |
-| `editor_goto_line` | `EditorGotoLineAsync` |
-| `selection_set` | `SelectionSetAsync` |
-| `document_cleanup` | `DocumentCleanupAsync` |
-| `edit_preview` | `EditPreviewAsync` |
-| `edit_approve` | `EditApproveAsync` |
-| `edit_reject` | `EditRejectAsync` |
-| `edit_list_pending` | `EditListPendingAsync` |
-| `code_document_symbols` | `ListDocumentSymbolsAsync` for shared status path, `CodeDocumentSymbolsAsync` for rich navigation path |
-| `code_go_to_definition` | `CodeGoToDefinitionAsync` |
-| `code_find_references` | `CodeFindReferencesAsync` |
-| `build_solution` | `BuildSolutionAsync` |
-| `build_status` | `BuildStatusAsync` |
-| `errors_list` | `ErrorsListAsync` |
-| `output_read` | `OutputReadAsync` |
-| `debug_status` | `DebugStatusAsync` |
-| `debug_get_mode` | `DebugGetModeAsync` |
-| `debug_start` | `DebugStartAsync` |
-| `debug_stop` | `DebugStopAsync` |
-| `debug_continue` | `DebugContinueAsync` |
-| `debug_break` | `DebugBreakAsync` |
-| `debug_step` | `DebugStepAsync` |
-| `breakpoint_set` | `BreakpointSetAsync` |
-| `breakpoint_list` | `BreakpointListAsync` |
-| `breakpoint_remove` | `BreakpointRemoveAsync` |
-| `breakpoint_enable` | `BreakpointEnableAsync` |
-| `debug_get_callstack` | `DebugGetCallstackAsync` |
-| `debug_get_locals` | `DebugGetLocalsAsync` |
-| `debug_evaluate` | `DebugEvaluateAsync` |
-| `solution_info` | `SolutionInfoAsync` |
-| `project_list` | `ProjectListAsync` |
-| `project_info` | `ProjectInfoAsync` |
-| `startup_project_get` | `StartupProjectGetAsync` |
-| `startup_project_set` | `StartupProjectSetAsync` |
-| `test_discover` | `TestDiscoverAsync` |
-| `test_run` | `TestRunAsync` |
-| `test_results` | `TestResultsAsync` |
+For the broker-side/VSIX-side RPC method naming convention: broker-only tools (session listing,
+status, capabilities) are handled entirely inside the broker without a VSIX round trip; broker-routed
+tools forward to a same-named-or-closely-named async method on the VSIX's `IVisualStudioSessionRpc`
+implementation (e.g. `document_read` -> `DocumentReadAsync`) -- see
+`src/NetVsMcp.Contracts/RpcInterfaces.cs` for the full interface.
 
 ## Registration RPC
 
@@ -129,6 +92,10 @@ High-impact tools, especially edits and debugger controls, should fail closed on
 
 ## Open Gaps
 
-- End-to-end runtime validation inside an experimental Visual Studio instance is still required.
-- VSIX mirrors shared wire DTOs locally because it targets `net472` while `NetVsMcp.Contracts` targets `net10.0`.
-- Token authentication and audit logging are planned but not complete.
+- Token authentication for the broker's HTTP MCP endpoint is deliberately not implemented (see
+  `docs/SECURITY.md`) -- the tool targets a single-developer local workstation, not shared/RDP/VDI
+  machines, so this isn't planned unless the deployment model changes. Audit logging, by contrast,
+  has shipped (`AuditLogService`) and is not a gap.
+- `NetVsMcp.Contracts` now multi-targets `net10.0`/`netstandard2.0` and `NetVsMcp.Vsix` (net472)
+  references it directly for the DTOs and RPC interfaces both sides share -- the earlier hand-mirrored
+  "Wire" type duplication is gone.

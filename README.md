@@ -20,11 +20,11 @@ No cloud services. No telemetry. No per-project configuration files. Everything 
 
 | Area | Tools |
 | --- | --- |
-| Session management | `vs_list_sessions`, `vs_get_session`, `vs_select_session`, `vs_get_status`, `vs_get_capabilities`, `vs_ping`, `vs_launch_instance`, `vs_get_logs`, `get_help` |
+| Session management | `vs_list_sessions`, `vs_get_session`, `vs_select_session`, `vs_get_status`, `vs_get_capabilities`, `vs_ping`, `vs_launch_instance`, `vs_get_logs`, `netvs_doctor`, `get_help` |
 | Documents & editor | `document_active`, `document_read`, `document_open`, `document_write`, `document_save`, `document_close`, `document_list`, `document_cleanup`, `document_outline` |
 | Editor mutations | `editor_insert`, `editor_replace`, `editor_goto_line`, `selection_get`, `selection_set` |
 | Safe-edit workflow | `edit_preview`, `edit_approve`, `edit_reject`, `edit_list_pending`, `prepare_safe_edit`, `apply_safe_edit_and_build` |
-| Code navigation | `code_document_symbols`, `code_workspace_symbols`, `code_go_to_definition`, `code_go_to_implementation`, `code_find_references`, `find_implementations`, `rename_symbol_preview`, `call_hierarchy_get` |
+| Code navigation | `code_document_symbols`, `code_workspace_symbols`, `code_go_to_definition`, `code_go_to_implementation`, `code_find_references`, `find_implementations`, `rename_symbol_preview`, `rename_symbol_apply`, `call_hierarchy_get` |
 | Code fixes & refactorings | `code_actions_list`, `code_actions_apply` |
 | Search | `editor_find`, `find_in_files`, `workspace_search`, `open_relevant_files` |
 | Build | `build_solution`, `build_project`, `build_and_get_errors`, `build_status`, `build_cancel`, `build_configuration_get`, `build_configuration_set`, `rebuild_solution`, `clean_solution`, `package_restore` |
@@ -38,7 +38,7 @@ No cloud services. No telemetry. No per-project configuration files. Everything 
 | Modules | `module_list` |
 | Solution & projects | `solution_info`, `solution_overview`, `solution_open`, `solution_close`, `solution_add_project`, `solution_remove_project`, `project_list`, `project_info`, `project_dependencies`, `project_add_file`, `project_remove_file`, `project_add_reference`, `project_remove_reference`, `startup_project_get`, `startup_project_set` |
 | NuGet | `nuget_list`, `nuget_search`, `nuget_install`, `nuget_update`, `nuget_uninstall` |
-| Tests | `test_discover`, `test_run`, `test_run_and_get_results`, `test_results` |
+| Tests | `test_discover`, `test_run`, `test_debug`, `test_run_and_get_results`, `test_results` |
 | Git context | `git_context` |
 | Snapshots | `vs_context_snapshot`, `symbol_context`, `debug_snapshot` |
 | Console | `console_get_info`, `console_read`, `console_send` |
@@ -101,7 +101,7 @@ The broker status window shows this snippet ready to copy. The `netvs-web-automa
 
 NetVsMcp gives your AI agent tools to control Visual Studio. For better results, pair it with the included best-practices guides: domain knowledge that teaches the agent how to route to the right Visual Studio session and use the management, navigation, editing, build, debug, and automation tools safely.
 
-The broker exposes the bundled guides as MCP resources such as `guide://netvsmcp/manage-visual-studio.md`. Tool-only clients can call `netvs_get_best_practices` with no arguments to list guides, or with `guide` and optional `file` to read one. The bundled guides are agent-neutral defaults, not locked policy; users and projects can layer their own local instructions on top. A same-named user guide under `%APPDATA%\NetVsMcp\best-practices` overrides the bundled resource content.
+The broker exposes the bundled guides as MCP resources such as `guide://netvsmcp/manage-visual-studio.md`. Tool-only clients can call `netvs_get_best_practices` with no arguments to list guides, or with `guide` and optional `file` to read one. The bundled guides are agent-neutral defaults, not locked policy; users and projects can layer their own agent or repository instructions on top.
 
 The same files are available in the repository for manual use under `.agents/skills`. They are not required for the broker to run, but they help agents avoid brittle workflows and choose native Visual Studio operations instead of guessing.
 

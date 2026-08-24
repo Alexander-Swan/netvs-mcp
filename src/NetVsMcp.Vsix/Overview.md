@@ -30,7 +30,7 @@ Trigger solution or project builds, read the live error list and output panes, c
 Full debugger control: start, stop, attach, step (into/over/out), set and manage **conditional breakpoints**, read locals and the call stack, evaluate expressions in the current frame, manage watches, switch threads, freeze/thaw threads, inspect parallel stacks, and take structured snapshots of debugger state.
 
 ### Solution, projects & tests
-Query solution structure, project dependencies, and NuGet packages. Discover and run tests and read results.
+Query solution structure, project dependencies, and NuGet packages. Discover and run tests, debug a filtered test under the Visual Studio debugger, and read results.
 
 ## Tool highlights
 
@@ -38,12 +38,12 @@ Query solution structure, project dependencies, and NuGet packages. Discover and
 | --- | --- |
 | Documents | `document_read`, `document_write`, `document_outline`, `editor_goto_line` |
 | Safe edits | `edit_preview`, `edit_approve`, `edit_reject`, `apply_safe_edit_and_build` |
-| Navigation | `code_go_to_definition`, `code_find_references`, `code_workspace_symbols` |
+| Navigation | `code_go_to_definition`, `code_find_references`, `code_workspace_symbols`, `rename_symbol_apply` |
 | Build | `build_solution`, `build_and_get_errors`, `errors_list`, `output_read` |
 | Debugger | `debug_start`, `debug_step`, `debug_evaluate`, `debug_get_locals`, `debug_snapshot` |
 | Breakpoints | `breakpoint_set`, `breakpoint_enable`, `breakpoint_group_list` |
 | Threads | `thread_switch`, `thread_set_frozen`, `parallel_stacks` |
-| Tests | `test_discover`, `test_run_and_get_results` |
+| Tests | `test_discover`, `test_run_and_get_results`, `test_debug` |
 | NuGet | `nuget_search`, `nuget_install`, `nuget_update` |
 
 150+ tools in total - see the full list in the project README.

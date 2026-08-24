@@ -1071,6 +1071,7 @@ startup_project_get -> StartupProjectGetAsync
 startup_project_set -> StartupProjectSetAsync
 test_discover       -> TestDiscoverAsync
 test_run            -> TestRunAsync
+test_debug          -> TestDebugAsync
 test_results        -> TestResultsAsync
 ```
 
@@ -1163,6 +1164,25 @@ Test operation requests:
 ```
 
 The VSIX resolves `projectName` against the active solution and runs `dotnet test` for either the selected project or the active solution. `filter` is passed through to `dotnet test --filter`, and `test_run` writes TRX results to a temporary NetVsMcp results directory so the VSIX can return structured result rows. `test_results` returns the last captured run in the current VSIX session, optionally constrained by `runId`.
+
+`test_debug` requires a non-empty `filter`, starts `dotnet test` with `VSTEST_HOST_DEBUG=1`, waits for the spawned test host, and attaches the Visual Studio debugger to it. It also accepts `noBuild`, `configuration`, and `framework`, which are passed through to `dotnet test` as `--no-build`, `--configuration`, and `--framework`. The result is:
+
+```json
+{
+  "supported": true,
+  "message": "Started 'NetVsMcp.Broker.Tests' with VSTEST_HOST_DEBUG=1 and attached to testhost process '6404'.",
+  "projectName": "NetVsMcp.Broker.Tests",
+  "filter": "FullyQualifiedName~BrokerToolServiceTests.TestDebug_RequiresFilter",
+  "testHostProcessId": 6404,
+  "testHostProcessName": "dotnet",
+  "testRunnerProcessId": 6200,
+  "testRunnerProcessName": "dotnet",
+  "commandLine": "dotnet test \"D:\\Work\\Learn\\dotnet\\netvs-mcp\\tests\\NetVsMcp.Broker.Tests\\NetVsMcp.Broker.Tests.csproj\" --filter \"FullyQualifiedName~BrokerToolServiceTests.TestDebug_RequiresFilter\" --no-build --configuration Debug --framework net10.0",
+  "workingDirectory": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\tests\\NetVsMcp.Broker.Tests",
+  "targetPath": "D:\\Work\\Learn\\dotnet\\netvs-mcp\\tests\\NetVsMcp.Broker.Tests\\NetVsMcp.Broker.Tests.csproj",
+  "attachTimeoutSeconds": 30
+}
+```
 
 Follow-up: startup project handling currently supports the common single-startup project path. Multi-startup project profiles need runtime validation and a richer request model before `startup_project_set` can safely edit them.
 
