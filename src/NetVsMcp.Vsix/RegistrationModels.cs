@@ -23,7 +23,8 @@ internal sealed class VsSessionSnapshot
         string? activeDocument,
         string debuggerMode,
         bool isActiveWindow,
-        DateTimeOffset lastSeenUtc)
+        DateTimeOffset lastSeenUtc,
+        string? vsixVersion)
     {
         SessionId = sessionId;
         ProcessId = processId;
@@ -35,6 +36,7 @@ internal sealed class VsSessionSnapshot
         DebuggerMode = debuggerMode;
         IsActiveWindow = isActiveWindow;
         LastSeenUtc = lastSeenUtc;
+        VsixVersion = vsixVersion;
     }
 
     public string SessionId { get; }
@@ -49,6 +51,7 @@ internal sealed class VsSessionSnapshot
     public string DebuggerMode { get; }
     public bool IsActiveWindow { get; }
     public DateTimeOffset LastSeenUtc { get; }
+    public string? VsixVersion { get; }
 }
 
 internal sealed class VsRegistrationRequest
@@ -109,7 +112,8 @@ internal static class VsContractMapping
             ToDebuggerMode(session.DebuggerMode),
             session.IsActiveWindow,
             ToCapabilities(request.Capabilities),
-            VsRpcProtocol.CurrentVersion);
+            VsRpcProtocol.CurrentVersion,
+            session.VsixVersion);
     }
 
     public static VsSessionUpdate ToUpdate(VsHeartbeatRequest request)
@@ -138,7 +142,8 @@ internal static class VsContractMapping
             ToDebuggerMode(snapshot.DebuggerMode),
             snapshot.IsActiveWindow,
             snapshot.LastSeenUtc,
-            ToCapabilities(capabilities.CapabilityNames));
+            ToCapabilities(capabilities.CapabilityNames),
+            snapshot.VsixVersion);
 
     public static DebuggerMode ToDebuggerMode(string? debuggerMode)
     {

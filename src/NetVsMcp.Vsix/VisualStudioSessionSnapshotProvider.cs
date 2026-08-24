@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using EnvDTE;
@@ -50,7 +51,8 @@ internal sealed class VisualStudioSessionSnapshotProvider : IVisualStudioSession
             activeDocument,
             debuggerMode,
             ActiveWindowTracker.IsCurrentProcessForegroundWindow(),
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            GetVsixVersion());
     }
 
     private static string? TryRead(Func<string?> read)
@@ -76,5 +78,21 @@ internal sealed class VisualStudioSessionSnapshotProvider : IVisualStudioSession
         }
 
         return Path.GetFileNameWithoutExtension(solutionPath);
+    }
+
+    private static string GetVsixVersion()
+    {
+        var assembly = typeof(NetVsMcpPackage).Assembly;
+        var informationalVersion = assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion;
+        if (!string.IsNullOrWhiteSpace(informationalVersion))
+        {
+            var version = informationalVersion!;
+            var plusIndex = version.IndexOf('+');
+            return plusIndex >= 0 ? version.Substring(0, plusIndex) : version;
+        }
+
+        return assembly.GetName().Version?.ToString(3) ?? "0.0.0";
     }
 }

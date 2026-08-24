@@ -178,7 +178,8 @@ public sealed record VsSessionInfo(
     DebuggerMode DebuggerMode,
     bool IsActiveWindow,
     DateTimeOffset LastSeenUtc,
-    IReadOnlyCollection<VsCapability> Capabilities);
+    IReadOnlyCollection<VsCapability> Capabilities,
+    string? VsixVersion = null);
 
 public sealed record VsLaunchInstanceResult(
     bool Success,
@@ -199,7 +200,8 @@ public sealed record VsSessionRegistration(
     bool IsActiveWindow,
     IReadOnlyCollection<VsCapability> Capabilities,
     /// <summary>Only the major component is validated; see <see cref="VsRpcProtocol"/>.</summary>
-    string? ProtocolVersion = VsRpcProtocol.CurrentVersion);
+    string? ProtocolVersion = VsRpcProtocol.CurrentVersion,
+    string? VsixVersion = null);
 
 /// <summary>Payload a VSIX instance sends on each heartbeat to refresh its session state. <see cref="Capabilities"/> null means "unchanged".</summary>
 public sealed record VsSessionUpdate(

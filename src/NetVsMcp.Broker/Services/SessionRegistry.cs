@@ -63,7 +63,8 @@ public sealed class SessionRegistry
             registration.DebuggerMode,
             registration.IsActiveWindow,
             _utcNow(),
-            registration.Capabilities);
+            registration.Capabilities,
+            registration.VsixVersion);
 
         var isNewSession = false;
         lock (_gate)
