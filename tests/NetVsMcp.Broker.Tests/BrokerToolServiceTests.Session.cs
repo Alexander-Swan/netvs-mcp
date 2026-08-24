@@ -273,6 +273,26 @@ public sealed partial class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task VsContextSnapshot_ToleratesUnavailableBuildStatus()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs")
+        {
+            ThrowOnBuildStatus = true
+        });
+
+        var response = await runtime.Tools.VsContextSnapshot(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal("vs-fake", response.Value!.Session!.SessionId);
+        Assert.Null(response.Value.Build);
+        Assert.Equal("Editor.cs", response.Value.ActiveDocument);
+        Assert.Equal("NetVsMcp", response.Value.Solution!.Name);
+        Assert.Single(response.Value.Errors!.Items);
+    }
+
+    [Fact]
     public async Task ExecuteCommand_RoutesToConnectedSession()
     {
         var runtime = CreateRuntime();

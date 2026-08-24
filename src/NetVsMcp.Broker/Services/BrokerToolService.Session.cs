@@ -322,11 +322,28 @@ public sealed partial class BrokerToolService
                     activeDocument.Value,
                     await connection.SelectionGetAsync(ct),
                     await connection.DebugStatusAsync(ct),
-                    await connection.BuildStatusAsync(ct),
+                    await TryGetSnapshotValueAsync(() => connection.BuildStatusAsync(ct)),
                     await connection.ErrorsListAsync(new ErrorListRequest { IncludeWarnings = true, MaxItems = 50 }, ct),
                     await connection.EditListPendingAsync(ct));
             },
             cancellationToken);
+    }
+
+    private static async Task<T?> TryGetSnapshotValueAsync<T>(Func<Task<T>> getValue)
+        where T : class
+    {
+        try
+        {
+            return await getValue();
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return null;
+        }
     }
     [McpServerTool(Name = "execute_command")]
     [Description("Executes a Visual Studio command in a routed session.")]

@@ -142,6 +142,8 @@ public sealed partial class BrokerToolServiceTests
 
         public BuildSolutionRequest? LastBuildSolutionRequest { get; private set; }
 
+        public bool ThrowOnBuildStatus { get; init; }
+
         public ErrorListRequest? LastErrorListRequest { get; private set; }
 
         public OutputReadRequest? LastOutputReadRequest { get; private set; }
@@ -807,6 +809,11 @@ public sealed partial class BrokerToolServiceTests
 
         public Task<BuildStatusInfo> BuildStatusAsync(CancellationToken cancellationToken)
         {
+            if (ThrowOnBuildStatus)
+            {
+                throw new InvalidOperationException("A build must be performed before this information is available.");
+            }
+
             return Task.FromResult(new BuildStatusInfo("Idle", 0));
         }
 
