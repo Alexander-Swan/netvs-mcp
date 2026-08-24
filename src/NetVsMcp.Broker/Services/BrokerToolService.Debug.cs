@@ -969,7 +969,7 @@ public sealed partial class BrokerToolService
     }
     [McpServerTool(Name = "immediate_execute")]
     [Description("Executes text in the immediate window when supported by the VSIX debugger service.")]
-    public Task<ToolResponse<ImmediateExecuteResult>> ImmediateExecute(string statement, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    public Task<ToolResponse<ImmediateExecuteResult>> ImmediateExecute(string? statement = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(statement))
         {

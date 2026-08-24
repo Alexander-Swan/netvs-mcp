@@ -41,12 +41,26 @@ public sealed partial class BrokerToolService
         DispatchAutomation("ui_get_tree", target, null, null, null, null, null, null, null, timeoutMilliseconds, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.UiGetTreeAsync(request, ct), cancellationToken);
     [McpServerTool(Name = "ui_find_elements")]
     [Description("Finds UI automation elements when a VSIX UI automation backend is available.")]
-    public Task<ToolResponse<AutomationResult>> UiFindElements(string selector, string? target = null, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        DispatchAutomation("ui_find_elements", target, selector, null, null, null, null, null, null, timeoutMilliseconds, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.UiFindElementsAsync(request, ct), cancellationToken);
+    public Task<ToolResponse<AutomationResult>> UiFindElements(string? selector = null, string? target = null, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (ValidateSelector(selector) is { } validation)
+        {
+            return Task.FromResult(FailWithCode<AutomationResult>(validation, ToolErrorCodes.InvalidRequest));
+        }
+
+        return DispatchAutomation("ui_find_elements", target, selector, null, null, null, null, null, null, timeoutMilliseconds, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.UiFindElementsAsync(request, ct), cancellationToken);
+    }
     [McpServerTool(Name = "ui_get_element")]
     [Description("Returns one UI automation element when a VSIX UI automation backend is available.")]
-    public Task<ToolResponse<AutomationResult>> UiGetElement(string selector, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        DispatchAutomation("ui_get_element", target, selector, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.UiGetElementAsync(request, ct), cancellationToken);
+    public Task<ToolResponse<AutomationResult>> UiGetElement(string? selector = null, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (ValidateSelector(selector) is { } validation)
+        {
+            return Task.FromResult(FailWithCode<AutomationResult>(validation, ToolErrorCodes.InvalidRequest));
+        }
+
+        return DispatchAutomation("ui_get_element", target, selector, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.UiGetElementAsync(request, ct), cancellationToken);
+    }
     [McpServerTool(Name = "ui_click")]
     [Description("Clicks a UI automation element when a VSIX UI automation backend is available.")]
     public Task<ToolResponse<AutomationResult>> UiClick(string selector, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
@@ -77,8 +91,15 @@ public sealed partial class BrokerToolService
         DispatchAutomation("ui_send_keys", target, null, null, text, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.UiSendKeysAsync(request, ct), cancellationToken);
     [McpServerTool(Name = "ui_wait_for_element")]
     [Description("Waits for a UI automation element when a VSIX UI automation backend is available.")]
-    public Task<ToolResponse<AutomationResult>> UiWaitForElement(string selector, string? target = null, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        DispatchAutomation("ui_wait_for_element", target, selector, null, null, null, null, null, null, timeoutMilliseconds, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.UiWaitForElementAsync(request, ct), cancellationToken);
+    public Task<ToolResponse<AutomationResult>> UiWaitForElement(string? selector = null, string? target = null, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (ValidateSelector(selector) is { } validation)
+        {
+            return Task.FromResult(FailWithCode<AutomationResult>(validation, ToolErrorCodes.InvalidRequest));
+        }
+
+        return DispatchAutomation("ui_wait_for_element", target, selector, null, null, null, null, null, null, timeoutMilliseconds, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.UiWaitForElementAsync(request, ct), cancellationToken);
+    }
     [McpServerTool(Name = "ui_wait_idle")]
     [Description("Waits for debuggee UI idle when a VSIX UI automation backend is available.")]
     public Task<ToolResponse<AutomationResult>> UiWaitIdle(string? target = null, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
@@ -120,5 +141,12 @@ public sealed partial class BrokerToolService
         };
 
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => operation(connection, request, ct), cancellationToken);
+    }
+
+    private static string? ValidateSelector(string? selector)
+    {
+        return string.IsNullOrWhiteSpace(selector)
+            ? "Selector is required."
+            : null;
     }
 }

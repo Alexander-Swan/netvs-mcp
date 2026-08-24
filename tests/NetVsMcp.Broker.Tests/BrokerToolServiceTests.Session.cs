@@ -428,7 +428,18 @@ public sealed partial class BrokerToolServiceTests
             Severity: BrokerDoctorSeverity.Warning,
             Passed: true
         });
-        Assert.Contains(response.Value.Capabilities.Tools, tool => tool.Name == "netvs_doctor");
+    }
+
+    [Fact]
+    public void NetVsDoctor_IncludesMcpConfigGuidance()
+    {
+        var runtime = CreateRuntime();
+
+        var response = runtime.Tools.NetVsDoctor();
+
+        Assert.True(response.Success);
+        Assert.Contains(response.Value!.Checks, check => check.Name == "mcp_client_config");
+        Assert.Contains("broker status window", response.Value.Checks.Single(check => check.Name == "registered_sessions").Message);
     }
 
     [Fact]

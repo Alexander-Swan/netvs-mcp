@@ -255,7 +255,6 @@ public sealed record BrokerDoctorResult(
     bool Healthy,
     string Summary,
     BrokerStatus Status,
-    BrokerCapabilities Capabilities,
     IReadOnlyCollection<BrokerDoctorCheck> Checks);
 
 public sealed record BestPracticeGuideFileInfo(

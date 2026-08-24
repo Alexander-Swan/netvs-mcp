@@ -153,6 +153,74 @@ public sealed class LocalMcpHttpHostTests
     }
 
     [Fact]
+    public async Task McpToolCall_MissingRequiredArguments_ReturnsSpecificToolValidation()
+    {
+        var port = GetAvailablePort();
+        var runtime = CreateRuntime($"http://127.0.0.1:{port}");
+
+        await runtime.StartAsync(CancellationToken.None);
+
+        try
+        {
+            using var http = new HttpClient
+            {
+                BaseAddress = new Uri($"http://127.0.0.1:{port}")
+            };
+
+            using var defaultInitialize = await InitializeMcpAsync(http, "/mcp", 1);
+            defaultInitialize.EnsureSuccessStatusCode();
+
+            using var openRelevantFiles = await PostMcpAsync(http, "/mcp", new
+            {
+                jsonrpc = "2.0",
+                id = 2,
+                method = "tools/call",
+                @params = new
+                {
+                    name = "open_relevant_files",
+                    arguments = new
+                    {
+                        path = "src/Program.cs"
+                    }
+                }
+            });
+            openRelevantFiles.EnsureSuccessStatusCode();
+
+            var openRelevantFilesResponse = await ReadMcpToolResponseAsync<OpenRelevantFilesResult>(openRelevantFiles);
+            Assert.False(openRelevantFilesResponse.Success);
+            Assert.Equal("At least one path is required.", openRelevantFilesResponse.Message);
+
+            using var webAutomationInitialize = await InitializeMcpAsync(http, "/mcp-wu", 3);
+            webAutomationInitialize.EnsureSuccessStatusCode();
+
+            using var uiFindElements = await PostMcpAsync(http, "/mcp-wu", new
+            {
+                jsonrpc = "2.0",
+                id = 4,
+                method = "tools/call",
+                @params = new
+                {
+                    name = "ui_find_elements",
+                    arguments = new
+                    {
+                        query = "Button"
+                    }
+                }
+            });
+            uiFindElements.EnsureSuccessStatusCode();
+
+            var uiFindElementsResponse = await ReadMcpToolResponseAsync<AutomationResult>(uiFindElements);
+            Assert.False(uiFindElementsResponse.Success);
+            Assert.Equal("Selector is required.", uiFindElementsResponse.Message);
+            Assert.Equal(ToolErrorCodes.InvalidRequest, uiFindElementsResponse.Metadata!["error_code"]);
+        }
+        finally
+        {
+            await runtime.StopAsync();
+        }
+    }
+
+    [Fact]
     public async Task McpToolCall_RoundTripsThroughHttpBrokerPipeAndVsixRpc()
     {
         var port = GetAvailablePort();
@@ -228,18 +296,7 @@ public sealed class LocalMcpHttpHostTests
 
     private static async Task<HashSet<string>> ListToolNamesAsync(HttpClient http, string path)
     {
-        using var initialize = await PostMcpAsync(http, path, new
-        {
-            jsonrpc = "2.0",
-            id = 1,
-            method = "initialize",
-            @params = new
-            {
-                protocolVersion = "2025-11-25",
-                capabilities = new { },
-                clientInfo = new { name = "NetVsMcp.Broker.Tests", version = "1.0" }
-            }
-        });
+        using var initialize = await InitializeMcpAsync(http, path, 1);
         initialize.EnsureSuccessStatusCode();
 
         using var listTools = await PostMcpAsync(http, path, new
@@ -257,6 +314,20 @@ public sealed class LocalMcpHttpHostTests
         var tools = document.RootElement.GetProperty("result").GetProperty("tools");
         return tools.EnumerateArray().Select(tool => tool.GetProperty("name").GetString()!).ToHashSet();
     }
+
+    private static Task<HttpResponseMessage> InitializeMcpAsync(HttpClient http, string path, int id) =>
+        PostMcpAsync(http, path, new
+        {
+            jsonrpc = "2.0",
+            id,
+            method = "initialize",
+            @params = new
+            {
+                protocolVersion = "2025-11-25",
+                capabilities = new { },
+                clientInfo = new { name = "NetVsMcp.Broker.Tests", version = "1.0" }
+            }
+        });
 
     private static BrokerRuntime CreateRuntime(string endpoint)
     {

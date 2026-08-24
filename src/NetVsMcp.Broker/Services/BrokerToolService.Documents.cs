@@ -459,7 +459,7 @@ public sealed partial class BrokerToolService
     [Description("Opens a set of relevant files in the routed Visual Studio session.")]
     public Task<ToolResponse<OpenRelevantFilesResult>> OpenRelevantFiles(
         [Description(DocumentPathsParameterDescription)]
-        string[] paths,
+        string[]? paths = null,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
@@ -530,7 +530,7 @@ public sealed partial class BrokerToolService
     [Description("Filters routed diagnostics to one document path.")]
     public Task<ToolResponse<DiagnosticsForDocumentResult>> DiagnosticsForDocument(
         [Description(DocumentPathParameterDescription)]
-        string documentPath,
+        string? documentPath = null,
         bool includeWarnings = true,
         int maxItems = 200,
         string? sessionId = null,
@@ -548,7 +548,7 @@ public sealed partial class BrokerToolService
             return Task.FromResult(ToolResponse<DiagnosticsForDocumentResult>.Fail("Max items must be greater than zero."));
         }
 
-        var normalizedPath = documentPath.Trim();
+        var normalizedPath = documentPath!.Trim();
         var request = new ErrorListRequest
         {
             IncludeWarnings = includeWarnings,

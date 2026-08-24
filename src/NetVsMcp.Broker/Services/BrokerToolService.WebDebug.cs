@@ -25,8 +25,15 @@ public sealed partial class BrokerToolService
         DispatchAutomation("web_status", target, null, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebStatusAsync(request, ct), cancellationToken);
     [McpServerTool(Name = "web_navigate")]
     [Description("Navigates a connected browser when a VSIX browser backend is available.")]
-    public Task<ToolResponse<AutomationResult>> WebNavigate(string url, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        DispatchAutomation("web_navigate", target, null, url, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebNavigateAsync(request, ct), cancellationToken);
+    public Task<ToolResponse<AutomationResult>> WebNavigate(string? url = null, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return Task.FromResult(FailWithCode<AutomationResult>("Url is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        return DispatchAutomation("web_navigate", target, null, url, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebNavigateAsync(request, ct), cancellationToken);
+    }
     [McpServerTool(Name = "web_screenshot")]
     [Description("Captures a browser screenshot when a VSIX browser backend is available.")]
     public Task<ToolResponse<AutomationResult>> WebScreenshot(string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
@@ -45,8 +52,15 @@ public sealed partial class BrokerToolService
         DispatchAutomation("web_console", target, null, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebConsoleAsync(request, ct), cancellationToken);
     [McpServerTool(Name = "web_js_execute")]
     [Description("Executes JavaScript in a connected browser when a VSIX browser backend is available.")]
-    public Task<ToolResponse<AutomationResult>> WebJsExecute(string text, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        DispatchAutomation("web_js_execute", target, null, null, text, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebJsExecuteAsync(request, ct), cancellationToken);
+    public Task<ToolResponse<AutomationResult>> WebJsExecute(string? text = null, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return Task.FromResult(FailWithCode<AutomationResult>("Text is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        return DispatchAutomation("web_js_execute", target, null, null, text, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebJsExecuteAsync(request, ct), cancellationToken);
+    }
     [McpServerTool(Name = "web_network")]
     [Description("Returns browser network events when a VSIX browser backend is available.")]
     public Task<ToolResponse<AutomationResult>> WebNetwork(string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>

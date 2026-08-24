@@ -332,10 +332,10 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "edit_preview")]
     [Description("Creates a pending safe-edit preview through a routed Visual Studio session.")]
     public Task<ToolResponse<EditPreviewResult>> EditPreview(
-        string operation,
+        string? operation = null,
         [Description(DocumentPathParameterDescription)]
-        string path,
-        string text,
+        string? path = null,
+        string? text = null,
         bool createIfMissing = false,
         bool saveAfterEdit = false,
         [Description("1-based line number; required when operation is 'insert'.")]
@@ -360,12 +360,13 @@ public sealed partial class BrokerToolService
             return Task.FromResult(ToolResponse<EditPreviewResult>.Fail(validation));
         }
 
-        var normalizedOperation = operation.Trim().ToLowerInvariant();
+        var normalizedOperation = operation!.Trim().ToLowerInvariant();
+        var normalizedPath = path!.Trim();
         var request = new EditPreviewRequest
         {
             Operation = normalizedOperation,
-            Path = path.Trim(),
-            Text = text,
+            Path = normalizedPath,
+            Text = text!,
             CreateIfMissing = createIfMissing,
             SaveAfterEdit = saveAfterEdit,
             Line = line,
@@ -386,10 +387,10 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "prepare_safe_edit")]
     [Description("Reads a document and creates a safe-edit preview through a routed Visual Studio session.")]
     public Task<ToolResponse<PrepareSafeEditResult>> PrepareSafeEdit(
-        string operation,
+        string? operation = null,
         [Description(DocumentPathParameterDescription)]
-        string path,
-        string text,
+        string? path = null,
+        string? text = null,
         bool createIfMissing = false,
         bool saveAfterEdit = false,
         [Description("1-based line number; required when operation is 'insert'.")]
@@ -414,12 +415,13 @@ public sealed partial class BrokerToolService
             return Task.FromResult(ToolResponse<PrepareSafeEditResult>.Fail(validation));
         }
 
-        var normalizedPath = path.Trim();
+        var normalizedOperation = operation!.Trim().ToLowerInvariant();
+        var normalizedPath = path!.Trim();
         var request = new EditPreviewRequest
         {
-            Operation = operation.Trim().ToLowerInvariant(),
+            Operation = normalizedOperation,
             Path = normalizedPath,
-            Text = text,
+            Text = text!,
             CreateIfMissing = createIfMissing,
             SaveAfterEdit = saveAfterEdit,
             Line = line,

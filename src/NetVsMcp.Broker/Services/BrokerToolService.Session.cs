@@ -47,11 +47,11 @@ public sealed partial class BrokerToolService
             healthy,
             summary,
             status,
-            capabilities,
             checks));
         AuditToolResult(nameof(NetVsDoctor), null, response.Success, null, response.Message);
         return response;
     }
+
     [McpServerTool(Name = "vs_get_capabilities")]
     [Description("Lists NetVsMcp broker tools and Visual Studio capability categories.")]
     public ToolResponse<BrokerCapabilities> VsGetCapabilities()
@@ -103,7 +103,7 @@ public sealed partial class BrokerToolService
             sessions.Length > 0,
             sessions.Length > 0
                 ? $"{sessions.Length} Visual Studio session(s) are registered."
-                : "No Visual Studio sessions are registered. Open Visual Studio with the NetVsMcp VSIX installed, or check that the VSIX can reach the broker pipe.");
+                : "No Visual Studio sessions are registered. Install or enable the NetVsMcp VSIX in Visual Studio, open a solution, and confirm the VSIX can reach the broker pipe. The broker status window has the copyable MCP config.");
 
         yield return new BrokerDoctorCheck(
             "connected_sessions",
@@ -139,6 +139,12 @@ public sealed partial class BrokerToolService
             true,
             $"Broker expects VSIX RPC protocol major version {VsRpcProtocol.CurrentMajorVersion} ({VsRpcProtocol.CurrentVersion}); incompatible VSIX sessions are rejected during registration.");
 
+        yield return new BrokerDoctorCheck(
+            "mcp_client_config",
+            BrokerDoctorSeverity.Info,
+            true,
+            $"Configure your MCP client with 'netvs' at '{_runtime.Options.McpEndpoint}'. Add optional 'netvs-web-automation' at '{_runtime.Options.McpWebAutomationEndpoint}' only when you need ui_* or web_* tools.");
+
         var splitEndpointToolCount = capabilities.Tools.Count(tool => tool.McpEndpointPath != McpEndpointRouting.DefaultEndpointPath);
         yield return new BrokerDoctorCheck(
             "tool_endpoints",
@@ -148,6 +154,7 @@ public sealed partial class BrokerToolService
                 ? "All broker tools are served from the default MCP endpoint."
                 : $"{splitEndpointToolCount} UI/browser automation tool(s) are served from '{McpEndpointRouting.WebAutomationEndpointPath}', not the default MCP endpoint.");
     }
+
     [McpServerTool(Name = "get_help")]
     [Description("Lists NetVsMcp broker tools and Visual Studio capability categories.")]
     public ToolResponse<BrokerCapabilities> GetHelp(bool? requiresVisualStudioSession = null)
