@@ -12,7 +12,13 @@ public partial class App : System.Windows.Application
     // A second broker instance (autostart + a manual double-click is a plausible real scenario)
     // would otherwise make Kestrel's Listen throw inside async void OnStartup -
     // unhandled, crashing the app ungracefully instead of exiting with a clear message.
+    // Suffixed per build configuration so a locally-built Debug broker can run side by side
+    // with a Release broker installed via the MSI, matching BrokerOptions' port/pipe split.
+#if DEBUG
+    private const string SingleInstanceMutexName = "Global\\NetVsMcp.Broker.SingleInstance.Debug";
+#else
     private const string SingleInstanceMutexName = "Global\\NetVsMcp.Broker.SingleInstance";
+#endif
 
     private BrokerRuntime? _runtime;
     private MainWindow? _mainWindow;
