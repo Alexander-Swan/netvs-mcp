@@ -21,12 +21,43 @@ public sealed class BestPracticeGuideCatalog
 
     private static readonly IReadOnlyDictionary<string, string> Descriptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
-        ["manage-visual-studio"] = "Session routing, launching Visual Studio, windows, solutions, projects, and tests.",
-        ["navigate-visual-studio"] = "Definitions, references, symbols, diagnostics, code fixes, and workspace search.",
-        ["edit-visual-studio"] = "Documents, direct editor edits, selections, formatting, and safe-edit previews.",
-        ["build-visual-studio"] = "Build, rebuild, clean, NuGet/package operations, output panes, and error lists.",
-        ["debug-visual-studio"] = "Debugger start/attach/step, breakpoints, locals, watches, threads, modules, and processes.",
-        ["automate-visual-studio"] = "Debuggee UI automation, browser control, screenshots, DOM access, and console I/O."
+        ["manage-visual-studio"] = "Session routing, launching Visual Studio, windows, solutions, projects, and tests. " +
+            "TRIGGER BEFORE CALLING: vs_list_sessions, vs_get_status, vs_get_session, vs_select_session, vs_ping, vs_launch_instance, " +
+            "vs_context_snapshot, execute_command, get_status, window_list, window_activate, toolwindow_show, toolwindow_hide, " +
+            "solution_info, solution_open, solution_close, solution_add_project, solution_remove_project, solution_overview, " +
+            "project_list, project_info, project_add_file, project_remove_file, project_dependencies, startup_project_get, " +
+            "startup_project_set, test_discover, test_run, test_results, test_run_and_get_results, task_list_get, task_list_add, " +
+            "task_list_remove, task_list_set_checked, git_context, vs_get_logs.",
+        ["navigate-visual-studio"] = "Definitions, references, symbols, diagnostics, code fixes, and workspace search. " +
+            "TRIGGER BEFORE CALLING: document_active, code_document_symbols, code_go_to_definition, code_go_to_implementation, " +
+            "code_find_references, code_workspace_symbols, symbol_context, document_outline, find_implementations, " +
+            "rename_symbol_preview, rename_symbol_apply, call_hierarchy_get, code_actions_list, code_actions_apply, document_read, " +
+            "document_open, document_list, document_close, open_relevant_files, errors_list, diagnostics_for_document, " +
+            "diagnostics_binding_errors, workspace_search, editor_find, find_in_files.",
+        ["edit-visual-studio"] = "Documents, direct editor edits, selections, formatting, and safe-edit previews. " +
+            "TRIGGER BEFORE CALLING: selection_get, selection_set, document_write, document_save, editor_insert, editor_replace, " +
+            "editor_goto_line, document_cleanup, format_and_organize, edit_preview, prepare_safe_edit, edit_approve, " +
+            "apply_safe_edit_and_build, edit_reject, edit_list_pending.",
+        ["build-visual-studio"] = "Build, rebuild, clean, NuGet/package operations, output panes, and error lists. " +
+            "TRIGGER BEFORE CALLING: build_solution, build_status, build_and_get_errors, build_project, build_cancel, " +
+            "clean_solution, rebuild_solution, build_configuration_get, build_configuration_set, output_read, output_list_panes, " +
+            "output_write, output_clear, package_restore, project_add_reference, project_remove_reference, nuget_list, " +
+            "nuget_search, nuget_install, nuget_update, nuget_uninstall.",
+        ["debug-visual-studio"] = "Debugger start/attach/step, breakpoints, locals, watches, threads, modules, and processes. " +
+            "TRIGGER BEFORE CALLING: debug_status, debug_hot_reload_apply, debug_get_mode, debug_start, debug_stop, " +
+            "debug_continue, debug_break, debug_step, debug_start_without_debugging, debug_restart, debug_attach, " +
+            "debug_get_callstack, debug_get_locals, debug_evaluate, debug_eval_many, debug_snapshot, debug_wait_for_break, " +
+            "debug_get_threads, debug_set_variable, breakpoint_set, breakpoint_list, breakpoint_group_list, breakpoint_remove, " +
+            "breakpoint_enable, breakpoint_group_enable, breakpoint_group_remove, watch_add, watch_remove, watch_list, " +
+            "thread_switch, thread_set_frozen, thread_get_callstack, process_list_debugged, process_list_local, process_detach, " +
+            "process_terminate, immediate_execute, module_list, exception_settings_get, exception_settings_set, parallel_stacks, " +
+            "parallel_watch, test_debug.",
+        ["automate-visual-studio"] = "Debuggee UI automation, browser control, screenshots, DOM access, and console I/O. " +
+            "TRIGGER BEFORE CALLING: console_read, console_send, console_get_info, ui_capture_window, ui_capture_region, " +
+            "ui_snapshot, ui_get_tree, ui_find_elements, ui_get_element, ui_click, ui_double_click, ui_right_click, ui_drag, " +
+            "ui_set_value, ui_invoke, ui_send_keys, ui_wait_for_element, ui_wait_idle, web_connect, web_disconnect, web_status, " +
+            "web_navigate, web_screenshot, web_dom_get, web_dom_query, web_console, web_js_execute, web_network, " +
+            "web_element_click, web_element_set_value."
     };
 
     private static readonly IReadOnlyDictionary<string, string> DefaultEndpointOnly = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -59,7 +90,7 @@ public sealed class BestPracticeGuideCatalog
     public BestPracticeGuideToolResult List()
     {
         return new BestPracticeGuideToolResult(
-            "NetVsMcp best-practices guides are available as MCP resources and through this tool. Read the matching guide before using Visual Studio management, navigation, editing, build, debug, or automation tools. These guides are agent-neutral defaults, not locked policy; user or project instructions can layer additional guidance on top.",
+            "NetVsMcp best-practices guides are available as MCP resources and through this tool. Each guide below lists the tool-name prefixes it covers ('TRIGGER BEFORE CALLING') — read the matching guide before calling any of those tools, e.g. read 'debug-visual-studio' before debug_start/breakpoint_set/etc. These guides are agent-neutral defaults, not locked policy; user or project instructions can layer additional guidance on top.",
             GuideNames.Select(CreateInfo).ToArray(),
             null);
     }

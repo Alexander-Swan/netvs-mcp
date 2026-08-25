@@ -183,7 +183,7 @@ public sealed partial class BrokerToolService
         return response;
     }
     [McpServerTool(Name = "netvs_get_best_practices")]
-    [Description("Lists bundled agent-neutral NetVsMcp best-practices guides, or reads one guide file. Call without arguments to list guides; pass guide and optional file to read content.")]
+    [Description("CALL THIS FIRST before using tools from a matching category. Lists bundled agent-neutral NetVsMcp best-practices guides, or reads one guide file. Call without arguments to list guides (each with its description and matching tool-name prefixes); pass guide and optional file to read one guide's content. Guides: manage-visual-studio (session/window/solution/project/test tools), navigate-visual-studio (code_*, symbol_*, diagnostics_*, workspace_search), edit-visual-studio (document_*, editor_*, selection_*, edit_*, safe-edit tools), build-visual-studio (build_*, output_*, nuget_*, package_*, project_add_reference), debug-visual-studio (debug_*, breakpoint_*, watch_*, thread_*, process_*, module_list, exception_settings_*, parallel_*, immediate_execute, test_debug), automate-visual-studio (console_*, ui_*, web_*).")]
     public ToolResponse<BestPracticeGuideToolResult> NetVsGetBestPractices(
         string? guide = null,
         string? file = null)
