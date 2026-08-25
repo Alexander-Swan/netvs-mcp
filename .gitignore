@@ -10,3 +10,6 @@ TestResults/
 # Local staging dir the release workflow creates for MSI/VSIX build artifacts before uploading
 # them to a GitHub Release; never meant to be committed.
 release-assets/
+
+# Local working backlog; not a versioned project document.
+docs/IMPROVEMENT_PLAN.md

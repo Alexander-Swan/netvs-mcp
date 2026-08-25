@@ -11,7 +11,8 @@ public sealed record BrokerSettings(
     string? SessionsDirectory = null,
     bool IncludeDevVersionUpdates = false,
     string? IgnoredUpdateVersion = null,
-    int? AuditLogRetentionDays = null);
+    int? AuditLogRetentionDays = null,
+    bool BackupConfigBeforeRegistering = true);
 
 public interface IBrokerSettingsStore
 {

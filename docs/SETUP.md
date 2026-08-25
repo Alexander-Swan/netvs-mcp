@@ -54,7 +54,9 @@ The broker also opens a per-user named pipe for VSIX registration. The tray/stat
 
 ## MCP Client Config
 
-Configure your MCP client to use HTTP on localhost:
+The broker's status window has an **Agents** tab that can register NetVsMcp directly into a known client's own config file (Claude Desktop, Claude Code CLI, Codex CLI, GitHub Copilot CLI, Cursor, Windsurf, VS Code). It shows whether each client is detected on this machine and whether NetVsMcp is already registered. Clicking "Register" or "Update" writes the merged config immediately; by default, an existing file is backed up to `<path>.bak` first, and that backup can be disabled with the checkbox in the tab. Use "Open Config" there if you'd rather inspect or edit the file yourself.
+
+To configure a client manually instead, or one the Agents tab doesn't know about yet, point it at HTTP on localhost:
 
 ```json
 {

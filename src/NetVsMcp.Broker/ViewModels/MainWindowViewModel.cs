@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Windows;
@@ -15,6 +16,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly BrokerRuntime _runtime;
     private readonly IAutostartService _autostart;
     private readonly UpdateCheckService _updateCheckService;
+    private readonly McpClientRegistrationService _clientRegistration = new();
+    private readonly List<ClientRegistrationViewModel> _allClients = [];
     private string _statusText = string.Empty;
     private string _runningState = string.Empty;
     private string _autostartStatus = string.Empty;
@@ -34,12 +37,23 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _portText = (_runtime.PendingPort ?? _runtime.CurrentPort).ToString();
         _logsDirectoryText = _runtime.PendingLogsDirectory ?? _runtime.CurrentLogsDirectory;
         _sessionsDirectoryText = _runtime.PendingSessionsDirectory ?? _runtime.CurrentSessionsDirectory;
+
+        foreach (var client in McpClientRegistrationService.KnownClients)
+            _allClients.Add(new ClientRegistrationViewModel(client));
+
         Refresh();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public ObservableCollection<SessionStatusViewModel> Sessions { get; } = new();
+
+    /// <summary>Only the known MCP clients actually detected on this machine - nothing you can't act on.</summary>
+    public ObservableCollection<ClientRegistrationViewModel> DetectedClients { get; } = new();
+
+    public bool HasDetectedClients => DetectedClients.Count > 0;
+
+    public bool NoDetectedClients => DetectedClients.Count == 0;
 
     public string StatusText
     {
@@ -150,6 +164,20 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             _runtime.IncludeDevVersionUpdates = value;
             OnPropertyChanged();
             _ = CheckForUpdatesAsync();
+        }
+    }
+
+    /// <summary>Whether Register/Update backs up a client's existing config file to "&lt;path&gt;.bak" first.</summary>
+    public bool BackupConfigBeforeRegistering
+    {
+        get => _runtime.BackupConfigBeforeRegistering;
+        set
+        {
+            if (_runtime.BackupConfigBeforeRegistering == value)
+                return;
+
+            _runtime.BackupConfigBeforeRegistering = value;
+            OnPropertyChanged();
         }
     }
 
@@ -317,6 +345,65 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
         OnPropertyChanged(nameof(HasSessions));
         OnPropertyChanged(nameof(NoSessions));
+
+        foreach (var client in _allClients)
+        {
+            client.IsDetected = _clientRegistration.IsDetected(client.Definition);
+            client.IsRegistered = client.IsDetected && _clientRegistration.IsRegistered(client.Definition, _runtime.Options);
+        }
+
+        DetectedClients.Clear();
+        foreach (var client in _allClients.Where(c => c.IsDetected))
+            DetectedClients.Add(client);
+
+        OnPropertyChanged(nameof(HasDetectedClients));
+        OnPropertyChanged(nameof(NoDetectedClients));
+    }
+
+    /// <summary>
+    /// Registers or updates a client's config directly - no preview, no confirmation dialog. The
+    /// "back up existing file first" checkbox is the safety net for this action, not a prompt.
+    /// </summary>
+    public void RegisterClient(ClientRegistrationViewModel client)
+    {
+        try
+        {
+            _clientRegistration.Register(client.Definition, _runtime.Options, BackupConfigBeforeRegistering);
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(
+                $"Failed to update {client.ConfigPath}:\n\n{ex.Message}",
+                "NetVsMcp Client Registration",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            return;
+        }
+
+        Refresh();
+    }
+
+    public void OpenClientConfig(ClientRegistrationViewModel client)
+    {
+        var path = client.Definition.ConfigPath;
+        if (File.Exists(path))
+        {
+            Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
+            return;
+        }
+
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory) && Directory.Exists(directory))
+        {
+            Process.Start(new ProcessStartInfo { FileName = directory, UseShellExecute = true });
+            return;
+        }
+
+        System.Windows.MessageBox.Show(
+            $"Neither the config file nor its folder exist yet:\n{path}",
+            "NetVsMcp Client Registration",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 
     public bool HasSessions => Sessions.Count > 0;
@@ -436,4 +523,58 @@ public sealed class SessionStatusViewModel
             session.SessionId,
             string.IsNullOrWhiteSpace(session.VsixVersion) ? "Unknown" : session.VsixVersion!);
     }
+}
+
+public sealed class ClientRegistrationViewModel : INotifyPropertyChanged
+{
+    private bool _isDetected;
+    private bool _isRegistered;
+
+    public ClientRegistrationViewModel(McpClientDefinition definition)
+    {
+        Definition = definition;
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public McpClientDefinition Definition { get; }
+
+    public string DisplayName => Definition.DisplayName;
+
+    public string ConfigPath => Definition.ConfigPath;
+
+    public bool IsDetected
+    {
+        get => _isDetected;
+        set
+        {
+            if (_isDetected != value)
+            {
+                _isDetected = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public bool IsRegistered
+    {
+        get => _isRegistered;
+        set
+        {
+            if (_isRegistered != value)
+            {
+                _isRegistered = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(RegisteredText));
+                OnPropertyChanged(nameof(RegisterButtonText));
+            }
+        }
+    }
+
+    public string RegisteredText => IsRegistered ? "Registered" : "Not registered";
+
+    public string RegisterButtonText => IsRegistered ? "Update" : "Register";
+
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

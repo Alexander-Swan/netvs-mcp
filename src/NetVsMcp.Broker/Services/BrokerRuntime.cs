@@ -88,6 +88,13 @@ public sealed class BrokerRuntime
         set => _settingsStore.Update(s => s with { IncludeDevVersionUpdates = value });
     }
 
+    /// <summary>Whether registering NetVsMcp with a client backs up its existing config file first. Applies immediately.</summary>
+    public bool BackupConfigBeforeRegistering
+    {
+        get => _settingsStore.Load().BackupConfigBeforeRegistering;
+        set => _settingsStore.Update(s => s with { BackupConfigBeforeRegistering = value });
+    }
+
     /// <summary>
     /// The version of the last update the user chose to ignore, or <c>null</c> if none was ignored.
     /// Suppresses the update banner for that specific version only; a newer release still surfaces.

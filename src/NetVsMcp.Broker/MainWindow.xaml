@@ -100,7 +100,6 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="140" />
@@ -127,19 +126,6 @@
                         <TextBlock Grid.Row="4" Text="Logs folder" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Center" />
                         <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LogsFolder}" Margin="0,10,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         <Button Grid.Row="4" Grid.Column="2" Content="Open" Click="OpenLogs_Click" Margin="0,10,0,0" />
-
-                        <TextBlock Grid.Row="5" Text="Client config" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Top" />
-                        <TextBox Grid.Row="5" Grid.Column="1"
-                                 Text="{Binding McpRegistrationJson, Mode=OneWay}"
-                                 Margin="0,10,0,0"
-                                 FontFamily="Consolas"
-                                 FontSize="11"
-                                 MinHeight="80"
-                                 IsReadOnly="True"
-                                 TextWrapping="NoWrap"
-                                 VerticalScrollBarVisibility="Auto"
-                                 HorizontalScrollBarVisibility="Auto" />
-                        <Button Grid.Row="5" Grid.Column="2" Content="Copy" Click="CopyConfig_Click" Style="{StaticResource AccentButtonStyle}" Margin="0,10,0,0" VerticalAlignment="Top" />
                     </Grid>
                 </GroupBox>
             </TabItem>
@@ -174,6 +160,95 @@
                                    Margin="0,4,0,0"
                                    HorizontalAlignment="Center" />
                     </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="AGENTS">
+                <Grid Margin="0,4,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                        <TextBlock Text="NetVsMcp can write its MCP registration directly into a client's own config file. Only clients detected on this machine are listed."
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}" />
+                        <CheckBox Content="Back up a client's existing config file (as &lt;file&gt;.bak) before writing to it"
+                                  IsChecked="{Binding BackupConfigBeforeRegistering}"
+                                  Margin="0,8,0,0" />
+                    </StackPanel>
+
+                    <ScrollViewer Grid.Row="1"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Visibility="{Binding HasDetectedClients, Converter={StaticResource BoolToVis}}">
+                        <ItemsControl ItemsSource="{Binding DetectedClients}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource BorderBrush0}"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            Padding="12"
+                                            Margin="0,0,10,10"
+                                            ToolTip="{Binding ConfigPath}">
+                                        <StackPanel MinWidth="170">
+                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding RegisteredText}" Style="{StaticResource MutedTextStyle}" Margin="0,2,0,10" />
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Content="{Binding RegisterButtonText}" Style="{StaticResource AccentButtonStyle}" Click="RegisterClient_Click" Margin="0,0,6,0" />
+                                                <Button Content="Open" Click="OpenClientConfig_Click" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <StackPanel Grid.Row="1"
+                                Visibility="{Binding NoDetectedClients, Converter={StaticResource BoolToVis}}"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="No known MCP clients detected on this machine"
+                                   FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" />
+                        <TextBlock Text="Install one of the supported clients (Claude Desktop, Claude Code, Codex CLI, GitHub Copilot CLI, Cursor, Windsurf, VS Code) and it will show up here."
+                                   Style="{StaticResource MutedTextStyle}"
+                                   Margin="0,4,0,0"
+                                   HorizontalAlignment="Center" />
+                    </StackPanel>
+
+                    <GroupBox Grid.Row="2" Header="Manual configuration" Margin="0,12,0,0">
+                        <Grid Margin="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Top" Margin="10,0,0,0">
+                                <TextBlock Text="For a client not listed above, or to edit by hand."
+                                           TextWrapping="Wrap"
+                                           MaxWidth="140"
+                                           Margin="0,0,0,8"
+                                           Style="{StaticResource MutedTextStyle}" />
+                                <Button Content="Copy" Click="CopyConfig_Click" Style="{StaticResource AccentButtonStyle}" />
+                            </StackPanel>
+                            <TextBox Text="{Binding McpRegistrationJson, Mode=OneWay}"
+                                     FontFamily="Consolas"
+                                     FontSize="11"
+                                     MinHeight="80"
+                                     MaxHeight="140"
+                                     IsReadOnly="True"
+                                     TextWrapping="NoWrap"
+                                     VerticalScrollBarVisibility="Auto"
+                                     HorizontalScrollBarVisibility="Auto" />
+                        </Grid>
+                    </GroupBox>
                 </Grid>
             </TabItem>
 

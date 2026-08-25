@@ -43,4 +43,16 @@ public partial class MainWindow : Window
     private async void InstallUpdate_Click(object sender, RoutedEventArgs e) => await _viewModel.InstallUpdateAsync();
 
     private void IgnoreUpdate_Click(object sender, RoutedEventArgs e) => _viewModel.IgnoreUpdate();
+
+    private void RegisterClient_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ClientRegistrationViewModel client })
+            _viewModel.RegisterClient(client);
+    }
+
+    private void OpenClientConfig_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ClientRegistrationViewModel client })
+            _viewModel.OpenClientConfig(client);
+    }
 }
