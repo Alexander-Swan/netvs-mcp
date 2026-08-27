@@ -1,16 +1,17 @@
 name: Release
 
 # Versioning scheme:
-# - "release" (stable) builds are versioned Major.Minor only, e.g. "1.0", "1.11" - no build
-#   number, no suffix. Directory.Build.props keeps a full Major.Minor.Build value at all times
-#   (e.g. "1.0.12"); a release build just displays/tags the Major.Minor part of whatever that
-#   currently is.
+# - Directory.Build.props tracks the current stable line plus a dev build number. For example,
+#   after stable "1.2", dev builds are tagged "1.2.1-dev", "1.2.2-dev", etc.
+# - "release" (stable) builds promote the current stable line to the next minor version, e.g.
+#   "1.2.4-dev" releases as "1.3". The public tag/title has no build number or suffix, while
+#   binaries are built as "1.3.0".
 # - "dev"/"alpha" builds are versioned Major.Minor.Build-suffix, e.g. "1.0.12-dev",
 #   "1.11.20-alpha" - Build only ever advances on a "dev" channel run (alpha runs reuse
 #   whatever Build dev has already reached, labeled "-alpha", rather than keeping a separate
 #   counter), and always counts up from the last stable release.
-# - After a "release" run ships Major.Minor, the next cycle resumes one minor ahead with the
-#   build counter reset: Major.(Minor+1).0-dev.
+# - After a "release" run ships Major.Minor, the next cycle resumes on that stable line with
+#   build counter 1: Major.Minor.1-dev.
 on:
   workflow_dispatch:
     inputs:
@@ -63,15 +64,20 @@ jobs:
             "release" { "" }
             default { throw "Unknown channel: $channel" }
           }
-          # Stable releases display/tag as Major.Minor only; dev/alpha keep the full
-          # Major.Minor.Build so each prerelease build since the last stable is distinguishable.
+          # Stable releases promote the current stable line to the next minor version and
+          # display/tag as Major.Minor. Dev/alpha keep the full Major.Minor.Build so each
+          # prerelease build since the last stable is distinguishable.
           $displayVersion = $prefix
+          $buildPrefix = $prefix
           if ($channel -eq "release") {
             $parsed = [version]$prefix
-            $displayVersion = "$($parsed.Major).$($parsed.Minor)"
+            $releaseMinor = $parsed.Minor + 1
+            $displayVersion = "$($parsed.Major).$releaseMinor"
+            $buildPrefix = "$($parsed.Major).$releaseMinor.0"
           }
           $full = if ($suffix) { "$displayVersion-$suffix" } else { $displayVersion }
           "prefix=$prefix" >> $env:GITHUB_OUTPUT
+          "build_prefix=$buildPrefix" >> $env:GITHUB_OUTPUT
           "suffix=$suffix" >> $env:GITHUB_OUTPUT
           "full=$full" >> $env:GITHUB_OUTPUT
           "tag=v$full" >> $env:GITHUB_OUTPUT
@@ -99,13 +105,13 @@ jobs:
         # Directory.Build.props) so a "release" build's actual assembly metadata has no "-dev"
         # baked in - the wixproj's PublishBrokerForInstaller target inherits this as a global
         # MSBuild property when it publishes NetVsMcp.Broker.csproj.
-        run: dotnet build src/NetVsMcp.Installer/NetVsMcp.Installer.wixproj -c Release /p:VersionSuffix=${{ steps.version.outputs.suffix }}
+        run: dotnet build src/NetVsMcp.Installer/NetVsMcp.Installer.wixproj -c Release /p:VersionPrefix=${{ steps.version.outputs.build_prefix }} /p:VersionSuffix=${{ steps.version.outputs.suffix }}
 
       - name: Patch VSIX manifest version
         shell: pwsh
         run: |
           $path = "src/NetVsMcp.Vsix/source.extension.vsixmanifest"
-          $prefix = "${{ steps.version.outputs.prefix }}"
+          $prefix = "${{ steps.version.outputs.build_prefix }}"
           [xml]$manifest = Get-Content $path
           $identity = $manifest.PackageManifest.Metadata.Identity
           if (-not $identity) {
@@ -115,13 +121,13 @@ jobs:
           $manifest.Save((Resolve-Path $path).Path)
 
       - name: Build VSIX
-        run: dotnet build src/NetVsMcp.Vsix/NetVsMcp.Vsix.csproj -c Release /p:VersionSuffix=${{ steps.version.outputs.suffix }}
+        run: dotnet build src/NetVsMcp.Vsix/NetVsMcp.Vsix.csproj -c Release /p:VersionPrefix=${{ steps.version.outputs.build_prefix }} /p:VersionSuffix=${{ steps.version.outputs.suffix }}
 
       - name: Verify shipped binary version matches the intended channel version
         # Verify the produced binary version before publishing MSI/VSIX assets.
         shell: pwsh
         run: |
-          $prefix = "${{ steps.version.outputs.prefix }}"
+          $prefix = "${{ steps.version.outputs.build_prefix }}"
           $suffix = "${{ steps.version.outputs.suffix }}"
           $expectedInformational = if ($suffix) { "$prefix-$suffix" } else { $prefix }
 
@@ -199,8 +205,8 @@ jobs:
           $prefix = [version]$props.Project.PropertyGroup.VersionPrefix
           $channel = "${{ inputs.channel }}"
           if ($channel -eq "release") {
-            # Resume dev one minor ahead after a stable release.
-            $nextPrefix = "$($prefix.Major).$($prefix.Minor + 1).0"
+            # Resume dev on the newly released stable line.
+            $nextPrefix = "$($prefix.Major).$($prefix.Minor + 1).1"
             $nextSuffix = "dev"
           } else {
             $nextPrefix = "$($prefix.Major).$($prefix.Minor).$($prefix.Build + 1)"
