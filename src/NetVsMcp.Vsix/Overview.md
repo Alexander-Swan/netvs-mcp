@@ -46,7 +46,7 @@ Query solution structure, project dependencies, and NuGet packages. Discover and
 | Tests | `test_discover`, `test_run_and_get_results`, `test_debug` |
 | NuGet | `nuget_search`, `nuget_install`, `nuget_update` |
 
-150+ tools in total - see the full list in the project README.
+170+ tools in total - see the full list in the project README.
 
 ## Project
 

@@ -6,7 +6,7 @@ namespace NetVsMcp.Broker.Tests;
 public sealed partial class BrokerToolServiceTests
 {
     [Fact]
-    public async Task EditPreview_IsAllowedInEditPreviewProfile()
+    public async Task EditPreview_ReturnsPendingEdit()
     {
         var runtime = CreateRuntime();
         runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));

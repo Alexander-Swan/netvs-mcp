@@ -22,7 +22,6 @@ public sealed partial class BrokerToolService
     [
         new("vs_list_sessions", "Lists Visual Studio instances registered with the local broker.", false),
         new("vs_get_status", "Returns local broker endpoint, uptime, and registered session status.", false),
-        new("vs_get_capabilities", "Lists broker tools and Visual Studio capability categories.", false),
         new("netvs_doctor", "Diagnoses local broker, endpoint, registration pipe, and Visual Studio session health.", false),
         new("vs_get_session", "Resolves a Visual Studio session and returns its current broker status.", false),
         new("vs_select_session", "Resolves a Visual Studio session using broker routing rules without persisting selection.", false),
@@ -31,7 +30,7 @@ public sealed partial class BrokerToolService
         new("vs_context_snapshot", "Returns a compact routed Visual Studio context snapshot.", true),
         new("execute_command", "Executes a Visual Studio command in a routed session.", true),
         new("get_status", "Returns Visual Studio session status through a routed session.", true),
-        new("get_help", "Lists NetVsMcp broker tools and Visual Studio capability categories.", false),
+        new("get_help", "Lists NetVsMcp broker tools, categories, and endpoint metadata.", false),
         new("netvs_get_best_practices", "Lists or reads bundled agent-neutral NetVsMcp best-practices guides for Visual Studio MCP workflows.", false),
         new("window_list", "Lists Visual Studio windows in a routed session.", true),
         new("window_activate", "Activates a Visual Studio window in a routed session.", true),

@@ -84,7 +84,8 @@ public sealed class LocalMcpHttpHostTests
             var body = await listTools.Content.ReadAsStringAsync();
             Assert.Contains("vs_list_sessions", body);
             Assert.Contains("vs_get_status", body);
-            Assert.Contains("vs_get_capabilities", body);
+            Assert.Contains("get_help", body);
+            Assert.DoesNotContain("vs_get_capabilities", body);
             Assert.Contains("netvs_get_best_practices", body);
 
             using var listResources = await PostMcpAsync(http, new

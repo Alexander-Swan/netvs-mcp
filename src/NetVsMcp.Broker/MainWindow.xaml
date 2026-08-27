@@ -144,7 +144,6 @@
                             <DataGridTextColumn Header="Debugger" Binding="{Binding DebuggerMode}" Width="Auto" />
                             <DataGridTextColumn Header="VSIX" Binding="{Binding VsixVersion}" Width="Auto" />
                             <DataGridTextColumn Header="Solution" Binding="{Binding SolutionPath}" Width="*"/>
-                            <DataGridTextColumn Header="Capabilities" Binding="{Binding Capabilities}" Width="*" />
                             <DataGridTextColumn Header="PID" Binding="{Binding ProcessId}" Width="Auto" />
                         </DataGrid.Columns>
                     </DataGrid>

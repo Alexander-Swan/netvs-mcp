@@ -37,7 +37,7 @@ public enum RouteFailureReason
     Ambiguous
 }
 
-/// <summary>Broad classification used to group tools in help/capability listings and audit categorization.</summary>
+/// <summary>Broad classification used to group tools in help listings and audit categorization.</summary>
 public enum BrokerToolCategory
 {
     /// <summary>Broker-only tool that doesn't route to a VS session (e.g. session selection).</summary>
@@ -65,7 +65,7 @@ public enum BrokerDoctorSeverity
 /// Single source of truth for which MCP HTTP endpoint serves a given tool. The broker splits
 /// its tool surface across "/mcp" (the default) and "/mcp-wu" (opt-in debuggee UI/browser
 /// automation) to keep the default tool list smaller; every place that needs to know which
-/// endpoint a tool lives on (session filtering, get_help/vs_get_capabilities reporting, guide
+/// endpoint a tool lives on (session filtering, get_help reporting, guide
 /// metadata) should go through this instead of re-deriving the prefix rule independently.
 /// </summary>
 public static class McpEndpointRouting

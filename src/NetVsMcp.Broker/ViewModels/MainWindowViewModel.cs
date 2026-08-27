@@ -475,14 +475,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
 public sealed class SessionStatusViewModel
 {
-    private SessionStatusViewModel(int processId, string solutionFileName, string solutionDirectory, string solutionPath, string debuggerMode, string capabilities, string sessionId, string vsixVersion)
+    private SessionStatusViewModel(int processId, string solutionFileName, string solutionDirectory, string solutionPath, string debuggerMode, string sessionId, string vsixVersion)
     {
         ProcessId = processId;
         SolutionFileName = solutionFileName;
         SolutionDirectory = solutionDirectory;
         SolutionPath = solutionPath;
         DebuggerMode = debuggerMode;
-        Capabilities = capabilities;
         SessionId = sessionId;
         VsixVersion = vsixVersion;
     }
@@ -492,16 +491,15 @@ public sealed class SessionStatusViewModel
     public string SolutionDirectory { get; }
     public string SolutionPath { get; }
     public string DebuggerMode { get; }
-    public string Capabilities { get; }
     public string SessionId { get; }
     public string VsixVersion { get; }
 
 #if DEBUG
     public static IReadOnlyList<SessionStatusViewModel> DebugSamples { get; } =
     [
-        new(12345, "MyApp.sln", @"C:\Work\MyApp\", @"C:\Work\MyApp\MyApp.sln", "Design", "Editor, Navigation, Build, Debugger", "vs-12345", "1.0.2"),
-        new(67890, "WebApi.sln", @"C:\Projects\WebApi\", @"C:\Projects\WebApi\WebApi.sln", "Break", "Editor, Build, Debugger", "vs-67890", "1.0.2"),
-        new(54321, "SharedLib.sln", @"C:\Work\Shared\", @"C:\Work\Shared\SharedLib.sln", "Run", "Editor, Navigation", "vs-54321", "1.0.2"),
+        new(12345, "MyApp.sln", @"C:\Work\MyApp\", @"C:\Work\MyApp\MyApp.sln", "Design", "vs-12345", "1.0.2"),
+        new(67890, "WebApi.sln", @"C:\Projects\WebApi\", @"C:\Projects\WebApi\WebApi.sln", "Break", "vs-67890", "1.0.2"),
+        new(54321, "SharedLib.sln", @"C:\Work\Shared\", @"C:\Work\Shared\SharedLib.sln", "Run", "vs-54321", "1.0.2"),
     ];
 #endif
 
@@ -519,7 +517,6 @@ public sealed class SessionStatusViewModel
             solutionDirectory,
             solutionPath,
             session.DebuggerMode.ToString(),
-            string.Join(", ", session.Capabilities),
             session.SessionId,
             string.IsNullOrWhiteSpace(session.VsixVersion) ? "Unknown" : session.VsixVersion!);
     }

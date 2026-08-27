@@ -20,16 +20,16 @@ public sealed partial class BrokerToolServiceTests
     }
 
     [Fact]
-    public void VsGetCapabilities_ReturnsInitialBrokerTools()
+    public void GetHelp_ReturnsBrokerTools()
     {
         var runtime = CreateRuntime();
 
-        var response = runtime.Tools.VsGetCapabilities();
+        var response = runtime.Tools.GetHelp();
 
         Assert.True(response.Success);
         Assert.Contains(response.Value!.Tools, tool => tool.Name == "vs_list_sessions");
         Assert.Contains(response.Value.Tools, tool => tool.Name == "vs_get_status");
-        Assert.Contains(response.Value.Tools, tool => tool.Name == "vs_get_capabilities");
+        Assert.DoesNotContain(response.Value.Tools, tool => tool.Name == "vs_get_capabilities");
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "netvs_doctor", RequiresVisualStudioSession: false, Category: BrokerToolCategory.Broker });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_get_session", RequiresVisualStudioSession: false });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_select_session", RequiresVisualStudioSession: false });
@@ -116,7 +116,7 @@ public sealed partial class BrokerToolServiceTests
 
         Assert.True(response.Success);
         Assert.Contains(response.Value!.Tools, tool => tool.Name == "get_help");
-        Assert.Contains(response.Value.Tools, tool => tool.Name == "vs_get_capabilities");
+        Assert.DoesNotContain(response.Value.Tools, tool => tool.Name == "vs_get_capabilities");
         Assert.DoesNotContain(response.Value.Tools, tool => tool.RequiresVisualStudioSession);
     }
 

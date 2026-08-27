@@ -28,7 +28,7 @@ public sealed partial class BrokerToolService
         return response;
     }
     [McpServerTool(Name = "netvs_doctor")]
-    [Description("Diagnoses local broker endpoint, registration pipe, registered sessions, and capability health.")]
+    [Description("Diagnoses local broker endpoint, registration pipe, registered sessions, and tool endpoint health.")]
     public ToolResponse<BrokerDoctorResult> NetVsDoctor()
     {
         var status = _runtime.GetStatus();
@@ -49,20 +49,6 @@ public sealed partial class BrokerToolService
             status,
             checks));
         AuditToolResult(nameof(NetVsDoctor), null, response.Success, null, response.Message);
-        return response;
-    }
-
-    [McpServerTool(Name = "vs_get_capabilities")]
-    [Description("Lists NetVsMcp broker tools and Visual Studio capability categories.")]
-    public ToolResponse<BrokerCapabilities> VsGetCapabilities()
-    {
-        var capabilities = CreateCapabilities();
-
-        var message = capabilities.Tools.Any(tool => tool.McpEndpointPath != McpEndpointRouting.DefaultEndpointPath)
-            ? $"Some listed tools are only served from '{McpEndpointRouting.WebAutomationEndpointPath}', a separate opt-in endpoint, not this connection's endpoint. Check each tool's McpEndpointPath."
-            : null;
-        var response = ToolResponse<BrokerCapabilities>.Ok(capabilities, message);
-        AuditToolResult(nameof(VsGetCapabilities), null, response.Success, null, response.Message);
         return response;
     }
 
@@ -156,7 +142,7 @@ public sealed partial class BrokerToolService
     }
 
     [McpServerTool(Name = "get_help")]
-    [Description("Lists NetVsMcp broker tools and Visual Studio capability categories.")]
+    [Description("Lists NetVsMcp broker tools, categories, and endpoint metadata.")]
     public ToolResponse<BrokerCapabilities> GetHelp(bool? requiresVisualStudioSession = null)
     {
         var tools = ToolDescriptors

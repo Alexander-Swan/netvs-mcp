@@ -9,7 +9,7 @@ namespace NetVsMcp.Broker.Tests;
 /// name separately from the <c>[McpServerTool]</c> attribute on the actual method.
 /// Nothing in the compiler enforces the two stay in sync, so a renamed or newly added tool
 /// method that isn't mirrored in <c>ToolDescriptors</c> would silently produce a wrong or
-/// missing entry in <c>get_help</c>/<c>vs_get_capabilities</c> while still being callable.
+/// missing entry in <c>get_help</c> while still being callable.
 /// These tests catch that drift in both directions via reflection.
 /// </summary>
 public sealed class BrokerToolServiceDescriptorSyncTests
@@ -59,7 +59,7 @@ public sealed class BrokerToolServiceDescriptorSyncTests
         Assert.True(
             missing.Length == 0,
             $"[McpServerTool] method(s) with no matching ToolDescriptors entry: {string.Join(", ", missing)}. " +
-            "Add an entry to BrokerToolService.ToolDescriptors so get_help/vs_get_capabilities list it correctly.");
+            "Add an entry to BrokerToolService.ToolDescriptors so get_help lists it correctly.");
     }
 
     [Fact]

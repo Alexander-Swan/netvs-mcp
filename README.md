@@ -20,7 +20,7 @@ No cloud services. No telemetry. No per-project configuration files. Everything 
 
 | Area | Tools |
 | --- | --- |
-| Session management | `vs_list_sessions`, `vs_get_session`, `vs_select_session`, `vs_get_status`, `vs_get_capabilities`, `vs_ping`, `vs_launch_instance`, `vs_get_logs`, `netvs_doctor`, `get_help` |
+| Session management | `vs_list_sessions`, `vs_get_session`, `vs_select_session`, `vs_get_status`, `vs_ping`, `vs_launch_instance`, `vs_get_logs`, `netvs_doctor`, `get_status`, `get_help`, `netvs_get_best_practices` |
 | Documents & editor | `document_active`, `document_read`, `document_open`, `document_write`, `document_save`, `document_close`, `document_list`, `document_cleanup`, `document_outline` |
 | Editor mutations | `editor_insert`, `editor_replace`, `editor_goto_line`, `selection_get`, `selection_set` |
 | Safe-edit workflow | `edit_preview`, `edit_approve`, `edit_reject`, `edit_list_pending`, `prepare_safe_edit`, `apply_safe_edit_and_build` |
