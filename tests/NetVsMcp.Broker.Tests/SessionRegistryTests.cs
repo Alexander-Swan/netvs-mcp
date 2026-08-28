@@ -293,6 +293,43 @@ public sealed class SessionRegistryTests
         Assert.Empty(registry.ListSessions());
     }
 
+    [Fact]
+    public void ActiveDispatch_KeepsSessionConnected_WhenHeartbeatIsLate()
+    {
+        var now = DateTimeOffset.Parse("2026-07-22T20:00:00Z");
+        var registry = new SessionRegistry(() => now);
+        registry.Register(CreateRegistration("vs-1", "One", @"C:\Code\One\One.sln", isActive: true));
+
+        using var lease = registry.BeginDispatch("vs-1");
+        now = now.AddMinutes(1);
+
+        var status = registry.ListSessionStatuses().Single();
+
+        Assert.Equal(SessionHealth.Connected, status.Health);
+        Assert.True(status.Age > TimeSpan.FromSeconds(30));
+    }
+
+    [Fact]
+    public void RemoveStaleSessions_DoesNotRemoveActiveDispatch()
+    {
+        var now = DateTimeOffset.Parse("2026-07-22T20:00:00Z");
+        var registry = new SessionRegistry(() => now);
+        registry.Register(CreateRegistration("vs-1", "One", @"C:\Code\One\One.sln", isActive: true));
+
+        using (registry.BeginDispatch("vs-1"))
+        {
+            now = now.AddMinutes(1);
+
+            var removed = registry.RemoveStaleSessions();
+
+            Assert.Equal(0, removed);
+            Assert.Single(registry.ListSessions());
+        }
+
+        Assert.Equal(1, registry.RemoveStaleSessions());
+        Assert.Empty(registry.ListSessions());
+    }
+
     private static VsSessionRegistration CreateRegistration(
         string sessionId,
         string solutionName,

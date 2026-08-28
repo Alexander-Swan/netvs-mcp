@@ -186,6 +186,33 @@ public sealed class VsSessionDispatcherTests
     }
 
     [Fact]
+    public async Task DispatchAsync_PinsSessionAgainstStaleSweep_WhileOperationIsRunning()
+    {
+        var now = DateTimeOffset.Parse("2026-07-22T20:00:00Z");
+        var registry = new SessionRegistry(() => now);
+        registry.Register(CreateRegistration("vs-1", "NetVsMcp", @"C:\Code\NetVsMcp\NetVsMcp.slnx", isActive: true));
+        var connections = new VsSessionConnectionMap();
+        connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Program.cs"));
+        var dispatcher = CreateDispatcher(registry, connections);
+
+        var result = await dispatcher.DispatchAsync(
+            new RoutingTarget(SessionId: "vs-1"),
+            (_, _) =>
+            {
+                now = now.AddMinutes(1);
+                Assert.Equal(0, registry.RemoveStaleSessions());
+                Assert.Equal(SessionHealth.Connected, registry.ListSessionStatuses().Single().Health);
+                return Task.FromResult("searched");
+            },
+            CancellationToken.None,
+            timeout: TimeSpan.FromSeconds(5));
+
+        Assert.True(result.Success);
+        Assert.Equal("searched", result.Value);
+        Assert.Equal(1, registry.RemoveStaleSessions());
+    }
+
+    [Fact]
     public async Task DispatchAsync_PropagatesCancellation_WhenCallersOwnTokenIsCancelled()
     {
         var registry = new SessionRegistry();

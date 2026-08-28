@@ -9,6 +9,7 @@ public sealed class SessionRegistry
     private readonly Func<DateTimeOffset> _utcNow;
     private readonly object _gate = new();
     private readonly Dictionary<string, VsSessionInfo> _sessions = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, int> _activeDispatches = new(StringComparer.OrdinalIgnoreCase);
 
     public SessionRegistry(Func<DateTimeOffset>? utcNow = null)
     {
@@ -39,7 +40,7 @@ public sealed class SessionRegistry
                 .Select(session =>
                 {
                     var age = snapshotTime - session.LastSeenUtc;
-                    var health = age > StaleAfter ? SessionHealth.Stale : SessionHealth.Connected;
+                    var health = IsConnected(session, snapshotTime) ? SessionHealth.Connected : SessionHealth.Stale;
                     return new VsSessionStatus(session, health, age);
                 })
                 .OrderByDescending(status => status.Session.IsActiveWindow)
@@ -132,6 +133,10 @@ public sealed class SessionRegistry
         lock (_gate)
         {
             removed = _sessions.Remove(sessionId);
+            if (removed)
+            {
+                _activeDispatches.Remove(sessionId);
+            }
         }
 
         if (removed)
@@ -235,7 +240,7 @@ public sealed class SessionRegistry
         // still counts toward those fallbacks and can turn a genuinely single *live* session
         // into a confusing Ambiguous error.
         var now = _utcNow();
-        var healthySessions = sessions.Where(session => now - session.LastSeenUtc <= StaleAfter).ToArray();
+        var healthySessions = sessions.Where(session => IsConnected(session, now)).ToArray();
 
         var activeSessions = healthySessions.Where(session => session.IsActiveWindow).ToArray();
         if (activeSessions.Length == 1)
@@ -271,6 +276,7 @@ public sealed class SessionRegistry
         {
             foreach (var sessionId in _sessions
                 .Where(pair => snapshotTime - pair.Value.LastSeenUtc > StaleAfter)
+                .Where(pair => !_activeDispatches.ContainsKey(pair.Key))
                 .Select(pair => pair.Key)
                 .ToArray())
             {
@@ -287,6 +293,48 @@ public sealed class SessionRegistry
         }
 
         return removed;
+    }
+
+    public IDisposable BeginDispatch(string sessionId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sessionId);
+
+        lock (_gate)
+        {
+            if (_sessions.ContainsKey(sessionId))
+            {
+                _activeDispatches.TryGetValue(sessionId, out var count);
+                _activeDispatches[sessionId] = count + 1;
+            }
+        }
+
+        return new DispatchLease(this, sessionId);
+    }
+
+    private void EndDispatch(string sessionId)
+    {
+        lock (_gate)
+        {
+            if (_activeDispatches.TryGetValue(sessionId, out var count))
+            {
+                if (count <= 1)
+                {
+                    _activeDispatches.Remove(sessionId);
+                }
+                else
+                {
+                    _activeDispatches[sessionId] = count - 1;
+                }
+            }
+        }
+    }
+
+    private bool IsConnected(VsSessionInfo session, DateTimeOffset now)
+    {
+        lock (_gate)
+        {
+            return now - session.LastSeenUtc <= StaleAfter || _activeDispatches.ContainsKey(session.SessionId);
+        }
     }
 
     private static RouteResult ResolveMatches(
@@ -354,6 +402,27 @@ public sealed class SessionRegistry
     private void OnSessionsChanged() => SessionsChanged?.Invoke(this, EventArgs.Empty);
 
     private void OnSessionConnected(VsSessionInfo session) => SessionConnected?.Invoke(this, new SessionConnectedEventArgs(session));
+
+    private sealed class DispatchLease : IDisposable
+    {
+        private readonly SessionRegistry _registry;
+        private readonly string _sessionId;
+        private int _disposed;
+
+        public DispatchLease(SessionRegistry registry, string sessionId)
+        {
+            _registry = registry;
+            _sessionId = sessionId;
+        }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                _registry.EndDispatch(_sessionId);
+            }
+        }
+    }
 }
 
 public sealed class SessionConnectedEventArgs : EventArgs

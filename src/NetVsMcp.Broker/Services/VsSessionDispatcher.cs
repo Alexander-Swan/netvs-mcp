@@ -75,38 +75,39 @@ public sealed class VsSessionDispatcher : IVsSessionDispatcher
                 route.Session);
         }
 
-        var effectiveTimeout = timeout ?? DefaultTimeout;
-        var operationTask = InvokeSafely(operation, connection, cancellationToken);
-
-        // Cancelling a StreamJsonRpc call's token only sends a "$/cancelRequest" notification -
-        // the local await does NOT unblock until the *server* actually responds to it. A VSIX-
-        // side handler stuck in a synchronous, cancellation-oblivious COM call (e.g. attaching
-        // over a remote debugger transport to an unreachable host) never observes that
-        // notification, so it never responds, so passing a cancelled token here would hang for
-        // exactly as long as that COM call does - which is what happened in practice with a
-        // hung SSH attach. Race with a plain delay instead, so this always returns within
-        // effectiveTimeout regardless of whether the far side ever cooperates, and abandon
-        // (rather than keep awaiting) the operation if the delay wins.
-        var delayTask = Task.Delay(effectiveTimeout, cancellationToken);
-        var firstCompleted = await Task.WhenAny(operationTask, delayTask);
-
-        if (firstCompleted == delayTask)
-        {
-            ObserveAbandonedOperation(operationTask, route.Session.SessionId);
-
-            if (cancellationToken.IsCancellationRequested)
-            {
-                throw new OperationCanceledException(cancellationToken);
-            }
-
-            return VsSessionDispatchResult<T>.Failed(
-                VsSessionDispatchFailureReason.OperationTimedOut,
-                $"Visual Studio session '{route.Session.SessionId}' did not respond within {effectiveTimeout.TotalSeconds:0}s.",
-                route.Session);
-        }
-
+        using var dispatchLease = _sessions.BeginDispatch(route.Session.SessionId);
         try
         {
+            var effectiveTimeout = timeout ?? DefaultTimeout;
+            var operationTask = InvokeSafely(operation, connection, cancellationToken);
+
+            // Cancelling a StreamJsonRpc call's token only sends a "$/cancelRequest" notification -
+            // the local await does NOT unblock until the *server* actually responds to it. A VSIX-
+            // side handler stuck in a synchronous, cancellation-oblivious COM call (e.g. attaching
+            // over a remote debugger transport to an unreachable host) never observes that
+            // notification, so it never responds, so passing a cancelled token here would hang for
+            // exactly as long as that COM call does - which is what happened in practice with a
+            // hung SSH attach. Race with a plain delay instead, so this always returns within
+            // effectiveTimeout regardless of whether the far side ever cooperates, and abandon
+            // (rather than keep awaiting) the operation if the delay wins.
+            var delayTask = Task.Delay(effectiveTimeout, cancellationToken);
+            var firstCompleted = await Task.WhenAny(operationTask, delayTask);
+
+            if (firstCompleted == delayTask)
+            {
+                ObserveAbandonedOperation(operationTask, route.Session.SessionId);
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw new OperationCanceledException(cancellationToken);
+                }
+
+                return VsSessionDispatchResult<T>.Failed(
+                    VsSessionDispatchFailureReason.OperationTimedOut,
+                    $"Visual Studio session '{route.Session.SessionId}' did not respond within {effectiveTimeout.TotalSeconds:0}s.",
+                    route.Session);
+            }
+
             var value = await operationTask;
             return VsSessionDispatchResult<T>.Ok(route.Session, value);
         }
