@@ -295,6 +295,39 @@ public sealed class LocalMcpHttpHostTests
         }
     }
 
+    [Fact]
+    public async Task LogsEndpoint_ReturnsRecentAuditLogs()
+    {
+        var port = GetAvailablePort();
+        var runtime = CreateRuntime($"http://127.0.0.1:{port}");
+
+        await runtime.StartAsync(CancellationToken.None);
+
+        try
+        {
+            Directory.CreateDirectory(runtime.Options.EffectiveLogsDirectory);
+            await File.WriteAllTextAsync(
+                Path.Combine(runtime.Options.EffectiveLogsDirectory, "audit-20260828.jsonl"),
+                """{"timestampUtc":"2026-08-28T00:00:00Z","toolName":"breakpoint_set","success":false,"level":"Error","message":"Failed."}""");
+
+            using var http = new HttpClient
+            {
+                BaseAddress = new Uri($"http://127.0.0.1:{port}")
+            };
+
+            using var response = await http.GetAsync("/logs?minLevel=error&maxFiles=1");
+
+            response.EnsureSuccessStatusCode();
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.Contains("audit-20260828.jsonl", body);
+            Assert.Contains("breakpoint_set", body);
+        }
+        finally
+        {
+            await runtime.StopAsync();
+        }
+    }
+
     private static async Task<HashSet<string>> ListToolNamesAsync(HttpClient http, string path)
     {
         using var initialize = await InitializeMcpAsync(http, path, 1);
@@ -337,8 +370,14 @@ public sealed class LocalMcpHttpHostTests
 
     private static BrokerRuntime CreateRuntime(string endpoint, string pipeName)
     {
+        var root = Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"));
         return new BrokerRuntime(
-            new BrokerOptions(endpoint, $@"\\.\pipe\{pipeName}"),
+            new BrokerOptions(
+                endpoint,
+                $@"\\.\pipe\{pipeName}",
+                LogsDirectory: Path.Combine(root, "Logs"),
+                SessionsDirectory: Path.Combine(root, "Sessions"),
+                SettingsFilePath: Path.Combine(root, "settings.json")),
             new SessionRegistry());
     }
 

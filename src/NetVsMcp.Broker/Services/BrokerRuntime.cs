@@ -11,11 +11,10 @@ public sealed class BrokerRuntime
     // if the status window were never opened. Own it here instead, as a runtime-level timer.
     private static readonly TimeSpan StaleSessionSweepInterval = TimeSpan.FromSeconds(15);
 
-    // Audit-yyyyMMdd.jsonl files were never pruned - unbounded growth on a long-lived
-    // autostart tray app. Prune once at startup and then daily, similar in spirit to
-    // SessionManifestService.CleanupStale.
+    // Audit-yyyyMMdd.jsonl is a daily rolling log. Keep today's file by default and prune older
+    // files once at startup and then daily, similar in spirit to SessionManifestService.CleanupStale.
     private static readonly TimeSpan AuditLogPruneInterval = TimeSpan.FromHours(24);
-    public const int DefaultAuditLogRetentionDays = 30;
+    public const int DefaultAuditLogRetentionDays = 1;
 
     private readonly LocalMcpHttpHost _httpHost;
     private readonly VsixRegistrationPipeListener _registrationPipeListener;
@@ -105,15 +104,13 @@ public sealed class BrokerRuntime
         set => _settingsStore.Update(s => s with { IgnoredUpdateVersion = value });
     }
 
-    /// <summary>
-    /// How many days of audit-yyyyMMdd.jsonl files to keep before the daily prune pass deletes
-    /// them (default <see cref="DefaultAuditLogRetentionDays"/>). Applies immediately, no
-    /// restart required - the next prune tick reads the current value.
-    /// </summary>
-    public int AuditLogRetentionDays
+    /// <summary>How many calendar-day audit log files to keep, including today.</summary>
+    public int AuditLogRetentionDays => DefaultAuditLogRetentionDays;
+
+    public BrokerLogLevel MinimumLogLevel
     {
-        get => _settingsStore.Load().AuditLogRetentionDays ?? DefaultAuditLogRetentionDays;
-        set => _settingsStore.Update(s => s with { AuditLogRetentionDays = value });
+        get => _settingsStore.Load().MinimumLogLevel;
+        set => _settingsStore.Update(s => s with { MinimumLogLevel = value });
     }
 
     public event EventHandler? PendingSettingsChanged;

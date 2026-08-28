@@ -98,6 +98,7 @@ public sealed class LocalMcpHttpHost : IAsyncDisposable
             endpoint = _options.McpEndpoint,
             mcp = "/mcp",
             mcpWebAutomation = "/mcp-wu",
+            logs = "/logs",
             health = "/health"
         }));
 
@@ -106,6 +107,14 @@ public sealed class LocalMcpHttpHost : IAsyncDisposable
             status = "running",
             endpoint = _options.McpEndpoint
         }));
+
+        app.MapGet("/logs", (int? maxFiles, int? maxCharsPerFile, string? minLevel) =>
+        {
+            var response = _tools.VsGetLogs(maxFiles ?? 5, maxCharsPerFile ?? 20000, minLevel);
+            return response.Success
+                ? Results.Ok(response.Value)
+                : Results.BadRequest(response);
+        });
 
         app.MapMcp("/mcp");
         app.MapMcp("/mcp-wu");

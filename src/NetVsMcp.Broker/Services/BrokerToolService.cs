@@ -398,10 +398,17 @@ public sealed partial class BrokerToolService
         bool success,
         string? selectedSessionId,
         string? message,
-        string? failureReason = null)
+        string? failureReason = null,
+        BrokerLogLevel? level = null)
     {
         try
         {
+            var effectiveLevel = level ?? (success ? BrokerLogLevel.Info : BrokerLogLevel.Error);
+            if (effectiveLevel < _runtime.MinimumLogLevel)
+            {
+                return;
+            }
+
             _runtime.AuditLog.RecordToolCall(new AuditToolCall(
                 TimestampUtc: DateTimeOffset.UtcNow,
                 ToolName: ToMcpToolName(toolName),
@@ -410,12 +417,32 @@ public sealed partial class BrokerToolService
                 SolutionName: target?.SolutionName,
                 SolutionPath: target?.SolutionPath,
                 FailureReason: success ? null : NormalizeFailureReason(failureReason),
-                Message: TruncateAuditMessage(message)));
+                Message: TruncateAuditMessage(message),
+                Level: effectiveLevel));
         }
         catch (Exception ex)
         {
             Trace.WriteLine($"NetVsMcp audit logging failed: {ex}");
         }
+    }
+
+    private ToolResponse<T> AuditLocalFailure<T>(
+        string toolName,
+        string? sessionId,
+        string? solutionName,
+        string? solutionPath,
+        string message)
+    {
+        var target = CreateTarget(sessionId, solutionName, solutionPath);
+        AuditToolResult(
+            toolName,
+            target,
+            success: false,
+            selectedSessionId: null,
+            message,
+            failureReason: "InvalidRequest",
+            level: BrokerLogLevel.Warning);
+        return ToolResponse<T>.Fail(message);
     }
 
     private static string? NormalizeFailureReason(string? failureReason)

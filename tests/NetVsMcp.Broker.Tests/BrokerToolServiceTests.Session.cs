@@ -810,4 +810,37 @@ public sealed partial class BrokerToolServiceTests
         Assert.Equal("def", entry.Text);
         Assert.True(entry.Truncated);
     }
+
+    [Fact]
+    public void VsGetLogs_FiltersByMinimumLevel()
+    {
+        var runtime = CreateRuntime();
+        Directory.CreateDirectory(runtime.Options.EffectiveLogsDirectory);
+        File.WriteAllLines(Path.Combine(runtime.Options.EffectiveLogsDirectory, "audit-20260828.jsonl"),
+        [
+            """{"timestampUtc":"2026-08-28T00:00:00Z","toolName":"debug_status","success":true,"level":"Info"}""",
+            """{"timestampUtc":"2026-08-28T00:00:01Z","toolName":"breakpoint_set","success":false,"failureReason":"InvalidRequest","level":"Warning","message":"Bad line."}""",
+            """{"timestampUtc":"2026-08-28T00:00:02Z","toolName":"breakpoint_set","success":false,"failureReason":"RpcFailure","level":"Error","message":"VS failed."}"""
+        ]);
+
+        var response = runtime.Tools.VsGetLogs(maxFiles: 1, minLevel: "warning");
+
+        Assert.True(response.Success);
+        var text = Assert.Single(response.Value!.Files).Text;
+        Assert.DoesNotContain("debug_status", text);
+        Assert.Contains("Bad line.", text);
+        Assert.Contains("VS failed.", text);
+    }
+
+    [Fact]
+    public void AuditToolResult_SkipsEntriesBelowConfiguredMinimumLevel()
+    {
+        var runtime = CreateRuntime();
+        runtime.MinimumLogLevel = BrokerLogLevel.Warning;
+
+        var response = runtime.Tools.VsPing();
+
+        Assert.True(response.Success);
+        Assert.False(Directory.Exists(runtime.AuditLog.LogsDirectory));
+    }
 }

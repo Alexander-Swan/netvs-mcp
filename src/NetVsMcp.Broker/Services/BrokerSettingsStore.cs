@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using NetVsMcp.Contracts;
 
 namespace NetVsMcp.Broker.Services;
 
@@ -12,6 +13,7 @@ public sealed record BrokerSettings(
     bool IncludeDevVersionUpdates = false,
     string? IgnoredUpdateVersion = null,
     int? AuditLogRetentionDays = null,
+    BrokerLogLevel MinimumLogLevel = BrokerLogLevel.Info,
     bool BackupConfigBeforeRegistering = true);
 
 public interface IBrokerSettingsStore

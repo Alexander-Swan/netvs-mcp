@@ -30,6 +30,7 @@ public sealed class AuditLogServiceTests
         var root = document.RootElement;
 
         Assert.Equal("document_read", root.GetProperty("toolName").GetString());
+        Assert.Equal("Info", root.GetProperty("level").GetString());
         Assert.False(root.GetProperty("success").GetBoolean());
         Assert.Equal("vs-1", root.GetProperty("sessionId").GetString());
         Assert.Equal("MissingConnection", root.GetProperty("failureReason").GetString());
@@ -46,18 +47,18 @@ public sealed class AuditLogServiceTests
         var audit = new AuditLogService(logsDirectory);
 
         var now = DateTimeOffset.Parse("2026-08-23T00:00:00Z");
-        var oldFile = Path.Combine(logsDirectory, "audit-20260601.jsonl");
-        var recentFile = Path.Combine(logsDirectory, "audit-20260822.jsonl");
+        var oldFile = Path.Combine(logsDirectory, "audit-20260822.jsonl");
+        var todayFile = Path.Combine(logsDirectory, "audit-20260823.jsonl");
         var malformedFile = Path.Combine(logsDirectory, "audit-not-a-date.jsonl");
         File.WriteAllText(oldFile, "{}\n");
-        File.WriteAllText(recentFile, "{}\n");
+        File.WriteAllText(todayFile, "{}\n");
         File.WriteAllText(malformedFile, "{}\n");
 
-        var removed = audit.PruneOldLogs(retentionDays: 30, now: now);
+        var removed = audit.PruneOldLogs(retentionDays: 1, now: now);
 
         Assert.Equal(1, removed);
         Assert.False(File.Exists(oldFile));
-        Assert.True(File.Exists(recentFile));
+        Assert.True(File.Exists(todayFile));
         Assert.True(File.Exists(malformedFile));
     }
 

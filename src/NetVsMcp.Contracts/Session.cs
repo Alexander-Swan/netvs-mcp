@@ -61,6 +61,14 @@ public enum BrokerDoctorSeverity
     Error
 }
 
+public enum BrokerLogLevel
+{
+    Debug,
+    Info,
+    Warning,
+    Error
+}
+
 /// <summary>
 /// Single source of truth for which MCP HTTP endpoint serves a given tool. The broker splits
 /// its tool surface across "/mcp" (the default) and "/mcp-wu" (opt-in debuggee UI/browser

@@ -1,4 +1,5 @@
 using NetVsMcp.Broker.Services;
+using NetVsMcp.Contracts;
 
 namespace NetVsMcp.Broker.Tests;
 
@@ -14,6 +15,7 @@ public sealed class BrokerSettingsStoreTests
         Assert.Null(settings.Port);
         Assert.Null(settings.LogsDirectory);
         Assert.Null(settings.SessionsDirectory);
+        Assert.Equal(BrokerLogLevel.Info, settings.MinimumLogLevel);
     }
 
     [Fact]
@@ -23,11 +25,13 @@ public sealed class BrokerSettingsStoreTests
 
         store.Update(s => s with { SessionsDirectory = @"C:\Sessions\netvs-mcp-test" });
         store.Update(s => s with { Port = 5099 });
+        store.Update(s => s with { MinimumLogLevel = BrokerLogLevel.Warning });
 
         var loaded = store.Load();
 
         Assert.Equal(@"C:\Sessions\netvs-mcp-test", loaded.SessionsDirectory);
         Assert.Equal(5099, loaded.Port);
+        Assert.Equal(BrokerLogLevel.Warning, loaded.MinimumLogLevel);
     }
 
     [Fact]

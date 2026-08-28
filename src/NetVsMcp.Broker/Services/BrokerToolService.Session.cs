@@ -1101,7 +1101,7 @@ public sealed partial class BrokerToolService
     }
     [McpServerTool(Name = "vs_get_logs")]
     [Description("Returns recent broker log files with bounded tail text.")]
-    public ToolResponse<BrokerLogResult> VsGetLogs(int maxFiles = 5, int maxCharsPerFile = 20000)
+    public ToolResponse<BrokerLogResult> VsGetLogs(int maxFiles = 5, int maxCharsPerFile = 20000, string? minLevel = null)
     {
         if (maxFiles <= 0)
         {
@@ -1111,6 +1111,11 @@ public sealed partial class BrokerToolService
         if (maxCharsPerFile <= 0)
         {
             return FailWithCode<BrokerLogResult>("Max chars per file must be greater than zero.", ToolErrorCodes.InvalidRequest);
+        }
+
+        if (!TryParseLogLevel(minLevel, out var parsedMinLevel))
+        {
+            return FailWithCode<BrokerLogResult>("minLevel must be one of: debug, info, warning, error.", ToolErrorCodes.InvalidRequest);
         }
 
         var logsDirectory = _runtime.Options.EffectiveLogsDirectory;
@@ -1125,15 +1130,21 @@ public sealed partial class BrokerToolService
             .Select(path => new FileInfo(path))
             .OrderByDescending(file => file.LastWriteTimeUtc)
             .Take(maxFiles)
-            .Select(file => ReadBrokerLogEntry(file, maxCharsPerFile))
+            .Select(file => ReadBrokerLogEntry(file, maxCharsPerFile, parsedMinLevel))
             .ToArray();
         var response = ToolResponse<BrokerLogResult>.Ok(new BrokerLogResult(logsDirectory, files));
         AuditToolResult(nameof(VsGetLogs), null, response.Success, null, response.Message);
         return response;
     }
-    private static BrokerLogEntry ReadBrokerLogEntry(FileInfo file, int maxChars)
+
+    private static BrokerLogEntry ReadBrokerLogEntry(FileInfo file, int maxChars, BrokerLogLevel? minLevel)
     {
         var text = File.ReadAllText(file.FullName);
+        if (minLevel is not null)
+        {
+            text = FilterLogTextByLevel(text, minLevel.Value);
+        }
+
         var truncated = text.Length > maxChars;
         if (truncated)
         {
@@ -1147,5 +1158,68 @@ public sealed partial class BrokerToolService
             file.Length,
             text,
             truncated);
+    }
+
+    private static bool TryParseLogLevel(string? value, out BrokerLogLevel? level)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            level = null;
+            return true;
+        }
+
+        if (Enum.TryParse<BrokerLogLevel>(value.Trim(), ignoreCase: true, out var parsed))
+        {
+            level = parsed;
+            return true;
+        }
+
+        level = null;
+        return false;
+    }
+
+    private static string FilterLogTextByLevel(string text, BrokerLogLevel minLevel)
+    {
+        var lines = text.Split(
+            new[] { "\r\n", "\n" },
+            StringSplitOptions.None);
+        var matches = lines.Where(line =>
+            !string.IsNullOrWhiteSpace(line) &&
+            TryReadLogLevel(line, out var level) &&
+            level >= minLevel);
+        return string.Join(Environment.NewLine, matches);
+    }
+
+    private static bool TryReadLogLevel(string line, out BrokerLogLevel level)
+    {
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(line);
+            if (!document.RootElement.TryGetProperty("level", out var levelElement))
+            {
+                level = BrokerLogLevel.Info;
+                return true;
+            }
+
+            if (levelElement.ValueKind == System.Text.Json.JsonValueKind.String &&
+                Enum.TryParse(levelElement.GetString(), ignoreCase: true, out level))
+            {
+                return true;
+            }
+
+            if (levelElement.ValueKind == System.Text.Json.JsonValueKind.Number &&
+                levelElement.TryGetInt32(out var numeric) &&
+                Enum.IsDefined(typeof(BrokerLogLevel), numeric))
+            {
+                level = (BrokerLogLevel)numeric;
+                return true;
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+        }
+
+        level = BrokerLogLevel.Info;
+        return false;
     }
 }

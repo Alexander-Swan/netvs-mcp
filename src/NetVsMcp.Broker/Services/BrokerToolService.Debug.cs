@@ -174,22 +174,42 @@ public sealed partial class BrokerToolService
     {
         if (string.IsNullOrWhiteSpace(documentPath))
         {
-            return ToolResponse<BreakpointInfo>.Fail("Document path is required.");
+            return AuditLocalFailure<BreakpointInfo>(
+                nameof(BreakpointSet),
+                sessionId,
+                solutionName,
+                solutionPath,
+                "Document path is required.");
         }
 
         if (line < 1)
         {
-            return ToolResponse<BreakpointInfo>.Fail("Breakpoint line must be greater than zero.");
+            return AuditLocalFailure<BreakpointInfo>(
+                nameof(BreakpointSet),
+                sessionId,
+                solutionName,
+                solutionPath,
+                "Breakpoint line must be greater than zero.");
         }
 
         if (column < 1)
         {
-            return ToolResponse<BreakpointInfo>.Fail("Breakpoint column must be greater than zero.");
+            return AuditLocalFailure<BreakpointInfo>(
+                nameof(BreakpointSet),
+                sessionId,
+                solutionName,
+                solutionPath,
+                "Breakpoint column must be greater than zero.");
         }
 
         if (hitCount is < 0)
         {
-            return ToolResponse<BreakpointInfo>.Fail("Breakpoint hit count must be zero or greater.");
+            return AuditLocalFailure<BreakpointInfo>(
+                nameof(BreakpointSet),
+                sessionId,
+                solutionName,
+                solutionPath,
+                "Breakpoint hit count must be zero or greater.");
         }
 
         var request = new BreakpointSetRequest

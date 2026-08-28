@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using NetVsMcp.Contracts;
 
 namespace NetVsMcp.Broker.Services;
 
@@ -12,9 +13,8 @@ public interface IAuditLogService
     void RecordToolCall(AuditToolCall entry);
 
     /// <summary>
-    /// Deletes "audit-yyyyMMdd.jsonl" files older than <paramref name="retentionDays"/>,
-    /// mirroring <see cref="SessionManifestService.CleanupStale"/>'s cleanup-pass shape. Audit log
-    /// files are never otherwise pruned, which is unbounded growth on a long-lived autostart app.
+    /// Deletes "audit-yyyyMMdd.jsonl" files outside the requested calendar-day retention window,
+    /// where one day means "today only", mirroring <see cref="SessionManifestService.CleanupStale"/>'s cleanup-pass shape.
     /// </summary>
     /// <returns>The number of files deleted.</returns>
     int PruneOldLogs(int retentionDays, DateTimeOffset? now = null);
@@ -28,13 +28,15 @@ public sealed record AuditToolCall(
     string? SolutionName = null,
     string? SolutionPath = null,
     string? FailureReason = null,
-    string? Message = null);
+    string? Message = null,
+    BrokerLogLevel Level = BrokerLogLevel.Info);
 
 public sealed class AuditLogService : IAuditLogService
 {
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
     {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters = { new JsonStringEnumConverter() }
     };
     private readonly object _gate = new();
 
@@ -68,7 +70,7 @@ public sealed class AuditLogService : IAuditLogService
             return 0;
         }
 
-        var cutoff = (now ?? DateTimeOffset.UtcNow).UtcDateTime.Date.AddDays(-retentionDays);
+        var cutoff = (now ?? DateTimeOffset.UtcNow).UtcDateTime.Date.AddDays(1 - retentionDays);
         var removed = 0;
 
         lock (_gate)

@@ -45,6 +45,22 @@ public sealed partial class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task BreakpointSet_ValidationFailure_WritesAuditEntry()
+    {
+        var runtime = CreateRuntime();
+
+        var response = await runtime.Tools.BreakpointSet("Program.cs", 0, sessionId: "vs-1");
+
+        Assert.False(response.Success);
+        var entry = ReadSingleAuditEntry(runtime);
+        Assert.Equal("breakpoint_set", entry.GetProperty("toolName").GetString());
+        Assert.Equal("Warning", entry.GetProperty("level").GetString());
+        Assert.False(entry.GetProperty("success").GetBoolean());
+        Assert.Equal("InvalidRequest", entry.GetProperty("failureReason").GetString());
+        Assert.Equal("Breakpoint line must be greater than zero.", entry.GetProperty("message").GetString());
+    }
+
+    [Fact]
     public async Task BreakpointSet_RoutesToConnectedSession()
     {
         var runtime = CreateRuntime();

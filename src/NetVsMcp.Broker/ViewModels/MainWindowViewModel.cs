@@ -181,6 +181,30 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
+    public IReadOnlyList<string> LogLevelOptions { get; } =
+    [
+        BrokerLogLevel.Debug.ToString(),
+        BrokerLogLevel.Info.ToString(),
+        BrokerLogLevel.Warning.ToString(),
+        BrokerLogLevel.Error.ToString()
+    ];
+
+    public string MinimumLogLevelText
+    {
+        get => _runtime.MinimumLogLevel.ToString();
+        set
+        {
+            if (!Enum.TryParse<BrokerLogLevel>(value, ignoreCase: true, out var level) ||
+                _runtime.MinimumLogLevel == level)
+            {
+                return;
+            }
+
+            _runtime.MinimumLogLevel = level;
+            OnPropertyChanged();
+        }
+    }
+
     public async Task CheckForUpdatesAsync(CancellationToken ct = default)
     {
         var currentVersion = Version.TrimStart('v');

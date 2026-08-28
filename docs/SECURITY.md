@@ -53,7 +53,7 @@ Log enough metadata to explain what happened without creating a second sensitive
 
 - Real end-to-end validation with a running broker and an experimental Visual Studio instance is still required.
 - Authentication token handling is not complete unless the current code proves otherwise.
-- Audit logging exists for broker tool calls, but retention/rotation policy and UI log viewing are still minimal.
+- Broker tool calls are audit-logged with levels, daily rolling retention keeps only today's file by default, and agents can inspect recent entries through the broker `/logs` endpoint.
 - Debugger and editor tools should be reviewed carefully before being treated as safe for unattended client use.
 
 Until those gaps are closed, use NetVsMcp only with trusted local clients and keep high-impact operations human-visible.
