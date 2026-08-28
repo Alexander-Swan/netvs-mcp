@@ -939,7 +939,7 @@ public sealed partial class BrokerToolService
                 return ReadGitContext(searchRoot, maxFiles);
             },
             cancellationToken,
-            rootPath: rootPath);
+            rootPath: GetRoutableWorkspacePath(rootPath));
     }
     private static bool IsLikelyTestProject(string? value)
     {

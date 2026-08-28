@@ -44,23 +44,53 @@ internal sealed class CodeActionsCapabilityService : ICodeActionsCapabilityServi
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
-        var (document, span, position) = await ResolveDocumentAndSpanAsync(
-            request.DocumentPath, request.Line, request.Column, request.EndLine, request.EndColumn, cancellationToken);
+        if (await TryResolveDocumentAndSpanAsync(
+            request.DocumentPath,
+            request.Line,
+            request.Column,
+            request.EndLine,
+            request.EndColumn,
+            cancellationToken) is not { } resolved)
+        {
+            var position = new CodePositionRequest
+            {
+                DocumentPath = request.DocumentPath,
+                Line = request.Line,
+                Column = request.Column
+            };
+            return new CodeActionsListResult(position, Array.Empty<CodeActionInfo>());
+        }
+
+        var (document, span, codePosition) = resolved;
 
         var actions = await ComputeActionsAsync(document, span, cancellationToken);
         var infos = actions
             .Select((entry, index) => new CodeActionInfo(index, entry.Action.Title, entry.Kind, entry.DiagnosticId, entry.Action.EquivalenceKey))
             .ToArray();
 
-        return new CodeActionsListResult(position, infos);
+        return new CodeActionsListResult(codePosition, infos);
     }
 
     public async Task<CodeActionsApplyResult> ApplyCodeActionAsync(CodeActionsApplyRequest request, CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
-        var (document, span, _) = await ResolveDocumentAndSpanAsync(
-            request.DocumentPath, request.Line, request.Column, request.EndLine, request.EndColumn, cancellationToken);
+        if (await TryResolveDocumentAndSpanAsync(
+            request.DocumentPath,
+            request.Line,
+            request.Column,
+            request.EndLine,
+            request.EndColumn,
+            cancellationToken) is not { } resolved)
+        {
+            return new CodeActionsApplyResult(
+                false,
+                "Document was not found in the live Visual Studio workspace.",
+                null,
+                Array.Empty<RenameSymbolChangeInfo>());
+        }
+
+        var (document, span, _) = resolved;
 
         // Recompute rather than cache CodeAction objects across calls - the workspace
         // snapshot backing a cached action can go stale between list and apply.
@@ -255,6 +285,24 @@ internal sealed class CodeActionsCapabilityService : ICodeActionsCapabilityServi
 
         var position = new CodePositionRequest { DocumentPath = resolvedPath, Line = line, Column = column };
         return (document, span, position);
+    }
+
+    private async Task<(Microsoft.CodeAnalysis.Document Document, TextSpan Span, CodePositionRequest Position)?> TryResolveDocumentAndSpanAsync(
+        string documentPath,
+        int line,
+        int column,
+        int? endLine,
+        int? endColumn,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await ResolveDocumentAndSpanAsync(documentPath, line, column, endLine, endColumn, cancellationToken);
+        }
+        catch (FileNotFoundException)
+        {
+            return null;
+        }
     }
 
     private static int GetTextPosition(SourceText text, int line, int column)

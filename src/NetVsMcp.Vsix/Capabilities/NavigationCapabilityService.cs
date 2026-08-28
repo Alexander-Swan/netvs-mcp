@@ -39,7 +39,11 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
 
     public async Task<GoToDefinitionResult> GoToDefinitionAsync(string documentPath, int line, int column, CancellationToken cancellationToken)
     {
-        var resolvedSymbol = await ResolveSymbolAtPositionAsync(documentPath, line, column, cancellationToken);
+        if (await TryResolveSymbolAtPositionAsync(documentPath, line, column, cancellationToken) is not { } resolvedSymbol)
+        {
+            return new GoToDefinitionResult(null, Array.Empty<CodeLocationInfo>(), false);
+        }
+
         if (resolvedSymbol.Symbol is null)
         {
             return new GoToDefinitionResult(null, Array.Empty<CodeLocationInfo>(), false);
@@ -65,7 +69,11 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
 
     public async Task<FindReferencesResult> FindReferencesAsync(string documentPath, int line, int column, CancellationToken cancellationToken)
     {
-        var resolvedSymbol = await ResolveSymbolAtPositionAsync(documentPath, line, column, cancellationToken);
+        if (await TryResolveSymbolAtPositionAsync(documentPath, line, column, cancellationToken) is not { } resolvedSymbol)
+        {
+            return new FindReferencesResult(null, Array.Empty<CodeReferenceInfo>());
+        }
+
         if (resolvedSymbol.Symbol is null)
         {
             return new FindReferencesResult(null, Array.Empty<CodeReferenceInfo>());
@@ -108,7 +116,11 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
     public async Task<FindImplementationsResult> FindImplementationsAsync(string documentPath, int line, int column, CancellationToken cancellationToken)
     {
         var position = new CodePositionRequest { DocumentPath = documentPath, Line = line, Column = column };
-        var resolvedSymbol = await ResolveSymbolAtPositionAsync(documentPath, line, column, cancellationToken);
+        if (await TryResolveSymbolAtPositionAsync(documentPath, line, column, cancellationToken) is not { } resolvedSymbol)
+        {
+            return new FindImplementationsResult(false, "Document was not found in the live Visual Studio workspace.", position, Array.Empty<CodeLocationInfo>());
+        }
+
         if (resolvedSymbol.Symbol is null)
         {
             return new FindImplementationsResult(true, "No symbol found at the requested position.", position, Array.Empty<CodeLocationInfo>());
@@ -234,7 +246,18 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
         var direction = NormalizeDirection(request.Direction);
         var maxDepth = request.MaxDepth <= 0 ? 3 : Math.Min(request.MaxDepth, 6);
 
-        var resolvedSymbol = await ResolveSymbolAtPositionAsync(request.DocumentPath, request.Line, request.Column, cancellationToken);
+        if (await TryResolveSymbolAtPositionAsync(request.DocumentPath, request.Line, request.Column, cancellationToken) is not { } resolvedSymbol)
+        {
+            return new CallHierarchyResult(
+                false,
+                "Document was not found in the live Visual Studio workspace.",
+                position,
+                direction,
+                null,
+                Array.Empty<CallHierarchyNode>(),
+                Array.Empty<CallHierarchyNode>());
+        }
+
         if (resolvedSymbol.Symbol is null)
         {
             return new CallHierarchyResult(
@@ -284,13 +307,23 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
             throw new ArgumentException("New name is required.", nameof(request));
         }
 
-        var resolvedSymbol = await ResolveSymbolAtPositionAsync(request.DocumentPath, request.Line, request.Column, cancellationToken);
         var position = new CodePositionRequest
         {
             DocumentPath = request.DocumentPath,
             Line = request.Line,
             Column = request.Column
         };
+        if (await TryResolveSymbolAtPositionAsync(request.DocumentPath, request.Line, request.Column, cancellationToken) is not { } resolvedSymbol)
+        {
+            return new RenameSymbolPreviewResult(
+                false,
+                "Document was not found in the live Visual Studio workspace.",
+                position,
+                request.NewName,
+                null,
+                Array.Empty<RenameSymbolChangeInfo>());
+        }
+
         if (resolvedSymbol.Symbol is null)
         {
             return new RenameSymbolPreviewResult(
@@ -331,13 +364,23 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
 
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
-        var resolvedSymbol = await ResolveSymbolAtPositionAsync(request.DocumentPath, request.Line, request.Column, cancellationToken);
         var position = new CodePositionRequest
         {
             DocumentPath = request.DocumentPath,
             Line = request.Line,
             Column = request.Column
         };
+        if (await TryResolveSymbolAtPositionAsync(request.DocumentPath, request.Line, request.Column, cancellationToken) is not { } resolvedSymbol)
+        {
+            return new RenameSymbolApplyResult(
+                false,
+                "Document was not found in the live Visual Studio workspace.",
+                position,
+                request.NewName,
+                null,
+                Array.Empty<RenameSymbolChangeInfo>());
+        }
+
         if (resolvedSymbol.Symbol is null)
         {
             return new RenameSymbolApplyResult(
@@ -387,7 +430,7 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
         var document = FindWorkspaceDocument(workspace.CurrentSolution, resolvedPath);
         if (document is null)
         {
-            throw new FileNotFoundException("Document was not found in the live Visual Studio workspace.", resolvedPath);
+            return new DocumentSymbolsResult(resolvedPath, Array.Empty<DocumentSymbolInfo>());
         }
 
         var symbols = await ReadDeclaredSymbolsAsync(document, cancellationToken);
@@ -435,6 +478,22 @@ internal sealed class NavigationCapabilityService : INavigationCapabilityService
             ?? throw new InvalidOperationException("Document semantic model is unavailable.");
         var symbol = await SymbolFinder.FindSymbolAtPositionAsync(semanticModel, position, workspace, cancellationToken);
         return new ResolvedSymbolAtPosition(document, symbol);
+    }
+
+    private async Task<ResolvedSymbolAtPosition?> TryResolveSymbolAtPositionAsync(
+        string documentPath,
+        int line,
+        int column,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await ResolveSymbolAtPositionAsync(documentPath, line, column, cancellationToken);
+        }
+        catch (FileNotFoundException)
+        {
+            return null;
+        }
     }
 
     private static string ResolveDocumentPath(DTE? dte, string? documentPath)

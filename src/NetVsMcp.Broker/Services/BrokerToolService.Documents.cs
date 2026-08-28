@@ -43,7 +43,11 @@ public sealed partial class BrokerToolService
             return ToolResponse<IReadOnlyCollection<string>>.Fail("Document path is required.");
         }
 
-        var target = CreateTarget(sessionId, solutionName, solutionPath, workspacePath: GetRoutableWorkspacePath(documentPath));
+        var target = CreateTarget(
+            sessionId,
+            solutionName,
+            solutionPath,
+            workspacePath: GetInferredWorkspacePath(documentPath, sessionId, solutionName, solutionPath));
         var dispatch = await _runtime.Dispatcher.DispatchAsync(
             target,
             (connection, ct) => connection.ListDocumentSymbolsAsync(documentPath, ct),
@@ -173,7 +177,11 @@ public sealed partial class BrokerToolService
             return ToolResponse<DocumentOutlineResult>.Fail("Document path is required.");
         }
 
-        var target = CreateTarget(sessionId, solutionName, solutionPath, workspacePath: GetRoutableWorkspacePath(documentPath));
+        var target = CreateTarget(
+            sessionId,
+            solutionName,
+            solutionPath,
+            workspacePath: GetInferredWorkspacePath(documentPath, sessionId, solutionName, solutionPath));
         var dispatch = await _runtime.Dispatcher.DispatchAsync(
             target,
             async (connection, ct) =>
@@ -630,11 +638,20 @@ public sealed partial class BrokerToolService
                 return result;
             },
             cancellationToken,
-            rootPath: rootPath);
+            rootPath: GetRoutableWorkspacePath(rootPath));
     }
     private static string ResolveSearchRoot(string? rootPath, SolutionInfoResult solution)
     {
         var candidate = NormalizeOptional(rootPath);
+        if (candidate is not null && !Path.IsPathRooted(candidate) && !string.IsNullOrWhiteSpace(solution.Path))
+        {
+            var solutionDirectory = Path.GetDirectoryName(solution.Path);
+            if (!string.IsNullOrWhiteSpace(solutionDirectory))
+            {
+                candidate = Path.Combine(solutionDirectory, candidate);
+            }
+        }
+
         if (candidate is null && !string.IsNullOrWhiteSpace(solution.Path))
         {
             candidate = Path.GetDirectoryName(solution.Path);
@@ -933,7 +950,7 @@ public sealed partial class BrokerToolService
             solutionPath,
             (connection, ct) => connection.FindInFilesAsync(request, ct),
             cancellationToken,
-            rootPath: rootPath);
+            rootPath: GetRoutableWorkspacePath(rootPath));
     }
     [McpServerTool(Name = "code_go_to_implementation")]
     [Description("Finds implementation locations for a symbol at a code position.")]

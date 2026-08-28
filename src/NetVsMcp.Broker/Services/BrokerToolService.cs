@@ -280,6 +280,16 @@ public sealed partial class BrokerToolService
             return null;
         }
     }
+    private static string? GetInferredWorkspacePath(
+        string? path,
+        string? sessionId,
+        string? solutionName,
+        string? solutionPath)
+    {
+        return HasRoutingFields(sessionId, solutionName, solutionPath)
+            ? null
+            : GetRoutableWorkspacePath(path);
+    }
     private static bool HasRoutingFields(
         string? sessionId,
         string? solutionName,
@@ -399,7 +409,12 @@ public sealed partial class BrokerToolService
         string? rootPath = null,
         [CallerMemberName] string toolName = "")
     {
-        var target = CreateTarget(sessionId, solutionName, solutionPath, workspacePath: workspacePath, rootPath: rootPath);
+        var target = CreateTarget(
+            sessionId,
+            solutionName,
+            solutionPath,
+            workspacePath: GetInferredWorkspacePath(workspacePath, sessionId, solutionName, solutionPath),
+            rootPath: rootPath);
         var dispatch = await _runtime.Dispatcher.DispatchAsync(
             target,
             operation,

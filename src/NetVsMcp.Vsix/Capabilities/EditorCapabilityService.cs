@@ -751,13 +751,29 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
 
         if (!string.IsNullOrWhiteSpace(rootPath))
         {
-            return Path.GetFullPath(rootPath);
+            var trimmedRoot = rootPath.Trim();
+            if (Path.IsPathRooted(trimmedRoot))
+            {
+                return Path.GetFullPath(trimmedRoot);
+            }
+
+            var solutionPath = dte?.Solution?.FullName;
+            if (!string.IsNullOrWhiteSpace(solutionPath))
+            {
+                var solutionDirectory = Path.GetDirectoryName(solutionPath);
+                if (!string.IsNullOrWhiteSpace(solutionDirectory))
+                {
+                    return Path.GetFullPath(Path.Combine(solutionDirectory, trimmedRoot));
+                }
+            }
+
+            return Path.GetFullPath(trimmedRoot);
         }
 
-        var solutionPath = dte?.Solution?.FullName;
-        if (!string.IsNullOrWhiteSpace(solutionPath))
+        var defaultSolutionPath = dte?.Solution?.FullName;
+        if (!string.IsNullOrWhiteSpace(defaultSolutionPath))
         {
-            return Path.GetDirectoryName(solutionPath) ?? Environment.CurrentDirectory;
+            return Path.GetDirectoryName(defaultSolutionPath) ?? Environment.CurrentDirectory;
         }
 
         var activeDocument = dte?.ActiveDocument?.FullName;
