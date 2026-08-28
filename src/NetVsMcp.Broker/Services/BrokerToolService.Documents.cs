@@ -454,7 +454,7 @@ public sealed partial class BrokerToolService
     }
     [McpServerTool(Name = "document_open")]
     [Description("Opens a document through a routed Visual Studio session.")]
-    public Task<ToolResponse<EditorDocumentInfo>> DocumentOpen(
+    public async Task<ToolResponse<EditorDocumentInfo>> DocumentOpen(
         [Description(DocumentPathParameterDescription)]
         string path,
         string? sessionId = null,
@@ -464,17 +464,37 @@ public sealed partial class BrokerToolService
     {
         if (ValidateRequiredPath(path) is { } validation)
         {
-            return Task.FromResult(ToolResponse<EditorDocumentInfo>.Fail(validation));
+            return ToolResponse<EditorDocumentInfo>.Fail(validation);
         }
 
         var request = new DocumentOpenRequest { Path = path.Trim() };
-        return DispatchValueAsync(
+        var target = CreateTarget(
             sessionId,
             solutionName,
             solutionPath,
+            workspacePath: GetInferredWorkspacePath(request.Path, sessionId, solutionName, solutionPath));
+        var dispatch = await _runtime.Dispatcher.DispatchAsync(
+            target,
             (connection, ct) => connection.DocumentOpenAsync(request, ct),
-            cancellationToken,
-            workspacePath: GetRoutableWorkspacePath(request.Path));
+            cancellationToken);
+
+        var response = ToValueToolResponse(dispatch);
+        if (!response.Success && IsDocumentNotFoundFailure(response.Message))
+        {
+            response = new ToolResponse<EditorDocumentInfo>(
+                false,
+                default,
+                $"Document '{request.Path}' was not found in the routed Visual Studio workspace or on disk.",
+                new Dictionary<string, string>
+                {
+                    ["error_code"] = ToolErrorCodes.InvalidRequest,
+                    ["failureReason"] = "DocumentNotFound",
+                    ["sessionId"] = dispatch.Session?.SessionId ?? string.Empty
+                });
+        }
+
+        AuditToolResult(nameof(DocumentOpen), target, response.Success, dispatch.Session?.SessionId, response.Message, response.Metadata?.GetValueOrDefault("failureReason") ?? dispatch.FailureReason.ToString());
+        return response;
     }
     [McpServerTool(Name = "open_relevant_files")]
     [Description("Opens a set of relevant files in the routed Visual Studio session.")]

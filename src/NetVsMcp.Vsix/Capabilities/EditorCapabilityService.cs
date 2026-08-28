@@ -259,7 +259,12 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
         var dte = await GetDteAsync() ?? throw new InvalidOperationException("Visual Studio DTE service is unavailable.");
-        var resolvedPath = ResolveDocumentPath(dte, path);
+        var resolvedPath = ResolveDocumentPathForOpen(dte, path);
+        if (!File.Exists(resolvedPath))
+        {
+            throw new FileNotFoundException("Document was not found on disk.", resolvedPath);
+        }
+
         var openedWindow = dte.ItemOperations.OpenFile(resolvedPath);
         openedWindow.Activate();
 
@@ -1034,6 +1039,137 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         return DocumentPathResolver.Resolve(dte, path, parameterName: nameof(path));
+    }
+
+    private static string ResolveDocumentPathForOpen(DTE dte, string path)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        var resolvedPath = ResolveDocumentPath(dte, path);
+        if (File.Exists(resolvedPath) || Path.IsPathRooted(path.Trim()))
+        {
+            return resolvedPath;
+        }
+
+        return FindSolutionItemByRelativePath(dte.Solution, path.Trim()) ?? resolvedPath;
+    }
+
+    private static string? FindSolutionItemByRelativePath(Solution? solution, string relativePath)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        var normalizedRelativePath = NormalizeRelativePath(relativePath);
+        if (string.IsNullOrWhiteSpace(normalizedRelativePath))
+        {
+            return null;
+        }
+
+        foreach (Project project in EnumerateProjects(solution))
+        {
+            var match = FindProjectItemByRelativePath(project.ProjectItems, normalizedRelativePath);
+            if (match is not null)
+            {
+                return match;
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<Project> EnumerateProjects(Solution? solution)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        if (solution?.Projects is null)
+        {
+            yield break;
+        }
+
+        foreach (Project project in solution.Projects)
+        {
+            foreach (var child in EnumerateProject(project))
+            {
+                yield return child;
+            }
+        }
+    }
+
+    private static IEnumerable<Project> EnumerateProject(Project project)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        yield return project;
+
+        if (project.ProjectItems is null)
+        {
+            yield break;
+        }
+
+        foreach (ProjectItem item in project.ProjectItems)
+        {
+            if (item.SubProject is not null)
+            {
+                foreach (var child in EnumerateProject(item.SubProject))
+                {
+                    yield return child;
+                }
+            }
+        }
+    }
+
+    private static string? FindProjectItemByRelativePath(ProjectItems? items, string normalizedRelativePath)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        if (items is null)
+        {
+            return null;
+        }
+
+        foreach (ProjectItem item in items)
+        {
+            var itemPath = GetProjectItemPath(item);
+            if (itemPath is not null && PathEndsWithRelativePath(itemPath, normalizedRelativePath))
+            {
+                return itemPath;
+            }
+
+            var child = FindProjectItemByRelativePath(item.ProjectItems, normalizedRelativePath);
+            if (child is not null)
+            {
+                return child;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? GetProjectItemPath(ProjectItem item)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        try
+        {
+            return item.FileCount > 0 ? item.FileNames[1] : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool PathEndsWithRelativePath(string path, string normalizedRelativePath)
+    {
+        var normalizedPath = NormalizeRelativePath(path);
+        return normalizedPath.Equals(normalizedRelativePath, StringComparison.OrdinalIgnoreCase)
+            || normalizedPath.EndsWith(Path.DirectorySeparatorChar + normalizedRelativePath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeRelativePath(string path)
+    {
+        return path.Trim()
+            .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+            .TrimStart(Path.DirectorySeparatorChar);
     }
 
     private sealed class PendingEdit

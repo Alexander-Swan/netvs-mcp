@@ -485,6 +485,14 @@ public sealed partial class BrokerToolService
             : failureReason;
     }
 
+    private static bool IsDocumentNotFoundFailure(string? message)
+    {
+        return !string.IsNullOrWhiteSpace(message)
+            && (message.Contains("Document was not found on disk", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("Document was not found in the live Visual Studio workspace", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("E_INVALIDARG", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static string? TruncateAuditMessage(string? message)
     {
         const int maxLength = 500;
