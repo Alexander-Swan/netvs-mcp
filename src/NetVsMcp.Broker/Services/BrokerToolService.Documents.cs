@@ -43,13 +43,14 @@ public sealed partial class BrokerToolService
             return ToolResponse<IReadOnlyCollection<string>>.Fail("Document path is required.");
         }
 
+        var target = CreateTarget(sessionId, solutionName, solutionPath, workspacePath: GetRoutableWorkspacePath(documentPath));
         var dispatch = await _runtime.Dispatcher.DispatchAsync(
-            CreateTarget(sessionId, solutionName, solutionPath),
+            target,
             (connection, ct) => connection.ListDocumentSymbolsAsync(documentPath, ct),
             cancellationToken);
 
         var response = ToToolResponse(dispatch);
-        AuditToolResult(nameof(CodeDocumentSymbols), CreateTarget(sessionId, solutionName, solutionPath), response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
+        AuditToolResult(nameof(CodeDocumentSymbols), target, response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
         return response;
     }
     [McpServerTool(Name = "code_go_to_definition")]
@@ -83,7 +84,8 @@ public sealed partial class BrokerToolService
             solutionName,
             solutionPath,
             (connection, ct) => connection.CodeGoToDefinitionAsync(request, ct),
-            cancellationToken);
+            cancellationToken,
+            workspacePath: GetRoutableWorkspacePath(request.DocumentPath));
     }
     [McpServerTool(Name = "code_find_references")]
     [Description("Finds symbol references through a routed Visual Studio session.")]
@@ -116,7 +118,8 @@ public sealed partial class BrokerToolService
             solutionName,
             solutionPath,
             (connection, ct) => connection.CodeFindReferencesAsync(request, ct),
-            cancellationToken);
+            cancellationToken,
+            workspacePath: GetRoutableWorkspacePath(request.DocumentPath));
     }
     [McpServerTool(Name = "symbol_context")]
     [Description("Returns document text, nearby snippet, definition, and references for a code position.")]
@@ -152,7 +155,8 @@ public sealed partial class BrokerToolService
                     await connection.CodeFindReferencesAsync(position, ct),
                     ExtractSnippet(document.Text, line, Math.Max(0, contextLines)));
             },
-            cancellationToken);
+            cancellationToken,
+            workspacePath: GetRoutableWorkspacePath(documentPath));
     }
     [McpServerTool(Name = "document_outline")]
     [Description("Returns document symbol outline information.")]
@@ -169,8 +173,9 @@ public sealed partial class BrokerToolService
             return ToolResponse<DocumentOutlineResult>.Fail("Document path is required.");
         }
 
+        var target = CreateTarget(sessionId, solutionName, solutionPath, workspacePath: GetRoutableWorkspacePath(documentPath));
         var dispatch = await _runtime.Dispatcher.DispatchAsync(
-            CreateTarget(sessionId, solutionName, solutionPath),
+            target,
             async (connection, ct) =>
             {
                 var response = await connection.ListDocumentSymbolsAsync(documentPath.Trim(), ct);
@@ -179,7 +184,7 @@ public sealed partial class BrokerToolService
             cancellationToken);
 
         var response = ToValueToolResponse(dispatch);
-        AuditToolResult(nameof(DocumentOutline), CreateTarget(sessionId, solutionName, solutionPath), response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
+        AuditToolResult(nameof(DocumentOutline), target, response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
         return response;
     }
     [McpServerTool(Name = "find_implementations")]
@@ -207,7 +212,8 @@ public sealed partial class BrokerToolService
             solutionName,
             solutionPath,
             (connection, ct) => connection.CodeFindImplementationsAsync(position, ct),
-            cancellationToken);
+            cancellationToken,
+            workspacePath: GetRoutableWorkspacePath(position.DocumentPath));
     }
     [McpServerTool(Name = "rename_symbol_preview")]
     [Description("Returns safe rename preview status for a code position.")]
@@ -247,7 +253,8 @@ public sealed partial class BrokerToolService
             solutionName,
             solutionPath,
             (connection, ct) => connection.CodeRenameSymbolPreviewAsync(request, ct),
-            cancellationToken);
+            cancellationToken,
+            workspacePath: GetRoutableWorkspacePath(request.DocumentPath));
     }
     [McpServerTool(Name = "rename_symbol_apply")]
     [Description("Applies a Roslyn solution-wide rename for the symbol at a code position through a routed Visual Studio session.")]
@@ -287,7 +294,8 @@ public sealed partial class BrokerToolService
             solutionName,
             solutionPath,
             (connection, ct) => connection.CodeRenameSymbolApplyAsync(request, ct),
-            cancellationToken);
+            cancellationToken,
+            workspacePath: GetRoutableWorkspacePath(request.DocumentPath));
     }
     [McpServerTool(Name = "call_hierarchy_get")]
     [Description("Returns the call hierarchy (incoming callers and/or outgoing callees) for the symbol at a code position through a routed Visual Studio session.")]
@@ -326,7 +334,8 @@ public sealed partial class BrokerToolService
             solutionName,
             solutionPath,
             (connection, ct) => connection.CallHierarchyGetAsync(request, ct),
-            cancellationToken);
+            cancellationToken,
+            workspacePath: GetRoutableWorkspacePath(request.DocumentPath));
     }
     [McpServerTool(Name = "code_actions_list")]
     [Description("Lists available code fixes and refactorings (like the VS lightbulb) at a code position or selection through a routed Visual Studio session.")]
@@ -365,7 +374,8 @@ public sealed partial class BrokerToolService
             solutionName,
             solutionPath,
             (connection, ct) => connection.CodeActionsListAsync(request, ct),
-            cancellationToken);
+            cancellationToken,
+            workspacePath: GetRoutableWorkspacePath(request.DocumentPath));
     }
     [McpServerTool(Name = "code_actions_apply")]
     [Description("Applies a code fix or refactoring by index (as returned by code_actions_list) through a routed Visual Studio session. Recomputes the action list before applying.")]
@@ -407,7 +417,8 @@ public sealed partial class BrokerToolService
             solutionName,
             solutionPath,
             (connection, ct) => connection.CodeActionsApplyAsync(request, ct),
-            cancellationToken);
+            cancellationToken,
+            workspacePath: GetRoutableWorkspacePath(request.DocumentPath));
     }
     [McpServerTool(Name = "document_read")]
     [Description("Reads a document through a routed Visual Studio session.")]
@@ -430,7 +441,8 @@ public sealed partial class BrokerToolService
             solutionName,
             solutionPath,
             (connection, ct) => connection.DocumentReadAsync(request, ct),
-            cancellationToken);
+            cancellationToken,
+            workspacePath: GetRoutableWorkspacePath(request.Path));
     }
     [McpServerTool(Name = "document_open")]
     [Description("Opens a document through a routed Visual Studio session.")]
@@ -453,7 +465,8 @@ public sealed partial class BrokerToolService
             solutionName,
             solutionPath,
             (connection, ct) => connection.DocumentOpenAsync(request, ct),
-            cancellationToken);
+            cancellationToken,
+            workspacePath: GetRoutableWorkspacePath(request.Path));
     }
     [McpServerTool(Name = "open_relevant_files")]
     [Description("Opens a set of relevant files in the routed Visual Studio session.")]
@@ -494,7 +507,8 @@ public sealed partial class BrokerToolService
 
                 return new OpenRelevantFilesResult(documents);
             },
-            cancellationToken);
+            cancellationToken,
+            workspacePath: normalizedPaths.Select(GetRoutableWorkspacePath).FirstOrDefault(path => path is not null));
     }
     [McpServerTool(Name = "errors_list")]
     [Description("Lists errors and warnings from a routed Visual Studio session.")]
@@ -615,7 +629,8 @@ public sealed partial class BrokerToolService
                     ct);
                 return result;
             },
-            cancellationToken);
+            cancellationToken,
+            rootPath: rootPath);
     }
     private static string ResolveSearchRoot(string? rootPath, SolutionInfoResult solution)
     {
@@ -917,7 +932,8 @@ public sealed partial class BrokerToolService
             solutionName,
             solutionPath,
             (connection, ct) => connection.FindInFilesAsync(request, ct),
-            cancellationToken);
+            cancellationToken,
+            rootPath: rootPath);
     }
     [McpServerTool(Name = "code_go_to_implementation")]
     [Description("Finds implementation locations for a symbol at a code position.")]

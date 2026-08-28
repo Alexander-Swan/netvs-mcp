@@ -55,6 +55,32 @@ public sealed partial class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task FindInFiles_UsesRootPathForRouting_WhenMultipleSessionsAreRegistered()
+    {
+        var runtime = CreateRuntime();
+        var otherRoot = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"))).FullName;
+        var targetRoot = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"))).FullName;
+        var targetProjectRoot = Directory.CreateDirectory(Path.Combine(targetRoot, "src", "App")).FullName;
+        var otherSolution = Path.Combine(otherRoot, "Other.slnx");
+        var targetSolution = Path.Combine(targetRoot, "App.slnx");
+        await File.WriteAllTextAsync(otherSolution, string.Empty);
+        await File.WriteAllTextAsync(targetSolution, string.Empty);
+        var otherSession = new FakeVisualStudioSessionRpc("Other.cs");
+        var targetSession = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "Other", otherSolution, isActive: false));
+        runtime.Sessions.Register(CreateRegistration("vs-2", "App", targetSolution, isActive: false));
+        runtime.Connections.AddOrUpdate("vs-1", otherSession);
+        runtime.Connections.AddOrUpdate("vs-2", targetSession);
+
+        var response = await runtime.Tools.FindInFiles("needle", rootPath: targetProjectRoot, filePattern: "*.cs");
+
+        Assert.True(response.Success);
+        Assert.Null(otherSession.LastFindInFilesRequest);
+        Assert.Equal("needle", targetSession.LastFindInFilesRequest!.Query);
+        Assert.Equal(targetProjectRoot, targetSession.LastFindInFilesRequest.RootPath);
+    }
+
+    [Fact]
     public async Task DocumentActive_RoutesToConnectedSession()
     {
         var runtime = CreateRuntime();
@@ -180,6 +206,33 @@ public sealed partial class BrokerToolServiceTests
         var reference = Assert.Single(response.Value!.References);
         Assert.False(reference.IsImplicit);
         Assert.Equal("Run", reference.Symbol.Name);
+    }
+
+    [Fact]
+    public async Task CodeFindReferences_UsesDocumentPathForRouting_WhenMultipleSessionsAreRegistered()
+    {
+        var runtime = CreateRuntime();
+        var otherRoot = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"))).FullName;
+        var targetRoot = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"))).FullName;
+        var targetProjectRoot = Directory.CreateDirectory(Path.Combine(targetRoot, "src", "App")).FullName;
+        var otherSolution = Path.Combine(otherRoot, "Other.slnx");
+        var targetSolution = Path.Combine(targetRoot, "App.slnx");
+        var targetDocument = Path.Combine(targetProjectRoot, "Program.cs");
+        await File.WriteAllTextAsync(otherSolution, string.Empty);
+        await File.WriteAllTextAsync(targetSolution, string.Empty);
+        await File.WriteAllTextAsync(targetDocument, "class Program { void Run() {} }");
+        var otherSession = new FakeVisualStudioSessionRpc("Other.cs");
+        var targetSession = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "Other", otherSolution, isActive: false));
+        runtime.Sessions.Register(CreateRegistration("vs-2", "App", targetSolution, isActive: false));
+        runtime.Connections.AddOrUpdate("vs-1", otherSession);
+        runtime.Connections.AddOrUpdate("vs-2", targetSession);
+
+        var response = await runtime.Tools.CodeFindReferences(targetDocument, line: 1, column: 22);
+
+        Assert.True(response.Success);
+        Assert.Null(otherSession.LastCodeFindReferencesRequest);
+        Assert.Equal(targetDocument, targetSession.LastCodeFindReferencesRequest!.DocumentPath);
     }
 
     [Fact]
@@ -425,6 +478,32 @@ public sealed partial class BrokerToolServiceTests
         var match = Assert.Single(response.Value!.Matches);
         Assert.Equal(file, match.Path);
         Assert.Equal(1, match.Line);
+    }
+
+    [Fact]
+    public async Task WorkspaceSearch_UsesRootPathForRouting_WhenMultipleSessionsAreRegistered()
+    {
+        var runtime = CreateRuntime();
+        var otherRoot = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"))).FullName;
+        var targetRoot = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"))).FullName;
+        var targetProjectRoot = Directory.CreateDirectory(Path.Combine(targetRoot, "src", "App")).FullName;
+        var otherSolution = Path.Combine(otherRoot, "Other.slnx");
+        var targetSolution = Path.Combine(targetRoot, "App.slnx");
+        await File.WriteAllTextAsync(otherSolution, string.Empty);
+        await File.WriteAllTextAsync(targetSolution, string.Empty);
+        await File.WriteAllTextAsync(Path.Combine(targetProjectRoot, "Program.cs"), "class Program { void Run() {} }");
+        var otherSession = new FakeVisualStudioSessionRpc("Other.cs");
+        var targetSession = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "Other", otherSolution, isActive: false));
+        runtime.Sessions.Register(CreateRegistration("vs-2", "App", targetSolution, isActive: false));
+        runtime.Connections.AddOrUpdate("vs-1", otherSession);
+        runtime.Connections.AddOrUpdate("vs-2", targetSession);
+
+        var response = await runtime.Tools.WorkspaceSearch("Run", "*.cs", targetProjectRoot);
+
+        Assert.True(response.Success);
+        var match = Assert.Single(response.Value!.Matches);
+        Assert.Equal(Path.Combine(targetProjectRoot, "Program.cs"), match.Path);
     }
 
     [Fact]

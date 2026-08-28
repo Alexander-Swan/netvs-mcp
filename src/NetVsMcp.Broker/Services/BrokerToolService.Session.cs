@@ -938,7 +938,8 @@ public sealed partial class BrokerToolService
                 var searchRoot = ResolveSearchRoot(rootPath, solution);
                 return ReadGitContext(searchRoot, maxFiles);
             },
-            cancellationToken);
+            cancellationToken,
+            rootPath: rootPath);
     }
     private static bool IsLikelyTestProject(string? value)
     {

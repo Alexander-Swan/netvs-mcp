@@ -150,6 +150,27 @@ public sealed partial class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task GitContext_UsesRootPathForRouting_WhenMultipleSessionsAreRegistered()
+    {
+        var runtime = CreateRuntime();
+        var otherRoot = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"))).FullName;
+        var targetRoot = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"))).FullName;
+        var targetProjectRoot = Directory.CreateDirectory(Path.Combine(targetRoot, "src", "App")).FullName;
+        var otherSolution = Path.Combine(otherRoot, "Other.slnx");
+        var targetSolution = Path.Combine(targetRoot, "App.slnx");
+        await File.WriteAllTextAsync(otherSolution, string.Empty);
+        await File.WriteAllTextAsync(targetSolution, string.Empty);
+        runtime.Sessions.Register(CreateRegistration("vs-1", "Other", otherSolution, isActive: false));
+        runtime.Sessions.Register(CreateRegistration("vs-2", "App", targetSolution, isActive: false));
+        runtime.Connections.AddOrUpdate("vs-2", new FakeVisualStudioSessionRpc("Editor.cs"));
+
+        var response = await runtime.Tools.GitContext(rootPath: targetProjectRoot);
+
+        Assert.True(response.Success);
+        Assert.Equal(targetProjectRoot, response.Value!.RootPath);
+    }
+
+    [Fact]
     public void VsGetSession_SelectsByNormalizedSolutionPath()
     {
         var runtime = CreateRuntime();

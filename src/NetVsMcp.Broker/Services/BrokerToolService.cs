@@ -264,6 +264,22 @@ public sealed partial class BrokerToolService
         return string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase) ||
             string.Equals(Path.GetFileName(left), Path.GetFileName(right), StringComparison.OrdinalIgnoreCase);
     }
+    private static string? GetRoutableWorkspacePath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            return Path.IsPathRooted(path.Trim()) ? path.Trim() : null;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return null;
+        }
+    }
     private static bool HasRoutingFields(
         string? sessionId,
         string? solutionName,
@@ -379,9 +395,11 @@ public sealed partial class BrokerToolService
         string? solutionPath,
         Func<IVisualStudioSessionRpc, CancellationToken, Task<T>> operation,
         CancellationToken cancellationToken,
+        string? workspacePath = null,
+        string? rootPath = null,
         [CallerMemberName] string toolName = "")
     {
-        var target = CreateTarget(sessionId, solutionName, solutionPath);
+        var target = CreateTarget(sessionId, solutionName, solutionPath, workspacePath: workspacePath, rootPath: rootPath);
         var dispatch = await _runtime.Dispatcher.DispatchAsync(
             target,
             operation,
