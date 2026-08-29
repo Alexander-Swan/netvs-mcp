@@ -431,7 +431,7 @@ public sealed partial class BrokerToolService
     [Description("Reads a document through a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentReadResult>> DocumentRead(
         [Description(DocumentPathParameterDescription)]
-        string path,
+        string? path = null,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
@@ -442,7 +442,8 @@ public sealed partial class BrokerToolService
             return Task.FromResult(ToolResponse<DocumentReadResult>.Fail(validation));
         }
 
-        var request = new DocumentReadRequest { Path = path.Trim() };
+        var trimmedPath = path!.Trim();
+        var request = new DocumentReadRequest { Path = trimmedPath };
         return DispatchValueAsync(
             sessionId,
             solutionName,
@@ -455,7 +456,7 @@ public sealed partial class BrokerToolService
     [Description("Opens a document through a routed Visual Studio session.")]
     public async Task<ToolResponse<EditorDocumentInfo>> DocumentOpen(
         [Description(DocumentPathParameterDescription)]
-        string path,
+        string? path = null,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
@@ -466,7 +467,8 @@ public sealed partial class BrokerToolService
             return ToolResponse<EditorDocumentInfo>.Fail(validation);
         }
 
-        var request = new DocumentOpenRequest { Path = path.Trim() };
+        var trimmedPath = path!.Trim();
+        var request = new DocumentOpenRequest { Path = trimmedPath };
         var target = CreateTarget(
             sessionId,
             solutionName,

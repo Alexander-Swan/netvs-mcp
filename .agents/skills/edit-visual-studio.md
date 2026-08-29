@@ -15,17 +15,17 @@ Every routed document/editor call accepts optional `sessionId`, `solutionName`, 
 
 If the agent environment exposes namespaced MCP tools, use whichever NetVsMcp namespace is connected, such as `mcp__netvs` or `mcp__netvs_mcp`.
 
-Every path parameter in this guide (`path`, `documentPath`, `rootPath`) should prefer forward slashes, for example `src/Project/File.cs`, even on Windows. If a Windows path with backslashes must be sent in JSON, escape each backslash as `\\`.
+Document/editor tools in this guide use the parameter name `path`, not `documentPath`. Path values may be absolute or relative to the routed solution file's directory. Prefer forward slashes, for example `Project/File.cs` when the solution file is in `src`; if a Windows path with backslashes must be sent in JSON, escape each backslash as `\\`. If the routed solution is `D:\Repo\src\App.slnx`, open `D:\Repo\src\App\Program.cs` with `"path": "App/Program.cs"`, not `"documentPath"` and not `"src/App/Program.cs"`.
 
 ## Opening, Reading, Listing, And Closing Documents
 
 ```json
 document_active({ "sessionId": "..." })
 document_list({ "sessionId": "..." })
-document_open({ "path": "src/Project/File.cs", "sessionId": "..." })
-document_read({ "path": "src/Project/File.cs", "sessionId": "..." })
+document_open({ "path": "Project/File.cs", "sessionId": "..." })
+document_read({ "path": "Project/File.cs", "sessionId": "..." })
 document_close({
-  "path": "src/Project/File.cs",
+  "path": "Project/File.cs",
   "policy": "Save",
   "allowDirtyDiscard": false,
   "sessionId": "..."
@@ -46,7 +46,7 @@ Use these when you want the change applied immediately, with no separate approva
 
 ```json
 editor_insert({
-  "path": "src/Project/File.cs",
+  "path": "Project/File.cs",
   "line": 42,
   "column": 1,
   "text": "        // TODO\n",
@@ -55,7 +55,7 @@ editor_insert({
 })
 
 editor_replace({
-  "path": "src/Project/File.cs",
+  "path": "Project/File.cs",
   "startLine": 10,
   "startColumn": 1,
   "endLine": 12,
@@ -66,14 +66,14 @@ editor_replace({
 })
 
 document_write({
-  "path": "src/Project/File.cs",
+  "path": "Project/File.cs",
   "text": "entire new file contents",
   "createIfMissing": false,
   "saveAfterWrite": true,
   "sessionId": "..."
 })
 
-document_save({ "path": "src/Project/File.cs", "sessionId": "..." })
+document_save({ "path": "Project/File.cs", "sessionId": "..." })
 ```
 
 Key behavior:
@@ -89,7 +89,7 @@ Key behavior:
 ```json
 selection_get({ "sessionId": "..." })
 selection_set({
-  "path": "src/Project/File.cs",
+  "path": "Project/File.cs",
   "startLine": 5,
   "startColumn": 1,
   "endLine": 5,
@@ -106,8 +106,8 @@ Key behavior:
 ## Formatting And Cleanup
 
 ```json
-document_cleanup({ "path": "src/Project/File.cs", "saveAfterCleanup": true, "sessionId": "..." })
-format_and_organize({ "path": "src/Project/File.cs", "saveAfterCleanup": true, "sessionId": "..." })
+document_cleanup({ "path": "Project/File.cs", "saveAfterCleanup": true, "sessionId": "..." })
+format_and_organize({ "path": "Project/File.cs", "saveAfterCleanup": true, "sessionId": "..." })
 ```
 
 Key behavior:
@@ -123,7 +123,7 @@ Key behavior:
 ```json
 edit_preview({
   "operation": "replace",
-  "path": "src/Project/File.cs",
+  "path": "Project/File.cs",
   "text": "new code",
   "startLine": 10,
   "startColumn": 1,
@@ -134,7 +134,7 @@ edit_preview({
 
 prepare_safe_edit({
   "operation": "insert",
-  "path": "src/Project/File.cs",
+  "path": "Project/File.cs",
   "text": "new line\n",
   "line": 42,
   "column": 1,
@@ -171,7 +171,7 @@ Key behavior:
 ```json
 editor_find({
   "query": "TODO",
-  "path": "src/Project/File.cs",
+  "path": "Project/File.cs",
   "matchCase": false,
   "wholeWord": false,
   "useRegex": false,
@@ -191,7 +191,7 @@ find_in_files({
 Key behavior:
 
 - `editor_find` searches a single document. `path` is optional; when omitted it searches the active document.
-- `find_in_files` searches across files under `rootPath` (optional; defaults to the solution root when omitted), narrowed by optional `filePattern`.
+- `find_in_files` searches across files under `rootPath` (optional; defaults to the routed solution file's directory when omitted), narrowed by optional `filePattern`.
 - Both return a `TextSearchResult` with `query`, `matchCount`, `truncated`, and `matches` (`path`, `line`, `column`, `lineText`, `matchText`). `matchCase`, `wholeWord`, and `useRegex` default to `false`; `maxResults` defaults to `100` and must be greater than zero.
 - Use `editor_find` when you already know which document to search; use `find_in_files` for solution- or folder-wide text search.
 
@@ -202,4 +202,4 @@ Key behavior:
 - Ambiguous routing: call `vs_list_sessions` and retry with `sessionId`.
 - Edit fails validation: confirm `operation` matches the fields supplied (`insert` needs `line`/`column`, `replace` needs the full range) and that `path` is not empty.
 - Pending edit not found: call `edit_list_pending` to confirm the `editId` is still pending; it may have already been approved or rejected.
-- Document path problems: prefer absolute or solution-relative paths with forward slashes; NetVsMcp resolves paths against the Visual Studio solution when possible.
+- Document path problems: for document/editor tools, use `path` and prefer either an absolute path or a path relative to the routed `.sln`/`.slnx` file's directory. Do not use `documentPath` with `document_open`, `document_read`, `document_write`, or editor mutation tools.

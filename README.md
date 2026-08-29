@@ -18,6 +18,8 @@ No cloud services. No telemetry. No per-project configuration files. Everything 
 
 ## Tool coverage
 
+Document/editor tools such as `document_open` and `document_read` use the parameter name `path`. Code navigation, diagnostics, and breakpoint tools use `documentPath`. Relative document paths resolve against the routed `.sln`/`.slnx` file's directory; absolute paths are used as-is.
+
 | Area | Tools |
 | --- | --- |
 | Session management | `vs_list_sessions`, `vs_get_session`, `vs_select_session`, `vs_get_status`, `vs_ping`, `vs_launch_instance`, `vs_get_logs`, `netvs_doctor`, `get_status`, `get_help`, `netvs_get_best_practices` |

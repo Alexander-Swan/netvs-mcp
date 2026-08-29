@@ -12,9 +12,9 @@ namespace NetVsMcp.Broker.Services;
 [McpServerToolType]
 public sealed partial class BrokerToolService
 {
-    private const string DocumentPathParameterDescription = "Document path relative to the solution or absolute path. Prefer forward slashes, for example src/Project/File.cs; if using Windows backslashes in JSON, escape them as double backslashes.";
-    private const string OptionalDocumentPathParameterDescription = "Optional document path relative to the solution or absolute path. Prefer forward slashes, for example src/Project/File.cs; if using Windows backslashes in JSON, escape them as double backslashes.";
-    private const string DocumentPathsParameterDescription = "Document paths relative to the solution or absolute paths. Prefer forward slashes, for example src/Project/File.cs; if using Windows backslashes in JSON, escape them as double backslashes.";
+    private const string DocumentPathParameterDescription = "Path relative to the routed solution file directory or an absolute path. Document/editor tools name this parameter 'path'; code navigation, diagnostics, and breakpoint tools name it 'documentPath'. Prefer forward slashes, for example Project/File.cs when the solution file is in src; if using Windows backslashes in JSON, escape them as double backslashes.";
+    private const string OptionalDocumentPathParameterDescription = "Optional path relative to the routed solution file directory or an absolute path. Document/editor tools name this parameter 'path'; code navigation, diagnostics, and breakpoint tools name it 'documentPath'. Prefer forward slashes, for example Project/File.cs when the solution file is in src; if using Windows backslashes in JSON, escape them as double backslashes.";
+    private const string DocumentPathsParameterDescription = "Document/editor paths relative to the routed solution file directory or absolute paths. Use 'paths' for open_relevant_files. Prefer forward slashes, for example Project/File.cs when the solution file is in src; if using Windows backslashes in JSON, escape them as double backslashes.";
     private const string LineParameterDescription = "1-based line number as shown in the Visual Studio editor.";
     private const string ColumnParameterDescription = "1-based column number.";
 
@@ -37,19 +37,19 @@ public sealed partial class BrokerToolService
         new("toolwindow_show", "Shows a Visual Studio tool window in a routed session.", true),
         new("toolwindow_hide", "Hides a Visual Studio tool window in a routed session.", true),
         new("document_active", "Returns the active document for a routed Visual Studio session.", true),
-        new("code_document_symbols", "Lists document symbols through a routed Visual Studio session. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
-        new("code_go_to_definition", "Finds and navigates to a symbol definition through a routed Visual Studio session. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
-        new("code_find_references", "Finds symbol references through a routed Visual Studio session. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
-        new("symbol_context", "Returns document text, nearby snippet, definition, and references for a code position. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
-        new("document_outline", "Returns document symbol outline information. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
-        new("find_implementations", "Returns best-effort implementation lookup status for a code position. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
-        new("rename_symbol_preview", "Returns a safe rename preview status for a code position. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
-        new("rename_symbol_apply", "Applies a Roslyn solution-wide rename at a code position. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
+        new("code_document_symbols", "Lists document symbols through a routed Visual Studio session. documentPath values are absolute or relative to the routed solution file directory.", true),
+        new("code_go_to_definition", "Finds and navigates to a symbol definition through a routed Visual Studio session. documentPath values are absolute or relative to the routed solution file directory.", true),
+        new("code_find_references", "Finds symbol references through a routed Visual Studio session. documentPath values are absolute or relative to the routed solution file directory.", true),
+        new("symbol_context", "Returns document text, nearby snippet, definition, and references for a code position. documentPath values are absolute or relative to the routed solution file directory.", true),
+        new("document_outline", "Returns document symbol outline information. documentPath values are absolute or relative to the routed solution file directory.", true),
+        new("find_implementations", "Returns best-effort implementation lookup status for a code position. documentPath values are absolute or relative to the routed solution file directory.", true),
+        new("rename_symbol_preview", "Returns a safe rename preview status for a code position. documentPath values are absolute or relative to the routed solution file directory.", true),
+        new("rename_symbol_apply", "Applies a Roslyn solution-wide rename at a code position. documentPath values are absolute or relative to the routed solution file directory.", true),
         new("call_hierarchy_get", "Returns the call hierarchy (incoming callers and/or outgoing callees) for a code position.", true),
         new("code_actions_list", "Lists available code fixes and refactorings at a code position or selection.", true),
-        new("code_actions_apply", "Applies a code fix or refactoring by index. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
+        new("code_actions_apply", "Applies a code fix or refactoring by index. documentPath values are absolute or relative to the routed solution file directory.", true),
         new("diagnostics_for_document", "Filters routed diagnostics to one document.", true),
-        new("git_context", "Returns best-effort git status for the routed solution root.", true),
+        new("git_context", "Returns best-effort git status for the routed solution file directory or explicit rootPath.", true),
         new("open_relevant_files", "Opens a set of relevant files in the routed Visual Studio session.", true),
         new("build_solution", "Starts a solution build in a routed Visual Studio session.", true),
         new("build_status", "Returns build status from a routed Visual Studio session.", true),
@@ -81,23 +81,23 @@ public sealed partial class BrokerToolService
         new("debug_get_callstack", "Returns the current call stack from a routed Visual Studio session.", true),
         new("debug_get_locals", "Returns locals from a routed Visual Studio session.", true),
         new("debug_evaluate", "Evaluates an expression in a routed Visual Studio session.", true),
-        new("document_read", "Reads a document through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
-        new("document_open", "Opens a document through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
+        new("document_read", "Reads a document through a routed Visual Studio session. Use parameter 'path'; values are absolute or relative to the routed solution file directory.", true),
+        new("document_open", "Opens a document through a routed Visual Studio session. Use parameter 'path'; values are absolute or relative to the routed solution file directory.", true),
         new("selection_get", "Returns the current editor selection from a routed Visual Studio session.", true),
-        new("document_write", "Replaces a document buffer through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
-        new("document_save", "Saves a document through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
-        new("editor_insert", "Inserts text through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
-        new("editor_replace", "Replaces a text range through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
-        new("editor_goto_line", "Moves the caret through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
+        new("document_write", "Replaces a document buffer through a routed Visual Studio session. Use parameter 'path'; values are absolute or relative to the routed solution file directory.", true),
+        new("document_save", "Saves a document through a routed Visual Studio session. Use parameter 'path'; values are absolute or relative to the routed solution file directory.", true),
+        new("editor_insert", "Inserts text through a routed Visual Studio session. Use parameter 'path'; values are absolute or relative to the routed solution file directory.", true),
+        new("editor_replace", "Replaces a text range through a routed Visual Studio session. Use parameter 'path'; values are absolute or relative to the routed solution file directory.", true),
+        new("editor_goto_line", "Moves the caret through a routed Visual Studio session. Use parameter 'path'; values are absolute or relative to the routed solution file directory.", true),
         new("task_list_get", "Lists Task List items (comment tasks and user tasks) from a routed Visual Studio session.", true),
         new("task_list_add", "Adds a user task to the Task List through a routed Visual Studio session.", true),
         new("task_list_remove", "Removes a user task from the Task List through a routed Visual Studio session.", true),
         new("task_list_set_checked", "Checks or unchecks a user task in the Task List through a routed Visual Studio session.", true),
-        new("selection_set", "Sets the editor selection through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
-        new("document_cleanup", "Formats/cleans up a document through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
-        new("format_and_organize", "Formats/cleans up a document and reports organize-import status. Prefer forward slashes in path values like src/Project/File.cs.", true),
-        new("edit_preview", "Creates a pending safe-edit preview through a routed Visual Studio session. Prefer forward slashes in path values like src/Project/File.cs.", true),
-        new("prepare_safe_edit", "Reads a document and creates a safe-edit preview. Prefer forward slashes in path values like src/Project/File.cs.", true),
+        new("selection_set", "Sets the editor selection through a routed Visual Studio session. Use parameter 'path'; values are absolute or relative to the routed solution file directory.", true),
+        new("document_cleanup", "Formats/cleans up a document through a routed Visual Studio session. Use parameter 'path'; values are absolute or relative to the routed solution file directory.", true),
+        new("format_and_organize", "Formats/cleans up a document and reports organize-import status. Use parameter 'path'; values are absolute or relative to the routed solution file directory.", true),
+        new("edit_preview", "Creates a pending safe-edit preview through a routed Visual Studio session. Use parameter 'path'; values are absolute or relative to the routed solution file directory.", true),
+        new("prepare_safe_edit", "Reads a document and creates a safe-edit preview. Use parameter 'path'; values are absolute or relative to the routed solution file directory.", true),
         new("edit_approve", "Approves a pending safe edit through a routed Visual Studio session.", true),
         new("apply_safe_edit_and_build", "Approves a pending edit, builds, and returns errors.", true),
         new("edit_reject", "Rejects a pending safe edit through a routed Visual Studio session.", true),
@@ -120,10 +120,10 @@ public sealed partial class BrokerToolService
         new("test_debug", "Runs one filtered test under the Visual Studio debugger and attaches to the test host.", true),
         new("test_results", "Returns test results through a routed Visual Studio session.", true),
         new("document_list", "Lists open documents in a routed Visual Studio session.", true),
-        new("document_close", "Closes an open document with save, discard, or no-save policy. Prefer forward slashes in path values like src/Project/File.cs.", true),
-        new("editor_find", "Finds text in one editor document. Prefer forward slashes in path values like src/Project/File.cs.", true),
+        new("document_close", "Closes an open document with save, discard, or no-save policy. Use parameter 'path'; values are absolute or relative to the routed solution file directory.", true),
+        new("editor_find", "Finds text in one editor document. Use parameter 'path'; values are absolute or relative to the routed solution file directory.", true),
         new("find_in_files", "Runs Visual Studio Find in Files for a solution or root path. Prefer forward slashes in rootPath values like src/Project.", true),
-        new("code_go_to_implementation", "Finds implementation locations for a symbol at a code position. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
+        new("code_go_to_implementation", "Finds implementation locations for a symbol at a code position. documentPath values are absolute or relative to the routed solution file directory.", true),
         new("code_workspace_symbols", "Searches symbols in the live Visual Studio workspace.", true),
         new("build_project", "Builds one project in the routed Visual Studio session.", true),
         new("build_cancel", "Cancels an active Visual Studio build.", true),
@@ -306,10 +306,17 @@ public sealed partial class BrokerToolService
     }
     private static string? ValidateRequiredPath(string? path)
     {
+        if (path is null)
+        {
+            return MissingRequiredParameter("path");
+        }
+
         return string.IsNullOrWhiteSpace(path)
             ? "Path is required."
             : null;
     }
+    private static string MissingRequiredParameter(string parameterName) =>
+        $"Mandatory parameter '{parameterName}' was not provided by the agent.";
     private static string? ValidatePosition(int line, int column)
     {
         if (line < 1)
@@ -320,6 +327,20 @@ public sealed partial class BrokerToolService
         return column < 1
             ? "Column must be greater than zero."
             : null;
+    }
+    private static string? ValidatePosition(int? line, int? column)
+    {
+        if (line is null)
+        {
+            return MissingRequiredParameter("line");
+        }
+
+        if (column is null)
+        {
+            return MissingRequiredParameter("column");
+        }
+
+        return ValidatePosition(line.Value, column.Value);
     }
     private static string? ValidateRange(
         int startLine,

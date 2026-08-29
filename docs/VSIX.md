@@ -208,7 +208,7 @@ edit_list_pending -> EditListPendingAsync
 }
 ```
 
-Relative paths are resolved against the active solution directory. Absolute paths are used as-is.
+The MCP parameter name is `path`, not `documentPath`. Relative paths are resolved against the active `.sln`/`.slnx` file's directory. Absolute paths are used as-is. For example, if the solution file is `D:\Repo\src\App.slnx`, open `D:\Repo\src\App\Program.cs` with `"path": "App\\Program.cs"`, not `"documentPath"` and not `"src\\App\\Program.cs"`.
 
 `document_active` and `document_open` return:
 
@@ -523,7 +523,7 @@ code_find_references   -> CodeFindReferencesAsync
 }
 ```
 
-`documentPath` is optional. If omitted, the VSIX uses the active Visual Studio document. Relative paths are resolved against the active solution directory. Absolute paths are used as-is.
+`documentPath` is optional. If omitted, the VSIX uses the active Visual Studio document. Relative paths are resolved against the active `.sln`/`.slnx` file's directory. Absolute paths are used as-is.
 
 `code_document_symbols` returns:
 
@@ -880,7 +880,7 @@ Supported step kinds are `Into`, `Over`, and `Out`.
 }
 ```
 
-The VSIX removes and enables/disables breakpoints by exact name match or by exact file and line match. Relative breakpoint paths are resolved against the active solution directory, matching `breakpoint_set` behavior.
+The VSIX removes and enables/disables breakpoints by exact name match or by exact file and line match. Relative breakpoint paths are resolved against the active `.sln`/`.slnx` file's directory, matching `breakpoint_set` behavior.
 
 `debug_get_callstack` returns:
 

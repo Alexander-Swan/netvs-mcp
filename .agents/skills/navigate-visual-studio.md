@@ -17,7 +17,8 @@ If the agent environment exposes namespaced MCP tools, use whichever NetVsMcp na
 
 ## Path And Position Conventions
 
-- `documentPath` values are relative to the solution or absolute. Prefer forward slashes, for example `src/Project/File.cs`; if a value must contain Windows backslashes in JSON, escape them as double backslashes.
+- Code navigation, diagnostics, and breakpoint tools use the parameter name `documentPath`; document/editor tools such as `document_open` use `path` instead.
+- `documentPath` values are relative to the routed solution file's directory or absolute. Prefer forward slashes, for example `Project/File.cs` when the solution file is in `src`; if a value must contain Windows backslashes in JSON, escape them as double backslashes.
 - `line` and `column` are always 1-based, matching the numbers shown in the Visual Studio editor. Any position-based tool below rejects `line < 1` or `column < 1` with `"Line must be greater than zero."` or `"Column must be greater than zero."`.
 - Every position-based tool takes `documentPath`, `line`, and `column` as flat parameters, not a nested object; the broker packages them into a `CodePositionRequest` before dispatching to the routed session.
 
@@ -199,8 +200,8 @@ open_relevant_files({
 
 Key behavior:
 
-- `git_context` resolves its root from explicit `rootPath`, else the routed solution's directory, then shells out to `git -C <root> status --short` and returns up to `maxFiles` changed paths. `maxFiles` must be greater than zero. Check `Supported` before trusting `ChangedFiles` — it is `false` with a `Message` when git is missing from PATH, the process fails to start, or the root is not a git working tree.
-- `open_relevant_files` requires at least one path, deduplicates paths case-insensitively, and opens each one in turn through the same document-open call used by `document_open`. Treat it as a batch `document_open` for loading several files into the editor before reading or editing them. The result is `{ Documents }`, one entry per opened file.
+- `git_context` resolves its root from explicit `rootPath`, else the routed solution file's directory, then shells out to `git -C <root> status --short` and returns up to `maxFiles` changed paths. `maxFiles` must be greater than zero. Check `Supported` before trusting `ChangedFiles` — it is `false` with a `Message` when git is missing from PATH, the process fails to start, or the root is not a git working tree.
+- `open_relevant_files` requires at least one `paths` entry, deduplicates paths case-insensitively, and opens each one in turn through the same document-open call used by `document_open`. Treat it as a batch `document_open` for loading several files into the editor before reading or editing them. The result is `{ Documents }`, one entry per opened file.
 
 ## Reporting
 
@@ -218,4 +219,4 @@ Report findings with evidence:
 - Ambiguous routing: call `vs_list_sessions` and retry with `sessionId`.
 - Empty or missing symbol results: confirm `line`/`column` are 1-based and point at the symbol, not whitespace; retry with `symbol_context` to see the actual snippet Visual Studio resolved against.
 - `Supported: false` from `find_implementations`, `rename_symbol_preview`, `diagnostics_binding_errors`, or `git_context`: report the reason from `Message` and fall back to `code_find_references`, manual inspection, agent-native filesystem search, or `find_in_files` when Visual Studio search semantics matter.
-- Path not found during search: prefer forward slashes and paths relative to the solution root; an absolute path also works.
+- Path not found during search: prefer forward slashes and paths relative to the routed `.sln`/`.slnx` file's directory; an absolute path also works.
