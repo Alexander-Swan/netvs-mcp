@@ -345,9 +345,11 @@ public sealed class LocalMcpHttpHostTests
         try
         {
             Directory.CreateDirectory(runtime.Options.EffectiveLogsDirectory);
+            var auditLogPath = Path.Combine(runtime.Options.EffectiveLogsDirectory, "audit-20260828.jsonl");
             await File.WriteAllTextAsync(
-                Path.Combine(runtime.Options.EffectiveLogsDirectory, "audit-20260828.jsonl"),
+                auditLogPath,
                 """{"timestampUtc":"2026-08-28T00:00:00Z","toolName":"breakpoint_set","success":false,"level":"Error","message":"Failed."}""");
+            File.SetLastWriteTimeUtc(auditLogPath, DateTime.UtcNow.AddMinutes(1));
 
             using var http = new HttpClient
             {
@@ -358,8 +360,13 @@ public sealed class LocalMcpHttpHostTests
 
             response.EnsureSuccessStatusCode();
             var body = await response.Content.ReadAsStringAsync();
-            Assert.Contains("audit-20260828.jsonl", body);
-            Assert.Contains("breakpoint_set", body);
+            var logs = JsonSerializer.Deserialize<BrokerLogResult>(body, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+            var entry = Assert.Single(logs!.Files);
+            Assert.Equal("audit-20260828.jsonl", entry.Name);
+            Assert.Contains("breakpoint_set", entry.Text);
         }
         finally
         {
