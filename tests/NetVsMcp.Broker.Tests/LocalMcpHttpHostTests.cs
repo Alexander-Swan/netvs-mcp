@@ -171,10 +171,49 @@ public sealed class LocalMcpHttpHostTests
             using var defaultInitialize = await InitializeMcpAsync(http, "/mcp", 1);
             defaultInitialize.EnsureSuccessStatusCode();
 
-            using var openRelevantFiles = await PostMcpAsync(http, "/mcp", new
+            using var documentRead = await PostMcpAsync(http, "/mcp", new
             {
                 jsonrpc = "2.0",
                 id = 2,
+                method = "tools/call",
+                @params = new
+                {
+                    name = "document_read",
+                    arguments = new { }
+                }
+            });
+            documentRead.EnsureSuccessStatusCode();
+
+            var documentReadResponse = await ReadMcpToolResponseAsync<DocumentReadResult>(documentRead);
+            Assert.False(documentReadResponse.Success);
+            Assert.Equal("Mandatory parameter 'path' was not provided by the agent.", documentReadResponse.Message);
+
+            using var editorInsert = await PostMcpAsync(http, "/mcp", new
+            {
+                jsonrpc = "2.0",
+                id = 3,
+                method = "tools/call",
+                @params = new
+                {
+                    name = "editor_insert",
+                    arguments = new
+                    {
+                        path = "src/Program.cs",
+                        column = 1,
+                        text = "hello"
+                    }
+                }
+            });
+            editorInsert.EnsureSuccessStatusCode();
+
+            var editorInsertResponse = await ReadMcpToolResponseAsync<DocumentMutationResult>(editorInsert);
+            Assert.False(editorInsertResponse.Success);
+            Assert.Equal("Mandatory parameter 'line' was not provided by the agent.", editorInsertResponse.Message);
+
+            using var openRelevantFiles = await PostMcpAsync(http, "/mcp", new
+            {
+                jsonrpc = "2.0",
+                id = 4,
                 method = "tools/call",
                 @params = new
                 {
@@ -191,13 +230,13 @@ public sealed class LocalMcpHttpHostTests
             Assert.False(openRelevantFilesResponse.Success);
             Assert.Equal("At least one path is required.", openRelevantFilesResponse.Message);
 
-            using var webAutomationInitialize = await InitializeMcpAsync(http, "/mcp-wu", 3);
+            using var webAutomationInitialize = await InitializeMcpAsync(http, "/mcp-wu", 5);
             webAutomationInitialize.EnsureSuccessStatusCode();
 
             using var uiFindElements = await PostMcpAsync(http, "/mcp-wu", new
             {
                 jsonrpc = "2.0",
-                id = 4,
+                id = 6,
                 method = "tools/call",
                 @params = new
                 {

@@ -30,8 +30,8 @@ public sealed partial class BrokerToolService
     [Description("Replaces a document buffer through a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentMutationResult>> DocumentWrite(
         [Description(DocumentPathParameterDescription)]
-        string path,
-        string text,
+        string? path = null,
+        string? text = null,
         bool createIfMissing = false,
         bool saveAfterWrite = false,
         string? sessionId = null,
@@ -46,12 +46,12 @@ public sealed partial class BrokerToolService
 
         if (text is null)
         {
-            return Task.FromResult(ToolResponse<DocumentMutationResult>.Fail("Text is required."));
+            return Task.FromResult(ToolResponse<DocumentMutationResult>.Fail(MissingRequiredParameter("text")));
         }
 
         var request = new DocumentWriteRequest
         {
-            Path = path.Trim(),
+            Path = path!.Trim(),
             Text = text,
             CreateIfMissing = createIfMissing,
             SaveAfterWrite = saveAfterWrite
@@ -86,12 +86,12 @@ public sealed partial class BrokerToolService
     [Description("Inserts text through a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentMutationResult>> EditorInsert(
         [Description(DocumentPathParameterDescription)]
-        string path,
+        string? path = null,
         [Description(LineParameterDescription)]
-        int line,
+        int? line = null,
         [Description(ColumnParameterDescription)]
-        int column,
-        string text,
+        int? column = null,
+        string? text = null,
         bool saveAfterEdit = false,
         string? sessionId = null,
         string? solutionName = null,
@@ -110,14 +110,14 @@ public sealed partial class BrokerToolService
 
         if (text is null)
         {
-            return Task.FromResult(ToolResponse<DocumentMutationResult>.Fail("Text is required."));
+            return Task.FromResult(ToolResponse<DocumentMutationResult>.Fail(MissingRequiredParameter("text")));
         }
 
         var request = new EditorInsertRequest
         {
-            Path = path.Trim(),
-            Line = line,
-            Column = column,
+            Path = path!.Trim(),
+            Line = line!.Value,
+            Column = column!.Value,
             Text = text,
             SaveAfterEdit = saveAfterEdit
         };
@@ -133,16 +133,16 @@ public sealed partial class BrokerToolService
     [Description("Replaces a text range through a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentMutationResult>> EditorReplace(
         [Description(DocumentPathParameterDescription)]
-        string path,
+        string? path = null,
         [Description(LineParameterDescription)]
-        int startLine,
+        int? startLine = null,
         [Description(ColumnParameterDescription)]
-        int startColumn,
+        int? startColumn = null,
         [Description(LineParameterDescription)]
-        int endLine,
+        int? endLine = null,
         [Description(ColumnParameterDescription)]
-        int endColumn,
-        string text,
+        int? endColumn = null,
+        string? text = null,
         bool saveAfterEdit = false,
         string? sessionId = null,
         string? solutionName = null,
@@ -154,23 +154,32 @@ public sealed partial class BrokerToolService
             return Task.FromResult(ToolResponse<DocumentMutationResult>.Fail(pathValidation));
         }
 
-        if (ValidateRange(startLine, startColumn, endLine, endColumn) is { } rangeValidation)
+        var rangeValidation = startLine is null
+            ? MissingRequiredParameter("startLine")
+            : startColumn is null
+                ? MissingRequiredParameter("startColumn")
+                : endLine is null
+                    ? MissingRequiredParameter("endLine")
+                    : endColumn is null
+                        ? MissingRequiredParameter("endColumn")
+                        : ValidateRange(startLine.Value, startColumn.Value, endLine.Value, endColumn.Value);
+        if (rangeValidation is not null)
         {
             return Task.FromResult(ToolResponse<DocumentMutationResult>.Fail(rangeValidation));
         }
 
         if (text is null)
         {
-            return Task.FromResult(ToolResponse<DocumentMutationResult>.Fail("Text is required."));
+            return Task.FromResult(ToolResponse<DocumentMutationResult>.Fail(MissingRequiredParameter("text")));
         }
 
         var request = new EditorReplaceRequest
         {
-            Path = path.Trim(),
-            StartLine = startLine,
-            StartColumn = startColumn,
-            EndLine = endLine,
-            EndColumn = endColumn,
+            Path = path!.Trim(),
+            StartLine = startLine!.Value,
+            StartColumn = startColumn!.Value,
+            EndLine = endLine!.Value,
+            EndColumn = endColumn!.Value,
             Text = text,
             SaveAfterEdit = saveAfterEdit
         };
@@ -186,11 +195,11 @@ public sealed partial class BrokerToolService
     [Description("Moves the caret through a routed Visual Studio session.")]
     public Task<ToolResponse<EditorDocumentInfo>> EditorGotoLine(
         [Description(DocumentPathParameterDescription)]
-        string path,
+        string? path = null,
         [Description(LineParameterDescription)]
-        int line,
+        int? line = null,
         [Description(ColumnParameterDescription)]
-        int column = 1,
+        int? column = 1,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
@@ -208,9 +217,9 @@ public sealed partial class BrokerToolService
 
         var request = new EditorGotoLineRequest
         {
-            Path = path.Trim(),
-            Line = line,
-            Column = column
+            Path = path!.Trim(),
+            Line = line!.Value,
+            Column = column!.Value
         };
 
         return DispatchValueAsync(
@@ -224,15 +233,15 @@ public sealed partial class BrokerToolService
     [Description("Sets the editor selection through a routed Visual Studio session.")]
     public Task<ToolResponse<SelectionInfo>> SelectionSet(
         [Description(DocumentPathParameterDescription)]
-        string path,
+        string? path = null,
         [Description(LineParameterDescription)]
-        int startLine,
+        int? startLine = null,
         [Description(ColumnParameterDescription)]
-        int startColumn,
+        int? startColumn = null,
         [Description(LineParameterDescription)]
-        int endLine,
+        int? endLine = null,
         [Description(ColumnParameterDescription)]
-        int endColumn,
+        int? endColumn = null,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
@@ -243,18 +252,27 @@ public sealed partial class BrokerToolService
             return Task.FromResult(ToolResponse<SelectionInfo>.Fail(pathValidation));
         }
 
-        if (ValidateRange(startLine, startColumn, endLine, endColumn) is { } rangeValidation)
+        var rangeValidation = startLine is null
+            ? MissingRequiredParameter("startLine")
+            : startColumn is null
+                ? MissingRequiredParameter("startColumn")
+                : endLine is null
+                    ? MissingRequiredParameter("endLine")
+                    : endColumn is null
+                        ? MissingRequiredParameter("endColumn")
+                        : ValidateRange(startLine.Value, startColumn.Value, endLine.Value, endColumn.Value);
+        if (rangeValidation is not null)
         {
             return Task.FromResult(ToolResponse<SelectionInfo>.Fail(rangeValidation));
         }
 
         var request = new SelectionSetRequest
         {
-            Path = path.Trim(),
-            StartLine = startLine,
-            StartColumn = startColumn,
-            EndLine = endLine,
-            EndColumn = endColumn
+            Path = path!.Trim(),
+            StartLine = startLine!.Value,
+            StartColumn = startColumn!.Value,
+            EndLine = endLine!.Value,
+            EndColumn = endColumn!.Value
         };
 
         return DispatchValueAsync(
@@ -268,7 +286,7 @@ public sealed partial class BrokerToolService
     [Description("Formats/cleans up a document through a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentCleanupResult>> DocumentCleanup(
         [Description(DocumentPathParameterDescription)]
-        string path,
+        string? path = null,
         bool saveAfterCleanup = false,
         string? sessionId = null,
         string? solutionName = null,
@@ -282,7 +300,7 @@ public sealed partial class BrokerToolService
 
         var request = new DocumentCleanupRequest
         {
-            Path = path.Trim(),
+            Path = path!.Trim(),
             SaveAfterCleanup = saveAfterCleanup
         };
 
@@ -297,7 +315,7 @@ public sealed partial class BrokerToolService
     [Description("Formats/cleans up a document and reports organize-import status.")]
     public Task<ToolResponse<FormatAndOrganizeResult>> FormatAndOrganize(
         [Description(DocumentPathParameterDescription)]
-        string path,
+        string? path = null,
         bool saveAfterCleanup = false,
         string? sessionId = null,
         string? solutionName = null,
@@ -311,7 +329,7 @@ public sealed partial class BrokerToolService
 
         var request = new DocumentCleanupRequest
         {
-            Path = path.Trim(),
+            Path = path!.Trim(),
             SaveAfterCleanup = saveAfterCleanup
         };
 
@@ -447,7 +465,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "edit_approve")]
     [Description("Approves a pending safe edit through a routed Visual Studio session.")]
     public Task<ToolResponse<EditDecisionResult>> EditApprove(
-        string editId,
+        string? editId = null,
         bool saveAfterApply = false,
         string? sessionId = null,
         string? solutionName = null,
@@ -461,7 +479,7 @@ public sealed partial class BrokerToolService
 
         var request = new EditDecisionRequest
         {
-            EditId = editId.Trim(),
+            EditId = editId!.Trim(),
             SaveAfterApply = saveAfterApply
         };
 
@@ -475,7 +493,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "apply_safe_edit_and_build")]
     [Description("Approves a pending safe edit, builds the routed solution, and returns diagnostics.")]
     public Task<ToolResponse<ApplySafeEditAndBuildResult>> ApplySafeEditAndBuild(
-        string editId,
+        string? editId = null,
         bool saveAfterApply = true,
         bool includeWarnings = true,
         int maxItems = 200,
@@ -496,7 +514,7 @@ public sealed partial class BrokerToolService
 
         var editRequest = new EditDecisionRequest
         {
-            EditId = editId.Trim(),
+            EditId = editId!.Trim(),
             SaveAfterApply = saveAfterApply
         };
 
@@ -522,7 +540,7 @@ public sealed partial class BrokerToolService
     [McpServerTool(Name = "edit_reject")]
     [Description("Rejects a pending safe edit through a routed Visual Studio session.")]
     public Task<ToolResponse<EditDecisionResult>> EditReject(
-        string editId,
+        string? editId = null,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
@@ -533,7 +551,7 @@ public sealed partial class BrokerToolService
             return Task.FromResult(ToolResponse<EditDecisionResult>.Fail(validation));
         }
 
-        var request = new EditDecisionRequest { EditId = editId.Trim() };
+        var request = new EditDecisionRequest { EditId = editId!.Trim() };
         return DispatchValueAsync(
             sessionId,
             solutionName,
@@ -567,6 +585,11 @@ public sealed partial class BrokerToolService
         int endLine,
         int endColumn)
     {
+        if (operation is null)
+        {
+            return MissingRequiredParameter("operation");
+        }
+
         if (string.IsNullOrWhiteSpace(operation))
         {
             return "Edit operation is required.";
@@ -579,7 +602,7 @@ public sealed partial class BrokerToolService
 
         if (text is null)
         {
-            return "Text is required.";
+            return MissingRequiredParameter("text");
         }
 
         return operation.Trim().ToLowerInvariant() switch
@@ -592,6 +615,11 @@ public sealed partial class BrokerToolService
     }
     private static string? ValidateEditId(string? editId)
     {
+        if (editId is null)
+        {
+            return MissingRequiredParameter("editId");
+        }
+
         return string.IsNullOrWhiteSpace(editId)
             ? "Edit id is required."
             : null;
