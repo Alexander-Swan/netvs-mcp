@@ -122,4 +122,51 @@ public class DocumentPathResolverTests
 
         Assert.Equal(Path.GetFullPath("Foo.cs"), result);
     }
+
+    [Fact]
+    public void ResolveRelativePath_PathStartingWithSolutionDirectoryName_UsesSolutionParent()
+    {
+        var root = CreateTempWorkspace();
+        var solutionDirectory = Directory.CreateDirectory(Path.Combine(root, "src")).FullName;
+        var solutionPath = Path.Combine(solutionDirectory, "App.slnx");
+
+        var result = DocumentPathResolver.ResolveRelativePath(@"src\App\Program.cs", solutionPath);
+
+        Assert.Equal(Path.Combine(root, "src", "App", "Program.cs"), result);
+    }
+
+    [Fact]
+    public void ResolveRelativePath_ExistingSolutionParentRelativePath_UsesSolutionParent()
+    {
+        var root = CreateTempWorkspace();
+        var solutionDirectory = Directory.CreateDirectory(Path.Combine(root, "src")).FullName;
+        var solutionPath = Path.Combine(solutionDirectory, "App.slnx");
+        var testFile = Path.Combine(root, "tests", "App.Tests", "ProgramTests.cs");
+        Directory.CreateDirectory(Path.GetDirectoryName(testFile)!);
+        File.WriteAllText(testFile, string.Empty);
+
+        var result = DocumentPathResolver.ResolveRelativePath(@"tests\App.Tests\ProgramTests.cs", solutionPath);
+
+        Assert.Equal(testFile, result);
+    }
+
+    [Fact]
+    public void ResolveRelativePath_SolutionRelativePath_RemainsRelativeToSolutionDirectory()
+    {
+        var root = CreateTempWorkspace();
+        var solutionDirectory = Directory.CreateDirectory(Path.Combine(root, "src")).FullName;
+        var solutionPath = Path.Combine(solutionDirectory, "App.slnx");
+
+        var result = DocumentPathResolver.ResolveRelativePath(@"App\Program.cs", solutionPath);
+
+        Assert.Equal(Path.Combine(solutionDirectory, "App", "Program.cs"), result);
+    }
+
+    private static string CreateTempWorkspace()
+    {
+        return Directory.CreateDirectory(Path.Combine(
+            Path.GetTempPath(),
+            "NetVsMcp.Vsix.Tests",
+            Guid.NewGuid().ToString("N"))).FullName;
+    }
 }

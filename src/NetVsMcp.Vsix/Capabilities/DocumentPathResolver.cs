@@ -37,8 +37,7 @@ internal static class DocumentPathResolver
             return Path.GetFullPath(normalizedPath);
         }
 
-        var solutionDirectory = Path.GetDirectoryName(solutionPath);
-        return Path.GetFullPath(Path.Combine(solutionDirectory ?? Environment.CurrentDirectory, normalizedPath));
+        return ResolveRelativePath(normalizedPath, solutionPath);
     }
 
     public static string? ResolveOptional(DTE? dte, string? documentPath)
@@ -64,6 +63,41 @@ internal static class DocumentPathResolver
             .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 
         return CollapseRepeatedDirectorySeparators(repaired);
+    }
+
+    internal static string ResolveRelativePath(string normalizedPath, string? solutionPath)
+    {
+        if (string.IsNullOrWhiteSpace(solutionPath))
+        {
+            return Path.GetFullPath(normalizedPath);
+        }
+
+        var baseDirectory = Path.GetDirectoryName(solutionPath);
+        if (string.IsNullOrWhiteSpace(baseDirectory))
+        {
+            return Path.GetFullPath(normalizedPath);
+        }
+
+        var parentDirectory = Directory.GetParent(baseDirectory)?.FullName;
+        if (!string.IsNullOrWhiteSpace(parentDirectory))
+        {
+            var parentCandidate = Path.GetFullPath(Path.Combine(parentDirectory, normalizedPath));
+            var solutionDirectoryName = Path.GetFileName(
+                baseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+
+            if (!string.IsNullOrWhiteSpace(solutionDirectoryName) &&
+                normalizedPath.StartsWith($"{solutionDirectoryName}{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
+            {
+                return parentCandidate;
+            }
+
+            if (File.Exists(parentCandidate) || Directory.Exists(parentCandidate))
+            {
+                return parentCandidate;
+            }
+        }
+
+        return Path.GetFullPath(Path.Combine(baseDirectory, normalizedPath));
     }
 
     private static string CollapseRepeatedDirectorySeparators(string path)
