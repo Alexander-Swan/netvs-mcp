@@ -4,7 +4,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
-using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace NetVsMcp.Broker.Services;
@@ -611,55 +610,6 @@ public sealed partial class BrokerToolService
             },
             cancellationToken);
     }
-    [McpServerTool(Name = "workspace_search")]
-    [Description("Searches files under the routed solution root.")]
-    public Task<ToolResponse<WorkspaceSearchResult>> WorkspaceSearch(
-        string query,
-        string filePattern = "*.*",
-        string? rootPath = null,
-        int maxMatches = 100,
-        bool matchCase = false,
-        bool wholeWord = false,
-        bool useRegex = false,
-        int contextLines = 0,
-        string? sessionId = null,
-        string? solutionName = null,
-        string? solutionPath = null,
-        CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            return Task.FromResult(ToolResponse<WorkspaceSearchResult>.Fail("Query is required."));
-        }
-
-        if (maxMatches < 1)
-        {
-            return Task.FromResult(ToolResponse<WorkspaceSearchResult>.Fail("Max matches must be greater than zero."));
-        }
-
-        return DispatchValueAsync(
-            sessionId,
-            solutionName,
-            solutionPath,
-            async (connection, ct) =>
-            {
-                var solution = await connection.SolutionInfoAsync(ct);
-                var searchRoot = ResolveSearchRoot(rootPath, solution);
-                var result = SearchWorkspace(
-                    searchRoot,
-                    query.Trim(),
-                    string.IsNullOrWhiteSpace(filePattern) ? "*.*" : filePattern.Trim(),
-                    maxMatches,
-                    matchCase,
-                    wholeWord,
-                    useRegex,
-                    contextLines,
-                    ct);
-                return result;
-            },
-            cancellationToken,
-            rootPath: GetRoutableWorkspacePath(rootPath));
-    }
     private static string ResolveSearchRoot(string? rootPath, SolutionInfoResult solution)
     {
         var candidate = NormalizeOptional(rootPath);
@@ -689,130 +639,6 @@ public sealed partial class BrokerToolService
         }
 
         return fullPath;
-    }
-    private static WorkspaceSearchResult SearchWorkspace(
-        string rootPath,
-        string query,
-        string filePattern,
-        int maxMatches,
-        bool matchCase,
-        bool wholeWord,
-        bool useRegex,
-        int contextLines,
-        CancellationToken cancellationToken)
-    {
-        var regex = CreateSearchRegex(query, matchCase, wholeWord, useRegex);
-        var contextSpan = Math.Max(0, contextLines);
-        var matches = new List<WorkspaceSearchMatch>();
-        foreach (var file in EnumerateWorkspaceFiles(rootPath, filePattern))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (IsProbablyBinaryFile(file))
-            {
-                continue;
-            }
-
-            string[] lines;
-            try
-            {
-                lines = File.ReadAllLines(file);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                continue;
-            }
-
-            for (var i = 0; i < lines.Length; i++)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (!regex.IsMatch(lines[i]))
-                {
-                    continue;
-                }
-
-                var beforeStart = Math.Max(0, i - contextSpan);
-                var before = contextSpan == 0 ? Array.Empty<string>() : lines[beforeStart..i];
-                var afterEnd = Math.Min(lines.Length, i + 1 + contextSpan);
-                var after = contextSpan == 0 ? Array.Empty<string>() : lines[(i + 1)..afterEnd];
-
-                matches.Add(new WorkspaceSearchMatch(file, i + 1, lines[i].Trim(), before, after));
-                if (matches.Count >= maxMatches)
-                {
-                    return new WorkspaceSearchResult(rootPath, matches, true);
-                }
-            }
-        }
-
-        return new WorkspaceSearchResult(rootPath, matches, false);
-    }
-    private static Regex CreateSearchRegex(string query, bool matchCase, bool wholeWord, bool useRegex)
-    {
-        var pattern = useRegex ? query : Regex.Escape(query);
-        if (wholeWord)
-        {
-            pattern = $@"\b(?:{pattern})\b";
-        }
-
-        var options = RegexOptions.CultureInvariant;
-        if (!matchCase)
-        {
-            options |= RegexOptions.IgnoreCase;
-        }
-
-        return new Regex(pattern, options, TimeSpan.FromSeconds(2));
-    }
-    private static bool IsProbablyBinaryFile(string file)
-    {
-        try
-        {
-            using var stream = File.OpenRead(file);
-            Span<byte> buffer = stackalloc byte[8000];
-            var read = stream.Read(buffer);
-            for (var i = 0; i < read; i++)
-            {
-                if (buffer[i] == 0)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-        catch (IOException)
-        {
-            return true;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return true;
-        }
-    }
-    private static IEnumerable<string> EnumerateWorkspaceFiles(string rootPath, string filePattern)
-    {
-        var options = new EnumerationOptions
-        {
-            IgnoreInaccessible = true,
-            RecurseSubdirectories = false
-        };
-
-        foreach (var file in Directory.EnumerateFiles(rootPath, filePattern, options))
-        {
-            yield return file;
-        }
-
-        foreach (var directory in Directory.EnumerateDirectories(rootPath, "*", options))
-        {
-            var name = Path.GetFileName(directory);
-            if (name is ".git" or ".vs" or "bin" or "obj" or "node_modules")
-            {
-                continue;
-            }
-
-            foreach (var file in EnumerateWorkspaceFiles(directory, filePattern))
-            {
-                yield return file;
-            }
-        }
     }
     private static string ExtractSnippet(string text, int centerLine, int contextLines)
     {
@@ -926,7 +752,7 @@ public sealed partial class BrokerToolService
             cancellationToken);
     }
     [McpServerTool(Name = "find_in_files")]
-    [Description("Searches files under a Visual Studio solution or root path.")]
+    [Description("Runs Visual Studio Find in Files for a solution or root path.")]
     public Task<ToolResponse<TextSearchResult>> FindInFiles(
         string query,
         [Description("Optional search root relative to the solution or an absolute path. Prefer forward slashes, for example src/Project; if using Windows backslashes in JSON, escape them as double backslashes.")]

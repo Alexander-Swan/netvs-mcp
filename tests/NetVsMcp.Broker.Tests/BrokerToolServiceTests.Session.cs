@@ -48,7 +48,7 @@ public sealed partial class BrokerToolServiceTests
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "code_find_references", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "symbol_context", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "rename_symbol_apply", RequiresVisualStudioSession: true, Category: BrokerToolCategory.EditDirect });
-        Assert.Contains(response.Value.Tools, tool => tool is { Name: "workspace_search", RequiresVisualStudioSession: true });
+        Assert.DoesNotContain(response.Value.Tools, tool => tool.Name == "workspace_search");
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "open_relevant_files", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "build_solution", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "build_and_get_errors", RequiresVisualStudioSession: true });

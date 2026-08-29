@@ -173,19 +173,6 @@ public sealed record DocumentOutlineResult(
     /// <summary>Formatted symbol labels (kind + name + location), not raw <see cref="DocumentSymbolInfo"/> instances.</summary>
     IReadOnlyCollection<string> Symbols);
 
-public sealed record WorkspaceSearchResult(
-    string RootPath,
-    IReadOnlyCollection<WorkspaceSearchMatch> Matches,
-    bool Truncated);
-
-public sealed record WorkspaceSearchMatch(
-    string Path,
-    /// <summary>Null for a filename-only match with no line-level hit.</summary>
-    int? Line,
-    string? Preview,
-    IReadOnlyCollection<string>? ContextBefore = null,
-    IReadOnlyCollection<string>? ContextAfter = null);
-
 public sealed record DiagnosticsForDocumentResult(
     string DocumentPath,
     IReadOnlyCollection<ErrorListItemInfo> Items);

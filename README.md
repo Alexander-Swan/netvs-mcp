@@ -26,7 +26,7 @@ No cloud services. No telemetry. No per-project configuration files. Everything 
 | Safe-edit workflow | `edit_preview`, `edit_approve`, `edit_reject`, `edit_list_pending`, `prepare_safe_edit`, `apply_safe_edit_and_build` |
 | Code navigation | `code_document_symbols`, `code_workspace_symbols`, `code_go_to_definition`, `code_go_to_implementation`, `code_find_references`, `find_implementations`, `rename_symbol_preview`, `rename_symbol_apply`, `call_hierarchy_get` |
 | Code fixes & refactorings | `code_actions_list`, `code_actions_apply` |
-| Search | `editor_find`, `find_in_files`, `workspace_search`, `open_relevant_files` |
+| Search | `editor_find`, `find_in_files`, `open_relevant_files` |
 | Build | `build_solution`, `build_project`, `build_and_get_errors`, `build_status`, `build_cancel`, `build_configuration_get`, `build_configuration_set`, `rebuild_solution`, `clean_solution`, `package_restore` |
 | Diagnostics | `errors_list`, `output_read`, `output_write`, `output_clear`, `output_list_panes`, `diagnostics_for_document`, `diagnostics_binding_errors` |
 | Task List | `task_list_get`, `task_list_add`, `task_list_remove`, `task_list_set_checked` |

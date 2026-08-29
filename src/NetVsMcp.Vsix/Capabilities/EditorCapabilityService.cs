@@ -175,83 +175,34 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
         }
 
         var maxResults = NormalizeMaxResults(request.MaxResults);
-        string rootPath;
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-        var dte = await GetDteAsync();
-        rootPath = ResolveSearchRoot(dte, request.RootPath);
+        var dte = await GetDteAsync() ?? throw new InvalidOperationException("Visual Studio DTE service is unavailable.");
 
-        var files = await Task.Run(
-            () => EnumerateSearchFiles(rootPath, request.FilePattern).ToArray(),
-            cancellationToken);
+        ConfigureVisualStudioFindInFiles(dte, request);
+        ClearFindResultsWindow(dte);
 
-        var resultsByFile = new IReadOnlyCollection<TextSearchMatch>?[files.Length];
-        await Task.Run(
-            () => Parallel.ForEach(
-                Enumerable.Range(0, files.Length),
-                new ParallelOptions
-                {
-                    CancellationToken = cancellationToken,
-                    MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount)
-                },
-                index =>
-                {
-                    var file = files[index];
-                    if (IsProbablyBinaryFile(file))
-                    {
-                        return;
-                    }
+        var findResult = await ExecuteVisualStudioFindAsync(dte, cancellationToken);
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
-                    string text;
-                    try
-                    {
-                        text = File.ReadAllText(file);
-                    }
-                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                    {
-                        return;
-                    }
-
-                    resultsByFile[index] = FindMatches(
-                        file,
-                        text,
-                        request.Query,
-                        request.MatchCase,
-                        request.WholeWord,
-                        request.UseRegex,
-                        maxResults,
-                        request.ContextLines,
-                        cancellationToken,
-                        out _);
-                }),
-            cancellationToken);
-
-        var allMatches = new List<TextSearchMatch>();
-        var truncated = false;
-        foreach (var fileMatches in resultsByFile)
+        if (findResult == vsFindResult.vsFindResultError)
         {
-            if (fileMatches is null)
-            {
-                continue;
-            }
-
-            foreach (var match in fileMatches)
-            {
-                if (allMatches.Count >= maxResults)
-                {
-                    truncated = true;
-                    break;
-                }
-
-                allMatches.Add(match);
-            }
-
-            if (truncated)
-            {
-                break;
-            }
+            throw new InvalidOperationException("Visual Studio Find in Files failed.");
         }
 
-        return new TextSearchResult(request.Query, allMatches.Count, truncated, allMatches);
+        if (findResult == vsFindResult.vsFindResultNotFound)
+        {
+            return new TextSearchResult(request.Query, 0, false, Array.Empty<TextSearchMatch>());
+        }
+
+        var resultsText = ReadFindResultsWindowText(dte);
+        return ParseVisualStudioFindResults(
+            resultsText,
+            request.Query,
+            request.MatchCase,
+            request.WholeWord,
+            request.UseRegex,
+            maxResults,
+            cancellationToken);
     }
 
     public async Task<EditorDocumentInfo> OpenDocumentAsync(string path, CancellationToken cancellationToken)
@@ -700,29 +651,6 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
         return result;
     }
 
-    private static bool IsProbablyBinaryFile(string file)
-    {
-        try
-        {
-            using var stream = File.OpenRead(file);
-            var buffer = new byte[8000];
-            var read = stream.Read(buffer, 0, buffer.Length);
-            for (var i = 0; i < read; i++)
-            {
-                if (buffer[i] == 0)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return true;
-        }
-    }
-
     private static Regex CreateSearchRegex(string query, bool matchCase, bool wholeWord, bool useRegex)
     {
         var pattern = useRegex ? query : Regex.Escape(query);
@@ -738,6 +666,155 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
         }
 
         return new Regex(pattern, options, TimeSpan.FromSeconds(2));
+    }
+
+    private static void ConfigureVisualStudioFindInFiles(DTE dte, FindInFilesRequest request)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        var find = dte.Find ?? throw new InvalidOperationException("Visual Studio Find service is unavailable.");
+        find.Action = vsFindAction.vsFindActionFindAll;
+        find.FindWhat = request.Query;
+        find.ReplaceWith = string.Empty;
+        find.MatchCase = request.MatchCase;
+        find.MatchWholeWord = request.WholeWord;
+        find.MatchInHiddenText = true;
+        find.PatternSyntax = request.UseRegex
+            ? vsFindPatternSyntax.vsFindPatternSyntaxRegExpr
+            : vsFindPatternSyntax.vsFindPatternSyntaxLiteral;
+        find.ResultsLocation = vsFindResultsLocation.vsFindResults1;
+        find.SearchSubfolders = true;
+        find.FilesOfType = NormalizeVisualStudioFilesOfType(request.FilePattern);
+
+        if (string.IsNullOrWhiteSpace(request.RootPath))
+        {
+            find.Target = vsFindTarget.vsFindTargetSolution;
+            find.SearchPath = string.Empty;
+            return;
+        }
+
+        find.Target = vsFindTarget.vsFindTargetFiles;
+        find.SearchPath = ResolveSearchRoot(dte, request.RootPath);
+    }
+
+    private static async Task<vsFindResult> ExecuteVisualStudioFindAsync(DTE dte, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var findEvents = dte.Events.FindEvents;
+        var completion = new TaskCompletionSource<vsFindResult>();
+        _dispFindEvents_FindDoneEventHandler? handler = null;
+        handler = (result, cancelled) =>
+        {
+            completion.TrySetResult(cancelled ? vsFindResult.vsFindResultNotFound : result);
+        };
+
+        findEvents.FindDone += handler;
+        try
+        {
+            var result = dte.Find.Execute();
+            if (result != vsFindResult.vsFindResultPending)
+            {
+                return result;
+            }
+
+            using (cancellationToken.Register(() => completion.TrySetCanceled()))
+            {
+                return await completion.Task;
+            }
+        }
+        finally
+        {
+            findEvents.FindDone -= handler;
+        }
+    }
+
+    private static void ClearFindResultsWindow(DTE dte)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        try
+        {
+            var window = dte.Windows.Item(Constants.vsWindowKindFindResults1);
+            if (window.Selection is TextSelection selection)
+            {
+                selection.SelectAll();
+                selection.Delete();
+            }
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or NotImplementedException)
+        {
+        }
+    }
+
+    private static string ReadFindResultsWindowText(DTE dte)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        var window = dte.Windows.Item(Constants.vsWindowKindFindResults1);
+        if (window.Selection is not TextSelection selection)
+        {
+            return string.Empty;
+        }
+
+        selection.SelectAll();
+        return selection.Text ?? string.Empty;
+    }
+
+    internal static TextSearchResult ParseVisualStudioFindResults(
+        string resultsText,
+        string query,
+        bool matchCase,
+        bool wholeWord,
+        bool useRegex,
+        int maxResults,
+        CancellationToken cancellationToken)
+    {
+        var matches = new List<TextSearchMatch>();
+        var matchLineRegex = new Regex(@"^(.+)\((\d+)\):\s?(.*)$", RegexOptions.CultureInvariant);
+        var searchRegex = CreateSearchRegex(query, matchCase, wholeWord, useRegex);
+
+        foreach (var rawLine in NormalizeLines(resultsText))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var resultLine = matchLineRegex.Match(rawLine);
+            if (!resultLine.Success || !int.TryParse(resultLine.Groups[2].Value, out var lineNumber))
+            {
+                continue;
+            }
+
+            var lineText = resultLine.Groups[3].Value;
+            var queryMatch = searchRegex.Match(lineText);
+            var column = queryMatch.Success ? queryMatch.Index + 1 : 1;
+            var matchText = queryMatch.Success ? queryMatch.Value : query;
+
+            if (matches.Count >= maxResults)
+            {
+                return new TextSearchResult(query, matches.Count, true, matches);
+            }
+
+            matches.Add(new TextSearchMatch(
+                resultLine.Groups[1].Value.Trim(),
+                lineNumber,
+                column,
+                lineText,
+                matchText));
+        }
+
+        return new TextSearchResult(query, matches.Count, false, matches);
+    }
+
+    private static IEnumerable<string> NormalizeLines(string text)
+    {
+        return (text ?? string.Empty).Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+    }
+
+    private static string NormalizeVisualStudioFilesOfType(string filePattern)
+    {
+        return string.IsNullOrWhiteSpace(filePattern)
+            ? "*.*"
+            : string.Join(";", filePattern.Split([';', ','], StringSplitOptions.RemoveEmptyEntries).Select(pattern => pattern.Trim()));
     }
 
     private static int NormalizeMaxResults(int maxResults)
@@ -788,26 +865,6 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
         }
 
         return Environment.CurrentDirectory;
-    }
-
-    private static IEnumerable<string> EnumerateSearchFiles(string rootPath, string filePattern)
-    {
-        if (!Directory.Exists(rootPath))
-        {
-            throw new DirectoryNotFoundException($"Search root was not found: {rootPath}");
-        }
-
-        var patterns = string.IsNullOrWhiteSpace(filePattern)
-            ? new[] { "*.cs", "*.cshtml", "*.razor", "*.xaml", "*.xml", "*.json", "*.props", "*.targets", "*.sln", "*.slnx", "*.csproj" }
-            : filePattern.Split([';', ','], StringSplitOptions.RemoveEmptyEntries).Select(pattern => pattern.Trim()).ToArray();
-
-        return patterns.SelectMany(pattern => Directory.EnumerateFiles(rootPath, pattern, SearchOption.AllDirectories))
-            .Where(path => !path.Contains(@"\bin\", StringComparison.OrdinalIgnoreCase) &&
-                !path.Contains(@"\obj\", StringComparison.OrdinalIgnoreCase) &&
-                !path.Contains(@"\.git\", StringComparison.OrdinalIgnoreCase) &&
-                !path.Contains(@"\.vs\", StringComparison.OrdinalIgnoreCase) &&
-                !path.Contains(@"\node_modules\", StringComparison.OrdinalIgnoreCase))
-            .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
     private static string CaptureOriginalText(DTE dte, EditPreviewRequest request, string operation, string resolvedPath)

@@ -159,18 +159,9 @@ Key behavior:
 - The result is `{ DocumentPath, Items }`, where `Items` uses the same `ErrorListItemInfo` shape as the general error list tools.
 - `diagnostics_binding_errors` only returns real data when the connected VSIX exposes a diagnostics automation backend (for example WPF/XAML binding error reporting); `target` is optional and `timeoutMilliseconds` must be greater than zero (default `5000`). The response is `{ Supported, Success, Message, Text?, Metadata? }` — check `Supported` before relying on `Text` or `Metadata`.
 
-## Text And File Search
-
-`workspace_search` and `find_in_files` both search text across files, but with different engines and capabilities:
+## Text Search
 
 ```json
-workspace_search({
-  "query": "TODO",
-  "filePattern": "*.cs",
-  "rootPath": "src/NetVsMcp.Broker",
-  "maxMatches": 100,
-  "sessionId": "..."
-})
 find_in_files({
   "query": "class BrokerToolService",
   "rootPath": "src/NetVsMcp.Broker",
@@ -185,9 +176,10 @@ find_in_files({
 
 Key behavior:
 
-- `workspace_search` runs entirely in the broker process: it resolves `rootPath` (or, if omitted, the directory of the routed solution), enumerates files matching `filePattern` (default `*.*`), skips files that look binary, and does a plain case-insensitive substring match per line — there is no `matchCase`, `wholeWord`, or `useRegex` option. `query` is required and `maxMatches` must be greater than zero (default `100`).
-- `find_in_files` instead delegates the search to the routed VSIX connection, so it can use richer Visual Studio search semantics: `matchCase`, `wholeWord`, and `useRegex` are all supported. `query` is required and `maxResults` must be greater than zero (default `100`); `rootPath` and `filePattern` are both optional.
-- Both accept `rootPath` as relative or absolute; prefer forward slashes, for example `src/Project`.
+- Use agent-native filesystem tools for repository text search. NetVsMcp should not duplicate filesystem search behavior.
+- `find_in_files` delegates to Visual Studio Find in Files. Use it when the caller specifically needs Visual Studio's search behavior over the loaded solution or a Visual Studio-routed root.
+- `find_in_files` supports `matchCase`, `wholeWord`, and `useRegex`. `query` is required and `maxResults` must be greater than zero (default `100`); `rootPath` and `filePattern` are both optional.
+- `rootPath` may be relative or absolute; prefer forward slashes, for example `src/Project`.
 - `editor_find` is the single-document analog of `find_in_files` for searching text inside one already-identified document rather than across the workspace.
 
 ## Git Context And Relevant Files
@@ -207,7 +199,7 @@ open_relevant_files({
 
 Key behavior:
 
-- `git_context` resolves its root the same way as `workspace_search` (explicit `rootPath`, else the routed solution's directory), then shells out to `git -C <root> status --short` and returns up to `maxFiles` changed paths. `maxFiles` must be greater than zero. Check `Supported` before trusting `ChangedFiles` — it is `false` with a `Message` when git is missing from PATH, the process fails to start, or the root is not a git working tree.
+- `git_context` resolves its root from explicit `rootPath`, else the routed solution's directory, then shells out to `git -C <root> status --short` and returns up to `maxFiles` changed paths. `maxFiles` must be greater than zero. Check `Supported` before trusting `ChangedFiles` — it is `false` with a `Message` when git is missing from PATH, the process fails to start, or the root is not a git working tree.
 - `open_relevant_files` requires at least one path, deduplicates paths case-insensitively, and opens each one in turn through the same document-open call used by `document_open`. Treat it as a batch `document_open` for loading several files into the editor before reading or editing them. The result is `{ Documents }`, one entry per opened file.
 
 ## Reporting
@@ -225,5 +217,5 @@ Report findings with evidence:
 - No VS sessions: infer or confirm the target solution, launch Visual Studio with that solution (see the debugging guide for the launch command), then recheck `vs_list_sessions`.
 - Ambiguous routing: call `vs_list_sessions` and retry with `sessionId`.
 - Empty or missing symbol results: confirm `line`/`column` are 1-based and point at the symbol, not whitespace; retry with `symbol_context` to see the actual snippet Visual Studio resolved against.
-- `Supported: false` from `find_implementations`, `rename_symbol_preview`, `diagnostics_binding_errors`, or `git_context`: report the reason from `Message` and fall back to `code_find_references`, manual inspection, `workspace_search`, or `find_in_files`.
+- `Supported: false` from `find_implementations`, `rename_symbol_preview`, `diagnostics_binding_errors`, or `git_context`: report the reason from `Message` and fall back to `code_find_references`, manual inspection, agent-native filesystem search, or `find_in_files` when Visual Studio search semantics matter.
 - Path not found during search: prefer forward slashes and paths relative to the solution root; an absolute path also works.

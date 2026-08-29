@@ -49,7 +49,6 @@ public sealed partial class BrokerToolService
         new("code_actions_list", "Lists available code fixes and refactorings at a code position or selection.", true),
         new("code_actions_apply", "Applies a code fix or refactoring by index. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
         new("diagnostics_for_document", "Filters routed diagnostics to one document.", true),
-        new("workspace_search", "Searches files under the routed solution root.", true),
         new("git_context", "Returns best-effort git status for the routed solution root.", true),
         new("open_relevant_files", "Opens a set of relevant files in the routed Visual Studio session.", true),
         new("build_solution", "Starts a solution build in a routed Visual Studio session.", true),
@@ -123,7 +122,7 @@ public sealed partial class BrokerToolService
         new("document_list", "Lists open documents in a routed Visual Studio session.", true),
         new("document_close", "Closes an open document with save, discard, or no-save policy. Prefer forward slashes in path values like src/Project/File.cs.", true),
         new("editor_find", "Finds text in one editor document. Prefer forward slashes in path values like src/Project/File.cs.", true),
-        new("find_in_files", "Searches files under a Visual Studio solution or root path. Prefer forward slashes in rootPath values like src/Project.", true),
+        new("find_in_files", "Runs Visual Studio Find in Files for a solution or root path. Prefer forward slashes in rootPath values like src/Project.", true),
         new("code_go_to_implementation", "Finds implementation locations for a symbol at a code position. For documentPath, prefer forward slashes like src/Project/File.cs.", true),
         new("code_workspace_symbols", "Searches symbols in the live Visual Studio workspace.", true),
         new("build_project", "Builds one project in the routed Visual Studio session.", true),
@@ -632,7 +631,6 @@ public sealed partial class BrokerToolService
             "call_hierarchy_get" or
             "code_actions_list" or
             "diagnostics_for_document" or
-            "workspace_search" or
             "git_context" or
             "open_relevant_files" or
             "solution_info" or

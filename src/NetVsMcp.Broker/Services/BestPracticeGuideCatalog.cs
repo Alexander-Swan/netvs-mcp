@@ -33,7 +33,7 @@ public sealed class BestPracticeGuideCatalog
             "code_find_references, code_workspace_symbols, symbol_context, document_outline, find_implementations, " +
             "rename_symbol_preview, rename_symbol_apply, call_hierarchy_get, code_actions_list, code_actions_apply, document_read, " +
             "document_open, document_list, document_close, open_relevant_files, errors_list, diagnostics_for_document, " +
-            "diagnostics_binding_errors, workspace_search, editor_find, find_in_files.",
+            "diagnostics_binding_errors, editor_find, find_in_files.",
         ["edit-visual-studio"] = "Documents, direct editor edits, selections, formatting, and safe-edit previews. " +
             "TRIGGER BEFORE CALLING: selection_get, selection_set, document_write, document_save, editor_insert, editor_replace, " +
             "editor_goto_line, document_cleanup, format_and_organize, edit_preview, prepare_safe_edit, edit_approve, " +

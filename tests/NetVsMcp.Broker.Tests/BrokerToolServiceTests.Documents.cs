@@ -463,50 +463,6 @@ public sealed partial class BrokerToolServiceTests
     }
 
     [Fact]
-    public async Task WorkspaceSearch_SearchesExplicitRoot()
-    {
-        var runtime = CreateRuntime();
-        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
-        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
-        var root = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"))).FullName;
-        var file = Path.Combine(root, "Program.cs");
-        await File.WriteAllTextAsync(file, "class Program { void Run() {} }");
-
-        var response = await runtime.Tools.WorkspaceSearch("Run", "*.cs", root, sessionId: "vs-1");
-
-        Assert.True(response.Success);
-        var match = Assert.Single(response.Value!.Matches);
-        Assert.Equal(file, match.Path);
-        Assert.Equal(1, match.Line);
-    }
-
-    [Fact]
-    public async Task WorkspaceSearch_UsesRootPathForRouting_WhenMultipleSessionsAreRegistered()
-    {
-        var runtime = CreateRuntime();
-        var otherRoot = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"))).FullName;
-        var targetRoot = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"))).FullName;
-        var targetProjectRoot = Directory.CreateDirectory(Path.Combine(targetRoot, "src", "App")).FullName;
-        var otherSolution = Path.Combine(otherRoot, "Other.slnx");
-        var targetSolution = Path.Combine(targetRoot, "App.slnx");
-        await File.WriteAllTextAsync(otherSolution, string.Empty);
-        await File.WriteAllTextAsync(targetSolution, string.Empty);
-        await File.WriteAllTextAsync(Path.Combine(targetProjectRoot, "Program.cs"), "class Program { void Run() {} }");
-        var otherSession = new FakeVisualStudioSessionRpc("Other.cs");
-        var targetSession = new FakeVisualStudioSessionRpc("Editor.cs");
-        runtime.Sessions.Register(CreateRegistration("vs-1", "Other", otherSolution, isActive: false));
-        runtime.Sessions.Register(CreateRegistration("vs-2", "App", targetSolution, isActive: false));
-        runtime.Connections.AddOrUpdate("vs-1", otherSession);
-        runtime.Connections.AddOrUpdate("vs-2", targetSession);
-
-        var response = await runtime.Tools.WorkspaceSearch("Run", "*.cs", targetProjectRoot);
-
-        Assert.True(response.Success);
-        var match = Assert.Single(response.Value!.Matches);
-        Assert.Equal(Path.Combine(targetProjectRoot, "Program.cs"), match.Path);
-    }
-
-    [Fact]
     public async Task DiagnosticsBindingErrors_RoutesThroughVsixSession()
     {
         var runtime = CreateRuntime();
