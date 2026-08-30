@@ -13,6 +13,9 @@ public sealed class BrokerNotificationContentFactoryTests
         Assert.Equal(BrokerConnectivityIssue.NotInstalled, content.Issue);
         Assert.Equal(BrokerNotificationContentFactory.BrokerReleasesUrl, content.LinkUrl);
         Assert.Contains("Install", content.Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("not running", content.Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("location this extension can detect", content.Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("source checkout", content.Title, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

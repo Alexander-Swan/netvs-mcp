@@ -151,13 +151,22 @@
                     <StackPanel Visibility="{Binding NoSessions, Converter={StaticResource BoolToVis}}"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center">
-                        <TextBlock Text="No Visual Studio sessions yet"
+                        <TextBlock Text="No Visual Studio sessions registered"
                                    FontWeight="SemiBold"
+                                   FontSize="16"
                                    HorizontalAlignment="Center" />
-                        <TextBlock Text="Open Visual Studio with the NetVsMcp VSIX installed and it will register here automatically."
+                        <TextBlock Text="Install or enable the NetVsMcp Visual Studio extension, then open a solution in Visual Studio. The broker will register it automatically."
                                    Style="{StaticResource MutedTextStyle}"
-                                   Margin="0,4,0,0"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"
+                                   MaxWidth="520"
+                                   Margin="0,8,0,0"
                                    HorizontalAlignment="Center" />
+                        <Button Content="Open Extension Setup"
+                                Click="OpenVisualStudioExtensionSetup_Click"
+                                Style="{StaticResource AccentButtonStyle}"
+                                HorizontalAlignment="Center"
+                                Margin="0,14,0,0" />
                     </StackPanel>
                 </Grid>
             </TabItem>

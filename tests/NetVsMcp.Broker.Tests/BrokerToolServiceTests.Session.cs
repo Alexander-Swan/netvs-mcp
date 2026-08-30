@@ -480,7 +480,9 @@ public sealed partial class BrokerToolServiceTests
 
         Assert.True(response.Success);
         Assert.Contains(response.Value!.Checks, check => check.Name == "mcp_client_config");
-        Assert.Contains("broker status window", response.Value.Checks.Single(check => check.Name == "registered_sessions").Message);
+        var registeredSessionsMessage = response.Value.Checks.Single(check => check.Name == "registered_sessions").Message;
+        Assert.Contains("Install or enable the NetVsMcp Visual Studio extension", registeredSessionsMessage);
+        Assert.Contains("https://github.com/Alexander-Swan/netvs-mcp/blob/master/docs/SETUP.md#install-recommended", registeredSessionsMessage);
     }
 
     [Fact]

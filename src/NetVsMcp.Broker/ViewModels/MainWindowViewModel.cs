@@ -359,14 +359,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             Sessions.Add(SessionStatusViewModel.FromStatus(session));
         }
 
-#if DEBUG
-        if (Sessions.Count == 0)
-        {
-            foreach (var sample in SessionStatusViewModel.DebugSamples)
-                Sessions.Add(sample);
-        }
-#endif
-
         OnPropertyChanged(nameof(HasSessions));
         OnPropertyChanged(nameof(NoSessions));
 
@@ -481,6 +473,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         });
     }
 
+    public void OpenVisualStudioExtensionSetupPage()
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = ProductLinks.VisualStudioExtensionSetupUrl,
+            UseShellExecute = true
+        });
+    }
+
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
@@ -517,15 +518,6 @@ public sealed class SessionStatusViewModel
     public string DebuggerMode { get; }
     public string SessionId { get; }
     public string VsixVersion { get; }
-
-#if DEBUG
-    public static IReadOnlyList<SessionStatusViewModel> DebugSamples { get; } =
-    [
-        new(12345, "MyApp.sln", @"C:\Work\MyApp\", @"C:\Work\MyApp\MyApp.sln", "Design", "vs-12345", "1.0.2"),
-        new(67890, "WebApi.sln", @"C:\Projects\WebApi\", @"C:\Projects\WebApi\WebApi.sln", "Break", "vs-67890", "1.0.2"),
-        new(54321, "SharedLib.sln", @"C:\Work\Shared\", @"C:\Work\Shared\SharedLib.sln", "Run", "vs-54321", "1.0.2"),
-    ];
-#endif
 
     public static SessionStatusViewModel FromStatus(VsSessionStatus status)
     {

@@ -126,7 +126,7 @@ internal static class BrokerNotificationContentFactory
         {
             BrokerConnectivityIssue.NotInstalled => new(
                 issue,
-                "NetVsMcp Broker is required to use this extension. Install the broker, then reopen Visual Studio or start it from the Start menu.",
+                "NetVsMcp Broker is not running, or it is not installed in a location this extension can detect. Install the broker, or start it from your source checkout if you built locally, then reopen Visual Studio.",
                 "Download NetVsMcp Broker",
                 BrokerReleasesUrl,
                 "broker-not-installed"),

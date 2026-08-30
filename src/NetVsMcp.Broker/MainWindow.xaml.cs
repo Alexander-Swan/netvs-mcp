@@ -34,6 +34,8 @@ public partial class MainWindow : Window
 
     private void OpenLogs_Click(object sender, RoutedEventArgs e) => _viewModel.OpenLogsFolder();
 
+    private void OpenVisualStudioExtensionSetup_Click(object sender, RoutedEventArgs e) => _viewModel.OpenVisualStudioExtensionSetupPage();
+
     private void ApplySettings_Click(object sender, RoutedEventArgs e) => _viewModel.ApplyStartupSettings();
 
     private async void CheckForUpdates_Click(object sender, RoutedEventArgs e) => await _viewModel.CheckForUpdatesAsync();

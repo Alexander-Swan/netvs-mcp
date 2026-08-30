@@ -89,7 +89,7 @@ public sealed partial class BrokerToolService
             sessions.Length > 0,
             sessions.Length > 0
                 ? $"{sessions.Length} Visual Studio session(s) are registered."
-                : "No Visual Studio sessions are registered. Install or enable the NetVsMcp VSIX in Visual Studio, open a solution, and confirm the VSIX can reach the broker pipe. The broker status window has the copyable MCP config.");
+                : $"No Visual Studio sessions are registered. Install or enable the NetVsMcp Visual Studio extension, open a solution, and confirm the extension can reach the broker pipe. Setup: {ProductLinks.VisualStudioExtensionSetupUrl}");
 
         yield return new BrokerDoctorCheck(
             "connected_sessions",
