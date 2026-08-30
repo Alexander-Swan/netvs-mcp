@@ -16,6 +16,7 @@ internal sealed class BrokerRegistrationLifecycle : IDisposable
     private readonly IVisualStudioCapabilityCatalog capabilities;
     private readonly IVisualStudioStateChangeMonitor stateMonitor;
     private readonly IBrokerConnectionFactory connectionFactory;
+    private readonly IBrokerNotificationService notificationService;
     private readonly CancellationTokenSource stop = new();
     private readonly SemaphoreSlim stateChanged = new(0, 1);
 
@@ -26,12 +27,14 @@ internal sealed class BrokerRegistrationLifecycle : IDisposable
         IVisualStudioSessionSnapshotProvider snapshotProvider,
         IVisualStudioCapabilityCatalog capabilities,
         IVisualStudioStateChangeMonitor stateMonitor,
-        IBrokerConnectionFactory connectionFactory)
+        IBrokerConnectionFactory connectionFactory,
+        IBrokerNotificationService notificationService)
     {
         this.snapshotProvider = snapshotProvider;
         this.capabilities = capabilities;
         this.stateMonitor = stateMonitor;
         this.connectionFactory = connectionFactory;
+        this.notificationService = notificationService;
         this.stateMonitor.StateChanged += OnVisualStudioStateChanged;
     }
 
@@ -52,6 +55,7 @@ internal sealed class BrokerRegistrationLifecycle : IDisposable
         disposed = true;
         stateMonitor.StateChanged -= OnVisualStudioStateChanged;
         stop.Cancel();
+        notificationService.Clear();
 
         // Await (with a short timeout) rather than fire-and-forget, so unregistration has a
         // real chance to complete before the process tears down VS - and so this doesn't race
@@ -76,6 +80,11 @@ internal sealed class BrokerRegistrationLifecycle : IDisposable
 
         stateChanged.Dispose();
         stop.Dispose();
+
+        if (notificationService is IDisposable disposableNotificationService)
+        {
+            disposableNotificationService.Dispose();
+        }
     }
 
     private async Task RunConnectionLoopAsync(CancellationToken cancellationToken)
@@ -88,12 +97,18 @@ internal sealed class BrokerRegistrationLifecycle : IDisposable
             {
                 activeConnection = await connectionFactory.ConnectAsync(cancellationToken);
                 await RegisterAsync(activeConnection, cancellationToken);
+                notificationService.Clear();
                 reconnectDelay = InitialReconnectDelay;
                 await RunConnectedHeartbeatLoopAsync(activeConnection, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 return;
+            }
+            catch (BrokerConnectionException ex)
+            {
+                notificationService.Show(ex.Issue);
+                Trace.TraceWarning("NetVsMcp broker connection issue ({0}): {1}", ex.Issue, ex.Message);
             }
             catch (Exception ex)
             {

@@ -17,6 +17,7 @@ public sealed class NetVsMcpPackage : AsyncPackage
     public const string PackageGuidString = "8e51bd56-6a22-4461-a578-b23c67fbc087";
 
     private BrokerRegistrationLifecycle? lifecycle;
+    private BrokerStatusInfoBarService? brokerNotificationService;
 
     protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
     {
@@ -36,12 +37,17 @@ public sealed class NetVsMcpPackage : AsyncPackage
             new AutomationCapabilityService(this),
             new SolutionCapabilityService(this));
         var capabilityRpcTarget = new VisualStudioCapabilityRpcTarget(capabilities, snapshotProvider);
+        brokerNotificationService = new BrokerStatusInfoBarService(this);
 
         lifecycle = new BrokerRegistrationLifecycle(
             snapshotProvider,
             capabilities,
             stateMonitor,
-            new NamedPipeBrokerConnectionFactory(BrokerPipeName.CurrentUserDefault(), capabilityRpcTarget));
+            new NamedPipeBrokerConnectionFactory(
+                BrokerPipeName.CurrentUserDefault(),
+                capabilityRpcTarget,
+                new BrokerInstallationDetector()),
+            brokerNotificationService);
 
         await lifecycle.StartAsync(cancellationToken);
     }
@@ -52,6 +58,7 @@ public sealed class NetVsMcpPackage : AsyncPackage
         {
             lifecycle?.Dispose();
             lifecycle = null;
+            brokerNotificationService = null;
         }
 
         base.Dispose(disposing);

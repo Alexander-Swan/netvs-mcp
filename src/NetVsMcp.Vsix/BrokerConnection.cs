@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.IO.Pipes;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,11 +27,16 @@ internal sealed class NamedPipeBrokerConnectionFactory : IBrokerConnectionFactor
     private const int ConnectTimeoutMilliseconds = 2_000;
     private readonly string pipeName;
     private readonly object localRpcTarget;
+    private readonly IBrokerInstallationDetector installationDetector;
 
-    public NamedPipeBrokerConnectionFactory(string pipeName, object localRpcTarget)
+    public NamedPipeBrokerConnectionFactory(
+        string pipeName,
+        object localRpcTarget,
+        IBrokerInstallationDetector installationDetector)
     {
         this.pipeName = pipeName;
         this.localRpcTarget = localRpcTarget;
+        this.installationDetector = installationDetector;
     }
 
     public async Task<IBrokerConnection> ConnectAsync(CancellationToken cancellationToken)
@@ -45,11 +52,32 @@ internal sealed class NamedPipeBrokerConnectionFactory : IBrokerConnectionFactor
             await Task.Run(() => stream.Connect(ConnectTimeoutMilliseconds), cancellationToken);
             return new JsonRpcBrokerConnection(stream, localRpcTarget);
         }
+        catch (TimeoutException ex)
+        {
+            stream.Dispose();
+            throw CreateBrokerUnavailableException(ex);
+        }
+        catch (IOException ex)
+        {
+            stream.Dispose();
+            throw CreateBrokerUnavailableException(ex);
+        }
         catch
         {
             stream.Dispose();
             throw;
         }
+    }
+
+    private BrokerConnectionException CreateBrokerUnavailableException(Exception innerException)
+    {
+        var installed = installationDetector.IsInstalled();
+        return new BrokerConnectionException(
+            installed ? BrokerConnectivityIssue.NotRunning : BrokerConnectivityIssue.NotInstalled,
+            installed
+                ? "NetVsMcp Broker is installed but is not responding on its registration pipe."
+                : "NetVsMcp Broker is not installed on this machine.",
+            innerException);
     }
 }
 
@@ -113,8 +141,22 @@ internal sealed class JsonRpcBrokerConnection : IBrokerConnection
 
         if (!response.Success)
         {
-            throw new InvalidOperationException(response.Message ?? $"Broker RPC '{targetName}' failed.");
+            throw CreateBrokerRpcException(targetName, response);
         }
+    }
+
+    private static Exception CreateBrokerRpcException(string targetName, ToolResponse response)
+    {
+        if (response.Metadata?.TryGetValue("error_code", out var errorCode) == true &&
+            string.Equals(errorCode, ToolErrorCodes.ProtocolMismatch, StringComparison.Ordinal))
+        {
+            return new BrokerConnectionException(
+                BrokerConnectivityIssue.UpdateRequired,
+                response.Message ?? $"Broker RPC '{targetName}' failed due to an incompatible broker version.",
+                metadata: response.Metadata);
+        }
+
+        return new InvalidOperationException(response.Message ?? $"Broker RPC '{targetName}' failed.");
     }
 
     private static async Task<T> WithTimeoutAsync<T>(

@@ -49,6 +49,9 @@ public sealed class BrokerRegistrationRpcServiceTests
 
         Assert.False(response.Success);
         Assert.Equal(ToolErrorCodes.ProtocolMismatch, response.Metadata!["error_code"]);
+        Assert.Equal(VsRpcProtocol.CurrentVersion, response.Metadata["broker_protocol"]);
+        Assert.Equal("https://github.com/Alexander-Swan/netvs-mcp/releases/latest", response.Metadata["download_url"]);
+        Assert.True(response.Metadata.ContainsKey("broker_version"));
         Assert.Empty(registry.ListSessions());
     }
 

@@ -1,4 +1,5 @@
 using NetVsMcp.Contracts;
+using System.Reflection;
 
 namespace NetVsMcp.Broker.Services;
 
@@ -127,14 +128,17 @@ public sealed class BrokerRegistrationRpcService : IBrokerRegistrationRpc
 
     private static ToolResponse ProtocolMismatch(string? protocolVersion)
     {
+        var brokerVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0";
         return new ToolResponse(
             false,
-            $"Visual Studio extension RPC protocol '{protocolVersion ?? "unknown"}' is not compatible with broker protocol '{VsRpcProtocol.CurrentVersion}'.",
+            $"Visual Studio extension RPC protocol '{protocolVersion ?? "unknown"}' is not compatible with broker protocol '{VsRpcProtocol.CurrentVersion}'. Install the latest NetVsMcp Broker and try again.",
             new Dictionary<string, string>
             {
                 ["error_code"] = ToolErrorCodes.ProtocolMismatch,
                 ["vsix_protocol"] = protocolVersion ?? string.Empty,
-                ["broker_protocol"] = VsRpcProtocol.CurrentVersion
+                ["broker_protocol"] = VsRpcProtocol.CurrentVersion,
+                ["broker_version"] = brokerVersion,
+                ["download_url"] = "https://github.com/Alexander-Swan/netvs-mcp/releases/latest"
             });
     }
 }
