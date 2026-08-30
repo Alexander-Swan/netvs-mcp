@@ -106,7 +106,7 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
         };
 
         document.Close(saveChanges);
-        return new DocumentCloseResult(true, "Document closed.", info, request.Policy);
+        return new DocumentCloseResult(true, "Document closed.", CreateClosedDocumentInfo(info), request.Policy);
     }
 
     public async Task<DocumentReadResult> ReadDocumentAsync(string path, CancellationToken cancellationToken)
@@ -559,6 +559,14 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         return await package.GetServiceAsync(typeof(DTE)) as DTE;
     }
+
+    internal static EditorDocumentInfo CreateClosedDocumentInfo(EditorDocumentInfo document) =>
+        new(
+            document.Name,
+            document.Path,
+            document.Language,
+            isOpen: false,
+            isSaved: true);
 
     private static Document? FindOpenDocument(DTE? dte, string path)
     {

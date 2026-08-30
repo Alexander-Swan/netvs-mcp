@@ -64,10 +64,17 @@ public sealed partial class BrokerToolServiceTests
     private sealed class FakeVisualStudioSessionRpc : IVisualStudioSessionRpc
     {
         private readonly string _activeDocument;
+        private readonly string _solutionName;
+        private readonly string _solutionPath;
 
-        public FakeVisualStudioSessionRpc(string activeDocument)
+        public FakeVisualStudioSessionRpc(
+            string activeDocument,
+            string solutionName = "NetVsMcp",
+            string solutionPath = @"C:\Code\NetVsMcp\NetVsMcp.slnx")
         {
             _activeDocument = activeDocument;
+            _solutionName = solutionName;
+            _solutionPath = solutionPath;
         }
 
         public string? LastSymbolsDocumentPath { get; private set; }
@@ -622,11 +629,11 @@ public sealed partial class BrokerToolServiceTests
         public Task<SolutionInfoResult> SolutionInfoAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult(new SolutionInfoResult(
-                "NetVsMcp",
-                @"C:\Code\NetVsMcp\NetVsMcp.slnx",
+                _solutionName,
+                _solutionPath,
                 true,
                 2,
-                @"src\NetVsMcp.Broker\NetVsMcp.Broker.csproj"));
+                $@"src\{_solutionName}.Broker\{_solutionName}.Broker.csproj"));
         }
 
         public Task<SolutionInfoResult> SolutionOpenAsync(

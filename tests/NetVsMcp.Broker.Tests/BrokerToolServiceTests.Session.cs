@@ -500,6 +500,48 @@ public sealed partial class BrokerToolServiceTests
     }
 
     [Fact]
+    public async Task SolutionInfo_RoutesByProcessId()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "RouteAlpha", processId: 1001));
+        runtime.Sessions.Register(CreateRegistration("vs-2", "RouteBeta", processId: 1002));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs", "RouteAlpha", @"C:\Code\RouteAlpha\RouteAlpha.slnx"));
+        runtime.Connections.AddOrUpdate("vs-2", new FakeVisualStudioSessionRpc("Editor.cs", "RouteBeta", @"C:\Code\RouteBeta\RouteBeta.slnx"));
+
+        var response = await runtime.Tools.SolutionInfo(processId: 1002);
+
+        Assert.True(response.Success);
+        Assert.Equal("RouteBeta", response.Value!.Name);
+    }
+
+    [Fact]
+    public async Task SolutionInfo_RoutesByWorkspacePath()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"));
+        var projectDirectory = Path.Combine(tempRoot, "src", "RouteAlpha.App");
+        Directory.CreateDirectory(projectDirectory);
+        var solutionPath = Path.Combine(tempRoot, "RouteAlpha.slnx");
+        File.WriteAllText(solutionPath, string.Empty);
+
+        try
+        {
+            var runtime = CreateRuntime();
+            runtime.Sessions.Register(CreateRegistration("vs-1", "RouteAlpha", solutionPath, isActive: false));
+            runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs", "RouteAlpha", solutionPath));
+
+            var response = await runtime.Tools.SolutionInfo(workspacePath: projectDirectory);
+
+            Assert.True(response.Success);
+            Assert.Equal("RouteAlpha", response.Value!.Name);
+            Assert.Equal(solutionPath, response.Value.Path);
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task SolutionOpen_RoutesToConnectedSession()
     {
         var runtime = CreateRuntime();

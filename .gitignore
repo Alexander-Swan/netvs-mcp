@@ -13,3 +13,6 @@ release-assets/
 
 # Local working backlog; not a versioned project document.
 docs/IMPROVEMENT_PLAN.md
+
+# Disposable Visual Studio live-test fixtures.
+_live-test/

@@ -466,18 +466,24 @@ public sealed partial class BrokerToolService
     }
     [McpServerTool(Name = "solution_info")]
     [Description("Returns solution metadata from a routed Visual Studio session.")]
-    public Task<ToolResponse<SolutionInfoResult>> SolutionInfo(
+    public async Task<ToolResponse<SolutionInfoResult>> SolutionInfo(
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
+        int? processId = null,
+        string? workspacePath = null,
+        string? rootPath = null,
         CancellationToken cancellationToken = default)
     {
-        return DispatchValueAsync(
-            sessionId,
-            solutionName,
-            solutionPath,
+        var target = CreateTarget(sessionId, solutionName, solutionPath, processId, workspacePath, rootPath);
+        var dispatch = await _runtime.Dispatcher.DispatchAsync(
+            target,
             static (connection, ct) => connection.SolutionInfoAsync(ct),
             cancellationToken);
+
+        var response = ToValueToolResponse(dispatch);
+        AuditToolResult(nameof(SolutionInfo), target, response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
+        return response;
     }
     [McpServerTool(Name = "solution_open")]
     [Description("Opens a solution in a routed Visual Studio session.")]
