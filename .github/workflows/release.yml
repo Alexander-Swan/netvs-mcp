@@ -109,19 +109,14 @@ jobs:
 
       - name: Patch VSIX manifest version
         shell: pwsh
-        run: |
-          $path = "src/NetVsMcp.Vsix/source.extension.vsixmanifest"
-          $prefix = "${{ steps.version.outputs.build_prefix }}"
-          [xml]$manifest = Get-Content $path
-          $identity = $manifest.PackageManifest.Metadata.Identity
-          if (-not $identity) {
-            throw "Unable to find VSIX manifest Identity element."
-          }
-          $identity.Version = $prefix
-          $manifest.Save((Resolve-Path $path).Path)
+        run: ./scripts/set-vsix-version.ps1 -Version "${{ steps.version.outputs.build_prefix }}"
 
       - name: Build VSIX
         run: dotnet build src/NetVsMcp.Vsix/NetVsMcp.Vsix.csproj -c Release /p:VersionPrefix=${{ steps.version.outputs.build_prefix }} /p:VersionSuffix=${{ steps.version.outputs.suffix }}
+
+      - name: Verify VSIX manifest version
+        shell: pwsh
+        run: ./scripts/set-vsix-version.ps1 -Version "${{ steps.version.outputs.build_prefix }}" -VsixPath "src/NetVsMcp.Vsix/bin/Release/net472/NetVsMcp.Vsix.vsix"
 
       - name: Verify shipped binary version matches the intended channel version
         # Verify the produced binary version before publishing MSI/VSIX assets.

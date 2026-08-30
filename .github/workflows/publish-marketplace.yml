@@ -20,8 +20,41 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          $requestedRef = "${{ inputs.ref }}"
+          $workflowRefName = "${{ github.ref_name }}"
+          $sourceRef = if ($requestedRef) { $requestedRef } else { $workflowRefName }
+          $prefix = $null
+
+          if ($sourceRef -match '^refs/tags/v(?<version>\d+(?:\.\d+){1,3})(?:-[^/]+)?$' -or
+              $sourceRef -match '^v(?<version>\d+(?:\.\d+){1,3})(?:-[^/]+)?$') {
+            $parsed = [version]$Matches.version
+            $build = if ($parsed.Build -ge 0) { $parsed.Build } else { 0 }
+            $prefix = "$($parsed.Major).$($parsed.Minor).$build"
+          }
+          else {
+            [xml]$props = Get-Content Directory.Build.props
+            $prefix = $props.Project.PropertyGroup.VersionPrefix
+          }
+
+          if (-not $prefix) {
+            throw "Unable to determine VSIX version from ref '$sourceRef' or Directory.Build.props."
+          }
+          "prefix=$prefix" >> $env:GITHUB_OUTPUT
+
+      - name: Patch VSIX manifest version
+        shell: pwsh
+        run: ./scripts/set-vsix-version.ps1 -Version "${{ steps.version.outputs.prefix }}"
+
       - name: Build VSIX
-        run: dotnet build src/NetVsMcp.Vsix/NetVsMcp.Vsix.csproj -c Release
+        run: dotnet build src/NetVsMcp.Vsix/NetVsMcp.Vsix.csproj -c Release /p:VersionPrefix=${{ steps.version.outputs.prefix }} /p:VersionSuffix=
+
+      - name: Verify VSIX manifest version
+        shell: pwsh
+        run: ./scripts/set-vsix-version.ps1 -Version "${{ steps.version.outputs.prefix }}" -VsixPath "src/NetVsMcp.Vsix/bin/Release/net472/NetVsMcp.Vsix.vsix"
 
       - name: Publish VSIX to Visual Studio Marketplace
         uses: madskristensen/publish-marketplace@v2
