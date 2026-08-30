@@ -10,11 +10,6 @@ using Task = System.Threading.Tasks.Task;
 
 namespace NetVsMcp.Vsix;
 
-internal interface IVisualStudioSessionSnapshotProvider
-{
-    Task<VsSessionSnapshot> CaptureAsync(CancellationToken cancellationToken);
-}
-
 internal sealed class VisualStudioSessionSnapshotProvider : IVisualStudioSessionSnapshotProvider
 {
     private readonly AsyncPackage package;

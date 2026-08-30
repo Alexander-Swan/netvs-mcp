@@ -6,11 +6,6 @@ using Task = System.Threading.Tasks.Task;
 
 namespace NetVsMcp.Vsix;
 
-internal interface IVisualStudioStateChangeMonitor
-{
-    event EventHandler<VisualStudioStateChangedEventArgs>? StateChanged;
-}
-
 internal sealed class VisualStudioStateChangedEventArgs : EventArgs
 {
     public VisualStudioStateChangedEventArgs(VisualStudioStateChangeKind kind)

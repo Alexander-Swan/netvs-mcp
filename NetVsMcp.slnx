@@ -1,6 +1,8 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/NetVsMcp.Broker/NetVsMcp.Broker.csproj" />
+    <Project Path="src/NetVsMcp.Broker.Core/NetVsMcp.Broker.Core.csproj" />
+    <Project Path="src/NetVsMcp.Broker.Services/NetVsMcp.Broker.Services.csproj" />
     <Project Path="src/NetVsMcp.Contracts/NetVsMcp.Contracts.csproj" />
     <Project Path="src/NetVsMcp.Installer/NetVsMcp.Installer.wixproj" />
     <Project Path="src/NetVsMcp.Vsix/NetVsMcp.Vsix.csproj" />

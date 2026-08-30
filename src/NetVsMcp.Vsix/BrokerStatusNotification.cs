@@ -34,11 +34,6 @@ internal sealed class BrokerConnectionException : Exception
     public IReadOnlyDictionary<string, string>? Metadata { get; }
 }
 
-internal interface IBrokerInstallationDetector
-{
-    bool IsInstalled();
-}
-
 internal sealed class BrokerInstallationDetector : IBrokerInstallationDetector
 {
     private const string BrokerRegistryKeyPath = @"Software\NetVsMcp\Broker";
@@ -145,13 +140,6 @@ internal static class BrokerNotificationContentFactory
             _ => throw new ArgumentOutOfRangeException(nameof(issue), issue, null)
         };
     }
-}
-
-internal interface IBrokerNotificationService
-{
-    void Show(BrokerConnectivityIssue issue);
-
-    void Clear();
 }
 
 internal sealed class BrokerStatusInfoBarService : IBrokerNotificationService, IVsInfoBarUIEvents, IDisposable

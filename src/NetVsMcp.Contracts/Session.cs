@@ -357,15 +357,3 @@ public sealed record BrokerLogEntry(
 public sealed record BrokerLogResult(
     string LogsDirectory,
     IReadOnlyCollection<BrokerLogEntry> Files);
-
-/// <summary>RPC surface the VSIX calls on the broker to register/refresh/unregister its session (see <c>NamedPipeBrokerConnectionFactory</c>).</summary>
-public interface IBrokerRegistrationRpc
-{
-    Task<ToolResponse> RegisterAsync(VsSessionRegistration registration, CancellationToken cancellationToken);
-
-    Task<ToolResponse> UpdateAsync(VsSessionUpdate update, CancellationToken cancellationToken);
-
-    Task<ToolResponse> HeartbeatAsync(string sessionId, CancellationToken cancellationToken);
-
-    Task<ToolResponse> UnregisterAsync(string sessionId, CancellationToken cancellationToken);
-}

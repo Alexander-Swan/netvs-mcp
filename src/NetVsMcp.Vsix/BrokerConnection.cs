@@ -9,19 +9,6 @@ using StreamJsonRpc;
 
 namespace NetVsMcp.Vsix;
 
-internal interface IBrokerConnection : IDisposable
-{
-    bool IsConnected { get; }
-    Task RegisterAsync(VsRegistrationRequest request, CancellationToken cancellationToken);
-    Task HeartbeatAsync(VsHeartbeatRequest request, CancellationToken cancellationToken);
-    Task UnregisterAsync(string sessionId, CancellationToken cancellationToken);
-}
-
-internal interface IBrokerConnectionFactory
-{
-    Task<IBrokerConnection> ConnectAsync(CancellationToken cancellationToken);
-}
-
 internal sealed class NamedPipeBrokerConnectionFactory : IBrokerConnectionFactory
 {
     private const int ConnectTimeoutMilliseconds = 2_000;

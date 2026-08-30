@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="NetVsMcp.Broker.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\NetVsMcp.Contracts\NetVsMcp.Contracts.csproj" />
+    <ProjectReference Include="..\NetVsMcp.Broker.Services\NetVsMcp.Broker.Services.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\.agents\skills\**\*" Link="BundledGuides\skills\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.4.1" />
+  </ItemGroup>
+
+</Project>

@@ -18,12 +18,6 @@ using Task = System.Threading.Tasks.Task;
 
 namespace NetVsMcp.Vsix;
 
-internal interface ICodeActionsCapabilityService
-{
-    Task<CodeActionsListResult> ListCodeActionsAsync(CodeActionsListRequest request, CancellationToken cancellationToken);
-    Task<CodeActionsApplyResult> ApplyCodeActionAsync(CodeActionsApplyRequest request, CancellationToken cancellationToken);
-}
-
 // Mirrors what the VS lightbulb does, using only public Roslyn APIs (no internal
 // ICodeFixService): MEF-discovers CodeFixProvider/CodeRefactoringProvider exports the
 // same way VS itself does, computes actions for a position/span, and applies the chosen

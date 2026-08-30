@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
+using Microsoft.Extensions.DependencyInjection;
 using NetVsMcp.Broker.Services;
 using NetVsMcp.Broker.ViewModels;
 
@@ -23,7 +24,7 @@ public partial class App : System.Windows.Application
     private BrokerRuntime? _runtime;
     private MainWindow? _mainWindow;
     private TrayIconController? _trayIcon;
-    private AutostartService? _autostart;
+    private ServiceProvider? _services;
     private Mutex? _singleInstanceMutex;
 
     protected override async void OnStartup(StartupEventArgs e)
@@ -51,18 +52,13 @@ public partial class App : System.Windows.Application
 
         try
         {
-            var sessions = new SessionRegistry();
-            _autostart = new AutostartService();
-            var initial = BrokerOptions.LocalDefault.WithArgs(e.Args);
-            var settingsStore = new BrokerSettingsStore(initial.EffectiveSettingsFilePath);
-            var options = BrokerOptions.LocalDefault.ApplyPersistedSettings(settingsStore.Load()).WithArgs(e.Args);
-            _runtime = new BrokerRuntime(options, sessions);
+            _services = CreateServices(e.Args);
+            _runtime = _services.GetRequiredService<BrokerRuntime>();
             await _runtime.StartAsync(CancellationToken.None);
 
-            var updateCheckService = new UpdateCheckService();
-            var viewModel = new MainWindowViewModel(_runtime, _autostart, updateCheckService);
-            _mainWindow = new MainWindow(viewModel);
-            _trayIcon = new TrayIconController(_runtime, viewModel, () => _mainWindow);
+            var viewModel = _services.GetRequiredService<MainWindowViewModel>();
+            _mainWindow = _services.GetRequiredService<MainWindow>();
+            _trayIcon = _services.GetRequiredService<TrayIconController>();
             _mainWindow.Show();
 
             _ = CheckForUpdatesOnStartupAsync(viewModel, _trayIcon);
@@ -77,6 +73,13 @@ public partial class App : System.Windows.Application
                 System.Windows.MessageBoxImage.Error);
             Shutdown();
         }
+    }
+
+    private static ServiceProvider CreateServices(string[] args)
+    {
+        var services = new ServiceCollection();
+        services.AddNetVsMcpBrokerApp(args);
+        return services.BuildServiceProvider();
     }
 
     private static async Task CheckForUpdatesOnStartupAsync(MainWindowViewModel viewModel, TrayIconController tray)
@@ -129,6 +132,7 @@ public partial class App : System.Windows.Application
         }
 
         _singleInstanceMutex?.Dispose();
+        _services?.Dispose();
 
         base.OnExit(e);
     }

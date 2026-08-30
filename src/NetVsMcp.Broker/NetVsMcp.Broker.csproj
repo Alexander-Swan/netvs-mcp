@@ -11,8 +11,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\NetVsMcp.Contracts\NetVsMcp.Contracts.csproj" />
+    <ProjectReference Include="..\NetVsMcp.Broker.Core\NetVsMcp.Broker.Core.csproj" />
+    <ProjectReference Include="..\NetVsMcp.Broker.Services\NetVsMcp.Broker.Services.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -24,8 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.4.1" />
-    <PackageReference Include="StreamJsonRpc" Version="2.25.29" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
     <PackageReference Include="Tomlyn" Version="2.10.1" />
   </ItemGroup>
 

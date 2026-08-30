@@ -9,19 +9,6 @@ using Microsoft.VisualStudio.Shell;
 
 namespace NetVsMcp.Vsix;
 
-internal interface IGeneralIdeCapabilityService
-{
-    Task<ExecuteCommandResult> ExecuteCommandAsync(ExecuteCommandRequest request, CancellationToken cancellationToken);
-
-    Task<WindowListResult> WindowListAsync(CancellationToken cancellationToken);
-
-    Task<WindowActivateResult> WindowActivateAsync(WindowActivateRequest request, CancellationToken cancellationToken);
-
-    Task<ToolWindowResult> ToolWindowShowAsync(ToolWindowRequest request, CancellationToken cancellationToken);
-
-    Task<ToolWindowResult> ToolWindowHideAsync(ToolWindowRequest request, CancellationToken cancellationToken);
-}
-
 internal sealed class GeneralIdeCapabilityService : IGeneralIdeCapabilityService
 {
     private static readonly HashSet<string> BlockedCommands = new(StringComparer.OrdinalIgnoreCase)
