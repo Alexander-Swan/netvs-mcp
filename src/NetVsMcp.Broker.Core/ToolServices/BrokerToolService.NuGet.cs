@@ -11,7 +11,8 @@ namespace NetVsMcp.Broker.Services;
 
 internal sealed partial class BrokerToolService
 {
-    [McpServerTool(Name = "package_restore")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "package_restore", Title = "Package Restore", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns package restore support status for a routed project.")]
     public Task<ToolResponse<PackageRestoreResult>> PackageRestore(
         string? projectName = null,
@@ -28,7 +29,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.PackageRestoreAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "project_add_reference")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "project_add_reference", Title = "Project Add Reference", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Adds an assembly or project reference to a project in the routed Visual Studio solution.")]
     public Task<ToolResponse<ProjectReferenceResult>> ProjectAddReference(
         string projectName,
@@ -61,7 +63,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.ProjectAddReferenceAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "project_remove_reference")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "project_remove_reference", Title = "Project Remove Reference", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Removes an assembly or project reference from a project in the routed Visual Studio solution.")]
     public Task<ToolResponse<ProjectReferenceResult>> ProjectRemoveReference(
         string projectName,
@@ -92,7 +95,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.ProjectRemoveReferenceAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "nuget_list")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "nuget_list", Title = "Nuget List", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists PackageReference NuGet packages from project files in the routed Visual Studio solution.")]
     public Task<ToolResponse<NugetListResult>> NugetList(string? projectName = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
@@ -104,7 +108,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.NugetListAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "nuget_search")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "nuget_search", Title = "Nuget Search", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
     [Description("Searches NuGet packages from nuget.org.")]
     public Task<ToolResponse<NugetSearchResult>> NugetSearch(string query, int maxResults = 20, bool includePrerelease = false, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
@@ -121,15 +126,18 @@ internal sealed partial class BrokerToolService
         var request = new NugetSearchRequest { Query = query, MaxResults = maxResults, IncludePrerelease = includePrerelease };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.NugetSearchAsync(request, ct), cancellationToken);
     }
-    [McpServerTool(Name = "nuget_install")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "nuget_install", Title = "Nuget Install", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Installs a NuGet package into a project.")]
     public Task<ToolResponse<NugetMutationResult>> NugetInstall(string projectName, string packageId, string? version = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchNugetMutation(projectName, packageId, version, sessionId, solutionName, solutionPath, (connection, request, ct) => connection.NugetInstallAsync(request, ct), cancellationToken);
-    [McpServerTool(Name = "nuget_update")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "nuget_update", Title = "Nuget Update", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Updates a NuGet package in a project; pass version to pin a specific version.")]
     public Task<ToolResponse<NugetMutationResult>> NugetUpdate(string projectName, string packageId, string? version = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchNugetMutation(projectName, packageId, version, sessionId, solutionName, solutionPath, (connection, request, ct) => connection.NugetUpdateAsync(request, ct), cancellationToken);
-    [McpServerTool(Name = "nuget_uninstall")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "nuget_uninstall", Title = "Nuget Uninstall", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Uninstalls a NuGet package from a project.")]
     public Task<ToolResponse<NugetMutationResult>> NugetUninstall(string projectName, string packageId, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchNugetMutation(projectName, packageId, null, sessionId, solutionName, solutionPath, (connection, request, ct) => connection.NugetUninstallAsync(request, ct), cancellationToken);
@@ -174,3 +182,4 @@ internal sealed partial class BrokerToolService
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => operation(connection, request, ct), cancellationToken);
     }
 }
+

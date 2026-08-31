@@ -11,7 +11,8 @@ namespace NetVsMcp.Broker.Services;
 
 internal sealed partial class BrokerToolService
 {
-    [McpServerTool(Name = "debug_status")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_status", Title = "Debug Status", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns debugger status from a routed Visual Studio session.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugStatus(
         string? sessionId = null,
@@ -26,7 +27,8 @@ internal sealed partial class BrokerToolService
             static (connection, ct) => connection.DebugStatusAsync(ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "debug_hot_reload_apply")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_hot_reload_apply", Title = "Debug Hot Reload Apply", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Applies pending code changes via Hot Reload (Debug.ApplyCodeChanges) to the running debuggee in a routed Visual Studio session. Requires an active debug session.")]
     public Task<ToolResponse<HotReloadApplyResult>> DebugHotReloadApply(
         string? sessionId = null,
@@ -41,7 +43,8 @@ internal sealed partial class BrokerToolService
             static (connection, ct) => connection.DebugHotReloadApplyAsync(ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "debug_get_mode")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_get_mode", Title = "Debug Get Mode", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns debugger mode from a routed Visual Studio session.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugGetMode(
         string? sessionId = null,
@@ -56,7 +59,8 @@ internal sealed partial class BrokerToolService
             static (connection, ct) => connection.DebugGetModeAsync(ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "debug_start")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_start", Title = "Debug Start", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Starts debugging in a routed Visual Studio session.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugStart(
         string? sessionId = null,
@@ -71,7 +75,8 @@ internal sealed partial class BrokerToolService
             static (connection, ct) => connection.DebugStartAsync(ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "debug_stop")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_stop", Title = "Debug Stop", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Stops debugging in a routed Visual Studio session.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugStop(
         string? sessionId = null,
@@ -86,7 +91,8 @@ internal sealed partial class BrokerToolService
             static (connection, ct) => connection.DebugStopAsync(ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "debug_continue")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_continue", Title = "Debug Continue", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Continues debugging in a routed Visual Studio session.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugContinue(
         string? sessionId = null,
@@ -101,7 +107,8 @@ internal sealed partial class BrokerToolService
             static (connection, ct) => connection.DebugContinueAsync(ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "debug_break")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_break", Title = "Debug Break", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Breaks into debugging in a routed Visual Studio session.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugBreak(
         string? sessionId = null,
@@ -116,7 +123,8 @@ internal sealed partial class BrokerToolService
             static (connection, ct) => connection.DebugBreakAsync(ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "debug_step")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_step", Title = "Debug Step", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Steps the debugger in a routed Visual Studio session.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugStep(
         DebugStepKind stepKind = DebugStepKind.Over,
@@ -150,7 +158,8 @@ internal sealed partial class BrokerToolService
         "if requested, resumes execution automatically instead of breaking.";
     private static bool HasUnsupportedBreakpointActionMetadata(BreakpointSetRequest request) =>
         !string.IsNullOrWhiteSpace(request.DependsOnBreakpointName);
-    [McpServerTool(Name = "breakpoint_set")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "breakpoint_set", Title = "Breakpoint Set", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Sets a breakpoint in a routed Visual Studio session.")]
     public async Task<ToolResponse<BreakpointInfo>> BreakpointSet(
         [Description(DocumentPathParameterDescription)]
@@ -241,7 +250,8 @@ internal sealed partial class BrokerToolService
 
         return response;
     }
-    [McpServerTool(Name = "breakpoint_list")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "breakpoint_list", Title = "Breakpoint List", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists breakpoints from a routed Visual Studio session.")]
     public Task<ToolResponse<BreakpointListResult>> BreakpointList(
         string? sessionId = null,
@@ -256,7 +266,8 @@ internal sealed partial class BrokerToolService
             static (connection, ct) => connection.BreakpointListAsync(ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "breakpoint_group_list")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "breakpoint_group_list", Title = "Breakpoint Group List", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists breakpoint groups from a routed Visual Studio session.")]
     public Task<ToolResponse<BreakpointGroupListResult>> BreakpointGroupList(
         string? sessionId = null,
@@ -281,7 +292,8 @@ internal sealed partial class BrokerToolService
             },
             cancellationToken);
     }
-    [McpServerTool(Name = "breakpoint_remove")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "breakpoint_remove", Title = "Breakpoint Remove", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Removes breakpoints in a routed Visual Studio session.")]
     public Task<ToolResponse<BreakpointRemoveResult>> BreakpointRemove(
         string? name = null,
@@ -314,7 +326,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.BreakpointRemoveAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "breakpoint_enable")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "breakpoint_enable", Title = "Breakpoint Enable", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Enables or disables breakpoints in a routed Visual Studio session. When disabling, the response also includes the current debugger state (similar to debug_snapshot); pass continueExecution to resume the debugger afterward.")]
     public Task<ToolResponse<BreakpointEnableResult>> BreakpointEnable(
         bool enabled,
@@ -368,7 +381,8 @@ internal sealed partial class BrokerToolService
             },
             cancellationToken);
     }
-    [McpServerTool(Name = "breakpoint_group_enable")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "breakpoint_group_enable", Title = "Breakpoint Group Enable", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Enables or disables all breakpoints in a group through a routed Visual Studio session. When disabling, the response also includes the current debugger state (similar to debug_snapshot); pass continueExecution to resume the debugger afterward.")]
     public Task<ToolResponse<BreakpointGroupOperationResult>> BreakpointGroupEnable(
         string groupName,
@@ -426,7 +440,8 @@ internal sealed partial class BrokerToolService
             },
             cancellationToken);
     }
-    [McpServerTool(Name = "breakpoint_group_remove")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "breakpoint_group_remove", Title = "Breakpoint Group Remove", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Removes all breakpoints in a group through a routed Visual Studio session.")]
     public Task<ToolResponse<BreakpointGroupOperationResult>> BreakpointGroupRemove(
         string groupName,
@@ -465,7 +480,8 @@ internal sealed partial class BrokerToolService
             },
             cancellationToken);
     }
-    [McpServerTool(Name = "debug_get_callstack")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_get_callstack", Title = "Debug Get Callstack", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns the current call stack from a routed Visual Studio session.")]
     public Task<ToolResponse<CallStackResult>> DebugGetCallstack(
         string? sessionId = null,
@@ -480,7 +496,8 @@ internal sealed partial class BrokerToolService
             static (connection, ct) => connection.DebugGetCallstackAsync(ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "debug_get_locals")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_get_locals", Title = "Debug Get Locals", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns locals from a routed Visual Studio session.")]
     public Task<ToolResponse<LocalsResult>> DebugGetLocals(
         string? sessionId = null,
@@ -495,7 +512,8 @@ internal sealed partial class BrokerToolService
             static (connection, ct) => connection.DebugGetLocalsAsync(ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "debug_evaluate")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_evaluate", Title = "Debug Evaluate", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Evaluates an expression in a routed Visual Studio session.")]
     public Task<ToolResponse<EvaluateExpressionResult>> DebugEvaluate(
         string expression,
@@ -563,7 +581,8 @@ internal sealed partial class BrokerToolService
         "parallelStacks",
         "parallelWatch"
     ];
-    [McpServerTool(Name = "debug_snapshot")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_snapshot", Title = "Debug Snapshot", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Optionally advances the debugger (stepInto, stepOver, stepOut, continue, or break), waits for it to settle, and returns state plus locals in one call. Use 'include' to also fetch any of callStack, breakpoints, watch, threads, modules, parallelStacks, parallelWatch (defaults to callStack only when omitted; pass an empty array to fetch none of them). Locals are always fetched best-effort while paused. When 'action' is omitted this is a pure, non-mutating inspection of current state.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugSnapshot(
         DebugAdvanceAction? action = null,
@@ -617,7 +636,8 @@ internal sealed partial class BrokerToolService
             },
             cancellationToken);
     }
-    [McpServerTool(Name = "debug_wait_for_break")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_wait_for_break", Title = "Debug Wait For Break", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Waits for a routed Visual Studio session's debugger to leave dbgRunMode - typically because a breakpoint or tracepoint fired - then returns state, locals, and the requested include categories in one call, the same shape as debug_snapshot. Does not itself advance the debugger; call debug_continue, debug_snapshot (with an action), or breakpoint_group_enable(..., continueExecution: true) first if the debuggee is not already running. Use 'include' the same way as debug_snapshot.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugWaitForBreak(
         [Description("Maximum time in seconds to wait for the debugger to leave dbgRunMode before giving up and returning the still-running state.")]
@@ -724,7 +744,8 @@ internal sealed partial class BrokerToolService
 
         return (keys, unrecognized is { Count: > 0 } ? unrecognized : null);
     }
-    [McpServerTool(Name = "debug_eval_many")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_eval_many", Title = "Debug Eval Many", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Evaluates multiple debugger expressions through a routed Visual Studio session.")]
     public Task<ToolResponse<DebugEvalManyResult>> DebugEvalMany(
         string[] expressions,
@@ -801,7 +822,8 @@ internal sealed partial class BrokerToolService
             ? "Breakpoint line must be greater than zero."
             : null;
     }
-    [McpServerTool(Name = "debug_start_without_debugging")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_start_without_debugging", Title = "Debug Start Without Debugging", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Starts the current startup project without debugging.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugStartWithoutDebugging(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(
@@ -810,7 +832,8 @@ internal sealed partial class BrokerToolService
             solutionPath,
             static (connection, ct) => connection.DebugStartWithoutDebuggingAsync(ct),
             cancellationToken);
-    [McpServerTool(Name = "debug_restart")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_restart", Title = "Debug Restart", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Restarts the active debug session.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugRestart(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(
@@ -819,7 +842,8 @@ internal sealed partial class BrokerToolService
             solutionPath,
             static (connection, ct) => connection.DebugRestartAsync(ct),
             cancellationToken);
-    [McpServerTool(Name = "debug_attach")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_attach", Title = "Debug Attach", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Attaches the Visual Studio debugger to a local process by id or name, or to a process on a remote debugger transport (SSH/WSL/Docker/etc.) when transport is set.")]
     public Task<ToolResponse<DebugAttachResult>> DebugAttach(
         int? processId = null,
@@ -847,11 +871,13 @@ internal sealed partial class BrokerToolService
         };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.DebugAttachAsync(request, ct), cancellationToken);
     }
-    [McpServerTool(Name = "debug_get_threads")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_get_threads", Title = "Debug Get Threads", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists debugger threads for the current debug program.")]
     public Task<ToolResponse<DebugThreadListResult>> DebugGetThreads(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.DebugGetThreadsAsync(ct), cancellationToken);
-    [McpServerTool(Name = "debug_set_variable")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "debug_set_variable", Title = "Debug Set Variable", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Sets a debugger variable by evaluating an assignment expression.")]
     public Task<ToolResponse<DebugSetVariableResult>> DebugSetVariable(string name, string value, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
@@ -873,7 +899,8 @@ internal sealed partial class BrokerToolService
         var request = new DebugSetVariableRequest { Name = name, Value = value, TimeoutMilliseconds = timeoutMilliseconds };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.DebugSetVariableAsync(request, ct), cancellationToken);
     }
-    [McpServerTool(Name = "watch_add")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "watch_add", Title = "Watch Add", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Adds a debugger watch expression when supported by the VSIX debugger service.")]
     public Task<ToolResponse<WatchOperationResult>> WatchAdd(string expression, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
@@ -885,7 +912,8 @@ internal sealed partial class BrokerToolService
         var request = new WatchAddRequest { Expression = expression };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.WatchAddAsync(request, ct), cancellationToken);
     }
-    [McpServerTool(Name = "watch_remove")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "watch_remove", Title = "Watch Remove", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Removes a debugger watch expression when supported by the VSIX debugger service.")]
     public Task<ToolResponse<WatchOperationResult>> WatchRemove(string expression, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
@@ -897,11 +925,13 @@ internal sealed partial class BrokerToolService
         var request = new WatchRemoveRequest { Expression = expression };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.WatchRemoveAsync(request, ct), cancellationToken);
     }
-    [McpServerTool(Name = "watch_list")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "watch_list", Title = "Watch List", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists debugger watch expressions when supported by the VSIX debugger service.")]
     public Task<ToolResponse<WatchListResult>> WatchList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.WatchListAsync(ct), cancellationToken);
-    [McpServerTool(Name = "thread_switch")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "thread_switch", Title = "Thread Switch", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Switches the active debugger thread.")]
     public Task<ToolResponse<ThreadSwitchResult>> ThreadSwitch(int threadId, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
@@ -913,7 +943,8 @@ internal sealed partial class BrokerToolService
         var request = new ThreadSwitchRequest { ThreadId = threadId };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ThreadSwitchAsync(request, ct), cancellationToken);
     }
-    [McpServerTool(Name = "thread_set_frozen")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "thread_set_frozen", Title = "Thread Set Frozen", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Freezes or thaws a debugger thread when supported by the active debug engine.")]
     public Task<ToolResponse<ThreadSetFrozenResult>> ThreadSetFrozen(int threadId, bool frozen, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
@@ -925,7 +956,8 @@ internal sealed partial class BrokerToolService
         var request = new ThreadSetFrozenRequest { ThreadId = threadId, Frozen = frozen };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ThreadSetFrozenAsync(request, ct), cancellationToken);
     }
-    [McpServerTool(Name = "thread_get_callstack")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "thread_get_callstack", Title = "Thread Get Callstack", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns the call stack for a debugger thread when supported by the active debug engine.")]
     public Task<ToolResponse<ThreadCallStackResult>> ThreadGetCallstack(int threadId, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
@@ -937,7 +969,8 @@ internal sealed partial class BrokerToolService
         var request = new ThreadCallStackRequest { ThreadId = threadId };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ThreadGetCallstackAsync(request, ct), cancellationToken);
     }
-    [McpServerTool(Name = "process_list_debugged")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "process_list_debugged", Title = "Process List Debugged", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists processes currently being debugged by Visual Studio.")]
     public Task<ToolResponse<DebuggedProcessListResult>> ProcessListDebugged(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(
@@ -946,7 +979,8 @@ internal sealed partial class BrokerToolService
             solutionPath,
             static (connection, ct) => connection.ProcessListDebuggedAsync(ct),
             cancellationToken);
-    [McpServerTool(Name = "process_list_local")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "process_list_local", Title = "Process List Local", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists local processes visible to Visual Studio for debugger attach workflows.")]
     public Task<ToolResponse<LocalProcessListResult>> ProcessListLocal(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(
@@ -955,7 +989,8 @@ internal sealed partial class BrokerToolService
             solutionPath,
             static (connection, ct) => connection.ProcessListLocalAsync(ct),
             cancellationToken);
-    [McpServerTool(Name = "process_detach")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "process_detach", Title = "Process Detach", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Detaches the Visual Studio debugger from a debugged process by id or name.")]
     public Task<ToolResponse<ProcessDetachResult>> ProcessDetach(int? processId = null, string? processName = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
@@ -971,7 +1006,8 @@ internal sealed partial class BrokerToolService
         };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ProcessDetachAsync(request, ct), cancellationToken);
     }
-    [McpServerTool(Name = "process_terminate")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "process_terminate", Title = "Process Terminate", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Terminates a debugged process by id or name when supported by the active debug engine.")]
     public Task<ToolResponse<ProcessTerminateResult>> ProcessTerminate(int? processId = null, string? processName = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
@@ -987,7 +1023,8 @@ internal sealed partial class BrokerToolService
         };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ProcessTerminateAsync(request, ct), cancellationToken);
     }
-    [McpServerTool(Name = "immediate_execute")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "immediate_execute", Title = "Immediate Execute", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Executes text in the immediate window when supported by the VSIX debugger service.")]
     public Task<ToolResponse<ImmediateExecuteResult>> ImmediateExecute(string? statement = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
@@ -999,18 +1036,21 @@ internal sealed partial class BrokerToolService
         var request = new ImmediateExecuteRequest { Statement = statement };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ImmediateExecuteAsync(request, ct), cancellationToken);
     }
-    [McpServerTool(Name = "module_list")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "module_list", Title = "Module List", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists debugger modules when supported by the VSIX debugger service.")]
     public Task<ToolResponse<ModuleListResult>> ModuleList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.ModuleListAsync(ct), cancellationToken);
-    [McpServerTool(Name = "exception_settings_get")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "exception_settings_get", Title = "Exception Settings Get", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns debugger exception settings when supported by the VSIX debugger service.")]
     public Task<ToolResponse<ExceptionSettingsResult>> ExceptionSettingsGet(string? exceptionName = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         var request = new ExceptionSettingsRequest { ExceptionName = exceptionName };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ExceptionSettingsGetAsync(request, ct), cancellationToken);
     }
-    [McpServerTool(Name = "exception_settings_set")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "exception_settings_set", Title = "Exception Settings Set", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Sets debugger exception settings when supported by the VSIX debugger service.")]
     public Task<ToolResponse<ExceptionSettingsResult>> ExceptionSettingsSet(string exceptionName, bool breakOnThrown, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
@@ -1022,15 +1062,18 @@ internal sealed partial class BrokerToolService
         var request = new ExceptionSettingsRequest { ExceptionName = exceptionName, BreakOnThrown = breakOnThrown };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ExceptionSettingsSetAsync(request, ct), cancellationToken);
     }
-    [McpServerTool(Name = "parallel_stacks")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "parallel_stacks", Title = "Parallel Stacks", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns parallel stack information when the active Visual Studio debug engine exposes it.")]
     public Task<ToolResponse<ParallelStacksResult>> ParallelStacks(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.ParallelStacksAsync(ct), cancellationToken);
-    [McpServerTool(Name = "parallel_watch")]
+    [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "parallel_watch", Title = "Parallel Watch", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns parallel watch expressions when the active Visual Studio debug engine exposes them.")]
     public Task<ToolResponse<ParallelWatchResult>> ParallelWatch(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.ParallelWatchAsync(ct), cancellationToken);
-    [McpServerTool(Name = "test_debug")]
+    [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "test_debug", Title = "Test Debug", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Runs one filtered test under the Visual Studio debugger and attaches to the test host.")]
     public Task<ToolResponse<TestDebugResult>> TestDebug(
         string? projectName = null,
@@ -1072,3 +1115,4 @@ internal sealed partial class BrokerToolService
             cancellationToken);
     }
 }
+

@@ -11,7 +11,8 @@ namespace NetVsMcp.Broker.Services;
 
 internal sealed partial class BrokerToolService
 {
-    [McpServerTool(Name = "selection_get")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "selection_get", Title = "Selection Get", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns the current editor selection from a routed Visual Studio session.")]
     public Task<ToolResponse<SelectionInfo?>> SelectionGet(
         string? sessionId = null,
@@ -26,7 +27,8 @@ internal sealed partial class BrokerToolService
             static (connection, ct) => connection.SelectionGetAsync(ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "document_write")]
+    [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "document_write", Title = "Document Write", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Replaces a document buffer through a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentMutationResult>> DocumentWrite(
         [Description(DocumentPathParameterDescription)]
@@ -64,7 +66,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.DocumentWriteAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "document_save")]
+    [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "document_save", Title = "Document Save", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Saves a document through a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentMutationResult>> DocumentSave(
         [Description(OptionalDocumentPathParameterDescription)]
@@ -82,7 +85,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.DocumentSaveAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "editor_insert")]
+    [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "editor_insert", Title = "Editor Insert", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Inserts text through a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentMutationResult>> EditorInsert(
         [Description(DocumentPathParameterDescription)]
@@ -129,7 +133,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.EditorInsertAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "editor_replace")]
+    [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "editor_replace", Title = "Editor Replace", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Replaces a text range through a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentMutationResult>> EditorReplace(
         [Description(DocumentPathParameterDescription)]
@@ -191,7 +196,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.EditorReplaceAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "editor_goto_line")]
+    [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "editor_goto_line", Title = "Editor Goto Line", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Moves the caret through a routed Visual Studio session.")]
     public Task<ToolResponse<EditorDocumentInfo>> EditorGotoLine(
         [Description(DocumentPathParameterDescription)]
@@ -229,7 +235,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.EditorGotoLineAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "selection_set")]
+    [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "selection_set", Title = "Selection Set", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Sets the editor selection through a routed Visual Studio session.")]
     public Task<ToolResponse<SelectionInfo>> SelectionSet(
         [Description(DocumentPathParameterDescription)]
@@ -282,7 +289,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.SelectionSetAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "document_cleanup")]
+    [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "document_cleanup", Title = "Document Cleanup", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Formats/cleans up a document through a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentCleanupResult>> DocumentCleanup(
         [Description(DocumentPathParameterDescription)]
@@ -311,7 +319,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.DocumentCleanupAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "format_and_organize")]
+    [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "format_and_organize", Title = "Format And Organize", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Formats/cleans up a document and reports organize-import status.")]
     public Task<ToolResponse<FormatAndOrganizeResult>> FormatAndOrganize(
         [Description(DocumentPathParameterDescription)]
@@ -347,7 +356,8 @@ internal sealed partial class BrokerToolService
             },
             cancellationToken);
     }
-    [McpServerTool(Name = "edit_preview")]
+    [BrokerToolMetadata(BrokerToolCategory.EditPreview, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "edit_preview", Title = "Edit Preview", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Creates a pending safe-edit preview through a routed Visual Studio session.")]
     public Task<ToolResponse<EditPreviewResult>> EditPreview(
         string? operation = null,
@@ -402,7 +412,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.EditPreviewAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "prepare_safe_edit")]
+    [BrokerToolMetadata(BrokerToolCategory.EditPreview, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "prepare_safe_edit", Title = "Prepare Safe Edit", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Reads a document and creates a safe-edit preview through a routed Visual Studio session.")]
     public Task<ToolResponse<PrepareSafeEditResult>> PrepareSafeEdit(
         string? operation = null,
@@ -462,7 +473,8 @@ internal sealed partial class BrokerToolService
             },
             cancellationToken);
     }
-    [McpServerTool(Name = "edit_approve")]
+    [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "edit_approve", Title = "Edit Approve", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Approves a pending safe edit through a routed Visual Studio session.")]
     public Task<ToolResponse<EditDecisionResult>> EditApprove(
         string? editId = null,
@@ -490,7 +502,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.EditApproveAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "apply_safe_edit_and_build")]
+    [BrokerToolMetadata(BrokerToolCategory.Build, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "apply_safe_edit_and_build", Title = "Apply Safe Edit And Build", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Approves a pending safe edit, builds the routed solution, and returns diagnostics.")]
     public Task<ToolResponse<ApplySafeEditAndBuildResult>> ApplySafeEditAndBuild(
         string? editId = null,
@@ -537,7 +550,8 @@ internal sealed partial class BrokerToolService
             },
             cancellationToken);
     }
-    [McpServerTool(Name = "edit_reject")]
+    [BrokerToolMetadata(BrokerToolCategory.EditPreview, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "edit_reject", Title = "Edit Reject", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Rejects a pending safe edit through a routed Visual Studio session.")]
     public Task<ToolResponse<EditDecisionResult>> EditReject(
         string? editId = null,
@@ -559,7 +573,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.EditRejectAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "edit_list_pending")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "edit_list_pending", Title = "Edit List Pending", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists pending safe edits through a routed Visual Studio session.")]
     public Task<ToolResponse<PendingEditListResult>> EditListPending(
         string? sessionId = null,
@@ -625,3 +640,4 @@ internal sealed partial class BrokerToolService
             : null;
     }
 }
+

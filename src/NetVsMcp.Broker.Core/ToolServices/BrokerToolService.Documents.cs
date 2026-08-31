@@ -10,7 +10,8 @@ namespace NetVsMcp.Broker.Services;
 
 internal sealed partial class BrokerToolService
 {
-    [McpServerTool(Name = "document_active")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "document_active", Title = "Document Active", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns the active document for a routed Visual Studio session.")]
     public async Task<ToolResponse<string?>> DocumentActive(
         string? sessionId = null,
@@ -27,7 +28,8 @@ internal sealed partial class BrokerToolService
         AuditToolResult(nameof(DocumentActive), CreateTarget(sessionId, solutionName, solutionPath), response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
         return response;
     }
-    [McpServerTool(Name = "code_document_symbols")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "code_document_symbols", Title = "Code Document Symbols", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists document symbols for a document in a routed Visual Studio session.")]
     public async Task<ToolResponse<IReadOnlyCollection<string>>> CodeDocumentSymbols(
         [Description(DocumentPathParameterDescription)]
@@ -56,7 +58,8 @@ internal sealed partial class BrokerToolService
         AuditToolResult(nameof(CodeDocumentSymbols), target, response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
         return response;
     }
-    [McpServerTool(Name = "code_go_to_definition")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "code_go_to_definition", Title = "Code Go To Definition", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Finds and navigates to a symbol definition through a routed Visual Studio session.")]
     public Task<ToolResponse<GoToDefinitionResult>> CodeGoToDefinition(
         [Description(DocumentPathParameterDescription)]
@@ -90,7 +93,8 @@ internal sealed partial class BrokerToolService
             cancellationToken,
             workspacePath: GetRoutableWorkspacePath(request.DocumentPath));
     }
-    [McpServerTool(Name = "code_find_references")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "code_find_references", Title = "Code Find References", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Finds symbol references through a routed Visual Studio session.")]
     public Task<ToolResponse<FindReferencesResult>> CodeFindReferences(
         [Description(DocumentPathParameterDescription)]
@@ -124,7 +128,8 @@ internal sealed partial class BrokerToolService
             cancellationToken,
             workspacePath: GetRoutableWorkspacePath(request.DocumentPath));
     }
-    [McpServerTool(Name = "symbol_context")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "symbol_context", Title = "Symbol Context", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns document text, nearby snippet, definition, and references for a code position.")]
     public Task<ToolResponse<SymbolContextResult>> SymbolContext(
         [Description(DocumentPathParameterDescription)]
@@ -161,7 +166,8 @@ internal sealed partial class BrokerToolService
             cancellationToken,
             workspacePath: GetRoutableWorkspacePath(documentPath));
     }
-    [McpServerTool(Name = "document_outline")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "document_outline", Title = "Document Outline", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns document symbol outline information.")]
     public async Task<ToolResponse<DocumentOutlineResult>> DocumentOutline(
         [Description(DocumentPathParameterDescription)]
@@ -194,7 +200,8 @@ internal sealed partial class BrokerToolService
         AuditToolResult(nameof(DocumentOutline), target, response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
         return response;
     }
-    [McpServerTool(Name = "find_implementations")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "find_implementations", Title = "Find Implementations", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns best-effort implementation lookup status for a code position.")]
     public Task<ToolResponse<FindImplementationsResult>> FindImplementations(
         [Description(DocumentPathParameterDescription)]
@@ -222,7 +229,8 @@ internal sealed partial class BrokerToolService
             cancellationToken,
             workspacePath: GetRoutableWorkspacePath(position.DocumentPath));
     }
-    [McpServerTool(Name = "rename_symbol_preview")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "rename_symbol_preview", Title = "Rename Symbol Preview", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns safe rename preview status for a code position.")]
     public Task<ToolResponse<RenameSymbolPreviewResult>> RenameSymbolPreview(
         [Description(DocumentPathParameterDescription)]
@@ -263,7 +271,8 @@ internal sealed partial class BrokerToolService
             cancellationToken,
             workspacePath: GetRoutableWorkspacePath(request.DocumentPath));
     }
-    [McpServerTool(Name = "rename_symbol_apply")]
+    [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "rename_symbol_apply", Title = "Rename Symbol Apply", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Applies a Roslyn solution-wide rename for the symbol at a code position through a routed Visual Studio session.")]
     public Task<ToolResponse<RenameSymbolApplyResult>> RenameSymbolApply(
         [Description(DocumentPathParameterDescription)]
@@ -304,7 +313,8 @@ internal sealed partial class BrokerToolService
             cancellationToken,
             workspacePath: GetRoutableWorkspacePath(request.DocumentPath));
     }
-    [McpServerTool(Name = "call_hierarchy_get")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "call_hierarchy_get", Title = "Call Hierarchy Get", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns the call hierarchy (incoming callers and/or outgoing callees) for the symbol at a code position through a routed Visual Studio session.")]
     public Task<ToolResponse<CallHierarchyResult>> CallHierarchyGet(
         [Description(DocumentPathParameterDescription)]
@@ -344,7 +354,8 @@ internal sealed partial class BrokerToolService
             cancellationToken,
             workspacePath: GetRoutableWorkspacePath(request.DocumentPath));
     }
-    [McpServerTool(Name = "code_actions_list")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "code_actions_list", Title = "Code Actions List", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists available code fixes and refactorings (like the VS lightbulb) at a code position or selection through a routed Visual Studio session.")]
     public Task<ToolResponse<CodeActionsListResult>> CodeActionsList(
         [Description(DocumentPathParameterDescription)]
@@ -384,7 +395,8 @@ internal sealed partial class BrokerToolService
             cancellationToken,
             workspacePath: GetRoutableWorkspacePath(request.DocumentPath));
     }
-    [McpServerTool(Name = "code_actions_apply")]
+    [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "code_actions_apply", Title = "Code Actions Apply", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Applies a code fix or refactoring by index (as returned by code_actions_list) through a routed Visual Studio session. Recomputes the action list before applying.")]
     public Task<ToolResponse<CodeActionsApplyResult>> CodeActionsApply(
         [Description(DocumentPathParameterDescription)]
@@ -427,7 +439,8 @@ internal sealed partial class BrokerToolService
             cancellationToken,
             workspacePath: GetRoutableWorkspacePath(request.DocumentPath));
     }
-    [McpServerTool(Name = "document_read")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "document_read", Title = "Document Read", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Reads a document through a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentReadResult>> DocumentRead(
         [Description(DocumentPathParameterDescription)]
@@ -452,7 +465,8 @@ internal sealed partial class BrokerToolService
             cancellationToken,
             workspacePath: GetRoutableWorkspacePath(request.Path));
     }
-    [McpServerTool(Name = "document_open")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "document_open", Title = "Document Open", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Opens a document through a routed Visual Studio session.")]
     public async Task<ToolResponse<EditorDocumentInfo>> DocumentOpen(
         [Description(DocumentPathParameterDescription)]
@@ -497,7 +511,8 @@ internal sealed partial class BrokerToolService
         AuditToolResult(nameof(DocumentOpen), target, response.Success, dispatch.Session?.SessionId, response.Message, response.Metadata?.GetValueOrDefault("failureReason") ?? dispatch.FailureReason.ToString());
         return response;
     }
-    [McpServerTool(Name = "open_relevant_files")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "open_relevant_files", Title = "Open Relevant Files", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Opens a set of relevant files in the routed Visual Studio session.")]
     public Task<ToolResponse<OpenRelevantFilesResult>> OpenRelevantFiles(
         [Description(DocumentPathsParameterDescription)]
@@ -539,7 +554,8 @@ internal sealed partial class BrokerToolService
             cancellationToken,
             workspacePath: normalizedPaths.Select(GetRoutableWorkspacePath).FirstOrDefault(path => path is not null));
     }
-    [McpServerTool(Name = "errors_list")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "errors_list", Title = "Errors List", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists errors and warnings from a routed Visual Studio session.")]
     public async Task<ToolResponse<ErrorListResult>> ErrorsList(
         bool includeWarnings = true,
@@ -569,7 +585,8 @@ internal sealed partial class BrokerToolService
         AuditToolResult(nameof(ErrorsList), CreateTarget(sessionId, solutionName, solutionPath), response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
         return response;
     }
-    [McpServerTool(Name = "diagnostics_for_document")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "diagnostics_for_document", Title = "Diagnostics For Document", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Filters routed diagnostics to one document path.")]
     public Task<ToolResponse<DiagnosticsForDocumentResult>> DiagnosticsForDocument(
         [Description(DocumentPathParameterDescription)]
@@ -657,7 +674,8 @@ internal sealed partial class BrokerToolService
             Enumerable.Range(start, end - start + 1)
                 .Select(lineNumber => $"{lineNumber}: {lines[lineNumber - 1]}"));
     }
-    [McpServerTool(Name = "diagnostics_binding_errors")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "diagnostics_binding_errors", Title = "Diagnostics Binding Errors", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns binding diagnostics when a VSIX diagnostics backend is available.")]
     public Task<ToolResponse<AutomationResult>> DiagnosticsBindingErrors(string? target = null, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
@@ -674,7 +692,8 @@ internal sealed partial class BrokerToolService
         };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.DiagnosticsBindingErrorsAsync(request, ct), cancellationToken);
     }
-    [McpServerTool(Name = "document_list")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "document_list", Title = "Document List", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists open documents in a routed Visual Studio session.")]
     public Task<ToolResponse<DocumentListResult>> DocumentList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(
@@ -683,7 +702,8 @@ internal sealed partial class BrokerToolService
             solutionPath,
             static (connection, ct) => connection.DocumentListAsync(ct),
             cancellationToken);
-    [McpServerTool(Name = "document_close")]
+    [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "document_close", Title = "Document Close", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Closes an open document with save, discard, or no-save policy.")]
     public Task<ToolResponse<DocumentCloseResult>> DocumentClose(
         [Description(DocumentPathParameterDescription)]
@@ -709,7 +729,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.DocumentCloseAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "editor_find")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "editor_find", Title = "Editor Find", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Finds text in one editor document.")]
     public Task<ToolResponse<TextSearchResult>> EditorFind(
         string query,
@@ -753,7 +774,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.EditorFindAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "find_in_files")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "find_in_files", Title = "Find In Files", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Runs Visual Studio Find in Files for a solution or root path.")]
     public Task<ToolResponse<TextSearchResult>> FindInFiles(
         string query,
@@ -800,7 +822,8 @@ internal sealed partial class BrokerToolService
             cancellationToken,
             rootPath: GetRoutableWorkspacePath(rootPath));
     }
-    [McpServerTool(Name = "code_go_to_implementation")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "code_go_to_implementation", Title = "Code Go To Implementation", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Finds implementation locations for a symbol at a code position.")]
     public Task<ToolResponse<FindImplementationsResult>> CodeGoToImplementation(
         [Description(DocumentPathParameterDescription)]
@@ -830,7 +853,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.CodeFindImplementationsAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "code_workspace_symbols")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "code_workspace_symbols", Title = "Code Workspace Symbols", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Searches symbols in the live Visual Studio workspace.")]
     public Task<ToolResponse<CodeWorkspaceSymbolsResult>> CodeWorkspaceSymbols(string query, int maxResults = 100, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
@@ -848,3 +872,4 @@ internal sealed partial class BrokerToolService
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.CodeWorkspaceSymbolsAsync(request, ct), cancellationToken);
     }
 }
+

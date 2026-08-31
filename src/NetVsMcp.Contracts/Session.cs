@@ -246,6 +246,13 @@ public sealed record BrokerToolDescriptor(
     string Description,
     /// <summary>False for tools that don't need a routed VS session (e.g. broker-only session management).</summary>
     bool RequiresVisualStudioSession,
+    string? Title = null,
+    bool ReadOnly = false,
+    bool Destructive = true,
+    bool Idempotent = false,
+    bool OpenWorld = true,
+    bool UseStructuredContent = false,
+    string? IconSource = null,
     BrokerToolCategory Category = BrokerToolCategory.Read,
     string McpEndpointPath = McpEndpointRouting.DefaultEndpointPath);
 

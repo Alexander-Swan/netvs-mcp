@@ -34,6 +34,87 @@ public sealed partial class BrokerToolServiceTests
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_get_session", RequiresVisualStudioSession: false });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_select_session", RequiresVisualStudioSession: false });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_ping", RequiresVisualStudioSession: false });
+        Assert.Contains(response.Value.Tools, tool => tool is
+        {
+            Name: "vs_list_sessions",
+            Title: "List Visual Studio Sessions",
+            ReadOnly: true,
+            Destructive: false,
+            Idempotent: true,
+            OpenWorld: false
+        });
+        Assert.Contains(response.Value.Tools, tool => tool is
+        {
+            Name: "vs_launch_instance",
+            Title: "Launch Visual Studio",
+            ReadOnly: false,
+            Destructive: false,
+            Idempotent: false,
+            OpenWorld: false
+        });
+        Assert.Contains(response.Value.Tools, tool => tool is
+        {
+            Name: "document_read",
+            Title: "Document Read",
+            ReadOnly: true,
+            Destructive: false,
+            Idempotent: true,
+            OpenWorld: false
+        });
+        Assert.Contains(response.Value.Tools, tool => tool is
+        {
+            Name: "document_write",
+            Title: "Document Write",
+            ReadOnly: false,
+            Destructive: true,
+            Idempotent: false,
+            OpenWorld: false
+        });
+        Assert.Contains(response.Value.Tools, tool => tool is
+        {
+            Name: "task_list_add",
+            Title: "Task List Add",
+            ReadOnly: false,
+            Destructive: false,
+            Idempotent: false,
+            OpenWorld: false
+        });
+        Assert.Contains(response.Value.Tools, tool => tool is
+        {
+            Name: "output_clear",
+            Title: "Output Clear",
+            ReadOnly: false,
+            Destructive: true,
+            Idempotent: false,
+            OpenWorld: false
+        });
+        Assert.Contains(response.Value.Tools, tool => tool is
+        {
+            Name: "nuget_search",
+            Title: "Nuget Search",
+            ReadOnly: true,
+            Destructive: false,
+            Idempotent: true,
+            OpenWorld: true
+        });
+        Assert.Contains(response.Value.Tools, tool => tool is
+        {
+            Name: "web_connect",
+            Title: "Web Connect",
+            ReadOnly: false,
+            Destructive: false,
+            Idempotent: true,
+            OpenWorld: true
+        });
+        Assert.Contains(response.Value.Tools, tool => tool is
+        {
+            Name: "web_js_execute",
+            Title: "Web Js Execute",
+            ReadOnly: false,
+            Destructive: true,
+            Idempotent: false,
+            OpenWorld: true
+        });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_context_snapshot", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "execute_command", RequiresVisualStudioSession: true, Category: BrokerToolCategory.Admin });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "get_status", RequiresVisualStudioSession: true, Category: BrokerToolCategory.Read });
@@ -91,6 +172,9 @@ public sealed partial class BrokerToolServiceTests
         Assert.All(
             response.Value.Tools.Where(tool => tool.Name.StartsWith("vs_", StringComparison.Ordinal) && tool.Name != "vs_context_snapshot"),
             tool => Assert.False(tool.RequiresVisualStudioSession));
+        Assert.All(
+            response.Value.Tools,
+            tool => Assert.False(string.IsNullOrWhiteSpace(tool.Title)));
     }
 
     [Fact]

@@ -11,19 +11,23 @@ namespace NetVsMcp.Broker.Services;
 
 internal sealed partial class BrokerToolService
 {
-    [McpServerTool(Name = "web_connect")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_connect", Title = "Web Connect", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = true)]
     [Description("Connects browser debugging when a VSIX browser backend is available.")]
     public Task<ToolResponse<AutomationResult>> WebConnect(string? url = null, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("web_connect", target, null, url, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebConnectAsync(request, ct), cancellationToken);
-    [McpServerTool(Name = "web_disconnect")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_disconnect", Title = "Web Disconnect", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = true)]
     [Description("Disconnects browser debugging when a VSIX browser backend is available.")]
     public Task<ToolResponse<AutomationResult>> WebDisconnect(string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("web_disconnect", target, null, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebDisconnectAsync(request, ct), cancellationToken);
-    [McpServerTool(Name = "web_status")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_status", Title = "Web Status", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
     [Description("Returns browser debugging status when a VSIX browser backend is available.")]
     public Task<ToolResponse<AutomationResult>> WebStatus(string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("web_status", target, null, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebStatusAsync(request, ct), cancellationToken);
-    [McpServerTool(Name = "web_navigate")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_navigate", Title = "Web Navigate", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = true)]
     [Description("Navigates a connected browser when a VSIX browser backend is available.")]
     public Task<ToolResponse<AutomationResult>> WebNavigate(string? url = null, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
@@ -34,23 +38,28 @@ internal sealed partial class BrokerToolService
 
         return DispatchAutomation("web_navigate", target, null, url, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebNavigateAsync(request, ct), cancellationToken);
     }
-    [McpServerTool(Name = "web_screenshot")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_screenshot", Title = "Web Screenshot", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
     [Description("Captures a browser screenshot when a VSIX browser backend is available.")]
     public Task<ToolResponse<AutomationResult>> WebScreenshot(string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("web_screenshot", target, null, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebScreenshotAsync(request, ct), cancellationToken);
-    [McpServerTool(Name = "web_dom_get")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_dom_get", Title = "Web Dom Get", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
     [Description("Returns browser DOM data when a VSIX browser backend is available.")]
     public Task<ToolResponse<AutomationResult>> WebDomGet(string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("web_dom_get", target, null, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebDomGetAsync(request, ct), cancellationToken);
-    [McpServerTool(Name = "web_dom_query")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_dom_query", Title = "Web Dom Query", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
     [Description("Queries browser DOM elements when a VSIX browser backend is available.")]
     public Task<ToolResponse<AutomationResult>> WebDomQuery(string selector, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("web_dom_query", target, selector, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebDomQueryAsync(request, ct), cancellationToken);
-    [McpServerTool(Name = "web_console")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_console", Title = "Web Console", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
     [Description("Returns browser console entries when a VSIX browser backend is available.")]
     public Task<ToolResponse<AutomationResult>> WebConsole(string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("web_console", target, null, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebConsoleAsync(request, ct), cancellationToken);
-    [McpServerTool(Name = "web_js_execute")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_js_execute", Title = "Web Js Execute", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = true)]
     [Description("Executes JavaScript in a connected browser when a VSIX browser backend is available.")]
     public Task<ToolResponse<AutomationResult>> WebJsExecute(string? text = null, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
@@ -61,16 +70,20 @@ internal sealed partial class BrokerToolService
 
         return DispatchAutomation("web_js_execute", target, null, null, text, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebJsExecuteAsync(request, ct), cancellationToken);
     }
-    [McpServerTool(Name = "web_network")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_network", Title = "Web Network", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
     [Description("Returns browser network events when a VSIX browser backend is available.")]
     public Task<ToolResponse<AutomationResult>> WebNetwork(string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("web_network", target, null, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebNetworkAsync(request, ct), cancellationToken);
-    [McpServerTool(Name = "web_element_click")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_element_click", Title = "Web Element Click", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = true)]
     [Description("Clicks a browser element when a VSIX browser backend is available.")]
     public Task<ToolResponse<AutomationResult>> WebElementClick(string selector, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("web_element_click", target, selector, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebElementClickAsync(request, ct), cancellationToken);
-    [McpServerTool(Name = "web_element_set_value")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_element_set_value", Title = "Web Element Set Value", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = true)]
     [Description("Sets a browser element value when a VSIX browser backend is available.")]
     public Task<ToolResponse<AutomationResult>> WebElementSetValue(string selector, string text, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("web_element_set_value", target, selector, null, text, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebElementSetValueAsync(request, ct), cancellationToken);
 }
+

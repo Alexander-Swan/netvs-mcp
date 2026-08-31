@@ -5,12 +5,8 @@ using NetVsMcp.Broker.Services;
 namespace NetVsMcp.Broker.Tests;
 
 /// <summary>
-/// <c>BrokerToolService.ToolDescriptors</c> is a hand-maintained array that duplicates each tool's
-/// name separately from the <c>[McpServerTool]</c> attribute on the actual method.
-/// Nothing in the compiler enforces the two stay in sync, so a renamed or newly added tool
-/// method that isn't mirrored in <c>ToolDescriptors</c> would silently produce a wrong or
-/// missing entry in <c>get_help</c> while still being callable.
-/// These tests catch that drift in both directions via reflection.
+/// Ensures the reflected <c>get_help</c> catalog stays aligned with the method-level MCP and
+/// broker-specific metadata attributes on <c>BrokerToolService</c>.
 /// </summary>
 public sealed class BrokerToolServiceDescriptorSyncTests
 {
@@ -104,5 +100,20 @@ public sealed class BrokerToolServiceDescriptorSyncTests
         Assert.True(
             duplicates.Length == 0,
             $"Multiple [McpServerTool] methods share the same Name: {string.Join(", ", duplicates)}.");
+    }
+
+    [Fact]
+    public void EveryMcpServerToolMethod_HasBrokerToolMetadata()
+    {
+        var missing = typeof(BrokerToolService)
+            .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
+            .Where(method => method.GetCustomAttribute<McpServerToolAttribute>() is not null)
+            .Where(method => method.GetCustomAttribute<BrokerToolMetadataAttribute>() is null)
+            .Select(method => method.Name)
+            .ToArray();
+
+        Assert.True(
+            missing.Length == 0,
+            $"[McpServerTool] method(s) with no matching [BrokerToolMetadata]: {string.Join(", ", missing)}.");
     }
 }

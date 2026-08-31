@@ -11,7 +11,8 @@ namespace NetVsMcp.Broker.Services;
 
 internal sealed partial class BrokerToolService
 {
-    [McpServerTool(Name = "vs_list_sessions")]
+    [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
+    [McpServerTool(Name = "vs_list_sessions", Title = "List Visual Studio Sessions", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists Visual Studio instances registered with the local NetVsMcp broker.")]
     public ToolResponse<IReadOnlyCollection<VsSessionInfo>> VsListSessions()
     {
@@ -19,7 +20,8 @@ internal sealed partial class BrokerToolService
         AuditToolResult(nameof(VsListSessions), null, response.Success, null, response.Message);
         return response;
     }
-    [McpServerTool(Name = "vs_get_status")]
+    [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
+    [McpServerTool(Name = "vs_get_status", Title = "Get Broker Status", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns local broker endpoint, uptime, registration pipe, and registered Visual Studio session status.")]
     public ToolResponse<BrokerStatus> VsGetStatus()
     {
@@ -27,7 +29,8 @@ internal sealed partial class BrokerToolService
         AuditToolResult(nameof(VsGetStatus), null, response.Success, null, response.Message);
         return response;
     }
-    [McpServerTool(Name = "netvs_doctor")]
+    [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
+    [McpServerTool(Name = "netvs_doctor", Title = "Run NetVsMcp Doctor", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Diagnoses local broker endpoint, registration pipe, registered sessions, and tool endpoint health.")]
     public ToolResponse<BrokerDoctorResult> NetVsDoctor()
     {
@@ -54,7 +57,7 @@ internal sealed partial class BrokerToolService
 
     private BrokerCapabilities CreateCapabilities()
     {
-        var tools = ToolDescriptors.Select(WithCategoryMetadata).ToArray();
+        var tools = ToolDescriptors;
         return new BrokerCapabilities(
             _runtime.Options.McpEndpoint,
             tools,
@@ -141,12 +144,12 @@ internal sealed partial class BrokerToolService
                 : $"{splitEndpointToolCount} UI/browser automation tool(s) are served from '{McpEndpointRouting.WebAutomationEndpointPath}', not the default MCP endpoint.");
     }
 
-    [McpServerTool(Name = "get_help")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: false)]
+    [McpServerTool(Name = "get_help", Title = "List Broker Tools", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists NetVsMcp broker tools, categories, and endpoint metadata.")]
     public ToolResponse<BrokerCapabilities> GetHelp(bool? requiresVisualStudioSession = null)
     {
         var tools = ToolDescriptors
-            .Select(WithCategoryMetadata)
             .Where(tool => requiresVisualStudioSession is null || tool.RequiresVisualStudioSession == requiresVisualStudioSession.Value)
             .ToArray();
         var capabilities = new BrokerCapabilities(
@@ -168,7 +171,8 @@ internal sealed partial class BrokerToolService
         AuditToolResult(nameof(GetHelp), null, response.Success, null, response.Message);
         return response;
     }
-    [McpServerTool(Name = "netvs_get_best_practices")]
+    [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
+    [McpServerTool(Name = "netvs_get_best_practices", Title = "Get NetVsMcp Best Practices", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("CALL THIS FIRST before using tools from a matching category. Lists bundled agent-neutral NetVsMcp best-practices guides, or reads one guide file. Call without arguments to list guides (each with its description and matching tool-name prefixes); pass guide and optional file to read one guide's content. Guides: manage-visual-studio (session/window/solution/project/test tools), navigate-visual-studio (code_*, symbol_*, diagnostics_*), edit-visual-studio (document_*, editor_*, selection_*, edit_*, safe-edit tools), build-visual-studio (build_*, output_*, nuget_*, package_*, project_add_reference), debug-visual-studio (debug_*, breakpoint_*, watch_*, thread_*, process_*, module_list, exception_settings_*, parallel_*, immediate_execute, test_debug), automate-visual-studio (console_*, ui_*, web_*).")]
     public ToolResponse<BestPracticeGuideToolResult> NetVsGetBestPractices(
         string? guide = null,
@@ -178,7 +182,8 @@ internal sealed partial class BrokerToolService
         AuditToolResult(nameof(NetVsGetBestPractices), null, response.Success, null, response.Message);
         return response;
     }
-    [McpServerTool(Name = "vs_get_session")]
+    [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
+    [McpServerTool(Name = "vs_get_session", Title = "Resolve Visual Studio Session", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Resolves a Visual Studio session using sessionId, solutionName, or solutionPath and returns its current broker status.")]
     public ToolResponse<VsSessionStatus> VsGetSession(
         string? sessionId = null,
@@ -208,7 +213,8 @@ internal sealed partial class BrokerToolService
         AuditToolResult(nameof(VsGetSession), target, response.Success, route.Session.SessionId, response.Message);
         return response;
     }
-    [McpServerTool(Name = "vs_select_session")]
+    [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
+    [McpServerTool(Name = "vs_select_session", Title = "Select Visual Studio Session", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Resolves and returns a Visual Studio session using broker routing rules without storing global selection state.")]
     public ToolResponse<VsSessionInfo> VsSelectSession(
         string? sessionId = null,
@@ -235,7 +241,8 @@ internal sealed partial class BrokerToolService
         AuditToolResult(nameof(VsSelectSession), target, response.Success, route.Session.SessionId, response.Message);
         return response;
     }
-    [McpServerTool(Name = "vs_ping")]
+    [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
+    [McpServerTool(Name = "vs_ping", Title = "Ping Broker or Session", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns lightweight broker health and optional routed Visual Studio session status.")]
     public ToolResponse<BrokerPing> VsPing(
         string? sessionId = null,
@@ -270,7 +277,8 @@ internal sealed partial class BrokerToolService
         AuditToolResult(nameof(VsPing), target, response.Success, route.Session.SessionId, response.Message);
         return response;
     }
-    [McpServerTool(Name = "vs_launch_instance")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: false)]
+    [McpServerTool(Name = "vs_launch_instance", Title = "Launch Visual Studio", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Launches a new Visual Studio (devenv.exe) process, optionally opening a solution and/or running experimental (/rootsuffix Exp), and waits for it to register with the broker.")]
     public async Task<ToolResponse<VsLaunchInstanceResult>> VsLaunchInstance(
         string? solutionPath = null,
@@ -286,7 +294,8 @@ internal sealed partial class BrokerToolService
         AuditToolResult(nameof(VsLaunchInstance), null, response.Success, result.Session?.SessionId, response.Message);
         return response;
     }
-    [McpServerTool(Name = "vs_context_snapshot")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "vs_context_snapshot", Title = "Get Visual Studio Context Snapshot", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns active session, solution, document, selection, debugger, build, errors, and pending edit context.")]
     public Task<ToolResponse<VsContextSnapshotResult>> VsContextSnapshot(
         string? sessionId = null,
@@ -331,7 +340,8 @@ internal sealed partial class BrokerToolService
             return null;
         }
     }
-    [McpServerTool(Name = "execute_command")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "execute_command", Title = "Execute Visual Studio Command", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Executes a Visual Studio command in a routed session.")]
     public Task<ToolResponse<ExecuteCommandResult>> ExecuteCommand(
         string commandName,
@@ -359,7 +369,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.ExecuteCommandAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "get_status")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "get_status", Title = "Get Visual Studio Session Status", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns Visual Studio session status through a routed session.")]
     public async Task<ToolResponse<VsSessionInfo>> GetStatus(
         string? sessionId = null,
@@ -377,7 +388,8 @@ internal sealed partial class BrokerToolService
         AuditToolResult(nameof(GetStatus), target, response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
         return response;
     }
-    [McpServerTool(Name = "window_list")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "window_list", Title = "List Visual Studio Windows", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists Visual Studio windows in a routed session.")]
     public Task<ToolResponse<WindowListResult>> WindowList(
         string? sessionId = null,
@@ -392,7 +404,8 @@ internal sealed partial class BrokerToolService
             static (connection, ct) => connection.WindowListAsync(ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "window_activate")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "window_activate", Title = "Window Activate", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Activates a Visual Studio window in a routed session.")]
     public Task<ToolResponse<WindowActivateResult>> WindowActivate(
         string? caption = null,
@@ -420,7 +433,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.WindowActivateAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "toolwindow_show")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "toolwindow_show", Title = "Toolwindow Show", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Shows a Visual Studio tool window in a routed session.")]
     public Task<ToolResponse<ToolWindowResult>> ToolwindowShow(
         string? caption = null,
@@ -442,7 +456,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.ToolWindowShowAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "toolwindow_hide")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "toolwindow_hide", Title = "Toolwindow Hide", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Hides a Visual Studio tool window in a routed session.")]
     public Task<ToolResponse<ToolWindowResult>> ToolwindowHide(
         string? caption = null,
@@ -464,7 +479,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.ToolWindowHideAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "solution_info")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "solution_info", Title = "Get Solution Info", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns solution metadata from a routed Visual Studio session.")]
     public async Task<ToolResponse<SolutionInfoResult>> SolutionInfo(
         string? sessionId = null,
@@ -485,7 +501,8 @@ internal sealed partial class BrokerToolService
         AuditToolResult(nameof(SolutionInfo), target, response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
         return response;
     }
-    [McpServerTool(Name = "solution_open")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "solution_open", Title = "Solution Open", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Opens a solution in a routed Visual Studio session.")]
     public Task<ToolResponse<SolutionInfoResult>> SolutionOpen(
         string path,
@@ -507,7 +524,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.SolutionOpenAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "solution_close")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "solution_close", Title = "Solution Close", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Closes the open solution in a routed Visual Studio session.")]
     public Task<ToolResponse<SolutionInfoResult>> SolutionClose(
         string? sessionId = null,
@@ -522,7 +540,8 @@ internal sealed partial class BrokerToolService
             static (connection, ct) => connection.SolutionCloseAsync(ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "project_list")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "project_list", Title = "List Projects", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists projects from a routed Visual Studio session.")]
     public Task<ToolResponse<ProjectListResult>> ProjectList(
         string? sessionId = null,
@@ -537,7 +556,8 @@ internal sealed partial class BrokerToolService
             static (connection, ct) => connection.ProjectListAsync(ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "solution_add_project")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "solution_add_project", Title = "Solution Add Project", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Adds an existing project file to the routed Visual Studio solution.")]
     public Task<ToolResponse<ProjectInfo>> SolutionAddProject(
         string projectPath,
@@ -559,7 +579,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.SolutionAddProjectAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "solution_remove_project")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "solution_remove_project", Title = "Solution Remove Project", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Removes a project from the routed Visual Studio solution.")]
     public Task<ToolResponse<ProjectInfo>> SolutionRemoveProject(
         string projectName,
@@ -581,7 +602,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.SolutionRemoveProjectAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "project_info")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "project_info", Title = "Get Project Info", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns project metadata from a routed Visual Studio session.")]
     public Task<ToolResponse<ProjectInfo?>> ProjectInfo(
         string projectName,
@@ -603,7 +625,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.ProjectInfoAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "project_add_file")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "project_add_file", Title = "Project Add File", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Adds an existing file to a project in the routed Visual Studio solution.")]
     public Task<ToolResponse<ProjectInfo>> ProjectAddFile(
         string projectName,
@@ -635,7 +658,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.ProjectAddFileAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "startup_project_get")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "startup_project_get", Title = "Get Startup Project", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns startup project metadata from a routed Visual Studio session.")]
     public Task<ToolResponse<StartupProjectResult>> StartupProjectGet(
         string? sessionId = null,
@@ -650,7 +674,8 @@ internal sealed partial class BrokerToolService
             static (connection, ct) => connection.StartupProjectGetAsync(ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "solution_overview")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "solution_overview", Title = "Get Solution Overview", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns solution, project, startup-project, and test-project summary.")]
     public Task<ToolResponse<SolutionOverviewResult>> SolutionOverview(
         string? sessionId = null,
@@ -674,7 +699,8 @@ internal sealed partial class BrokerToolService
             },
             cancellationToken);
     }
-    [McpServerTool(Name = "project_dependencies")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "project_dependencies", Title = "Get Project Dependencies", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns project/package references parsed from a project file when available.")]
     public Task<ToolResponse<ProjectDependenciesResult>> ProjectDependencies(
         string projectName,
@@ -711,7 +737,8 @@ internal sealed partial class BrokerToolService
             },
             cancellationToken);
     }
-    [McpServerTool(Name = "startup_project_set")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "startup_project_set", Title = "Startup Project Set", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Sets the startup project in a routed Visual Studio session.")]
     public Task<ToolResponse<StartupProjectResult>> StartupProjectSet(
         string projectName,
@@ -733,7 +760,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.StartupProjectSetAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "test_discover")]
+    [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "test_discover", Title = "Discover Tests", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Discovers tests through a routed Visual Studio session.")]
     public Task<ToolResponse<TestOperationResult>> TestDiscover(
         string? projectName = null,
@@ -750,7 +778,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.TestDiscoverAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "test_run")]
+    [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "test_run", Title = "Test Run", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Runs tests through a routed Visual Studio session.")]
     public Task<ToolResponse<TestOperationResult>> TestRun(
         string? projectName = null,
@@ -773,7 +802,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.TestRunAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "test_results")]
+    [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "test_results", Title = "Get Test Results", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns test results through a routed Visual Studio session.")]
     public Task<ToolResponse<TestOperationResult>> TestResults(
         string? runId = null,
@@ -790,7 +820,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.TestResultsAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "test_run_and_get_results")]
+    [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "test_run_and_get_results", Title = "Test Run And Get Results", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Runs tests and then returns captured test results through a routed Visual Studio session.")]
     public Task<ToolResponse<TestRunAndGetResultsResult>> TestRunAndGetResults(
         string? projectName = null,
@@ -820,7 +851,8 @@ internal sealed partial class BrokerToolService
             },
             cancellationToken);
     }
-    [McpServerTool(Name = "task_list_get")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "task_list_get", Title = "Get Task List Items", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists Task List items (TODO/HACK/UNDONE comment tasks and user tasks) from a routed Visual Studio session.")]
     public Task<ToolResponse<TaskListResult>> TaskListGet(
         bool includeCommentTasks = true,
@@ -850,7 +882,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.TaskListGetAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "task_list_add")]
+    [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "task_list_add", Title = "Task List Add", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Adds a user task to the Task List through a routed Visual Studio session.")]
     public Task<ToolResponse<TaskListMutationResult>> TaskListAdd(
         [Description("The task description text.")]
@@ -880,7 +913,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.TaskListAddAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "task_list_remove")]
+    [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "task_list_remove", Title = "Task List Remove", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Removes a user task from the Task List through a routed Visual Studio session. Only user tasks (added via task_list_add) can be removed.")]
     public Task<ToolResponse<TaskListMutationResult>> TaskListRemove(
         [Description("The 1-based index of the task item, as returned by task_list_get.")]
@@ -899,7 +933,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.TaskListRemoveAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "task_list_set_checked")]
+    [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "task_list_set_checked", Title = "Task List Set Checked", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Checks or unchecks a user task in the Task List through a routed Visual Studio session. Only user tasks (added via task_list_add) support checking.")]
     public Task<ToolResponse<TaskListMutationResult>> TaskListSetChecked(
         [Description("The 1-based index of the task item, as returned by task_list_get.")]
@@ -919,7 +954,8 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.TaskListSetCheckedAsync(request, ct),
             cancellationToken);
     }
-    [McpServerTool(Name = "git_context")]
+    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "git_context", Title = "Get Git Context", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns best-effort git status for the routed solution root.")]
     public Task<ToolResponse<GitContextResult>> GitContext(
         string? rootPath = null,
@@ -1085,7 +1121,8 @@ internal sealed partial class BrokerToolService
             ObjectKind = NormalizeOptional(objectKind)
         };
     }
-    [McpServerTool(Name = "project_remove_file")]
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "project_remove_file", Title = "Project Remove File", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Removes a file item from a project in the routed Visual Studio solution without deleting it from disk.")]
     public Task<ToolResponse<ProjectFileResult>> ProjectRemoveFile(string projectName, string filePath, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
@@ -1106,7 +1143,8 @@ internal sealed partial class BrokerToolService
         };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ProjectRemoveFileAsync(request, ct), cancellationToken);
     }
-    [McpServerTool(Name = "vs_get_logs")]
+    [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
+    [McpServerTool(Name = "vs_get_logs", Title = "Get Broker Logs", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns recent broker log files with bounded tail text.")]
     public ToolResponse<BrokerLogResult> VsGetLogs(int maxFiles = 5, int maxCharsPerFile = 20000, string? minLevel = null)
     {
@@ -1230,3 +1268,4 @@ internal sealed partial class BrokerToolService
         return false;
     }
 }
+
