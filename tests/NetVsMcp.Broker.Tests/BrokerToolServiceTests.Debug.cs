@@ -387,9 +387,50 @@ public sealed partial class BrokerToolServiceTests
         Assert.Equal("dbgBreakMode", response.Value!.State.Mode);
         Assert.False(response.Value.TimedOut);
         Assert.Single(response.Value.CallStack!.Frames);
-        Assert.Single(response.Value.Locals!.Locals);
+        Assert.Null(response.Value.Locals);
         Assert.Single(response.Value.Breakpoints!.Breakpoints);
         Assert.Null(response.Value.UnrecognizedInclude);
+    }
+
+    [Fact]
+    public async Task DebugSnapshot_WithLocalsInclude_ReturnsLocals()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { DebugStatusMode = "dbgBreakMode" };
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DebugSnapshot(
+            include: ["locals"],
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Single(response.Value!.Locals!.Locals);
+        Assert.Null(response.Value.CallStack);
+    }
+
+    [Fact]
+    public async Task DebugSnapshot_WithWatchExpressions_EvaluatesOneShotWatch()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { DebugStatusMode = "dbgBreakMode" };
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DebugSnapshot(
+            include: ["watch"],
+            watchExpressions: ["count", "request.Id", "count"],
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        var expressions = session.LastWatchListRequest!.Expressions;
+        Assert.NotNull(expressions);
+        Assert.Equal(["count", "request.Id"], expressions);
+        Assert.Collection(
+            response.Value!.Watch!.Watches,
+            watch => Assert.Equal("count", watch.Name),
+            watch => Assert.Equal("request.Id", watch.Name));
+        Assert.Null(response.Value.Locals);
     }
 
     [Fact]
@@ -409,7 +450,7 @@ public sealed partial class BrokerToolServiceTests
         Assert.Equal(DebugStepKind.Over, session.LastDebugStepRequest!.StepKind);
         Assert.Equal("dbgBreakMode", response.Value!.State.Mode);
         Assert.Single(response.Value.CallStack!.Frames);
-        Assert.Single(response.Value.Locals!.Locals);
+        Assert.Null(response.Value.Locals);
         Assert.Null(response.Value.Breakpoints);
     }
 
@@ -457,8 +498,25 @@ public sealed partial class BrokerToolServiceTests
         Assert.True(response.Success);
         Assert.Equal("dbgBreakMode", response.Value!.State.Mode);
         Assert.Single(response.Value.CallStack!.Frames);
-        Assert.Single(response.Value.Locals!.Locals);
+        Assert.Null(response.Value.Locals);
         Assert.Single(response.Value.Breakpoints!.Breakpoints);
+    }
+
+    [Fact]
+    public async Task DebugWaitForBreak_WithLocalsInclude_ReturnsLocals()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { DebugStatusMode = "dbgBreakMode" };
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DebugWaitForBreak(
+            include: ["locals"],
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Single(response.Value!.Locals!.Locals);
+        Assert.Null(response.Value.CallStack);
     }
 
     [Fact]

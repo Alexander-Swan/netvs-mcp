@@ -539,7 +539,7 @@ public sealed class BrokerRegistrationRpcServiceTests
 
         public Task<WatchOperationResult> WatchRemoveAsync(WatchRemoveRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<WatchListResult> WatchListAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<WatchListResult> WatchListAsync(WatchListRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<DebugThreadListResult> DebugGetThreadsAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 

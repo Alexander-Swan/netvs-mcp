@@ -112,9 +112,9 @@ internal sealed class DebuggerRpcTarget
         return debugger.RemoveWatchAsync(request, cancellationToken);
     }
 
-    public Task<WatchListResult> WatchListAsync(CancellationToken cancellationToken)
+    public Task<WatchListResult> WatchListAsync(WatchListRequest request, CancellationToken cancellationToken)
     {
-        return debugger.ListWatchesAsync(cancellationToken);
+        return debugger.ListWatchesAsync(request, cancellationToken);
     }
 
     public Task<DebugThreadListResult> DebugGetThreadsAsync(CancellationToken cancellationToken)

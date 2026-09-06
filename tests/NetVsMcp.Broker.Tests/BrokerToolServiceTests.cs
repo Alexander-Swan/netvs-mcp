@@ -167,6 +167,8 @@ public sealed partial class BrokerToolServiceTests
 
         public EvaluateExpressionRequest? LastEvaluateExpressionRequest { get; private set; }
 
+        public WatchListRequest? LastWatchListRequest { get; private set; }
+
         public DebugAttachRequest? LastDebugAttachRequest { get; private set; }
 
         public ProcessDetachRequest? LastProcessDetachRequest { get; private set; }
@@ -1081,9 +1083,12 @@ public sealed partial class BrokerToolServiceTests
         public Task<WatchOperationResult> WatchRemoveAsync(WatchRemoveRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(new WatchOperationResult(true, true, "Removed.", new DebugExpressionInfo(request.Expression, "1", "int", true)));
 
-        public Task<WatchListResult> WatchListAsync(CancellationToken cancellationToken)
+        public Task<WatchListResult> WatchListAsync(WatchListRequest request, CancellationToken cancellationToken)
         {
-            IReadOnlyCollection<DebugExpressionInfo> watches = [new("count", "42", "int", true)];
+            LastWatchListRequest = request;
+            IReadOnlyCollection<DebugExpressionInfo> watches = request.Expressions is { Length: > 0 }
+                ? request.Expressions.Select(expression => new DebugExpressionInfo(expression, "42", "int", true)).ToArray()
+                : [new("count", "42", "int", true)];
             return Task.FromResult(new WatchListResult(true, null, watches));
         }
 

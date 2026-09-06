@@ -537,6 +537,11 @@ internal sealed class WatchRemoveRequest
     public string Expression { get; set; } = string.Empty;
 }
 
+internal sealed class WatchListRequest
+{
+    public string[]? Expressions { get; set; }
+}
+
 internal sealed class WatchOperationResult
 {
     public WatchOperationResult(bool supported, bool success, string? message, DebugExpressionInfo? watch)

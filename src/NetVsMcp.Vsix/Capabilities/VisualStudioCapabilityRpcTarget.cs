@@ -303,8 +303,8 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<WatchOperationResult> WatchRemoveAsync(WatchRemoveRequest request, CancellationToken cancellationToken) =>
         InvokeAsync(() => debugger.WatchRemoveAsync(request, cancellationToken), nameof(WatchRemoveAsync));
 
-    public Task<WatchListResult> WatchListAsync(CancellationToken cancellationToken) =>
-        InvokeAsync(() => debugger.WatchListAsync(cancellationToken), nameof(WatchListAsync));
+    public Task<WatchListResult> WatchListAsync(WatchListRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => debugger.WatchListAsync(request, cancellationToken), nameof(WatchListAsync));
 
     public Task<DebugThreadListResult> DebugGetThreadsAsync(CancellationToken cancellationToken) =>
         InvokeAsync(() => debugger.DebugGetThreadsAsync(cancellationToken), nameof(DebugGetThreadsAsync));

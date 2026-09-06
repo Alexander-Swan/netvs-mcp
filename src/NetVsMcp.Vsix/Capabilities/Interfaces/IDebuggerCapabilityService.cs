@@ -32,7 +32,7 @@ internal interface IDebuggerCapabilityService
     Task<DebugSetVariableResult> SetVariableAsync(DebugSetVariableRequest request, CancellationToken cancellationToken);
     Task<WatchOperationResult> AddWatchAsync(WatchAddRequest request, CancellationToken cancellationToken);
     Task<WatchOperationResult> RemoveWatchAsync(WatchRemoveRequest request, CancellationToken cancellationToken);
-    Task<WatchListResult> ListWatchesAsync(CancellationToken cancellationToken);
+    Task<WatchListResult> ListWatchesAsync(WatchListRequest request, CancellationToken cancellationToken);
     Task<DebugThreadListResult> GetThreadsAsync(CancellationToken cancellationToken);
     Task<DebuggedProcessListResult> ListDebuggedProcessesAsync(CancellationToken cancellationToken);
     Task<LocalProcessListResult> ListLocalProcessesAsync(CancellationToken cancellationToken);

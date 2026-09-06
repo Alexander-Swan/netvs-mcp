@@ -121,6 +121,15 @@ public sealed class WatchRemoveRequest
     public string Expression { get; set; } = string.Empty;
 }
 
+public sealed class WatchListRequest
+{
+    /// <summary>
+    /// Optional one-shot expressions to evaluate for this request. When omitted, the session's
+    /// configured watch list is evaluated instead.
+    /// </summary>
+    public string[]? Expressions { get; set; }
+}
+
 public sealed record WatchOperationResult(
     /// <summary>False when the Watch window isn't accessible in the current debugger state.</summary>
     bool Supported,

@@ -574,6 +574,7 @@ internal sealed partial class BrokerToolService
     private static readonly string[] DebugSnapshotKnownIncludeKeys =
     [
         "callStack",
+        "locals",
         "breakpoints",
         "watch",
         "threads",
@@ -583,7 +584,7 @@ internal sealed partial class BrokerToolService
     ];
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_snapshot", Title = "Debug Snapshot", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Optionally advances the debugger (stepInto, stepOver, stepOut, continue, or break), waits for it to settle, and returns state plus locals in one call. Use 'include' to also fetch any of callStack, breakpoints, watch, threads, modules, parallelStacks, parallelWatch (defaults to callStack only when omitted; pass an empty array to fetch none of them). Locals are always fetched best-effort while paused. When 'action' is omitted this is a pure, non-mutating inspection of current state.")]
+    [Description("Optionally advances the debugger (stepInto, stepOver, stepOut, continue, or break), waits for it to settle, and returns a debugger state snapshot. Use 'include' to fetch any of callStack, locals, breakpoints, watch, threads, modules, parallelStacks, parallelWatch (defaults to callStack only when omitted; pass an empty array to fetch none of them). Locals are opt-in via include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions. When 'action' is omitted this is a pure, non-mutating inspection of current state.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugSnapshot(
         DebugAdvanceAction? action = null,
         string[]? include = null,
@@ -591,6 +592,8 @@ internal sealed partial class BrokerToolService
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
+        [Description("Optional one-shot expressions to evaluate when include contains 'watch'. When omitted, 'watch' evaluates the session's configured watch list.")]
+        string[]? watchExpressions = null,
         CancellationToken cancellationToken = default)
     {
         if (settleTimeoutMilliseconds < 0)
@@ -599,6 +602,7 @@ internal sealed partial class BrokerToolService
         }
 
         var (includeKeys, unrecognizedInclude) = ParseDebugSnapshotInclude(include);
+        var watchRequest = CreateWatchListRequest(watchExpressions);
 
         return DispatchValueAsync(
             sessionId,
@@ -632,13 +636,13 @@ internal sealed partial class BrokerToolService
                     }
                 }
 
-                return await CollectDebugSnapshotAsync(connection, state, includeKeys, unrecognizedInclude, ct);
+                return await CollectDebugSnapshotAsync(connection, state, includeKeys, watchRequest, unrecognizedInclude, ct);
             },
             cancellationToken);
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_wait_for_break", Title = "Debug Wait For Break", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Waits for a routed Visual Studio session's debugger to leave dbgRunMode - typically because a breakpoint or tracepoint fired - then returns state, locals, and the requested include categories in one call, the same shape as debug_snapshot. Does not itself advance the debugger; call debug_continue, debug_snapshot (with an action), or breakpoint_group_enable(..., continueExecution: true) first if the debuggee is not already running. Use 'include' the same way as debug_snapshot.")]
+    [Description("Waits for a routed Visual Studio session's debugger to leave dbgRunMode - typically because a breakpoint or tracepoint fired - then returns the requested snapshot categories in the same shape as debug_snapshot. Does not itself advance the debugger; call debug_continue, debug_snapshot (with an action), or breakpoint_group_enable(..., continueExecution: true) first if the debuggee is not already running. Locals are opt-in via include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugWaitForBreak(
         [Description("Maximum time in seconds to wait for the debugger to leave dbgRunMode before giving up and returning the still-running state.")]
         int timeoutSeconds = 30,
@@ -646,6 +650,8 @@ internal sealed partial class BrokerToolService
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
+        [Description("Optional one-shot expressions to evaluate when include contains 'watch'. When omitted, 'watch' evaluates the session's configured watch list.")]
+        string[]? watchExpressions = null,
         CancellationToken cancellationToken = default)
     {
         if (timeoutSeconds <= 0)
@@ -654,6 +660,7 @@ internal sealed partial class BrokerToolService
         }
 
         var (includeKeys, unrecognizedInclude) = ParseDebugSnapshotInclude(include);
+        var watchRequest = CreateWatchListRequest(watchExpressions);
         var timeoutMilliseconds = timeoutSeconds * 1000L;
 
         return DispatchValueAsync(
@@ -672,7 +679,7 @@ internal sealed partial class BrokerToolService
                 }
 
                 var timedOut = state.Mode == "dbgRunMode" && stopwatch.ElapsedMilliseconds >= timeoutMilliseconds;
-                return await CollectDebugSnapshotAsync(connection, state, includeKeys, unrecognizedInclude, ct, timedOut);
+                return await CollectDebugSnapshotAsync(connection, state, includeKeys, watchRequest, unrecognizedInclude, ct, timedOut);
             },
             cancellationToken);
     }
@@ -680,6 +687,7 @@ internal sealed partial class BrokerToolService
         IVisualStudioSessionRpc connection,
         DebuggerStateInfo state,
         HashSet<string> includeKeys,
+        WatchListRequest watchRequest,
         IReadOnlyCollection<string>? unrecognizedInclude,
         CancellationToken cancellationToken,
         bool timedOut = false)
@@ -689,10 +697,10 @@ internal sealed partial class BrokerToolService
             return new DebugSnapshotResult(state, null, null, null, UnrecognizedInclude: unrecognizedInclude, TimedOut: timedOut);
         }
 
-        var locals = await connection.DebugGetLocalsAsync(cancellationToken);
+        var locals = includeKeys.Contains("locals") ? await connection.DebugGetLocalsAsync(cancellationToken) : null;
         var callStack = includeKeys.Contains("callStack") ? await connection.DebugGetCallstackAsync(cancellationToken) : null;
         var breakpoints = includeKeys.Contains("breakpoints") ? await connection.BreakpointListAsync(cancellationToken) : null;
-        var watch = includeKeys.Contains("watch") ? await connection.WatchListAsync(cancellationToken) : null;
+        var watch = includeKeys.Contains("watch") ? await connection.WatchListAsync(watchRequest, cancellationToken) : null;
         var threads = includeKeys.Contains("threads") ? await connection.DebugGetThreadsAsync(cancellationToken) : null;
         var modules = includeKeys.Contains("modules") ? await connection.ModuleListAsync(cancellationToken) : null;
         var parallelStacks = includeKeys.Contains("parallelStacks") ? await connection.ParallelStacksAsync(cancellationToken) : null;
@@ -711,6 +719,21 @@ internal sealed partial class BrokerToolService
             unrecognizedInclude,
             timedOut);
     }
+
+    private static WatchListRequest CreateWatchListRequest(string[]? watchExpressions)
+    {
+        var expressions = watchExpressions?
+            .Where(expression => !string.IsNullOrWhiteSpace(expression))
+            .Select(expression => expression.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        return new WatchListRequest
+        {
+            Expressions = expressions is { Length: > 0 } ? expressions : null
+        };
+    }
+
     private static (HashSet<string> Keys, IReadOnlyCollection<string>? Unrecognized) ParseDebugSnapshotInclude(string[]? include)
     {
         if (include is null)
@@ -929,7 +952,7 @@ internal sealed partial class BrokerToolService
     [McpServerTool(Name = "watch_list", Title = "Watch List", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Lists debugger watch expressions when supported by the VSIX debugger service.")]
     public Task<ToolResponse<WatchListResult>> WatchList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.WatchListAsync(ct), cancellationToken);
+        DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.WatchListAsync(new WatchListRequest(), ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "thread_switch", Title = "Thread Switch", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Switches the active debugger thread.")]

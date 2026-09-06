@@ -439,11 +439,13 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
             new DebugExpressionInfo(expressionText, null, null, false));
     }
 
-    public async Task<WatchListResult> ListWatchesAsync(CancellationToken cancellationToken)
+    public async Task<WatchListResult> ListWatchesAsync(WatchListRequest request, CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var watches = new List<DebugExpressionInfo>();
-        foreach (var expressionText in watchExpressions.ToArray())
+        var expressions = NormalizeWatchExpressions(request.Expressions) ?? watchExpressions.ToArray();
+
+        foreach (var expressionText in expressions)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
@@ -460,6 +462,17 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         }
 
         return new WatchListResult(true, null, watches);
+    }
+
+    private static string[]? NormalizeWatchExpressions(string[]? expressions)
+    {
+        var normalized = expressions?
+            .Where(expression => !string.IsNullOrWhiteSpace(expression))
+            .Select(expression => expression.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        return normalized is { Length: > 0 } ? normalized : null;
     }
 
     public async Task<DebugThreadListResult> GetThreadsAsync(CancellationToken cancellationToken)
@@ -948,7 +961,7 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
 
     public async Task<ParallelWatchResult> GetParallelWatchAsync(CancellationToken cancellationToken)
     {
-        var watches = await ListWatchesAsync(cancellationToken);
+        var watches = await ListWatchesAsync(new WatchListRequest(), cancellationToken);
         return new ParallelWatchResult(watches.Supported, watches.Message, watches.Watches);
     }
 

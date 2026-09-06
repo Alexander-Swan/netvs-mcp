@@ -348,7 +348,9 @@ public interface IVisualStudioSessionRpc
         WatchRemoveRequest request,
         CancellationToken cancellationToken);
 
-    Task<WatchListResult> WatchListAsync(CancellationToken cancellationToken);
+    Task<WatchListResult> WatchListAsync(
+        WatchListRequest request,
+        CancellationToken cancellationToken);
 
     Task<DebugThreadListResult> DebugGetThreadsAsync(CancellationToken cancellationToken);
 
