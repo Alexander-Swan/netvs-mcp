@@ -584,7 +584,7 @@ internal sealed partial class BrokerToolService
     ];
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_snapshot", Title = "Debug Snapshot", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Optionally advances the debugger (stepInto, stepOver, stepOut, continue, or break), waits for it to settle, and returns a debugger state snapshot. Use 'include' to fetch any of callStack, locals, breakpoints, watch, threads, modules, parallelStacks, parallelWatch (defaults to callStack only when omitted; pass an empty array to fetch none of them). Locals are opt-in via include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions. When 'action' is omitted this is a pure, non-mutating inspection of current state.")]
+    [Description("Optionally advances the debugger (stepInto, stepOver, stepOut, continue, or break), waits for it to settle, and returns a debugger state snapshot. Use 'include' to fetch any of callStack, locals, breakpoints, watch, threads, modules, parallelStacks, parallelWatch (defaults to callStack only when omitted; pass an empty array to fetch none of them). Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions. When 'action' is omitted this is a pure, non-mutating inspection of current state.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugSnapshot(
         DebugAdvanceAction? action = null,
         string[]? include = null,
@@ -642,7 +642,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_wait_for_break", Title = "Debug Wait For Break", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Waits for a routed Visual Studio session's debugger to leave dbgRunMode - typically because a breakpoint or tracepoint fired - then returns the requested snapshot categories in the same shape as debug_snapshot. Does not itself advance the debugger; call debug_continue, debug_snapshot (with an action), or breakpoint_group_enable(..., continueExecution: true) first if the debuggee is not already running. Locals are opt-in via include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions.")]
+    [Description("Waits for a routed Visual Studio session's debugger to leave dbgRunMode - typically because a breakpoint or tracepoint fired - then returns the requested snapshot categories in the same shape as debug_snapshot. Does not itself advance the debugger; call debug_continue, debug_snapshot (with an action), or breakpoint_group_enable(..., continueExecution: true) first if the debuggee is not already running. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugWaitForBreak(
         [Description("Maximum time in seconds to wait for the debugger to leave dbgRunMode before giving up and returning the still-running state.")]
         int timeoutSeconds = 30,
