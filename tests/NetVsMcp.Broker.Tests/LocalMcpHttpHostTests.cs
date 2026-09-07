@@ -115,6 +115,33 @@ public sealed class LocalMcpHttpHostTests
 
             var readBody = await readResource.Content.ReadAsStringAsync();
             Assert.Contains("Visual Studio", readBody);
+
+            using var listResourceTemplates = await PostMcpAsync(http, new
+            {
+                jsonrpc = "2.0",
+                id = 5,
+                method = "resources/templates/list",
+                @params = new { }
+            });
+            listResourceTemplates.EnsureSuccessStatusCode();
+
+            var resourceTemplatesBody = await listResourceTemplates.Content.ReadAsStringAsync();
+            Assert.Contains("guide://netvsmcp/{guideName}/references/{fileName}", resourceTemplatesBody);
+
+            using var readReferenceResource = await PostMcpAsync(http, new
+            {
+                jsonrpc = "2.0",
+                id = 6,
+                method = "resources/read",
+                @params = new
+                {
+                    uri = "guide://netvsmcp/debug-visual-studio/references/breakpoints.md"
+                }
+            });
+            readReferenceResource.EnsureSuccessStatusCode();
+
+            var readReferenceBody = await readReferenceResource.Content.ReadAsStringAsync();
+            Assert.Contains("Breakpoints And Tracepoints", readReferenceBody);
         }
         finally
         {

@@ -91,10 +91,14 @@ internal sealed class BestPracticeGuideCatalog
 
     public TextResourceContents ReadResource(string guideName)
     {
-        var file = $"{guideName}.md";
+        return ReadResource(guideName, $"{guideName}.md");
+    }
+
+    public TextResourceContents ReadResource(string guideName, string file)
+    {
         if (!TryReadFile(guideName, file, out _, out var content, out var resourceUri, out var mimeType))
         {
-            throw new InvalidOperationException($"NetVsMcp guide not found: {guideName}");
+            throw new InvalidOperationException($"NetVsMcp guide file not found: {guideName}/{file}");
         }
 
         return new TextResourceContents
@@ -292,4 +296,9 @@ internal sealed class BestPracticeGuideResources
     [McpServerResource(UriTemplate = "guide://netvsmcp/automate-visual-studio.md", Name = "NetVsMcp Automate Visual Studio Best Practices", MimeType = "text/markdown")]
     [Description("Agent-neutral best-practices guide for debuggee UI automation, browser control, screenshots, DOM access, and console I/O.")]
     public TextResourceContents AutomateVisualStudio() => catalog.ReadResource("automate-visual-studio");
+
+    [McpServerResource(UriTemplate = "guide://netvsmcp/{guideName}/references/{fileName}", Name = "NetVsMcp Best Practices Reference", MimeType = "text/markdown")]
+    [Description("Focused reference file for a NetVsMcp best-practices guide.")]
+    public TextResourceContents ReferenceFile(string guideName, string fileName) =>
+        catalog.ReadResource(guideName, $"references/{fileName}");
 }
