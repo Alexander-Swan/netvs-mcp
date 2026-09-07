@@ -173,7 +173,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "netvs_get_best_practices", Title = "Get NetVsMcp Best Practices", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("CALL THIS FIRST before using tools from a matching category. Lists bundled agent-neutral NetVsMcp best-practices guides, or reads one guide file. Call without arguments to list guides (each with its description and matching tool-name prefixes); pass guide and optional file to read one guide's content. Guides: manage-visual-studio (session/window/solution/project/test tools), navigate-visual-studio (code_*, symbol_*, diagnostics_*), edit-visual-studio (document_*, editor_*, selection_*, edit_*, safe-edit tools), build-visual-studio (build_*, output_*, nuget_*, package_*, project_add_reference), debug-visual-studio (debug_*, breakpoint_*, watch_*, thread_*, process_*, module_list, exception_settings_*, parallel_*, immediate_execute, test_debug), automate-visual-studio (console_*, ui_*, web_*).")]
+    [Description("Lists or reads bundled agent-neutral NetVsMcp best-practices guides. Before using a NetVsMcp tool family, call without arguments to choose the matching guide, then read that small entrypoint and only the reference files needed for the current operation. Pass guide and optional file to read one file. For learning NetVsMcp or creating local agent skills, read more broadly but keep generated skills reference-based.")]
     public ToolResponse<BestPracticeGuideToolResult> NetVsGetBestPractices(
         string? guide = null,
         string? file = null)

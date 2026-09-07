@@ -103,9 +103,13 @@ The broker status window shows this snippet ready to copy. The `netvs-web-automa
 
 NetVsMcp gives your AI agent tools to control Visual Studio. For better results, pair it with the included best-practices guides: domain knowledge that teaches the agent how to route to the right Visual Studio session and use the management, navigation, editing, build, debug, and automation tools safely.
 
-The broker exposes the bundled guides as MCP resources such as `guide://netvsmcp/manage-visual-studio.md`. Tool-only clients can call `netvs_get_best_practices` with no arguments to list guides, or with `guide` and optional `file` to read one. The bundled guides are agent-neutral defaults, not locked policy; users and projects can layer their own agent or repository instructions on top.
+The broker exposes the bundled guide entrypoints as MCP resources such as `guide://netvsmcp/manage-visual-studio.md`. Tool-only clients can call `netvs_get_best_practices` with no arguments to list guides and reference files, or with `guide` and optional `file` to read one file.
 
-The same files are available in the repository for manual use under `.agents/skills`. They are not required for the broker to run, but they help agents avoid brittle workflows and choose native Visual Studio operations instead of guessing.
+The guides are designed for progressive disclosure. When an agent is about to use a NetVsMcp tool family, it should read the matching guide's small entrypoint first, then only the reference files needed for the current operation. When the user asks to learn NetVsMcp or create local agent skills for it, the agent can read more broadly, but generated skills should also stay small and route to references instead of embedding the full guide text.
+
+The bundled guides are agent-neutral defaults, not locked policy; users and projects can layer their own agent or repository instructions on top.
+
+The source files for the exposed guide corpus live under `BestPractices/`. They are product assets bundled into the broker and exposed to NetVsMcp clients; they are intentionally not stored under `.agents` or `.codex` so agents developing this repository do not load the client-facing tool manuals as local development skills.
 
 ## Projects
 

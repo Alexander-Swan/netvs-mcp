@@ -1,15 +1,10 @@
 # Agent Instructions
 
-## Visual Studio Skill Guides
+## Product Best-Practices Guides
 
-This repository documents its NetVsMcp MCP tools as a set of agent-neutral skill guides under `.agents/skills/`, each with a matching Codex adapter under `.codex/skills/`. Read whichever guide matches the task at hand before using its tools:
+NetVsMcp exposes client-facing best-practices guides from `BestPractices/` through the broker's `netvs_get_best_practices` tool and `guide://netvsmcp/...` resources. These files are product assets, not local development-agent skills. Do not load them wholesale while developing this repository.
 
-- Session routing, launching Visual Studio, windows, solutions, projects, and tests: `.agents/skills/manage-visual-studio.md` (`.codex/skills/manage-visual-studio/SKILL.md`)
-- Debugging (breakpoints, stepping, locals, watches, threads, processes): `.agents/skills/debug-visual-studio.md` (`.codex/skills/debug-visual-studio/SKILL.md`)
-- Documents, direct edits, selection, and the safe-edit preview/approve workflow: `.agents/skills/edit-visual-studio.md` (`.codex/skills/edit-visual-studio/SKILL.md`)
-- Code navigation, symbol/reference lookup, diagnostics, and search: `.agents/skills/navigate-visual-studio.md` (`.codex/skills/navigate-visual-studio/SKILL.md`)
-- Build, output panes, and NuGet packages: `.agents/skills/build-visual-studio.md` (`.codex/skills/build-visual-studio/SKILL.md`)
-- UI automation, browser/web debugging, and debuggee console I/O: `.agents/skills/automate-visual-studio.md` (`.codex/skills/automate-visual-studio/SKILL.md`)
+When editing the exposed guide corpus itself, preserve its progressive-disclosure shape: small entrypoints plus focused reference files. When testing NetVsMcp as a client would use it, access the guides through `netvs_get_best_practices` instead of treating `BestPractices/` as repo instructions.
 
 ## Visual Studio Debugging
 

@@ -77,7 +77,9 @@ Use `127.0.0.1` or `localhost`; the broker rejects non-loopback hosts. The `netv
 
 ## Best-Practices Guides
 
-After configuring the MCP client, load the included NetVsMcp best-practices guides if your agent supports MCP resources or instruction bundles. The broker exposes the guides as MCP resources such as `guide://netvsmcp/manage-visual-studio.md`; tool-only clients can call `netvs_get_best_practices` with no arguments to list guides, or with `guide` and optional `file` to read one.
+After configuring the MCP client, use the included NetVsMcp best-practices guides when your agent is about to use a matching tool family. The broker exposes the guide entrypoints as MCP resources such as `guide://netvsmcp/manage-visual-studio.md`; tool-only clients can call `netvs_get_best_practices` with no arguments to list guides and reference files, or with `guide` and optional `file` to read one file.
+
+The guides are intentionally small entrypoints plus focused references. For normal tool use, read the matching entrypoint first and then only the reference files needed for the current operation. For learning NetVsMcp or creating local skills for an agent, it is reasonable to read more broadly, but those local skills should also use references so they do not load large tool manuals into context for small tasks.
 
 The MCP server provides the tools; the guides provide the Visual Studio operating judgment. They are not required for the broker to run, but they help agents choose the right session, prefer native IDE operations, and use the build, edit, debug, navigation, and automation tools safely. They are agent-neutral defaults, not locked policy: users can layer their own project or user instructions over the bundled guides through their agent's normal instruction mechanism.
 

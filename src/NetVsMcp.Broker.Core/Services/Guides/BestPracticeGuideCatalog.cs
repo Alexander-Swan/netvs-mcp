@@ -21,43 +21,12 @@ internal sealed class BestPracticeGuideCatalog
 
     private static readonly IReadOnlyDictionary<string, string> Descriptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
-        ["manage-visual-studio"] = "Session routing, launching Visual Studio, windows, solutions, projects, and tests. " +
-            "TRIGGER BEFORE CALLING: vs_list_sessions, vs_get_status, vs_get_session, vs_select_session, vs_ping, vs_launch_instance, " +
-            "vs_context_snapshot, execute_command, get_status, window_list, window_activate, toolwindow_show, toolwindow_hide, " +
-            "solution_info, solution_open, solution_close, solution_add_project, solution_remove_project, solution_overview, " +
-            "project_list, project_info, project_add_file, project_remove_file, project_dependencies, startup_project_get, " +
-            "startup_project_set, test_discover, test_run, test_results, test_run_and_get_results, task_list_get, task_list_add, " +
-            "task_list_remove, task_list_set_checked, git_context, vs_get_logs.",
-        ["navigate-visual-studio"] = "Definitions, references, symbols, diagnostics, code fixes, and workspace search. " +
-            "TRIGGER BEFORE CALLING: document_active, code_document_symbols, code_go_to_definition, code_go_to_implementation, " +
-            "code_find_references, code_workspace_symbols, symbol_context, document_outline, find_implementations, " +
-            "rename_symbol_preview, rename_symbol_apply, call_hierarchy_get, code_actions_list, code_actions_apply, document_read, " +
-            "document_open, document_list, document_close, open_relevant_files, errors_list, diagnostics_for_document, " +
-            "diagnostics_binding_errors, editor_find, find_in_files.",
-        ["edit-visual-studio"] = "Documents, direct editor edits, selections, formatting, and safe-edit previews. " +
-            "TRIGGER BEFORE CALLING: selection_get, selection_set, document_write, document_save, editor_insert, editor_replace, " +
-            "editor_goto_line, document_cleanup, format_and_organize, edit_preview, prepare_safe_edit, edit_approve, " +
-            "apply_safe_edit_and_build, edit_reject, edit_list_pending.",
-        ["build-visual-studio"] = "Build, rebuild, clean, NuGet/package operations, output panes, and error lists. " +
-            "TRIGGER BEFORE CALLING: build_solution, build_status, build_and_get_errors, build_project, build_cancel, " +
-            "clean_solution, rebuild_solution, build_configuration_get, build_configuration_set, output_read, output_list_panes, " +
-            "output_write, output_clear, package_restore, project_add_reference, project_remove_reference, nuget_list, " +
-            "nuget_search, nuget_install, nuget_update, nuget_uninstall.",
-        ["debug-visual-studio"] = "Debugger start/attach/step, breakpoints, locals, watches, threads, modules, and processes. " +
-            "TRIGGER BEFORE CALLING: debug_status, debug_hot_reload_apply, debug_get_mode, debug_start, debug_stop, " +
-            "debug_continue, debug_break, debug_step, debug_start_without_debugging, debug_restart, debug_attach, " +
-            "debug_get_callstack, debug_get_locals, debug_evaluate, debug_eval_many, debug_snapshot, debug_wait_for_break, " +
-            "debug_get_threads, debug_set_variable, breakpoint_set, breakpoint_list, breakpoint_group_list, breakpoint_remove, " +
-            "breakpoint_enable, breakpoint_group_enable, breakpoint_group_remove, watch_add, watch_remove, watch_list, " +
-            "thread_switch, thread_set_frozen, thread_get_callstack, process_list_debugged, process_list_local, process_detach, " +
-            "process_terminate, immediate_execute, module_list, exception_settings_get, exception_settings_set, parallel_stacks, " +
-            "parallel_watch, test_debug.",
-        ["automate-visual-studio"] = "Debuggee UI automation, browser control, screenshots, DOM access, and console I/O. " +
-            "TRIGGER BEFORE CALLING: console_read, console_send, console_get_info, ui_capture_window, ui_capture_region, " +
-            "ui_snapshot, ui_get_tree, ui_find_elements, ui_get_element, ui_click, ui_double_click, ui_right_click, ui_drag, " +
-            "ui_set_value, ui_invoke, ui_send_keys, ui_wait_for_element, ui_wait_idle, web_connect, web_disconnect, web_status, " +
-            "web_navigate, web_screenshot, web_dom_get, web_dom_query, web_console, web_js_execute, web_network, " +
-            "web_element_click, web_element_set_value."
+        ["manage-visual-studio"] = "Session routing, launching Visual Studio, windows, solutions, projects, references, and tests. Read before using vs_*, solution_*, project_*, startup_project_*, test_*, window_*, toolwindow_*, task_list_*, git_context, execute_command, or vs_context_snapshot.",
+        ["navigate-visual-studio"] = "Definitions, references, symbols, diagnostics, code fixes, renames, call hierarchy, and workspace search. Read before using code_*, symbol_context, document_outline, find_implementations, rename_symbol_*, call_hierarchy_get, code_actions_*, diagnostics_*, editor_find, find_in_files, open_relevant_files, or related document read/open/list tools.",
+        ["edit-visual-studio"] = "Documents, direct editor edits, selections, formatting, and safe-edit previews. Read before using document_*, editor_*, selection_*, document_cleanup, format_and_organize, edit_*, prepare_safe_edit, or apply_safe_edit_and_build.",
+        ["build-visual-studio"] = "Build, rebuild, clean, NuGet/package operations, output panes, Task List, and error lists. Read before using build_*, clean_solution, rebuild_solution, errors_list, output_*, task_list_*, package_restore, project_dependencies, project_add_reference, project_remove_reference, or nuget_*.",
+        ["debug-visual-studio"] = "Debugger start/attach/step, breakpoints, locals, watches, threads, modules, processes, and test debugging. Read before using debug_*, breakpoint_*, watch_*, thread_*, process_*, module_list, exception_settings_*, parallel_*, immediate_execute, or test_debug.",
+        ["automate-visual-studio"] = "Debuggee UI automation, browser control, screenshots, DOM access, and console I/O. Read before using console_*, ui_*, or web_*."
     };
 
     private static readonly IReadOnlyDictionary<string, string> DefaultEndpointOnly = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -83,14 +52,14 @@ internal sealed class BestPracticeGuideCatalog
     private readonly string? repositoryGuidesRoot;
     public BestPracticeGuideCatalog()
     {
-        bundledGuidesRoot = ResolveDirectory(Path.Combine("BundledGuides", "skills"), null);
-        repositoryGuidesRoot = ResolveDirectory(null, Path.Combine(".agents", "skills"));
+        bundledGuidesRoot = ResolveDirectory("BestPractices", null);
+        repositoryGuidesRoot = ResolveDirectory(null, "BestPractices");
     }
 
     public BestPracticeGuideToolResult List()
     {
         return new BestPracticeGuideToolResult(
-            "NetVsMcp best-practices guides are available as MCP resources and through this tool. Each guide below lists the tool-name prefixes it covers ('TRIGGER BEFORE CALLING') — read the matching guide before calling any of those tools, e.g. read 'debug-visual-studio' before debug_start/breakpoint_set/etc. These guides are agent-neutral defaults, not locked policy; user or project instructions can layer additional guidance on top.",
+            "NetVsMcp best-practices guides are available as MCP resources and through this tool. For tool use, read the matching guide's small entrypoint first, then only the reference files needed for the current operation. For learning NetVsMcp or creating local agent skills, read the entrypoints and the relevant references deliberately instead of loading every file by default. These guides are agent-neutral defaults, not locked policy; user or project instructions can layer additional guidance on top.",
             GuideNames.Select(CreateInfo).ToArray(),
             null);
     }
@@ -109,21 +78,21 @@ internal sealed class BestPracticeGuideCatalog
         }
 
         var guideFile = string.IsNullOrWhiteSpace(file) ? $"{guideName}.md" : file.Trim();
-        if (!TryReadFile(guideName, guideFile, out var content, out var resourceUri, out var mimeType))
+        if (!TryReadFile(guideName, guideFile, out var resolvedFile, out var content, out var resourceUri, out var mimeType))
         {
             return ToolResponse<BestPracticeGuideToolResult>.Fail($"Guide file '{guideFile}' was not found for '{guideName}'. Call without arguments to list available files.");
         }
 
         return ToolResponse<BestPracticeGuideToolResult>.Ok(new BestPracticeGuideToolResult(
-            $"Read NetVsMcp best-practices guide '{guideName}' file '{guideFile}'.",
+            $"Read NetVsMcp best-practices guide '{guideName}' file '{resolvedFile}'.",
             GuideNames.Select(CreateInfo).ToArray(),
-            new BestPracticeGuideContent(guideName, guideFile.Replace('\\', '/'), resourceUri, mimeType, content)));
+            new BestPracticeGuideContent(guideName, resolvedFile, resourceUri, mimeType, content)));
     }
 
     public TextResourceContents ReadResource(string guideName)
     {
         var file = $"{guideName}.md";
-        if (!TryReadFile(guideName, file, out var content, out var resourceUri, out var mimeType))
+        if (!TryReadFile(guideName, file, out _, out var content, out var resourceUri, out var mimeType))
         {
             throw new InvalidOperationException($"NetVsMcp guide not found: {guideName}");
         }
@@ -141,16 +110,34 @@ internal sealed class BestPracticeGuideCatalog
         var files = new List<BestPracticeGuideFileInfo>();
         foreach (var root in EnumerateExistingRoots(bundledGuidesRoot, repositoryGuidesRoot))
         {
-            var path = Path.Combine(root, $"{guideName}.md");
-            if (File.Exists(path) && !files.Any(file => string.Equals(file.Path, $"{guideName}.md", StringComparison.OrdinalIgnoreCase)))
+            var mainFile = $"{guideName}.md";
+            var mainPath = Path.Combine(root, mainFile);
+            if (File.Exists(mainPath) && !files.Any(file => string.Equals(file.Path, mainFile, StringComparison.OrdinalIgnoreCase)))
             {
-                files.Add(new BestPracticeGuideFileInfo($"{guideName}.md", CreateResourceUri(guideName), MimeTypeMarkdown));
+                files.Add(new BestPracticeGuideFileInfo(mainFile, CreateResourceUri(guideName, mainFile), MimeTypeMarkdown));
+            }
+
+            var guideDirectory = Path.Combine(root, guideName);
+            if (!Directory.Exists(guideDirectory))
+            {
+                continue;
+            }
+
+            foreach (var path in Directory.EnumerateFiles(guideDirectory, "*.md", SearchOption.AllDirectories).OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+            {
+                var relativePath = Path.GetRelativePath(guideDirectory, path).Replace('\\', '/');
+                var guidePath = $"{guideName}/{relativePath}";
+                if (!files.Any(file => string.Equals(file.Path, guidePath, StringComparison.OrdinalIgnoreCase)))
+                {
+                    files.Add(new BestPracticeGuideFileInfo(guidePath, CreateResourceUri(guideName, guidePath), MimeTypeMarkdown));
+                }
             }
         }
 
         if (files.Count == 0)
         {
-            files.Add(new BestPracticeGuideFileInfo($"{guideName}.md", CreateResourceUri(guideName), MimeTypeMarkdown));
+            var mainFile = $"{guideName}.md";
+            files.Add(new BestPracticeGuideFileInfo(mainFile, CreateResourceUri(guideName, mainFile), MimeTypeMarkdown));
         }
 
         var endpoints = (EndpointsByGuide.TryGetValue(guideName, out var guideEndpoints) ? guideEndpoints : DefaultEndpointOnly)
@@ -165,23 +152,38 @@ internal sealed class BestPracticeGuideCatalog
             endpoints);
     }
 
-    private bool TryReadFile(string guideName, string file, out string content, out string resourceUri, out string mimeType)
+    private bool TryReadFile(string guideName, string file, out string resolvedFile, out string content, out string resourceUri, out string mimeType)
     {
+        resolvedFile = string.Empty;
         content = string.Empty;
         resourceUri = CreateResourceUri(guideName);
         mimeType = MimeTypeMarkdown;
 
         var normalizedFile = file.Replace('\\', '/').TrimStart('/');
-        if (!string.Equals(normalizedFile, $"{guideName}.md", StringComparison.OrdinalIgnoreCase))
+        var mainFile = $"{guideName}.md";
+        var guidePrefix = $"{guideName}/";
+        var scopedFile = string.Equals(normalizedFile, mainFile, StringComparison.OrdinalIgnoreCase)
+            ? mainFile
+            : normalizedFile.StartsWith(guidePrefix, StringComparison.OrdinalIgnoreCase)
+                ? normalizedFile
+                : $"{guideName}/{normalizedFile}";
+
+        if (!string.Equals(scopedFile, mainFile, StringComparison.OrdinalIgnoreCase) &&
+            !scopedFile.StartsWith(guidePrefix, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
+        resolvedFile = scopedFile;
+        resourceUri = CreateResourceUri(guideName, scopedFile);
+
         foreach (var root in EnumerateExistingRoots(bundledGuidesRoot, repositoryGuidesRoot))
         {
-            var fullPath = Path.GetFullPath(Path.Combine(root, normalizedFile));
-            var fullRoot = Path.GetFullPath(root);
-            if (!IsWithinDirectory(fullRoot, fullPath) || !File.Exists(fullPath))
+            var fullPath = Path.GetFullPath(Path.Combine(root, scopedFile));
+            var containingDirectory = string.Equals(scopedFile, mainFile, StringComparison.OrdinalIgnoreCase)
+                ? Path.GetFullPath(root)
+                : Path.GetFullPath(Path.Combine(root, guideName));
+            if (!IsWithinDirectory(containingDirectory, fullPath) || !File.Exists(fullPath))
             {
                 continue;
             }
@@ -194,7 +196,10 @@ internal sealed class BestPracticeGuideCatalog
     }
 
     private static string CreateResourceUri(string guideName) =>
-        $"guide://netvsmcp/{guideName}.md";
+        CreateResourceUri(guideName, $"{guideName}.md");
+
+    private static string CreateResourceUri(string guideName, string file) =>
+        $"guide://netvsmcp/{file.Replace('\\', '/')}";
 
     private static bool IsWithinDirectory(string root, string path)
     {
