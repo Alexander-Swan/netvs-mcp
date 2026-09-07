@@ -56,12 +56,10 @@ public partial class App : System.Windows.Application
             _runtime = _services.GetRequiredService<BrokerRuntime>();
             await _runtime.StartAsync(CancellationToken.None);
 
-            var viewModel = _services.GetRequiredService<MainWindowViewModel>();
             _mainWindow = _services.GetRequiredService<MainWindow>();
             _trayIcon = _services.GetRequiredService<TrayIconController>();
-            _mainWindow.Show();
 
-            _ = CheckForUpdatesOnStartupAsync(viewModel, _trayIcon);
+            _services.GetRequiredService<StartupUpdateCheckService>().Start();
         }
         catch (Exception ex)
         {
@@ -80,14 +78,6 @@ public partial class App : System.Windows.Application
         var services = new ServiceCollection();
         services.AddNetVsMcpBrokerApp(args);
         return services.BuildServiceProvider();
-    }
-
-    private static async Task CheckForUpdatesOnStartupAsync(MainWindowViewModel viewModel, TrayIconController tray)
-    {
-        await Task.Delay(TimeSpan.FromSeconds(5));
-        await viewModel.CheckForUpdatesAsync();
-        if (viewModel.UpdateAvailable)
-            tray.ShowUpdateAvailableBalloon(viewModel.UpdateVersionText);
     }
 
     private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)

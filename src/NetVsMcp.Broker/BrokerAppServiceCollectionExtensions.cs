@@ -14,6 +14,7 @@ public static class BrokerAppServiceCollectionExtensions
         services.AddNetVsMcpBrokerCore(args);
         services.AddSingleton<IAutostartService, AutostartService>();
         services.AddSingleton<UpdateCheckService>();
+        services.AddSingleton<StartupUpdateCheckService>();
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<MainWindow>();
         services.AddSingleton<Func<Window>>(provider => () => provider.GetRequiredService<MainWindow>());
