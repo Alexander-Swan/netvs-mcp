@@ -1,3 +1,4 @@
+global using NetVsMcp.Broker.Analytics.Services.Interfaces;
 global using NetVsMcp.Broker.Services.Logging.Interfaces;
 global using NetVsMcp.Broker.Services.Sessions.Interfaces;
 global using NetVsMcp.Broker.Services.Settings.Interfaces;

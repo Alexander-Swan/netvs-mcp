@@ -58,6 +58,29 @@ public sealed class BrokerOptionsTests
     }
 
     [Fact]
+    public void FromArgs_AcceptsAnalyticsDatabasePathArgument()
+    {
+        var options = BrokerOptions.FromArgs(["--analytics-db", @"C:\Temp\netvs-analytics-test.db"]);
+
+        Assert.Equal(@"C:\Temp\netvs-analytics-test.db", options.AnalyticsDatabaseFilePath);
+    }
+
+    [Fact]
+    public void DefaultAnalyticsDatabasePath_IsSeparatedByBuildConfiguration()
+    {
+#if DEBUG
+        Assert.Equal(
+            Path.Combine(AppContext.BaseDirectory, "Analytics", "analytics.db"),
+            BrokerOptions.DefaultAnalyticsDatabasePath);
+#else
+        Assert.EndsWith(Path.Combine("Analytics", "analytics.db"), BrokerOptions.DefaultAnalyticsDatabasePath);
+        Assert.Contains(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            BrokerOptions.DefaultAnalyticsDatabasePath);
+#endif
+    }
+
+    [Fact]
     public void McpRegistrationJson_IncludesDefaultAndWebAutomationServers()
     {
         using var document = JsonDocument.Parse(BrokerOptions.LocalDefault.McpRegistrationJson);

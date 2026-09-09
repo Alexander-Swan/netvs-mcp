@@ -31,6 +31,7 @@ public sealed partial class BrokerToolServiceTests
         Assert.Contains(response.Value.Tools, tool => tool.Name == "vs_get_status");
         Assert.DoesNotContain(response.Value.Tools, tool => tool.Name == "vs_get_capabilities");
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "netvs_doctor", RequiresVisualStudioSession: false, Category: BrokerToolCategory.Broker });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_get_usage_summary", RequiresVisualStudioSession: false, Category: BrokerToolCategory.Broker });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_get_session", RequiresVisualStudioSession: false });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_select_session", RequiresVisualStudioSession: false });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "vs_ping", RequiresVisualStudioSession: false });
@@ -991,5 +992,43 @@ public sealed partial class BrokerToolServiceTests
 
         Assert.True(response.Success);
         Assert.False(Directory.Exists(runtime.AuditLog.LogsDirectory));
+    }
+
+    [Fact]
+    public void UsageAnalytics_Disabled_DoesNotCreateDatabaseWhenToolIsCalled()
+    {
+        var runtime = CreateRuntime();
+
+        var response = runtime.Tools.VsPing();
+
+        Assert.True(response.Success);
+        Assert.False(File.Exists(runtime.Options.AnalyticsDatabaseFilePath));
+    }
+
+    [Fact]
+    public void UsageAnalytics_Enabled_RecordsBrokerToolCall()
+    {
+        var runtime = CreateRuntime();
+        runtime.UsageAnalyticsEnabled = true;
+
+        var response = runtime.Tools.VsPing();
+        var summary = runtime.Tools.VsGetUsageSummary(groupBy: "tool");
+
+        Assert.True(response.Success);
+        Assert.True(summary.Success);
+        var row = Assert.Single(summary.Value!.Rows, row => row.ToolName == "vs_ping");
+        Assert.Equal(1, row.CallCount);
+        Assert.Equal(1, row.SuccessCount);
+        Assert.Equal(0, row.FailureCount);
+        Assert.True(File.Exists(runtime.Options.AnalyticsDatabaseFilePath));
+    }
+
+    [Fact]
+    public void UsageAnalyticsRetentionDays_RejectsZeroAndNegativeValues()
+    {
+        var runtime = CreateRuntime();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => runtime.UsageAnalyticsRetentionDays = 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => runtime.UsageAnalyticsRetentionDays = -1);
     }
 }

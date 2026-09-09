@@ -1,5 +1,6 @@
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using NetVsMcp.Broker.Analytics;
 using NetVsMcp.Broker.Services;
 using NetVsMcp.Broker.ViewModels;
 
@@ -12,6 +13,8 @@ public static class BrokerAppServiceCollectionExtensions
         string[]? args)
     {
         services.AddNetVsMcpBrokerCore(args);
+        services.AddNetVsMcpBrokerAnalytics(provider =>
+            provider.GetRequiredService<BrokerOptions>().AnalyticsDatabaseFilePath);
         services.AddSingleton<IAutostartService, AutostartService>();
         services.AddSingleton<UpdateCheckService>();
         services.AddSingleton<StartupUpdateCheckService>();

@@ -179,7 +179,13 @@ internal sealed partial class BrokerToolService
             Version = version
         };
 
-        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => operation(connection, request, ct), cancellationToken);
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => operation(connection, request, ct),
+            cancellationToken,
+            requestPayload: request);
     }
 }
 

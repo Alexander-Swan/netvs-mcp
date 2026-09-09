@@ -13,6 +13,8 @@ public sealed record BrokerSettings(
     bool IncludeDevVersionUpdates = false,
     string? IgnoredUpdateVersion = null,
     int? AuditLogRetentionDays = null,
+    bool UsageAnalyticsEnabled = false,
+    int? UsageAnalyticsRetentionDays = null,
     BrokerLogLevel MinimumLogLevel = BrokerLogLevel.Info,
     bool BackupConfigBeforeRegistering = true);
 

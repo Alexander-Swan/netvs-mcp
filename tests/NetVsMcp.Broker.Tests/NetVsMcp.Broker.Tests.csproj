@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\NetVsMcp.Broker\NetVsMcp.Broker.csproj" />
+    <ProjectReference Include="..\..\src\NetVsMcp.Broker.Analytics\NetVsMcp.Broker.Analytics.csproj" />
     <ProjectReference Include="..\..\src\NetVsMcp.Broker.Core\NetVsMcp.Broker.Core.csproj" />
     <ProjectReference Include="..\..\src\NetVsMcp.Broker.Services\NetVsMcp.Broker.Services.csproj" />
   </ItemGroup>

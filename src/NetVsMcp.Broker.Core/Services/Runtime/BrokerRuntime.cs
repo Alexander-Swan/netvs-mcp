@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
+using NetVsMcp.Broker.Analytics;
 using NetVsMcp.Contracts;
 
 namespace NetVsMcp.Broker.Services;
@@ -15,6 +16,7 @@ public sealed class BrokerRuntime
     // Audit-yyyyMMdd.jsonl is a daily rolling log. Keep today's file by default and prune older
     // files once at startup and then daily, similar in spirit to SessionManifestService.CleanupStale.
     private static readonly TimeSpan AuditLogPruneInterval = TimeSpan.FromHours(24);
+    private static readonly TimeSpan UsageAnalyticsPruneInterval = TimeSpan.FromHours(24);
     public const int DefaultAuditLogRetentionDays = 1;
 
     private readonly LocalMcpHttpHost _httpHost;
@@ -22,6 +24,7 @@ public sealed class BrokerRuntime
     private readonly IBrokerSettingsStore _settingsStore;
     private System.Threading.Timer? _staleSessionSweepTimer;
     private System.Threading.Timer? _auditLogPruneTimer;
+    private System.Threading.Timer? _usageAnalyticsPruneTimer;
 
     internal BrokerRuntime(BrokerOptions options, SessionRegistry sessions)
         : this(
@@ -31,6 +34,7 @@ public sealed class BrokerRuntime
             new VisualStudioLauncher(sessions),
             new BrokerRegistrationRpcService(sessions),
             new AuditLogService(options.EffectiveLogsDirectory),
+            new DisabledToolUsageAnalyticsService(options.AnalyticsDatabaseFilePath),
             new SessionManifestService(options.EffectiveSessionsDirectory),
             new BrokerSettingsStore(options.EffectiveSettingsFilePath),
             new BestPracticeGuideCatalog())
@@ -44,6 +48,7 @@ public sealed class BrokerRuntime
         VisualStudioLauncher launcher,
         BrokerRegistrationRpcService registration,
         IAuditLogService auditLog,
+        IToolUsageAnalyticsService usageAnalytics,
         ISessionManifestService sessionManifests,
         IBrokerSettingsStore settingsStore,
         BestPracticeGuideCatalog bestPracticeGuides)
@@ -56,6 +61,7 @@ public sealed class BrokerRuntime
         Launcher = launcher;
         Registration = registration;
         AuditLog = auditLog;
+        UsageAnalytics = usageAnalytics;
         SessionManifests = sessionManifests;
         _settingsStore = settingsStore;
         BestPracticeGuides = bestPracticeGuides;
@@ -72,6 +78,7 @@ public sealed class BrokerRuntime
         provider.GetRequiredService<VisualStudioLauncher>(),
         provider.GetRequiredService<BrokerRegistrationRpcService>(),
         provider.GetRequiredService<IAuditLogService>(),
+        provider.GetRequiredService<IToolUsageAnalyticsService>(),
         provider.GetRequiredService<ISessionManifestService>(),
         provider.GetRequiredService<IBrokerSettingsStore>(),
         provider.GetRequiredService<BestPracticeGuideCatalog>());
@@ -142,6 +149,27 @@ public sealed class BrokerRuntime
     /// <summary>How many calendar-day audit log files to keep, including today.</summary>
     public int AuditLogRetentionDays => DefaultAuditLogRetentionDays;
 
+    public bool UsageAnalyticsEnabled
+    {
+        get => _settingsStore.Load().UsageAnalyticsEnabled;
+        set => _settingsStore.Update(s => s with { UsageAnalyticsEnabled = value });
+    }
+
+    public int? UsageAnalyticsRetentionDays
+    {
+        get => _settingsStore.Load().UsageAnalyticsRetentionDays;
+        set
+        {
+            if (value is <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), "Usage analytics retention days must be blank or greater than zero.");
+            }
+
+            _settingsStore.Update(s => s with { UsageAnalyticsRetentionDays = value });
+            PruneUsageAnalytics();
+        }
+    }
+
     public BrokerLogLevel MinimumLogLevel
     {
         get => _settingsStore.Load().MinimumLogLevel;
@@ -170,6 +198,8 @@ public sealed class BrokerRuntime
     internal BrokerRegistrationRpcService Registration { get; }
 
     public IAuditLogService AuditLog { get; }
+
+    public IToolUsageAnalyticsService UsageAnalytics { get; }
 
     public ISessionManifestService SessionManifests { get; }
 
@@ -212,6 +242,12 @@ public sealed class BrokerRuntime
             null,
             TimeSpan.Zero,
             AuditLogPruneInterval);
+
+        _usageAnalyticsPruneTimer = new System.Threading.Timer(
+            _ => PruneUsageAnalytics(),
+            null,
+            TimeSpan.Zero,
+            UsageAnalyticsPruneInterval);
     }
 
     public async Task StopAsync()
@@ -221,6 +257,9 @@ public sealed class BrokerRuntime
 
         _auditLogPruneTimer?.Dispose();
         _auditLogPruneTimer = null;
+
+        _usageAnalyticsPruneTimer?.Dispose();
+        _usageAnalyticsPruneTimer = null;
 
         await _registrationPipeListener.StopAsync();
         await _httpHost.StopAsync();
@@ -256,6 +295,27 @@ public sealed class BrokerRuntime
         catch (Exception ex)
         {
             Trace.WriteLine($"NetVsMcp broker audit log pruning failed: {ex}");
+        }
+    }
+
+    private void PruneUsageAnalytics()
+    {
+        try
+        {
+            if (!UsageAnalyticsEnabled || UsageAnalyticsRetentionDays is not int retentionDays)
+            {
+                return;
+            }
+
+            var removed = UsageAnalytics.PruneOldBuckets(retentionDays);
+            if (removed > 0)
+            {
+                Trace.WriteLine($"NetVsMcp broker pruned {removed} usage analytics bucket(s) older than {retentionDays} day(s).");
+            }
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine($"NetVsMcp broker usage analytics pruning failed: {ex}");
         }
     }
 

@@ -16,13 +16,15 @@ No cloud services. No telemetry. No per-project configuration files. Everything 
 
 **Audit log.** Every routed tool call is appended to a local JSONL audit log — tool name, target session, routing fields, success/failure, and failure reason. Enough to reconstruct what happened, without capturing full source text or secret values.
 
+**Optional local usage analytics.** When enabled, the broker writes aggregate-only usage counters to a local SQLite database. It tracks call counts, success/failure totals, durations, broker version, and estimated request/response tokens by daily bucket; it does not store tool arguments, responses, source text, debugger values, output panes, or messages.
+
 ## Tool coverage
 
 Document/editor tools such as `document_open` and `document_read` use the parameter name `path`. Code navigation, diagnostics, and breakpoint tools use `documentPath`. Relative document paths resolve against the routed `.sln`/`.slnx` file's directory; absolute paths are used as-is.
 
 | Area | Tools |
 | --- | --- |
-| Session management | `vs_list_sessions`, `vs_get_session`, `vs_select_session`, `vs_get_status`, `vs_ping`, `vs_launch_instance`, `vs_get_logs`, `netvs_doctor`, `get_status`, `get_help`, `netvs_get_best_practices` |
+| Session management | `vs_list_sessions`, `vs_get_session`, `vs_select_session`, `vs_get_status`, `vs_ping`, `vs_launch_instance`, `vs_get_logs`, `vs_get_usage_summary`, `netvs_doctor`, `get_status`, `get_help`, `netvs_get_best_practices` |
 | Documents & editor | `document_active`, `document_read`, `document_open`, `document_write`, `document_save`, `document_close`, `document_list`, `document_cleanup`, `document_outline` |
 | Editor mutations | `editor_insert`, `editor_replace`, `editor_goto_line`, `selection_get`, `selection_set` |
 | Safe-edit workflow | `edit_preview`, `edit_approve`, `edit_reject`, `edit_list_pending`, `prepare_safe_edit`, `apply_safe_edit_and_build` |
@@ -116,6 +118,7 @@ The source files for the exposed guide corpus live under `BestPractices/`. They 
 ```text
 NetVsMcp.slnx
   src/NetVsMcp.Broker        WPF tray/status app and local HTTP MCP broker
+  src/NetVsMcp.Broker.Analytics  Local SQLite aggregate usage analytics
   src/NetVsMcp.Contracts     Shared DTOs and RPC contracts
   src/NetVsMcp.Installer     WiX MSI installer for the broker tray app
   src/NetVsMcp.Vsix          Visual Studio extension

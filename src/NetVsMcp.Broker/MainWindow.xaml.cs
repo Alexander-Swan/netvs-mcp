@@ -38,6 +38,8 @@ public partial class MainWindow : Window
 
     private void ApplySettings_Click(object sender, RoutedEventArgs e) => _viewModel.ApplyStartupSettings();
 
+    private void ApplyAnalyticsSettings_Click(object sender, RoutedEventArgs e) => _viewModel.ApplyAnalyticsSettings();
+
     private async void CheckForUpdates_Click(object sender, RoutedEventArgs e) => await _viewModel.CheckForUpdatesAsync();
 
     private void Exit_Click(object sender, RoutedEventArgs e) => System.Windows.Application.Current.Shutdown();

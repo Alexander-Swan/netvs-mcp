@@ -25,6 +25,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string _portText = string.Empty;
     private string _logsDirectoryText = string.Empty;
     private string _sessionsDirectoryText = string.Empty;
+    private string _usageAnalyticsRetentionDaysText = string.Empty;
+    private bool _isUsageAnalyticsRetentionInvalid;
     private UpdateInfo? _updateInfo;
     private bool _isInstallingUpdate;
 
@@ -37,6 +39,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _portText = (_runtime.PendingPort ?? _runtime.CurrentPort).ToString();
         _logsDirectoryText = _runtime.PendingLogsDirectory ?? _runtime.CurrentLogsDirectory;
         _sessionsDirectoryText = _runtime.PendingSessionsDirectory ?? _runtime.CurrentSessionsDirectory;
+        _usageAnalyticsRetentionDaysText = _runtime.UsageAnalyticsRetentionDays?.ToString() ?? string.Empty;
 
         foreach (var client in McpClientRegistrationService.KnownClients)
             _allClients.Add(new ClientRegistrationViewModel(client));
@@ -205,6 +208,50 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
+    public bool UsageAnalyticsEnabled
+    {
+        get => _runtime.UsageAnalyticsEnabled;
+        set
+        {
+            if (_runtime.UsageAnalyticsEnabled == value)
+                return;
+
+            _runtime.UsageAnalyticsEnabled = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string UsageAnalyticsRetentionDaysText
+    {
+        get => _usageAnalyticsRetentionDaysText;
+        set
+        {
+            if (_usageAnalyticsRetentionDaysText != value)
+            {
+                _usageAnalyticsRetentionDaysText = value;
+                if (_isUsageAnalyticsRetentionInvalid && IsValidUsageAnalyticsRetentionDaysText(value))
+                {
+                    IsUsageAnalyticsRetentionInvalid = false;
+                }
+
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public bool IsUsageAnalyticsRetentionInvalid
+    {
+        get => _isUsageAnalyticsRetentionInvalid;
+        private set
+        {
+            if (_isUsageAnalyticsRetentionInvalid != value)
+            {
+                _isUsageAnalyticsRetentionInvalid = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     public async Task CheckForUpdatesAsync(CancellationToken ct = default)
     {
         var currentVersion = Version.TrimStart('v');
@@ -329,6 +376,29 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
         ShowSettingsMessage("Settings saved. Restart NetVsMcp Broker to apply them.", MessageBoxImage.Information);
     }
+
+    public void ApplyAnalyticsSettings()
+    {
+        if (string.IsNullOrWhiteSpace(UsageAnalyticsRetentionDaysText))
+        {
+            _runtime.UsageAnalyticsRetentionDays = null;
+            IsUsageAnalyticsRetentionInvalid = false;
+            return;
+        }
+
+        if (!int.TryParse(UsageAnalyticsRetentionDaysText, out var days) || days <= 0)
+        {
+            IsUsageAnalyticsRetentionInvalid = true;
+            ShowSettingsMessage("Enter a positive number of days, or leave retention blank to keep analytics indefinitely.", MessageBoxImage.Warning);
+            return;
+        }
+
+        _runtime.UsageAnalyticsRetentionDays = days;
+        IsUsageAnalyticsRetentionInvalid = false;
+    }
+
+    private static bool IsValidUsageAnalyticsRetentionDaysText(string value) =>
+        string.IsNullOrWhiteSpace(value) || (int.TryParse(value, out var days) && days > 0);
 
     private static void ShowSettingsMessage(string message, MessageBoxImage icon) =>
         System.Windows.MessageBox.Show(message, "NetVsMcp Settings", MessageBoxButton.OK, icon);

@@ -10,7 +10,8 @@ public sealed record BrokerOptions(
     string? LogsDirectory = null,
     string? TokenFilePath = null,
     string? SessionsDirectory = null,
-    string? SettingsFilePath = null)
+    string? SettingsFilePath = null,
+    string? AnalyticsDatabasePath = null)
 {
     public static BrokerOptions LocalDefault { get; } = new(
         $"http://127.0.0.1:{DefaultPort}/mcp",
@@ -108,6 +109,22 @@ public sealed record BrokerOptions(
     public string EffectiveSettingsFilePath =>
         string.IsNullOrWhiteSpace(SettingsFilePath) ? DefaultSettingsFilePath : SettingsFilePath;
 
+#if DEBUG
+    public static string DefaultAnalyticsDatabasePath => Path.Combine(
+        AppContext.BaseDirectory,
+        "Analytics",
+        "analytics.db");
+#else
+    public static string DefaultAnalyticsDatabasePath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "NetVsMcp",
+        "Analytics",
+        "analytics.db");
+#endif
+
+    public string AnalyticsDatabaseFilePath =>
+        string.IsNullOrWhiteSpace(AnalyticsDatabasePath) ? DefaultAnalyticsDatabasePath : AnalyticsDatabasePath;
+
     public int Port => Uri.TryCreate(McpEndpoint, UriKind.Absolute, out var uri) ? uri.Port : DefaultPort;
 
     public string McpWebAutomationEndpoint =>
@@ -133,6 +150,7 @@ public sealed record BrokerOptions(
             "token-file" => options with { TokenFilePath = value },
             "sessions-dir" => options with { SessionsDirectory = value },
             "settings-file" => options with { SettingsFilePath = value },
+            "analytics-db" => options with { AnalyticsDatabasePath = value },
             _ => options
         };
     }

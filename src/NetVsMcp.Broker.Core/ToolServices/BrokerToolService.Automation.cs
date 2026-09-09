@@ -158,7 +158,13 @@ internal sealed partial class BrokerToolService
             TimeoutMilliseconds = timeoutMilliseconds
         };
 
-        return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => operation(connection, request, ct), cancellationToken);
+        return DispatchValueAsync(
+            sessionId,
+            solutionName,
+            solutionPath,
+            (connection, ct) => operation(connection, request, ct),
+            cancellationToken,
+            requestPayload: request);
     }
 
     private static string? ValidateSelector(string? selector)

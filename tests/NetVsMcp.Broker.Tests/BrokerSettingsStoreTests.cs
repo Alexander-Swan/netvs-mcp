@@ -16,6 +16,8 @@ public sealed class BrokerSettingsStoreTests
         Assert.Null(settings.LogsDirectory);
         Assert.Null(settings.SessionsDirectory);
         Assert.Equal(BrokerLogLevel.Info, settings.MinimumLogLevel);
+        Assert.False(settings.UsageAnalyticsEnabled);
+        Assert.Null(settings.UsageAnalyticsRetentionDays);
     }
 
     [Fact]
@@ -26,12 +28,15 @@ public sealed class BrokerSettingsStoreTests
         store.Update(s => s with { SessionsDirectory = @"C:\Sessions\netvs-mcp-test" });
         store.Update(s => s with { Port = 5099 });
         store.Update(s => s with { MinimumLogLevel = BrokerLogLevel.Warning });
+        store.Update(s => s with { UsageAnalyticsEnabled = true, UsageAnalyticsRetentionDays = 30 });
 
         var loaded = store.Load();
 
         Assert.Equal(@"C:\Sessions\netvs-mcp-test", loaded.SessionsDirectory);
         Assert.Equal(5099, loaded.Port);
         Assert.Equal(BrokerLogLevel.Warning, loaded.MinimumLogLevel);
+        Assert.True(loaded.UsageAnalyticsEnabled);
+        Assert.Equal(30, loaded.UsageAnalyticsRetentionDays);
     }
 
     [Fact]

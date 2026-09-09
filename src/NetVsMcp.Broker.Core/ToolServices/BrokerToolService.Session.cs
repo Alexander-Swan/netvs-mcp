@@ -183,6 +183,49 @@ internal sealed partial class BrokerToolService
         return response;
     }
     [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
+    [McpServerTool(Name = "vs_get_usage_summary", Title = "Get Usage Analytics Summary", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
+    [Description("Returns local aggregate-only NetVsMcp usage analytics grouped by day, week, month, tool, category, version, or supported combinations. Analytics never stores tool arguments, responses, source text, debugger values, output panes, or messages.")]
+    public ToolResponse<ToolUsageSummaryResult> VsGetUsageSummary(
+        string? fromDate = null,
+        string? toDate = null,
+        string groupBy = "day",
+        string? toolName = null,
+        string? category = null,
+        string? appVersion = null,
+        bool includeFailures = true)
+    {
+        try
+        {
+            var query = new ToolUsageSummaryQuery(
+                fromDate,
+                toDate,
+                groupBy,
+                NormalizeOptional(toolName),
+                NormalizeOptional(category),
+                NormalizeOptional(appVersion),
+                includeFailures);
+            var summary = _runtime.UsageAnalytics.Query(
+                query,
+                _runtime.UsageAnalyticsEnabled,
+                _runtime.UsageAnalyticsRetentionDays);
+            var response = ToolResponse<ToolUsageSummaryResult>.Ok(summary);
+            AuditToolResult(nameof(VsGetUsageSummary), null, response.Success, null, response.Message, requestPayload: query, responsePayload: response);
+            return response;
+        }
+        catch (ArgumentException ex)
+        {
+            var response = FailWithCode<ToolUsageSummaryResult>(ex.Message, ToolErrorCodes.InvalidRequest);
+            AuditToolResult(nameof(VsGetUsageSummary), null, response.Success, null, response.Message, failureReason: "InvalidRequest", level: BrokerLogLevel.Warning);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            var response = FailWithCode<ToolUsageSummaryResult>($"Usage analytics query failed: {ex.Message}", ToolErrorCodes.VisualStudioError);
+            AuditToolResult(nameof(VsGetUsageSummary), null, response.Success, null, response.Message, failureReason: "AnalyticsFailure");
+            return response;
+        }
+    }
+    [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "vs_get_session", Title = "Resolve Visual Studio Session", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Resolves a Visual Studio session using sessionId, solutionName, or solutionPath and returns its current broker status.")]
     public ToolResponse<VsSessionStatus> VsGetSession(

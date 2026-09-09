@@ -1,6 +1,8 @@
 using NetVsMcp.Broker.Services;
+using NetVsMcp.Broker.Analytics;
 using NetVsMcp.Contracts;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace NetVsMcp.Broker.Tests;
 
@@ -14,10 +16,26 @@ public sealed partial class BrokerToolServiceTests
         {
             LogsDirectory = Path.Combine(root, "Logs"),
             SessionsDirectory = Path.Combine(root, "Sessions"),
-            SettingsFilePath = Path.Combine(root, "settings.json")
+            SettingsFilePath = Path.Combine(root, "settings.json"),
+            AnalyticsDatabasePath = Path.Combine(root, "Analytics", "analytics.db")
         };
 
-        return new BrokerRuntime(options, new SessionRegistry());
+        var services = new ServiceCollection();
+        services.AddNetVsMcpBrokerAnalytics(options.AnalyticsDatabaseFilePath);
+        var analytics = services.BuildServiceProvider().GetRequiredService<IToolUsageAnalyticsService>();
+        var sessions = new SessionRegistry();
+        var connections = new VsSessionConnectionMap();
+        return new BrokerRuntime(
+            options,
+            sessions,
+            connections,
+            new VisualStudioLauncher(sessions),
+            new BrokerRegistrationRpcService(sessions, connections),
+            new AuditLogService(options.EffectiveLogsDirectory),
+            analytics,
+            new SessionManifestService(options.EffectiveSessionsDirectory),
+            new BrokerSettingsStore(options.EffectiveSettingsFilePath),
+            new BestPracticeGuideCatalog());
     }
 
     private static JsonElement ReadSingleAuditEntry(BrokerRuntime runtime)

@@ -1,10 +1,13 @@
 using NetVsMcp.Contracts;
+using NetVsMcp.Broker.Analytics;
 using ModelContextProtocol.Server;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
@@ -20,6 +23,11 @@ internal sealed partial class BrokerToolService
     private const string ColumnParameterDescription = "1-based column number.";
 
     private static readonly BrokerToolDescriptor[] ToolDescriptors = CreateToolDescriptors();
+    private static readonly JsonSerializerOptions UsageSerializerOptions = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters = { new JsonStringEnumConverter() }
+    };
 
     private static readonly VsCapability[] VisualStudioCapabilities =
     [
@@ -254,8 +262,10 @@ internal sealed partial class BrokerToolService
         CancellationToken cancellationToken,
         string? workspacePath = null,
         string? rootPath = null,
+        object? requestPayload = null,
         [CallerMemberName] string toolName = "")
     {
+        var stopwatch = Stopwatch.StartNew();
         var target = CreateTarget(
             sessionId,
             solutionName,
@@ -268,7 +278,17 @@ internal sealed partial class BrokerToolService
             cancellationToken);
 
         var response = ToValueToolResponse(dispatch);
-        AuditToolResult(toolName, target, response.Success, dispatch.Session?.SessionId, response.Message, dispatch.FailureReason.ToString());
+        stopwatch.Stop();
+        AuditToolResult(
+            toolName,
+            target,
+            response.Success,
+            dispatch.Session?.SessionId,
+            response.Message,
+            dispatch.FailureReason.ToString(),
+            requestPayload: requestPayload ?? target,
+            responsePayload: response,
+            duration: stopwatch.Elapsed);
         return response;
     }
 
@@ -279,8 +299,18 @@ internal sealed partial class BrokerToolService
         string? selectedSessionId,
         string? message,
         string? failureReason = null,
-        BrokerLogLevel? level = null)
+        BrokerLogLevel? level = null,
+        object? requestPayload = null,
+        object? responsePayload = null,
+        TimeSpan? duration = null)
     {
+        RecordUsageAnalytics(
+            toolName,
+            success,
+            requestPayload,
+            responsePayload ?? message,
+            duration);
+
         try
         {
             var effectiveLevel = level ?? (success ? BrokerLogLevel.Info : BrokerLogLevel.Error);
@@ -305,6 +335,66 @@ internal sealed partial class BrokerToolService
             Trace.WriteLine($"NetVsMcp audit logging failed: {ex}");
         }
     }
+
+    private void RecordUsageAnalytics(
+        string methodName,
+        bool success,
+        object? requestPayload,
+        object? responsePayload,
+        TimeSpan? duration)
+    {
+        try
+        {
+            if (!_runtime.UsageAnalyticsEnabled)
+            {
+                return;
+            }
+
+            var toolName = ToMcpToolName(methodName);
+            var descriptor = ToolDescriptors.FirstOrDefault(tool => string.Equals(tool.Name, toolName, StringComparison.Ordinal));
+            var requestChars = EstimateSerializedChars(requestPayload);
+            var responseChars = EstimateSerializedChars(responsePayload);
+            var estimatedRequestTokens = EstimateTokens(requestChars);
+            var estimatedResponseTokens = EstimateTokens(responseChars);
+            _runtime.UsageAnalytics.Record(new ToolUsageRecord(
+                TimestampUtc: DateTimeOffset.UtcNow,
+                AppVersion: _runtime.Version,
+                ToolName: toolName,
+                Category: descriptor?.Category ?? BrokerToolCategory.Broker,
+                Endpoint: descriptor?.McpEndpointPath ?? McpEndpointRouting.ResolveEndpointPath(toolName),
+                Success: success,
+                RequestChars: requestChars,
+                ResponseChars: responseChars,
+                EstimatedRequestTokens: estimatedRequestTokens,
+                EstimatedResponseTokens: estimatedResponseTokens,
+                EstimatedTotalTokens: estimatedRequestTokens + estimatedResponseTokens,
+                DurationMs: duration is null ? 0 : Math.Max(0, (long)Math.Ceiling(duration.Value.TotalMilliseconds))));
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine($"NetVsMcp usage analytics recording failed: {ex}");
+        }
+    }
+
+    private static long EstimateSerializedChars(object? payload)
+    {
+        if (payload is null)
+        {
+            return 0;
+        }
+
+        try
+        {
+            return JsonSerializer.Serialize(payload, UsageSerializerOptions).Length;
+        }
+        catch (Exception ex) when (ex is NotSupportedException or JsonException)
+        {
+            return payload.ToString()?.Length ?? 0;
+        }
+    }
+
+    private static long EstimateTokens(long characters) =>
+        characters <= 0 ? 0 : (long)Math.Ceiling(characters / 4.0);
 
     private ToolResponse<T> AuditLocalFailure<T>(
         string toolName,

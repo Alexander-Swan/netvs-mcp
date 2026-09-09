@@ -41,6 +41,8 @@ This is especially important for debugger and editing tools because routing a re
 
 Current broker hardening includes a local JSONL audit log for tool calls. Each entry records time, tool name, success/failure, selected session when known, routing fields, failure reason, and a short message. The audit log intentionally does not dump full source code, full locals, full expression results, or large output panes by default.
 
+Usage analytics are separate from audit logging and are disabled by default. When enabled, analytics are stored locally in SQLite as aggregate counters only: daily buckets by broker version, tool, category, endpoint, and success/failure, plus size, token-estimate, and duration totals. Analytics do not store tool arguments, responses, source text, debugger values, output panes, or messages.
+
 Future broker hardening should still include:
 
 - A per-user broker token stored under `%LOCALAPPDATA%\NetVsMcp`.
@@ -54,6 +56,7 @@ Log enough metadata to explain what happened without creating a second sensitive
 - Real end-to-end validation with a running broker and an experimental Visual Studio instance is still required.
 - Authentication token handling is not complete unless the current code proves otherwise.
 - Broker tool calls are audit-logged with levels, daily rolling retention keeps only today's file by default, and agents can inspect recent entries through the broker `/logs` endpoint.
+- Usage analytics are optional, local, aggregate-only, and can be queried through `vs_get_usage_summary` when enabled.
 - Debugger and editor tools should be reviewed carefully before being treated as safe for unattended client use.
 
 Until those gaps are closed, use NetVsMcp only with trusted local clients and keep high-impact operations human-visible.
