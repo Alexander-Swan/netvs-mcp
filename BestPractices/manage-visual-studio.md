@@ -10,8 +10,9 @@ Agent-neutral entrypoint for session routing, launching Visual Studio, windows, 
 
 ## First Rules
 
-- Start with `vs_list_sessions` or `vs_get_session` when routing is uncertain.
-- Repeat explicit routing fields such as `sessionId` on later routed calls; NetVsMcp does not persist a global selection.
+- Start with `vs_list_sessions` when routing is uncertain.
+- Prefer solution-based routing (`solutionPath`, then `solutionName`) for normal work; use `sessionId` only when you intentionally need a specific running Visual Studio instance.
+- Repeat the chosen explicit routing field on later routed calls; NetVsMcp does not persist a global selection.
 - If no Visual Studio session is registered, infer the target solution and launch Visual Studio with `vs_launch_instance` when available.
 - Prefer focused combo tools such as `vs_context_snapshot`, `solution_overview`, and `test_run_and_get_results` when they match the task.
 - Confirm before broad project/reference/test changes unless the user explicitly requested the mutation.
