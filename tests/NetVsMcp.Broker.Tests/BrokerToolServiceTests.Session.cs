@@ -565,6 +565,9 @@ public sealed partial class BrokerToolServiceTests
 
         Assert.True(response.Success);
         Assert.Contains(response.Value!.Checks, check => check.Name == "mcp_client_config");
+        var mcpConfigMessage = response.Value.Checks.Single(check => check.Name == "mcp_client_config").Message;
+        Assert.Contains(BrokerOptions.DefaultMcpServerName, mcpConfigMessage);
+        Assert.Contains(BrokerOptions.DefaultMcpWebAutomationServerName, mcpConfigMessage);
         var registeredSessionsMessage = response.Value.Checks.Single(check => check.Name == "registered_sessions").Message;
         Assert.Contains("Install or enable the NetVsMcp Visual Studio extension", registeredSessionsMessage);
         Assert.Contains("https://github.com/Alexander-Swan/netvs-mcp/blob/master/docs/SETUP.md#install-recommended", registeredSessionsMessage);

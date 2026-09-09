@@ -43,12 +43,16 @@ Run the broker project locally:
 dotnet run --project .\src\NetVsMcp.Broker\NetVsMcp.Broker.csproj
 ```
 
-By default the broker listens only on loopback:
+Debug builds are isolated from an installed Release broker, so you do not need to close the Release tray app before running or debugging a local broker. The Debug broker uses its own default port (`5051`), named pipe (`netvs-mcp-debug-*`), MCP client server names (`netvs-debug` and `netvs-debug-web-automation`), analytics database location, and single-instance guard.
+
+By default, the installed app listens only on loopback at:
 
 - Status root: `http://127.0.0.1:5050/`
 - Health check: `http://127.0.0.1:5050/health`
 - MCP HTTP endpoint: `http://127.0.0.1:5050/mcp`
 - MCP web/UI automation endpoint: `http://127.0.0.1:5050/mcp-wu` (rarely used `ui_*`/`web_*` tools only, kept off `/mcp` to keep the default tool list smaller)
+
+Contributor Debug builds use the same paths on port `5051`.
 
 The broker also opens a per-user named pipe for VSIX registration. The tray/status UI is intended to show the running state, MCP registration snippet, and registered Visual Studio sessions.
 

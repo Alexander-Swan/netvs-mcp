@@ -84,7 +84,7 @@ public sealed class McpClientRegistrationServiceTests
         var json = File.ReadAllText(path);
         Assert.Contains("other-tool", json);
         Assert.Contains("someUnrelatedSetting", json);
-        Assert.Contains("netvs", json);
+        Assert.Contains(BrokerOptions.DefaultMcpServerName, json);
         Assert.True(service.IsRegistered(client, _options));
     }
 
@@ -171,7 +171,7 @@ public sealed class McpClientRegistrationServiceTests
         // place instead of a new "netvs" key being added alongside it.
         Assert.DoesNotContain("\"netvs\"", json);
         // No pre-existing entry matched the web-automation URL, so that one is still added fresh.
-        Assert.Contains("netvs-web-automation", json);
+        Assert.Contains(BrokerOptions.DefaultMcpWebAutomationServerName, json);
     }
 
     [Fact]

@@ -16,7 +16,7 @@ public partial class App : System.Windows.Application
     // Suffixed per build configuration so a locally-built Debug broker can run side by side
     // with a Release broker installed via the MSI, matching BrokerOptions' port/pipe split.
 #if DEBUG
-    private const string SingleInstanceMutexName = "Global\\NetVsMcp.Broker.SingleInstance.Debug";
+    private const string SingleInstanceMutexName = "Global\\NetVsMcp.Broker.Debug.SingleInstance";
 #else
     private const string SingleInstanceMutexName = "Global\\NetVsMcp.Broker.SingleInstance";
 #endif

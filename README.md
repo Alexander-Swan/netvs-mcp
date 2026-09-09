@@ -132,6 +132,8 @@ dotnet restore .\NetVsMcp.slnx
 dotnet build .\NetVsMcp.slnx
 ```
 
+Contributor Debug builds are isolated from the installed Release broker, so a locally debugged broker can run side by side with the Release tray app. See [docs/SETUP.md](docs/SETUP.md#run-the-broker) for the Debug defaults.
+
 Build the installer MSI:
 
 ```powershell

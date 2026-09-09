@@ -13,7 +13,7 @@ internal static class BrokerPipeName
         // Debug builds use a different pipe name than Release builds so a developer can run a
         // locally-built Debug broker side by side with a Release broker installed via the MSI.
 #if DEBUG
-        return "netvs-mcp-dev-" + Sanitize(userKey);
+        return "netvs-mcp-debug-" + Sanitize(userKey);
 #else
         return "netvs-mcp-" + Sanitize(userKey);
 #endif

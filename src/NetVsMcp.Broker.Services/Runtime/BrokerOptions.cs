@@ -61,11 +61,19 @@ public sealed record BrokerOptions(
 #if DEBUG
     public static int DefaultPort => 5051;
 
-    public static string DefaultPipeName => "netvs-mcp-dev-" + SanitizeUserKey(CurrentUserKey);
+    public static string DefaultPipeName => "netvs-mcp-debug-" + SanitizeUserKey(CurrentUserKey);
+
+    public static string DefaultMcpServerName => "netvs-debug";
+
+    public static string DefaultMcpWebAutomationServerName => "netvs-debug-web-automation";
 #else
     public static int DefaultPort => 5050;
 
     public static string DefaultPipeName => "netvs-mcp-" + SanitizeUserKey(CurrentUserKey);
+
+    public static string DefaultMcpServerName => "netvs";
+
+    public static string DefaultMcpWebAutomationServerName => "netvs-web-automation";
 #endif
 
     private static string CurrentUserKey
@@ -223,11 +231,11 @@ public sealed record BrokerOptions(
         $$"""
         {
           "mcpServers": {
-            "netvs": {
+            "{{DefaultMcpServerName}}": {
               "type": "http",
               "url": "{{McpEndpoint}}"
             },
-            "netvs-web-automation": {
+            "{{DefaultMcpWebAutomationServerName}}": {
               "type": "http",
               "url": "{{McpWebAutomationEndpoint}}"
             }

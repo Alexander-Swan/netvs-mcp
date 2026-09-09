@@ -132,7 +132,7 @@ internal sealed partial class BrokerToolService
             "mcp_client_config",
             BrokerDoctorSeverity.Info,
             true,
-            $"Configure your MCP client with 'netvs' at '{_runtime.Options.McpEndpoint}'. Add optional 'netvs-web-automation' at '{_runtime.Options.McpWebAutomationEndpoint}' only when you need ui_* or web_* tools.");
+            $"Configure your MCP client with '{BrokerOptions.DefaultMcpServerName}' at '{_runtime.Options.McpEndpoint}'. Add optional '{BrokerOptions.DefaultMcpWebAutomationServerName}' at '{_runtime.Options.McpWebAutomationEndpoint}' only when you need ui_* or web_* tools.");
 
         var splitEndpointToolCount = capabilities.Tools.Count(tool => tool.McpEndpointPath != McpEndpointRouting.DefaultEndpointPath);
         yield return new BrokerDoctorCheck(

@@ -86,9 +86,13 @@ public sealed class BrokerOptionsTests
         using var document = JsonDocument.Parse(BrokerOptions.LocalDefault.McpRegistrationJson);
         var servers = document.RootElement.GetProperty("mcpServers");
 
-        Assert.Equal("http", servers.GetProperty("netvs").GetProperty("type").GetString());
-        Assert.Equal(BrokerOptions.LocalDefault.McpEndpoint, servers.GetProperty("netvs").GetProperty("url").GetString());
-        Assert.Equal("http", servers.GetProperty("netvs-web-automation").GetProperty("type").GetString());
-        Assert.Equal(BrokerOptions.LocalDefault.McpWebAutomationEndpoint, servers.GetProperty("netvs-web-automation").GetProperty("url").GetString());
+        Assert.Equal("http", servers.GetProperty(BrokerOptions.DefaultMcpServerName).GetProperty("type").GetString());
+        Assert.Equal(
+            BrokerOptions.LocalDefault.McpEndpoint,
+            servers.GetProperty(BrokerOptions.DefaultMcpServerName).GetProperty("url").GetString());
+        Assert.Equal("http", servers.GetProperty(BrokerOptions.DefaultMcpWebAutomationServerName).GetProperty("type").GetString());
+        Assert.Equal(
+            BrokerOptions.LocalDefault.McpWebAutomationEndpoint,
+            servers.GetProperty(BrokerOptions.DefaultMcpWebAutomationServerName).GetProperty("url").GetString());
     }
 }

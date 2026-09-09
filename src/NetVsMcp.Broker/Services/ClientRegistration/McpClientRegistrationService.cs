@@ -31,8 +31,8 @@ public sealed record McpClientDefinition(
     string? AllToolsFieldName = null);
 
 /// <summary>
-/// Detects known local MCP clients and writes the "netvs"/"netvs-web-automation" server entries into
-/// their config files. <see cref="Register"/> backs up an existing file first when asked to.
+/// Detects known local MCP clients and writes the NetVsMcp server entries into their config files.
+/// <see cref="Register"/> backs up an existing file first when asked to.
 /// </summary>
 public sealed class McpClientRegistrationService
 {
@@ -154,8 +154,8 @@ public sealed class McpClientRegistrationService
     }
 
     /// <summary>
-    /// Writes the "netvs"/"netvs-web-automation" entries into the client's config file, merging with
-    /// whatever else is already there. Backs up an existing file to "&lt;path&gt;.bak" first unless
+    /// Writes the NetVsMcp entries into the client's config file, merging with whatever else is
+    /// already there. Backs up an existing file to "&lt;path&gt;.bak" first unless
     /// <paramref name="backupExisting"/> is false.
     /// </summary>
     public void Register(McpClientDefinition client, BrokerOptions options, bool backupExisting = true)
@@ -198,8 +198,9 @@ public sealed class McpClientRegistrationService
             root[client.ServersPropertyName] = servers;
         }
 
-        var netvsKey = FindJsonKeyByUrl(servers, options.McpEndpoint) ?? "netvs";
-        var automationKey = FindJsonKeyByUrl(servers, options.McpWebAutomationEndpoint) ?? "netvs-web-automation";
+        var netvsKey = FindJsonKeyByUrl(servers, options.McpEndpoint) ?? BrokerOptions.DefaultMcpServerName;
+        var automationKey = FindJsonKeyByUrl(servers, options.McpWebAutomationEndpoint)
+            ?? BrokerOptions.DefaultMcpWebAutomationServerName;
 
         servers[netvsKey] = BuildJsonServerEntry(client, options.McpEndpoint);
         servers[automationKey] = BuildJsonServerEntry(client, options.McpWebAutomationEndpoint);
@@ -241,8 +242,9 @@ public sealed class McpClientRegistrationService
             root[client.ServersPropertyName] = servers;
         }
 
-        var netvsKey = FindTomlKeyByUrl(servers, options.McpEndpoint) ?? "netvs";
-        var automationKey = FindTomlKeyByUrl(servers, options.McpWebAutomationEndpoint) ?? "netvs-web-automation";
+        var netvsKey = FindTomlKeyByUrl(servers, options.McpEndpoint) ?? BrokerOptions.DefaultMcpServerName;
+        var automationKey = FindTomlKeyByUrl(servers, options.McpWebAutomationEndpoint)
+            ?? BrokerOptions.DefaultMcpWebAutomationServerName;
 
         // Preserve any existing sub-tables under the matched entry (e.g. Codex's per-tool
         // "[mcp_servers.<name>.tools.*]" approval settings) - only (re)set the "url" key.
