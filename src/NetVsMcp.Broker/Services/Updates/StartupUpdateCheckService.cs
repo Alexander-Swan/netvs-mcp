@@ -32,6 +32,7 @@ public sealed class StartupUpdateCheckService
             {
                 Trace.WriteLine($"NetVsMcp broker update available at startup: v{_viewModel.UpdateVersionText}.");
                 _tray.ShowUpdateAvailableBalloon(_viewModel.UpdateVersionText);
+                _tray.ShowStatusWindow();
             }
             else
             {

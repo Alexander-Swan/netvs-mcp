@@ -139,7 +139,7 @@ public sealed class TrayIconController : IDisposable
         return $"{name} registered with NetVsMcp Broker. Process id: {session.ProcessId}.";
     }
 
-    private void ShowStatusWindow()
+    public void ShowStatusWindow()
     {
         var window = _windowFactory();
         if (!window.IsVisible)

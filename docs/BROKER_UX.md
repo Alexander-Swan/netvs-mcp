@@ -13,6 +13,8 @@ The status window is split into tabs:
 
 The header (running state badge, refresh) stays visible above the tabs regardless of which tab is selected.
 
+At startup, the broker checks for updates after the HTTP and pipe listeners are running. If no update is available, it stays tray-only. If a newer broker release is available, the status window opens with the update banner and active Install Update button visible.
+
 ## Persisted Settings
 
 All broker settings are configured from the status window and persisted to a single file:
@@ -36,6 +38,7 @@ The tray icon menu includes:
 - Copy MCP Config
 - Refresh
 - Start at Login
+- Check for Updates
 - Open Logs Folder
 - Exit
 
