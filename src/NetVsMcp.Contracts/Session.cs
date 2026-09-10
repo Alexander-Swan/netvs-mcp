@@ -49,7 +49,6 @@ public enum BrokerToolCategory
     EditDirect,
     Build,
     Debug,
-    Project,
     Test,
     Admin
 }
