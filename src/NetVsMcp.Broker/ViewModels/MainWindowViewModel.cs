@@ -113,7 +113,28 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
+    public string AppTitle => IsDebugBuild
+        ? "NetVsMcp Broker - DEBUG"
+        : "NetVsMcp Broker";
+
+    public bool IsDebugBuild { get; } = GetIsDebugBuild();
+
+    public string BuildChannelLabel => IsDebugBuild ? "DEBUG BUILD" : string.Empty;
+
+    public string BuildChannelDescription => IsDebugBuild
+        ? $"Debug broker is running separately from Release on port {_runtime.CurrentPort} and pipe {_runtime.CurrentPipeName}."
+        : string.Empty;
+
     public string Version { get; } = GetVersion();
+
+    private static bool GetIsDebugBuild()
+    {
+#if DEBUG
+        return true;
+#else
+        return false;
+#endif
+    }
 
     private static string GetVersion()
     {

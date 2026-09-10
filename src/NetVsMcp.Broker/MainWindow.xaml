@@ -1,7 +1,7 @@
 <Window x:Class="NetVsMcp.Broker.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="NetVsMcp Broker"
+        Title="{Binding AppTitle}"
         Icon="Assets/broker.ico"
         Height="720"
         MinHeight="640"
@@ -18,6 +18,19 @@
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="NetVsMcp Broker" Style="{StaticResource PageTitleStyle}" />
                     <TextBlock Text="{Binding Version}" Margin="8,0,0,0" VerticalAlignment="Bottom" Style="{StaticResource MutedTextStyle}" />
+                    <Border Background="{StaticResource DangerBrush}"
+                            BorderBrush="{StaticResource DangerBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="8,3"
+                            Margin="10,1,0,0"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding IsDebugBuild, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="{Binding BuildChannelLabel}"
+                                   Foreground="White"
+                                   FontSize="12"
+                                   FontWeight="Bold" />
+                    </Border>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                     <Border BorderThickness="1" Padding="9,3" CornerRadius="12" Margin="0,0,10,0">
@@ -58,6 +71,20 @@
                 <Button Content="Exit" Click="Exit_Click" Margin="0" />
             </StackPanel>
         </Grid>
+
+        <Border DockPanel.Dock="Top"
+                Background="{StaticResource DangerBackgroundBrush}"
+                BorderBrush="{StaticResource DangerBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="14,10"
+                Margin="0,0,0,12"
+                Visibility="{Binding IsDebugBuild, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="{Binding BuildChannelDescription}"
+                       Foreground="{StaticResource DangerBrush}"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap" />
+        </Border>
 
         <Border DockPanel.Dock="Top"
                 Background="#FFF8E6"

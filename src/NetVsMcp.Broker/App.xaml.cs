@@ -17,8 +17,10 @@ public partial class App : System.Windows.Application
     // with a Release broker installed via the MSI, matching BrokerOptions' port/pipe split.
 #if DEBUG
     private const string SingleInstanceMutexName = "Global\\NetVsMcp.Broker.Debug.SingleInstance";
+    private const string AppDisplayName = "NetVsMcp Broker - DEBUG";
 #else
     private const string SingleInstanceMutexName = "Global\\NetVsMcp.Broker.SingleInstance";
+    private const string AppDisplayName = "NetVsMcp Broker";
 #endif
 
     private BrokerRuntime? _runtime;
@@ -40,8 +42,8 @@ public partial class App : System.Windows.Application
         {
             Trace.WriteLine("NetVsMcp broker: another instance is already running; exiting.");
             System.Windows.MessageBox.Show(
-                "NetVsMcp Broker is already running. Check the system tray for its icon.",
-                "NetVsMcp Broker",
+                $"{AppDisplayName} is already running. Check the system tray for its icon.",
+                AppDisplayName,
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Information);
             _singleInstanceMutex.Dispose();
@@ -65,8 +67,8 @@ public partial class App : System.Windows.Application
         {
             Trace.WriteLine($"NetVsMcp broker failed to start: {ex}");
             System.Windows.MessageBox.Show(
-                $"NetVsMcp Broker failed to start:\n\n{ex.Message}",
-                "NetVsMcp Broker",
+                $"{AppDisplayName} failed to start:\n\n{ex.Message}",
+                AppDisplayName,
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Error);
             Shutdown();
@@ -84,8 +86,8 @@ public partial class App : System.Windows.Application
     {
         Trace.WriteLine($"NetVsMcp broker: unhandled UI-thread exception: {e.Exception}");
         System.Windows.MessageBox.Show(
-            $"NetVsMcp Broker hit an unexpected error and may be unstable:\n\n{e.Exception.Message}\n\nCheck the broker logs for details.",
-            "NetVsMcp Broker",
+            $"{AppDisplayName} hit an unexpected error and may be unstable:\n\n{e.Exception.Message}\n\nCheck the broker logs for details.",
+            AppDisplayName,
             System.Windows.MessageBoxButton.OK,
             System.Windows.MessageBoxImage.Warning);
         // Keep the app alive rather than letting an unhandled UI-thread exception crash the
@@ -100,8 +102,8 @@ public partial class App : System.Windows.Application
         // AppDomain.UnhandledException can't stop the process from terminating when
         // IsTerminating is true, but at least surface it instead of silently dying.
         System.Windows.MessageBox.Show(
-            $"NetVsMcp Broker hit a fatal error and will exit:\n\n{exception?.Message}\n\nCheck the broker logs for details.",
-            "NetVsMcp Broker",
+            $"{AppDisplayName} hit a fatal error and will exit:\n\n{exception?.Message}\n\nCheck the broker logs for details.",
+            AppDisplayName,
             System.Windows.MessageBoxButton.OK,
             System.Windows.MessageBoxImage.Error);
     }

@@ -24,7 +24,7 @@ public sealed class TrayIconController : IDisposable
         _notifyIcon = new Forms.NotifyIcon
         {
             Icon = Icon.ExtractAssociatedIcon(Environment.ProcessPath!) ?? SystemIcons.Application,
-            Text = "NetVsMcp: starting",
+            Text = $"{_viewModel.AppTitle}: starting",
             Visible = true,
             ContextMenuStrip = BuildMenu()
         };
@@ -39,7 +39,7 @@ public sealed class TrayIconController : IDisposable
     {
         var sessions = _runtime.Sessions.ListSessions();
         var suffix = sessions.Count == 1 ? "1 VS instance connected" : $"{sessions.Count} VS instances connected";
-        var header = $"NetVsMcp {_viewModel.Version} — {suffix}";
+        var header = $"{_viewModel.AppTitle} {_viewModel.Version} - {suffix}";
         var recentIds = sessions
             .OrderByDescending(s => s.LastSeenUtc)
             .Take(3)
@@ -73,7 +73,7 @@ public sealed class TrayIconController : IDisposable
     private Forms.ContextMenuStrip BuildMenu()
     {
         var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Open Status Window", null, (_, _) => ShowStatusWindow());
+        menu.Items.Add($"Open {_viewModel.AppTitle} Status Window", null, (_, _) => ShowStatusWindow());
         menu.Items.Add("Copy MCP Config", null, (_, _) => _viewModel.CopyMcpConfig());
         menu.Items.Add("Refresh", null, (_, _) => Refresh());
         var autostartItem = new Forms.ToolStripMenuItem(BuildAutostartMenuText());
@@ -95,7 +95,7 @@ public sealed class TrayIconController : IDisposable
             if (_viewModel.UpdateAvailable)
                 ShowUpdateAvailableBalloon(_viewModel.UpdateVersionText);
             else
-                _notifyIcon.ShowBalloonTip(3000, "NetVsMcp", "You're up to date.", Forms.ToolTipIcon.Info);
+                _notifyIcon.ShowBalloonTip(3000, _viewModel.AppTitle, "You're up to date.", Forms.ToolTipIcon.Info);
         };
         menu.Items.Add(checkUpdateItem);
         menu.Items.Add("Open Logs Folder", null, (_, _) => _viewModel.OpenLogsFolder());
@@ -124,19 +124,19 @@ public sealed class TrayIconController : IDisposable
             UpdateStatus();
             _notifyIcon.ShowBalloonTip(
                 5000,
-                "Visual Studio connected",
-                BuildSessionConnectedMessage(e.Session),
+                $"Visual Studio connected to {_viewModel.AppTitle}",
+                BuildSessionConnectedMessage(e.Session, _viewModel.AppTitle),
                 Forms.ToolTipIcon.Info);
         });
     }
 
-    private static string BuildSessionConnectedMessage(VsSessionInfo session)
+    private static string BuildSessionConnectedMessage(VsSessionInfo session, string appTitle)
     {
         var name = string.IsNullOrWhiteSpace(session.SolutionName)
             ? Path.GetFileNameWithoutExtension(session.SolutionPath) ?? "Visual Studio"
             : session.SolutionName;
 
-        return $"{name} registered with NetVsMcp Broker. Process id: {session.ProcessId}.";
+        return $"{name} registered with {appTitle}. Process id: {session.ProcessId}.";
     }
 
     public void ShowStatusWindow()
