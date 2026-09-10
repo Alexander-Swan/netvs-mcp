@@ -4,6 +4,8 @@ NetVsMcp is a local MCP bridge for Visual Studio. It gives AI agents and MCP cli
 
 This extension connects Visual Studio to the **NetVsMcp Broker**, a lightweight tray app that exposes a standard MCP endpoint on loopback (`http://127.0.0.1:5050/mcp`). Your MCP client (Claude, Copilot, or any agent) talks to the broker; the broker routes tool calls through to the right Visual Studio instance. No cloud services, no telemetry - everything runs on your machine.
 
+NetVsMcp does not use repo-local configuration files and does not require separate MCP client configuration for each Visual Studio instance. Register the broker once, then target open Visual Studio sessions by session ID, process ID, solution path, workspace path, or solution name.
+
 > **Requires the NetVsMcp Broker** - install it before using this extension.
 > **Download:** https://github.com/Alexander-Swan/netvs-mcp/releases/latest
 

@@ -2,11 +2,11 @@
 
 NetVsMcp is a local MCP server for Visual Studio. It runs as a lightweight tray app on your Windows machine, exposes a standard MCP HTTP endpoint on loopback, and routes tool calls into whichever Visual Studio instance holds the solution you care about — including when several are open at once.
 
-No cloud services. No telemetry. No per-project configuration files. Everything runs on your machine and stays there.
+No cloud services. No telemetry. No repo-local or per-project configuration files. Everything runs on your machine and stays there.
 
 ## What makes it different
 
-**One broker, all your instances.** Install once; the broker tray app auto-starts on login and manages every Visual Studio session. Open three solutions simultaneously, and MCP clients can target any of them by session ID, process ID, solution path, workspace path, or solution name — without reconfiguring anything.
+**One broker, all your instances.** Install once; the broker tray app auto-starts on login and manages every Visual Studio session. Open three solutions simultaneously, and MCP clients can target any of them by session ID, process ID, solution path, workspace path, or solution name — without a separate MCP config for each Visual Studio instance.
 
 **Deep IDE integration, not just file access.** NetVsMcp routes tool calls through the Visual Studio SDK, so it works with what Visual Studio actually knows: live error lists, the active debugger state, in-memory editor buffers, Roslyn's symbol index, and the real build system. Reading files from disk is the floor, not the ceiling.
 
@@ -16,7 +16,7 @@ No cloud services. No telemetry. No per-project configuration files. Everything 
 
 **Audit log.** Every routed tool call is appended to a local JSONL audit log — tool name, target session, routing fields, success/failure, and failure reason. Enough to reconstruct what happened, without capturing full source text or secret values.
 
-**Optional local usage analytics.** When enabled, the broker writes aggregate-only usage counters to a local SQLite database. It tracks call counts, success/failure totals, durations, broker version, and estimated request/response tokens by daily bucket; it does not store tool arguments, responses, source text, debugger values, output panes, or messages.
+**Optional local usage analytics.** Usage analytics are disabled by default and are not telemetry. When enabled, the broker writes aggregate-only usage counters to a local SQLite database on your machine. It tracks call counts, success/failure totals, durations, broker version, endpoint, tool category, and estimated request/response tokens by daily bucket; it does not store tool arguments, responses, source text, debugger values, output panes, or messages.
 
 ## Tool coverage
 
