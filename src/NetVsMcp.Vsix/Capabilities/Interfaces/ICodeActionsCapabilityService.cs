@@ -16,7 +16,7 @@ using Microsoft.VisualStudio.LanguageServices;
 using Microsoft.VisualStudio.Shell;
 using Task = System.Threading.Tasks.Task;
 
-namespace NetVsMcp.Vsix;
+namespace NetVsMcp.Vsix.Capabilities.Interfaces;
 
 internal interface ICodeActionsCapabilityService
 {

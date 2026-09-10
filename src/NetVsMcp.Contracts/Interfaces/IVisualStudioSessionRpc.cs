@@ -1,4 +1,4 @@
-namespace NetVsMcp.Contracts;
+namespace NetVsMcp.Contracts.Interfaces;
 
 /// <summary>
 /// The full RPC surface the broker calls on a registered VS session to execute MCP tools. Implemented

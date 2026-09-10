@@ -1,6 +1,6 @@
 using NetVsMcp.Contracts;
 
-namespace NetVsMcp.Broker.Services;
+namespace NetVsMcp.Broker.Services.Sessions.Interfaces;
 
 public interface IVsSessionConnectionMap
 {

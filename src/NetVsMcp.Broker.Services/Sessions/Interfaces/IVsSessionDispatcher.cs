@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using StreamJsonRpc;
 
-namespace NetVsMcp.Broker.Services;
+namespace NetVsMcp.Broker.Services.Sessions.Interfaces;
 
 public interface IVsSessionDispatcher
 {

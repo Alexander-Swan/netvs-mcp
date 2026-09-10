@@ -1,4 +1,6 @@
-namespace NetVsMcp.Contracts;
+using NetVsMcp.Contracts;
+
+namespace NetVsMcp.Contracts.Interfaces;
 
 public interface IBrokerRegistrationRpc
 {

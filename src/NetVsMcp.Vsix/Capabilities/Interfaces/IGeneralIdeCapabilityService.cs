@@ -7,7 +7,7 @@ using EnvDTE;
 using EnvDTE80;
 using Microsoft.VisualStudio.Shell;
 
-namespace NetVsMcp.Vsix;
+namespace NetVsMcp.Vsix.Capabilities.Interfaces;
 
 internal interface IGeneralIdeCapabilityService
 {

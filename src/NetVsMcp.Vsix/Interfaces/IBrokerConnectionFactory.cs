@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using NetVsMcp.Contracts;
 using StreamJsonRpc;
 
-namespace NetVsMcp.Vsix;
+namespace NetVsMcp.Vsix.Interfaces;
 
 internal interface IBrokerConnectionFactory
 {

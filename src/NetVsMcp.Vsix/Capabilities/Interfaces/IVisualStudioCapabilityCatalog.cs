@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace NetVsMcp.Vsix;
+namespace NetVsMcp.Vsix.Capabilities.Interfaces;
 
 internal interface IVisualStudioCapabilityCatalog
 {

@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using Microsoft.Win32;
 
-namespace NetVsMcp.Broker.Services;
+namespace NetVsMcp.Broker.Services.Startup.Interfaces;
 
 public interface IAutostartService
 {

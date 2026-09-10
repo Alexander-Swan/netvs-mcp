@@ -13,7 +13,7 @@ using EnvDTE80;
 using Microsoft.VisualStudio.Shell;
 using Task = System.Threading.Tasks.Task;
 
-namespace NetVsMcp.Vsix;
+namespace NetVsMcp.Vsix.Capabilities.Interfaces;
 
 internal interface ISolutionCapabilityService
 {

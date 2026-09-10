@@ -7,7 +7,7 @@ using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Task = System.Threading.Tasks.Task;
 
-namespace NetVsMcp.Vsix;
+namespace NetVsMcp.Vsix.Interfaces;
 
 internal interface IBrokerInstallationDetector
 {

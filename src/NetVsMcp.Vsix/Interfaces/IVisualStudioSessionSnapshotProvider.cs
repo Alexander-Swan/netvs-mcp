@@ -8,7 +8,7 @@ using EnvDTE;
 using Microsoft.VisualStudio.Shell;
 using Task = System.Threading.Tasks.Task;
 
-namespace NetVsMcp.Vsix;
+namespace NetVsMcp.Vsix.Interfaces;
 
 internal interface IVisualStudioSessionSnapshotProvider
 {

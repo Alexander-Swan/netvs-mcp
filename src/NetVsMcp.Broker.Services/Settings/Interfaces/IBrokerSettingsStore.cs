@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using NetVsMcp.Contracts;
 
-namespace NetVsMcp.Broker.Services;
+namespace NetVsMcp.Broker.Services.Settings.Interfaces;
 
 public interface IBrokerSettingsStore
 {
