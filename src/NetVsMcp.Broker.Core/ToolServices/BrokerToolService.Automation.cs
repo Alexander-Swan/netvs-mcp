@@ -11,6 +11,7 @@ namespace NetVsMcp.Broker.Services;
 
 internal sealed partial class BrokerToolService
 {
+    private const string UiSelectorParameterDescription = "UI Automation selector mini-language string, for example 'type=window', 'name=OK', 'id=SubmitButton', or plain text matching Name, AutomationId, or ClassName. Pass a string, not a structured object.";
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "console_read", Title = "Console Read", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Reads debuggee console output when a VSIX console backend is available.")]
@@ -49,7 +50,7 @@ internal sealed partial class BrokerToolService
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "ui_find_elements", Title = "Ui Find Elements", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
     [Description("Finds UI automation elements when a VSIX UI automation backend is available.")]
-    public Task<ToolResponse<AutomationResult>> UiFindElements(string? selector = null, string? target = null, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    public Task<ToolResponse<AutomationResult>> UiFindElements([Description(UiSelectorParameterDescription)] string? selector = null, string? target = null, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         if (ValidateSelector(selector) is { } validation)
         {
@@ -61,7 +62,7 @@ internal sealed partial class BrokerToolService
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "ui_get_element", Title = "Ui Get Element", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
     [Description("Returns one UI automation element when a VSIX UI automation backend is available.")]
-    public Task<ToolResponse<AutomationResult>> UiGetElement(string? selector = null, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    public Task<ToolResponse<AutomationResult>> UiGetElement([Description(UiSelectorParameterDescription)] string? selector = null, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         if (ValidateSelector(selector) is { } validation)
         {
@@ -73,32 +74,32 @@ internal sealed partial class BrokerToolService
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "ui_click", Title = "Ui Click", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = true)]
     [Description("Clicks a UI automation element when a VSIX UI automation backend is available.")]
-    public Task<ToolResponse<AutomationResult>> UiClick(string selector, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+    public Task<ToolResponse<AutomationResult>> UiClick([Description(UiSelectorParameterDescription)] string selector, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("ui_click", target, selector, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.UiClickAsync(request, ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "ui_double_click", Title = "Ui Double Click", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = true)]
     [Description("Double-clicks a UI automation element when a VSIX UI automation backend is available.")]
-    public Task<ToolResponse<AutomationResult>> UiDoubleClick(string selector, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+    public Task<ToolResponse<AutomationResult>> UiDoubleClick([Description(UiSelectorParameterDescription)] string selector, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("ui_double_click", target, selector, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.UiDoubleClickAsync(request, ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "ui_right_click", Title = "Ui Right Click", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = true)]
     [Description("Right-clicks a UI automation element when a VSIX UI automation backend is available.")]
-    public Task<ToolResponse<AutomationResult>> UiRightClick(string selector, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+    public Task<ToolResponse<AutomationResult>> UiRightClick([Description(UiSelectorParameterDescription)] string selector, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("ui_right_click", target, selector, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.UiRightClickAsync(request, ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "ui_drag", Title = "Ui Drag", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = true)]
     [Description("Drags a UI automation element when a VSIX UI automation backend is available.")]
-    public Task<ToolResponse<AutomationResult>> UiDrag(string selector, int x, int y, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+    public Task<ToolResponse<AutomationResult>> UiDrag([Description(UiSelectorParameterDescription)] string selector, int x, int y, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("ui_drag", target, selector, null, null, x, y, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.UiDragAsync(request, ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "ui_set_value", Title = "Ui Set Value", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = true)]
     [Description("Sets a UI automation value when a VSIX UI automation backend is available.")]
-    public Task<ToolResponse<AutomationResult>> UiSetValue(string selector, string text, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+    public Task<ToolResponse<AutomationResult>> UiSetValue([Description(UiSelectorParameterDescription)] string selector, string text, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("ui_set_value", target, selector, null, text, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.UiSetValueAsync(request, ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "ui_invoke", Title = "Ui Invoke", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = true)]
     [Description("Invokes a UI automation element when a VSIX UI automation backend is available.")]
-    public Task<ToolResponse<AutomationResult>> UiInvoke(string selector, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+    public Task<ToolResponse<AutomationResult>> UiInvoke([Description(UiSelectorParameterDescription)] string selector, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("ui_invoke", target, selector, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.UiInvokeAsync(request, ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "ui_send_keys", Title = "Ui Send Keys", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = true)]
@@ -108,7 +109,7 @@ internal sealed partial class BrokerToolService
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "ui_wait_for_element", Title = "Ui Wait For Element", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
     [Description("Waits for a UI automation element when a VSIX UI automation backend is available.")]
-    public Task<ToolResponse<AutomationResult>> UiWaitForElement(string? selector = null, string? target = null, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    public Task<ToolResponse<AutomationResult>> UiWaitForElement([Description(UiSelectorParameterDescription)] string? selector = null, string? target = null, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         if (ValidateSelector(selector) is { } validation)
         {

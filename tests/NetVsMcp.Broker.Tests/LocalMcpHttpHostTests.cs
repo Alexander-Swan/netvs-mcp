@@ -181,6 +181,60 @@ public sealed class LocalMcpHttpHostTests
     }
 
     [Fact]
+    public async Task WebAutomationTools_DescribeUiSelectorsAsStringMiniLanguage()
+    {
+        var port = GetAvailablePort();
+        var runtime = CreateRuntime($"http://127.0.0.1:{port}");
+
+        await runtime.StartAsync(CancellationToken.None);
+
+        try
+        {
+            using var http = new HttpClient
+            {
+                BaseAddress = new Uri($"http://127.0.0.1:{port}")
+            };
+
+            using var initialize = await InitializeMcpAsync(http, "/mcp-wu", 1);
+            initialize.EnsureSuccessStatusCode();
+
+            using var listTools = await PostMcpAsync(http, "/mcp-wu", new
+            {
+                jsonrpc = "2.0",
+                id = 2,
+                method = "tools/list",
+                @params = new { }
+            });
+            listTools.EnsureSuccessStatusCode();
+
+            var body = await listTools.Content.ReadAsStringAsync();
+            var jsonStart = body.IndexOf('{');
+            Assert.True(jsonStart >= 0, $"Expected JSON response body. Body: {body}");
+
+            using var document = JsonDocument.Parse(body[jsonStart..]);
+            var tools = document.RootElement.GetProperty("result").GetProperty("tools");
+            var uiFindElements = tools
+                .EnumerateArray()
+                .Single(tool => tool.GetProperty("name").GetString() == "ui_find_elements");
+            var selector = uiFindElements
+                .GetProperty("inputSchema")
+                .GetProperty("properties")
+                .GetProperty("selector");
+
+            Assert.Equal("string", selector.GetProperty("type").EnumerateArray().First().GetString());
+
+            var description = selector.GetProperty("description").GetString();
+            Assert.Contains("selector mini-language string", description);
+            Assert.Contains("type=window", description);
+            Assert.Contains("Pass a string, not a structured object.", description);
+        }
+        finally
+        {
+            await runtime.StopAsync();
+        }
+    }
+
+    [Fact]
     public async Task McpToolCall_MissingRequiredArguments_ReturnsSpecificToolValidation()
     {
         var port = GetAvailablePort();
