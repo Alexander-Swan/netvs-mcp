@@ -426,7 +426,8 @@ public sealed class LocalMcpHttpHostTests
         try
         {
             Directory.CreateDirectory(runtime.Options.EffectiveLogsDirectory);
-            var auditLogPath = Path.Combine(runtime.Options.EffectiveLogsDirectory, "audit-20260828.jsonl");
+            var auditLogName = $"audit-{DateTimeOffset.UtcNow:yyyyMMdd}.jsonl";
+            var auditLogPath = Path.Combine(runtime.Options.EffectiveLogsDirectory, auditLogName);
             await File.WriteAllTextAsync(
                 auditLogPath,
                 """{"timestampUtc":"2026-08-28T00:00:00Z","toolName":"breakpoint_set","success":false,"level":"Error","message":"Failed."}""");
@@ -446,7 +447,7 @@ public sealed class LocalMcpHttpHostTests
                 PropertyNameCaseInsensitive = true
             });
             var entry = Assert.Single(logs!.Files);
-            Assert.Equal("audit-20260828.jsonl", entry.Name);
+            Assert.Equal(auditLogName, entry.Name);
             Assert.Contains("breakpoint_set", entry.Text);
         }
         finally
