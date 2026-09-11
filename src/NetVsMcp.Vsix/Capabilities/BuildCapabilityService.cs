@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using EnvDTE;
@@ -479,13 +480,21 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
     {
         ThreadHelper.ThrowIfNotOnUIThread();
 
-        if (pane.TextDocument is not TextDocument textDocument)
+        try
         {
+            if (pane.TextDocument is not TextDocument textDocument)
+            {
+                return string.Empty;
+            }
+
+            var editPoint = textDocument.StartPoint.CreateEditPoint();
+            return editPoint.GetText(textDocument.EndPoint);
+        }
+        catch (COMException)
+        {
+            // Visual Studio can enumerate a pane whose text document is unavailable until the pane is activated.
             return string.Empty;
         }
-
-        var editPoint = textDocument.StartPoint.CreateEditPoint();
-        return editPoint.GetText(textDocument.EndPoint);
     }
 
     private static string? FindProjectUniqueName(Solution? solution, string projectName)
