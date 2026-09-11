@@ -237,6 +237,59 @@ public sealed class LocalMcpHttpHostTests
     }
 
     [Fact]
+    public async Task DebugTools_DescribeMaxFramesDefault()
+    {
+        var port = GetAvailablePort();
+        var runtime = CreateRuntime($"http://127.0.0.1:{port}");
+
+        await runtime.StartAsync(CancellationToken.None);
+
+        try
+        {
+            using var http = new HttpClient
+            {
+                BaseAddress = new Uri($"http://127.0.0.1:{port}")
+            };
+
+            using var initialize = await InitializeMcpAsync(http, "/mcp", 1);
+            initialize.EnsureSuccessStatusCode();
+
+            using var listTools = await PostMcpAsync(http, "/mcp", new
+            {
+                jsonrpc = "2.0",
+                id = 2,
+                method = "tools/list",
+                @params = new { }
+            });
+            listTools.EnsureSuccessStatusCode();
+
+            var body = await listTools.Content.ReadAsStringAsync();
+            var jsonStart = body.IndexOf('{');
+            Assert.True(jsonStart >= 0, $"Expected JSON response body. Body: {body}");
+
+            using var document = JsonDocument.Parse(body[jsonStart..]);
+            var tools = document.RootElement.GetProperty("result").GetProperty("tools");
+
+            foreach (var toolName in new[] { "debug_snapshot", "debug_wait_for_break", "debug_get_callstack" })
+            {
+                var maxFrames = tools
+                    .EnumerateArray()
+                    .Single(tool => tool.GetProperty("name").GetString() == toolName)
+                    .GetProperty("inputSchema")
+                    .GetProperty("properties")
+                    .GetProperty("maxFrames");
+
+                Assert.Equal(2, maxFrames.GetProperty("default").GetInt32());
+                Assert.Contains("Defaults to 2", maxFrames.GetProperty("description").GetString());
+            }
+        }
+        finally
+        {
+            await runtime.StopAsync();
+        }
+    }
+
+    [Fact]
     public async Task McpToolCall_MissingRequiredArguments_ReturnsSpecificToolValidation()
     {
         var port = GetAvailablePort();

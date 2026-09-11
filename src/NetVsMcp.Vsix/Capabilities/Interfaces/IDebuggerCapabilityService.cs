@@ -26,7 +26,7 @@ internal interface IDebuggerCapabilityService
     Task<BreakpointListResult> ListBreakpointsAsync(CancellationToken cancellationToken);
     Task<BreakpointRemoveResult> RemoveBreakpointAsync(BreakpointRemoveRequest request, CancellationToken cancellationToken);
     Task<BreakpointEnableResult> SetBreakpointEnabledAsync(BreakpointEnableRequest request, CancellationToken cancellationToken);
-    Task<CallStackResult> GetCallStackAsync(CancellationToken cancellationToken);
+    Task<CallStackResult> GetCallStackAsync(CallStackRequest request, CancellationToken cancellationToken);
     Task<LocalsResult> GetLocalsAsync(CancellationToken cancellationToken);
     Task<EvaluateExpressionResult> EvaluateAsync(EvaluateExpressionRequest request, CancellationToken cancellationToken);
     Task<DebugSetVariableResult> SetVariableAsync(DebugSetVariableRequest request, CancellationToken cancellationToken);

@@ -319,14 +319,58 @@ public sealed partial class BrokerToolServiceTests
     public async Task DebugGetCallstack_RoutesToConnectedSession()
     {
         var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
         runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
-        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
 
         var response = await runtime.Tools.DebugGetCallstack(sessionId: "vs-1");
 
         Assert.True(response.Success);
         Assert.Equal("Break", response.Value!.State.Mode);
         Assert.Equal("Program.Main", Assert.Single(response.Value.Frames).FunctionName);
+        Assert.Equal(2, session.LastCallStackRequest!.MaxFrames);
+    }
+
+    [Fact]
+    public async Task DebugGetCallstack_ForwardsMaxFrames()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs");
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DebugGetCallstack(maxFrames: 1, sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal(1, session.LastCallStackRequest!.MaxFrames);
+    }
+
+    [Fact]
+    public async Task DebugSnapshot_ForwardsMaxFramesOnlyWhenCallStackIsIncluded()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { DebugStatusMode = "dbgBreakMode" };
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DebugSnapshot(
+            include: ["callStack"],
+            maxFrames: 1,
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Equal(1, session.LastCallStackRequest!.MaxFrames);
+    }
+
+    [Fact]
+    public async Task DebugSnapshot_RejectsNonPositiveMaxFrames()
+    {
+        var runtime = CreateRuntime();
+
+        var response = await runtime.Tools.DebugSnapshot(maxFrames: 0);
+
+        Assert.False(response.Success);
+        Assert.Equal("maxFrames must be greater than zero when specified.", response.Message);
     }
 
     [Fact]
@@ -390,6 +434,24 @@ public sealed partial class BrokerToolServiceTests
         Assert.Null(response.Value.Locals);
         Assert.Single(response.Value.Breakpoints!.Breakpoints);
         Assert.Null(response.Value.UnrecognizedInclude);
+    }
+
+    [Fact]
+    public async Task DebugSnapshot_PreservesCallStackTruncationMetadata()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs")
+        {
+            DebugStatusMode = "dbgBreakMode",
+            CallStackHasMore = true
+        };
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DebugSnapshot(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.True(response.Value!.CallStack!.HasMore);
     }
 
     [Fact]

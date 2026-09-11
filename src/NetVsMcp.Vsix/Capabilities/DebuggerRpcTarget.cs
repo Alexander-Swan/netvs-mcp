@@ -84,7 +84,12 @@ internal sealed class DebuggerRpcTarget
 
     public Task<CallStackResult> DebugGetCallstackAsync(CancellationToken cancellationToken)
     {
-        return debugger.GetCallStackAsync(cancellationToken);
+        return debugger.GetCallStackAsync(new CallStackRequest(), cancellationToken);
+    }
+
+    public Task<CallStackResult> DebugGetCallstackWithOptionsAsync(CallStackRequest request, CancellationToken cancellationToken)
+    {
+        return debugger.GetCallStackAsync(request, cancellationToken);
     }
 
     public Task<LocalsResult> DebugGetLocalsAsync(CancellationToken cancellationToken)

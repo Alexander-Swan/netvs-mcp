@@ -251,6 +251,11 @@ internal sealed class FakeVisualStudioSessionRpc : IVisualStudioSessionRpc
         throw new NotSupportedException();
     }
 
+    public Task<CallStackResult> DebugGetCallstackWithOptionsAsync(CallStackRequest request, CancellationToken cancellationToken)
+    {
+        throw new NotSupportedException();
+    }
+
     public Task<LocalsResult> DebugGetLocalsAsync(CancellationToken cancellationToken)
     {
         throw new NotSupportedException();

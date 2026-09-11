@@ -363,7 +363,19 @@ public sealed record BreakpointGroupOperationResult(
 
 public sealed record CallStackResult(
     DebuggerStateInfo State,
-    IReadOnlyCollection<CallStackFrameInfo> Frames);
+    IReadOnlyCollection<CallStackFrameInfo> Frames,
+    /// <summary>True when additional frames were omitted from the response.</summary>
+    bool HasMore = false);
+
+/// <summary>Controls the number of call-stack frames returned by a debugger query.</summary>
+public sealed class CallStackRequest
+{
+    /// <summary>
+    /// Maximum number of frames to return. When omitted, the Visual Studio session uses its
+    /// compatibility default.
+    /// </summary>
+    public int? MaxFrames { get; set; }
+}
 
 public sealed record CallStackFrameInfo(
     string? FunctionName,

@@ -433,14 +433,21 @@ internal sealed class BreakpointMetadata
 
 internal sealed class CallStackResult
 {
-    public CallStackResult(DebuggerStateInfo state, IReadOnlyCollection<CallStackFrameInfo> frames)
+    public CallStackResult(DebuggerStateInfo state, IReadOnlyCollection<CallStackFrameInfo> frames, bool hasMore = false)
     {
         State = state;
         Frames = frames;
+        HasMore = hasMore;
     }
 
     public DebuggerStateInfo State { get; }
     public IReadOnlyCollection<CallStackFrameInfo> Frames { get; }
+    public bool HasMore { get; }
+}
+
+internal sealed class CallStackRequest
+{
+    public int? MaxFrames { get; set; }
 }
 
 internal sealed class CallStackFrameInfo

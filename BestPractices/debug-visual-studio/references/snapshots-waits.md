@@ -10,6 +10,8 @@ debug_snapshot({ "include": ["locals"], "sessionId": "..." })
 
 `action` may be `stepInto`, `stepOver`, `stepOut`, `continue`, or `break`. Omit it for read-only inspection. Omit `include` to default to call stack only; pass `[]` to fetch no optional categories.
 
+Call-stack responses include up to two frames. When `callStack.hasMore` is `true`, additional callers were omitted to keep the snapshot small.
+
 Locals are opt-in and can be large. Snapshot responses will not contain locals unless you pass `include: ["locals"]`. Prefer `include: ["watch"]` with `watchExpressions` for targeted values.
 
 Wait for a breakpoint server-side instead of asking the user to tell you when it hits:

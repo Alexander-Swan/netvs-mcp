@@ -20,6 +20,7 @@ internal enum DebugStepKind
 
 internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
 {
+    private const int DefaultCallStackFrameLimit = 2;
     private readonly AsyncPackage package;
     private readonly List<string> watchExpressions = new();
 
@@ -295,11 +296,18 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         return new BreakpointEnableResult(updated, breakpoints);
     }
 
-    public async Task<CallStackResult> GetCallStackAsync(CancellationToken cancellationToken)
+    public async Task<CallStackResult> GetCallStackAsync(CallStackRequest request, CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var debugger = await GetDebuggerAsync();
-        var frames = new List<CallStackFrameInfo>();
+        var maxFrames = request.MaxFrames ?? DefaultCallStackFrameLimit;
+        if (maxFrames <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(request.MaxFrames), "maxFrames must be greater than zero when specified.");
+        }
+
+        var frames = new List<CallStackFrameInfo>(maxFrames);
+        var hasMore = false;
 
         try
         {
@@ -308,6 +316,13 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
                 foreach (StackFrame frame in stackFrames)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
+
+                    if (frames.Count == maxFrames)
+                    {
+                        hasMore = true;
+                        break;
+                    }
+
                     frames.Add(CallStackFrameInfo.FromStackFrame(frame));
                 }
             }
@@ -317,7 +332,7 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
             throw WrapComFailure("reading the call stack", ex);
         }
 
-        return new CallStackResult(GetDebuggerState(debugger), frames);
+        return new CallStackResult(GetDebuggerState(debugger), frames, hasMore);
     }
 
     public async Task<LocalsResult> GetLocalsAsync(CancellationToken cancellationToken)

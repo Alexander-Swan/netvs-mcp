@@ -11,6 +11,8 @@ namespace NetVsMcp.Broker.Services;
 
 internal sealed partial class BrokerToolService
 {
+    private const int DefaultCallStackFrameLimit = 2;
+
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_status", Title = "Debug Status", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns debugger status from a routed Visual Studio session.")]
@@ -482,18 +484,26 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_get_callstack", Title = "Debug Get Callstack", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns the current call stack from a routed Visual Studio session.")]
+    [Description("Returns current call-stack frames from a routed Visual Studio session. maxFrames defaults to 2. hasMore is true when additional frames were omitted.")]
     public Task<ToolResponse<CallStackResult>> DebugGetCallstack(
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
+        [Description("Maximum number of call-stack frames to return. Defaults to 2.")]
+        int maxFrames = DefaultCallStackFrameLimit,
         CancellationToken cancellationToken = default)
     {
+        if (!IsValidMaxFrames(maxFrames))
+        {
+            return Task.FromResult(ToolResponse<CallStackResult>.Fail("maxFrames must be greater than zero when specified."));
+        }
+
+        var request = new CallStackRequest { MaxFrames = maxFrames };
         return DispatchValueAsync(
             sessionId,
             solutionName,
             solutionPath,
-            static (connection, ct) => connection.DebugGetCallstackAsync(ct),
+            (connection, ct) => GetCallStackAsync(connection, request, ct),
             cancellationToken);
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
@@ -584,7 +594,7 @@ internal sealed partial class BrokerToolService
     ];
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_snapshot", Title = "Debug Snapshot", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Optionally advances the debugger (stepInto, stepOver, stepOut, continue, or break), waits for it to settle, and returns a debugger state snapshot. Use 'include' to fetch any of callStack, locals, breakpoints, watch, threads, modules, parallelStacks, parallelWatch (defaults to callStack only when omitted; pass an empty array to fetch none of them). Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions. When 'action' is omitted this is a pure, non-mutating inspection of current state.")]
+    [Description("Optionally advances the debugger (stepInto, stepOver, stepOut, continue, or break), waits for it to settle, and returns a debugger state snapshot. Use 'include' to fetch any of callStack, locals, breakpoints, watch, threads, modules, parallelStacks, parallelWatch (omitting include fetches up to two callStack frames; pass an empty array to fetch none of them). maxFrames defaults to 2 and applies when callStack is included or include is omitted. callStack.hasMore is true when additional frames were omitted. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions. When 'action' is omitted this is a pure, non-mutating inspection of current state.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugSnapshot(
         DebugAdvanceAction? action = null,
         string[]? include = null,
@@ -594,6 +604,8 @@ internal sealed partial class BrokerToolService
         string? solutionPath = null,
         [Description("Optional one-shot expressions to evaluate when include contains 'watch'. When omitted, 'watch' evaluates the session's configured watch list.")]
         string[]? watchExpressions = null,
+        [Description("Maximum number of call-stack frames when include contains 'callStack' or is omitted. Defaults to 2. An empty include array does not fetch the call stack.")]
+        int maxFrames = DefaultCallStackFrameLimit,
         CancellationToken cancellationToken = default)
     {
         if (settleTimeoutMilliseconds < 0)
@@ -601,8 +613,14 @@ internal sealed partial class BrokerToolService
             return Task.FromResult(ToolResponse<DebugSnapshotResult>.Fail("settleTimeoutMilliseconds must be zero or greater."));
         }
 
+        if (!IsValidMaxFrames(maxFrames))
+        {
+            return Task.FromResult(ToolResponse<DebugSnapshotResult>.Fail("maxFrames must be greater than zero when specified."));
+        }
+
         var (includeKeys, unrecognizedInclude) = ParseDebugSnapshotInclude(include);
         var watchRequest = CreateWatchListRequest(watchExpressions);
+        var callStackRequest = new CallStackRequest { MaxFrames = maxFrames };
 
         return DispatchValueAsync(
             sessionId,
@@ -636,13 +654,13 @@ internal sealed partial class BrokerToolService
                     }
                 }
 
-                return await CollectDebugSnapshotAsync(connection, state, includeKeys, watchRequest, unrecognizedInclude, ct);
+                return await CollectDebugSnapshotAsync(connection, state, includeKeys, callStackRequest, watchRequest, unrecognizedInclude, ct);
             },
             cancellationToken);
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_wait_for_break", Title = "Debug Wait For Break", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Waits for a routed Visual Studio session's debugger to leave dbgRunMode - typically because a breakpoint or tracepoint fired - then returns the requested snapshot categories in the same shape as debug_snapshot. Does not itself advance the debugger; call debug_continue, debug_snapshot (with an action), or breakpoint_group_enable(..., continueExecution: true) first if the debuggee is not already running. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions.")]
+    [Description("Waits for a routed Visual Studio session's debugger to leave dbgRunMode - typically because a breakpoint or tracepoint fired - then returns the requested snapshot categories in the same shape as debug_snapshot. maxFrames defaults to 2 and applies when callStack is included or include is omitted; an empty include array does not fetch the call stack. callStack.hasMore is true when additional frames were omitted. Does not itself advance the debugger; call debug_continue, debug_snapshot (with an action), or breakpoint_group_enable(..., continueExecution: true) first if the debuggee is not already running. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugWaitForBreak(
         [Description("Maximum time in seconds to wait for the debugger to leave dbgRunMode before giving up and returning the still-running state.")]
         int timeoutSeconds = 30,
@@ -652,6 +670,8 @@ internal sealed partial class BrokerToolService
         string? solutionPath = null,
         [Description("Optional one-shot expressions to evaluate when include contains 'watch'. When omitted, 'watch' evaluates the session's configured watch list.")]
         string[]? watchExpressions = null,
+        [Description("Maximum number of call-stack frames when include contains 'callStack' or is omitted. Defaults to 2. An empty include array does not fetch the call stack.")]
+        int maxFrames = DefaultCallStackFrameLimit,
         CancellationToken cancellationToken = default)
     {
         if (timeoutSeconds <= 0)
@@ -659,8 +679,14 @@ internal sealed partial class BrokerToolService
             return Task.FromResult(ToolResponse<DebugSnapshotResult>.Fail("timeoutSeconds must be greater than zero."));
         }
 
+        if (!IsValidMaxFrames(maxFrames))
+        {
+            return Task.FromResult(ToolResponse<DebugSnapshotResult>.Fail("maxFrames must be greater than zero when specified."));
+        }
+
         var (includeKeys, unrecognizedInclude) = ParseDebugSnapshotInclude(include);
         var watchRequest = CreateWatchListRequest(watchExpressions);
+        var callStackRequest = new CallStackRequest { MaxFrames = maxFrames };
         var timeoutMilliseconds = timeoutSeconds * 1000L;
 
         return DispatchValueAsync(
@@ -679,7 +705,7 @@ internal sealed partial class BrokerToolService
                 }
 
                 var timedOut = state.Mode == "dbgRunMode" && stopwatch.ElapsedMilliseconds >= timeoutMilliseconds;
-                return await CollectDebugSnapshotAsync(connection, state, includeKeys, watchRequest, unrecognizedInclude, ct, timedOut);
+                return await CollectDebugSnapshotAsync(connection, state, includeKeys, callStackRequest, watchRequest, unrecognizedInclude, ct, timedOut);
             },
             cancellationToken);
     }
@@ -687,6 +713,7 @@ internal sealed partial class BrokerToolService
         IVisualStudioSessionRpc connection,
         DebuggerStateInfo state,
         HashSet<string> includeKeys,
+        CallStackRequest callStackRequest,
         WatchListRequest watchRequest,
         IReadOnlyCollection<string>? unrecognizedInclude,
         CancellationToken cancellationToken,
@@ -698,7 +725,7 @@ internal sealed partial class BrokerToolService
         }
 
         var locals = includeKeys.Contains("locals") ? await connection.DebugGetLocalsAsync(cancellationToken) : null;
-        var callStack = includeKeys.Contains("callStack") ? await connection.DebugGetCallstackAsync(cancellationToken) : null;
+        var callStack = includeKeys.Contains("callStack") ? await GetCallStackAsync(connection, callStackRequest, cancellationToken) : null;
         var breakpoints = includeKeys.Contains("breakpoints") ? await connection.BreakpointListAsync(cancellationToken) : null;
         var watch = includeKeys.Contains("watch") ? await connection.WatchListAsync(watchRequest, cancellationToken) : null;
         var threads = includeKeys.Contains("threads") ? await connection.DebugGetThreadsAsync(cancellationToken) : null;
@@ -733,6 +760,18 @@ internal sealed partial class BrokerToolService
             Expressions = expressions is { Length: > 0 } ? expressions : null
         };
     }
+
+    private static Task<CallStackResult> GetCallStackAsync(
+        IVisualStudioSessionRpc connection,
+        CallStackRequest request,
+        CancellationToken cancellationToken)
+    {
+        return request.MaxFrames == DefaultCallStackFrameLimit
+            ? connection.DebugGetCallstackAsync(cancellationToken)
+            : connection.DebugGetCallstackWithOptionsAsync(request, cancellationToken);
+    }
+
+    private static bool IsValidMaxFrames(int maxFrames) => maxFrames > 0;
 
     private static (HashSet<string> Keys, IReadOnlyCollection<string>? Unrecognized) ParseDebugSnapshotInclude(string[]? include)
     {

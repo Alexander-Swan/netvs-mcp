@@ -183,6 +183,8 @@ public sealed partial class BrokerToolServiceTests
 
         public BreakpointEnableRequest? LastBreakpointEnableRequest { get; private set; }
 
+        public CallStackRequest? LastCallStackRequest { get; private set; }
+
         public EvaluateExpressionRequest? LastEvaluateExpressionRequest { get; private set; }
 
         public WatchListRequest? LastWatchListRequest { get; private set; }
@@ -947,6 +949,8 @@ public sealed partial class BrokerToolServiceTests
 
         public string DebugStatusMode { get; set; } = "Break";
 
+        public bool CallStackHasMore { get; set; }
+
         public Task<DebuggerStateInfo> DebugStatusAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult(new DebuggerStateInfo(DebugStatusMode));
@@ -1031,14 +1035,18 @@ public sealed partial class BrokerToolServiceTests
             return Task.FromResult(new BreakpointEnableResult(1, breakpoints));
         }
 
-        public Task<CallStackResult> DebugGetCallstackAsync(CancellationToken cancellationToken)
+        public Task<CallStackResult> DebugGetCallstackAsync(CancellationToken cancellationToken) =>
+            DebugGetCallstackWithOptionsAsync(new CallStackRequest { MaxFrames = 2 }, cancellationToken);
+
+        public Task<CallStackResult> DebugGetCallstackWithOptionsAsync(CallStackRequest request, CancellationToken cancellationToken)
         {
+            LastCallStackRequest = request;
             IReadOnlyCollection<CallStackFrameInfo> frames =
             [
                 new("Program.Main", @"C:\Code\NetVsMcp\Program.cs", 42, 1)
             ];
 
-            return Task.FromResult(new CallStackResult(new DebuggerStateInfo("Break"), frames));
+            return Task.FromResult(new CallStackResult(new DebuggerStateInfo("Break"), frames, CallStackHasMore));
         }
 
         public Task<LocalsResult> DebugGetLocalsAsync(CancellationToken cancellationToken)

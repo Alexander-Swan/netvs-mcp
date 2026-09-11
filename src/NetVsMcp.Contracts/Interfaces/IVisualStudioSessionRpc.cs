@@ -314,6 +314,10 @@ public interface IVisualStudioSessionRpc
 
     Task<CallStackResult> DebugGetCallstackAsync(CancellationToken cancellationToken);
 
+    Task<CallStackResult> DebugGetCallstackWithOptionsAsync(
+        CallStackRequest request,
+        CancellationToken cancellationToken);
+
     Task<LocalsResult> DebugGetLocalsAsync(CancellationToken cancellationToken);
 
     Task<EvaluateExpressionResult> DebugEvaluateAsync(

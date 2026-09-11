@@ -288,6 +288,9 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<CallStackResult> DebugGetCallstackAsync(CancellationToken cancellationToken) =>
         InvokeAsync(() => debugger.DebugGetCallstackAsync(cancellationToken), nameof(DebugGetCallstackAsync));
 
+    public Task<CallStackResult> DebugGetCallstackWithOptionsAsync(CallStackRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => debugger.DebugGetCallstackWithOptionsAsync(request, cancellationToken), nameof(DebugGetCallstackWithOptionsAsync));
+
     public Task<LocalsResult> DebugGetLocalsAsync(CancellationToken cancellationToken) =>
         InvokeAsync(() => debugger.DebugGetLocalsAsync(cancellationToken), nameof(DebugGetLocalsAsync));
 
