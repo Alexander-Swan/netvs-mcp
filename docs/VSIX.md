@@ -686,6 +686,8 @@ output_read    -> OutputReadAsync
 }
 ```
 
+In a newly opened Visual Studio session, DTE may not expose build status until the first build has run. If `build_status` reports that build information is unavailable, call `build_solution` or `build_and_get_errors` first and then poll `build_status`.
+
 `errors_list` request:
 
 ```json
@@ -722,6 +724,8 @@ output_read    -> OutputReadAsync
 ```
 
 If `paneName` is omitted, the VSIX prefers the `Build` output pane and otherwise returns the first available output pane.
+
+Visual Studio may not expose the Output window or the `Build` pane in a cold session before any build/debug action has produced output. Use `output_list_panes` to discover available panes, or run a build before reading the `Build` pane.
 
 `output_read` returns:
 

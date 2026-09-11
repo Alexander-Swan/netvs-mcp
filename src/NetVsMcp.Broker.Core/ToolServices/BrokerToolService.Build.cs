@@ -38,7 +38,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "build_status", Title = "Build Status", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns build status from a routed Visual Studio session.")]
+    [Description("Returns build status from a routed Visual Studio session. Visual Studio may report this as unavailable before the first build in the session; run build_solution or build_and_get_errors first when a cold solution needs initialized build status.")]
     public async Task<ToolResponse<BuildStatusInfo>> BuildStatus(
         string? sessionId = null,
         string? solutionName = null,
@@ -90,7 +90,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "output_read", Title = "Output Read", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Reads an output pane from a routed Visual Studio session.")]
+    [Description("Reads an output pane from a routed Visual Studio session. Visual Studio may not expose output panes until a pane has been created or a build/debug action has produced output; call output_list_panes first or run a build before reading the Build pane in a cold session.")]
     public async Task<ToolResponse<OutputReadResult>> OutputRead(
         string? paneName = null,
         int maxChars = 8000,
