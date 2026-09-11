@@ -342,6 +342,60 @@ public sealed class LocalMcpHttpHostTests
     }
 
     [Fact]
+    public async Task McpToolCall_OmitsNullResponseProperties()
+    {
+        var port = GetAvailablePort();
+        var runtime = CreateRuntime($"http://127.0.0.1:{port}");
+
+        await runtime.StartAsync(CancellationToken.None);
+
+        try
+        {
+            using var http = new HttpClient
+            {
+                BaseAddress = new Uri($"http://127.0.0.1:{port}")
+            };
+
+            using var initialize = await InitializeMcpAsync(http, "/mcp", 1);
+            initialize.EnsureSuccessStatusCode();
+
+            using var toolCall = await PostMcpAsync(http, "/mcp", new
+            {
+                jsonrpc = "2.0",
+                id = 2,
+                method = "tools/call",
+                @params = new
+                {
+                    name = "document_read",
+                    arguments = new { }
+                }
+            });
+            toolCall.EnsureSuccessStatusCode();
+
+            var body = await toolCall.Content.ReadAsStringAsync();
+            var jsonStart = body.IndexOf('{');
+            Assert.True(jsonStart >= 0, $"Expected JSON response body. Body: {body}");
+            using var responseDocument = JsonDocument.Parse(body[jsonStart..]);
+            var text = responseDocument.RootElement
+                .GetProperty("result")
+                .GetProperty("content")[0]
+                .GetProperty("text")
+                .GetString();
+            Assert.False(string.IsNullOrWhiteSpace(text));
+
+            using var toolResponse = JsonDocument.Parse(text);
+            Assert.True(toolResponse.RootElement.GetProperty("success").GetBoolean() == false);
+            Assert.True(toolResponse.RootElement.TryGetProperty("message", out _));
+            Assert.False(toolResponse.RootElement.TryGetProperty("value", out _));
+            Assert.False(toolResponse.RootElement.TryGetProperty("metadata", out _));
+        }
+        finally
+        {
+            await runtime.StopAsync();
+        }
+    }
+
+    [Fact]
     public async Task McpToolCall_RoundTripsThroughHttpBrokerPipeAndVsixRpc()
     {
         var port = GetAvailablePort();

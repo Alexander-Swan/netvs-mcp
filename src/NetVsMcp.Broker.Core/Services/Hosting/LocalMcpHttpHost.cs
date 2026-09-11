@@ -16,6 +16,13 @@ namespace NetVsMcp.Broker.Services;
 
 internal sealed class LocalMcpHttpHost : IAsyncDisposable
 {
+    private static readonly JsonSerializerOptions McpToolSerializerOptions = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        TypeInfoResolver = JsonSerializerOptions.Default.TypeInfoResolver,
+        Converters = { new JsonStringEnumConverter() }
+    };
+
     private readonly BrokerOptions _options;
     private readonly BrokerToolService _tools;
     private readonly BestPracticeGuideCatalog _bestPracticeGuides;
@@ -51,6 +58,7 @@ internal sealed class LocalMcpHttpHost : IAsyncDisposable
         builder.Services.Configure<JsonOptions>(json =>
         {
             json.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+            json.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
             json.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
         });
         builder.Services.AddSingleton(_tools);
@@ -62,7 +70,7 @@ internal sealed class LocalMcpHttpHost : IAsyncDisposable
                 options.Stateless = true;
                 options.ConfigureSessionOptions = ConfigureSessionOptionsForEndpoint;
             })
-            .WithTools<BrokerToolService>(_tools)
+            .WithTools<BrokerToolService>(_tools, McpToolSerializerOptions)
             .WithResources(new BestPracticeGuideResources(_bestPracticeGuides));
 
         var app = builder.Build();
