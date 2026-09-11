@@ -59,7 +59,7 @@ internal sealed partial class BrokerToolService
     [Description("Builds the routed solution and returns errors/warnings.")]
     public Task<ToolResponse<BuildAndGetErrorsResult>> BuildAndGetErrors(
         bool includeWarnings = true,
-        int maxItems = 200,
+        int maxItems = 100,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
@@ -93,7 +93,7 @@ internal sealed partial class BrokerToolService
     [Description("Reads an output pane from a routed Visual Studio session.")]
     public async Task<ToolResponse<OutputReadResult>> OutputRead(
         string? paneName = null,
-        int maxChars = 20000,
+        int maxChars = 8000,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,

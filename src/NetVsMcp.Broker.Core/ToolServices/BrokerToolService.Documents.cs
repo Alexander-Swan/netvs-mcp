@@ -559,7 +559,7 @@ internal sealed partial class BrokerToolService
     [Description("Lists errors and warnings from a routed Visual Studio session.")]
     public async Task<ToolResponse<ErrorListResult>> ErrorsList(
         bool includeWarnings = true,
-        int maxItems = 200,
+        int maxItems = 100,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
@@ -592,7 +592,7 @@ internal sealed partial class BrokerToolService
         [Description(DocumentPathParameterDescription)]
         string? documentPath = null,
         bool includeWarnings = true,
-        int maxItems = 200,
+        int maxItems = 100,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
@@ -739,7 +739,7 @@ internal sealed partial class BrokerToolService
         bool matchCase = false,
         bool wholeWord = false,
         bool useRegex = false,
-        int maxResults = 100,
+        int maxResults = 50,
         int contextLines = 0,
         string? sessionId = null,
         string? solutionName = null,
@@ -785,7 +785,7 @@ internal sealed partial class BrokerToolService
         bool matchCase = false,
         bool wholeWord = false,
         bool useRegex = false,
-        int maxResults = 100,
+        int maxResults = 50,
         int contextLines = 0,
         string? sessionId = null,
         string? solutionName = null,
@@ -856,7 +856,7 @@ internal sealed partial class BrokerToolService
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "code_workspace_symbols", Title = "Code Workspace Symbols", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Searches symbols in the live Visual Studio workspace.")]
-    public Task<ToolResponse<CodeWorkspaceSymbolsResult>> CodeWorkspaceSymbols(string query, int maxResults = 100, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    public Task<ToolResponse<CodeWorkspaceSymbolsResult>> CodeWorkspaceSymbols(string query, int maxResults = 50, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query))
         {

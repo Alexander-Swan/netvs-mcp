@@ -87,6 +87,8 @@ public sealed class LocalMcpHttpHostTests
             Assert.Contains("get_help", body);
             Assert.DoesNotContain("vs_get_capabilities", body);
             Assert.Contains("netvs_get_best_practices", body);
+            Assert.Contains("Solution-relative or absolute path; prefer forward slashes.", body);
+            Assert.DoesNotContain("Document/editor tools name this parameter", body);
 
             using var listResources = await PostMcpAsync(http, new
             {

@@ -900,7 +900,7 @@ internal sealed partial class BrokerToolService
     public Task<ToolResponse<TaskListResult>> TaskListGet(
         bool includeCommentTasks = true,
         bool includeUserTasks = true,
-        int maxItems = 200,
+        int maxItems = 100,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
@@ -1189,7 +1189,7 @@ internal sealed partial class BrokerToolService
     [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "vs_get_logs", Title = "Get Broker Logs", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns recent broker log files with bounded tail text.")]
-    public ToolResponse<BrokerLogResult> VsGetLogs(int maxFiles = 5, int maxCharsPerFile = 20000, string? minLevel = null)
+    public ToolResponse<BrokerLogResult> VsGetLogs(int maxFiles = 5, int maxCharsPerFile = 8000, string? minLevel = null)
     {
         if (maxFiles <= 0)
         {

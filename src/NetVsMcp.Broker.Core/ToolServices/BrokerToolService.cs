@@ -16,10 +16,10 @@ namespace NetVsMcp.Broker.Services;
 [McpServerToolType]
 internal sealed partial class BrokerToolService
 {
-    private const string DocumentPathParameterDescription = "Path relative to the routed solution file directory or an absolute path. Document/editor tools name this parameter 'path'; code navigation, diagnostics, and breakpoint tools name it 'documentPath'. Prefer forward slashes, for example Project/File.cs when the solution file is in src; if using Windows backslashes in JSON, escape them as double backslashes.";
-    private const string OptionalDocumentPathParameterDescription = "Optional path relative to the routed solution file directory or an absolute path. Document/editor tools name this parameter 'path'; code navigation, diagnostics, and breakpoint tools name it 'documentPath'. Prefer forward slashes, for example Project/File.cs when the solution file is in src; if using Windows backslashes in JSON, escape them as double backslashes.";
-    private const string DocumentPathsParameterDescription = "Document/editor paths relative to the routed solution file directory or absolute paths. Use 'paths' for open_relevant_files. Prefer forward slashes, for example Project/File.cs when the solution file is in src; if using Windows backslashes in JSON, escape them as double backslashes.";
-    private const string LineParameterDescription = "1-based line number as shown in the Visual Studio editor.";
+    private const string DocumentPathParameterDescription = "Solution-relative or absolute path; prefer forward slashes.";
+    private const string OptionalDocumentPathParameterDescription = "Optional solution-relative or absolute path; prefer forward slashes.";
+    private const string DocumentPathsParameterDescription = "Solution-relative or absolute paths; prefer forward slashes.";
+    private const string LineParameterDescription = "1-based line number.";
     private const string ColumnParameterDescription = "1-based column number.";
 
     private static readonly BrokerToolDescriptor[] ToolDescriptors = CreateToolDescriptors();

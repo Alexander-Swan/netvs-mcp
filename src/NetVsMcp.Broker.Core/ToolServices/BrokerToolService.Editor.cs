@@ -509,7 +509,7 @@ internal sealed partial class BrokerToolService
         string? editId = null,
         bool saveAfterApply = true,
         bool includeWarnings = true,
-        int maxItems = 200,
+        int maxItems = 100,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
