@@ -107,6 +107,7 @@ public static class ToolErrorCodes
     public const string RpcFailure = "rpc_failure";
     public const string ProtocolMismatch = "protocol_mismatch";
     public const string ToolNotImplemented = "tool_not_implemented";
+    public const string BrokerError = "broker_error";
     /// <summary>The VS-side capability service recognized the request but the installed VS/extension version doesn't support it.</summary>
     public const string UnsupportedByVsix = "unsupported_by_vsix";
     public const string VisualStudioError = "visual_studio_error";

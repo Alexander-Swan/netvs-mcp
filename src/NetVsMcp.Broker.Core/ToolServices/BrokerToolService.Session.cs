@@ -16,43 +16,64 @@ internal sealed partial class BrokerToolService
     [Description("Lists Visual Studio instances registered with the local NetVsMcp broker.")]
     public ToolResponse<IReadOnlyCollection<VsSessionInfo>> VsListSessions()
     {
-        var response = ToolResponse<IReadOnlyCollection<VsSessionInfo>>.Ok(_runtime.Sessions.ListSessions());
-        AuditToolResult(nameof(VsListSessions), null, response.Success, null, response.Message);
-        return response;
+        try
+        {
+            var response = ToolResponse<IReadOnlyCollection<VsSessionInfo>>.Ok(_runtime.Sessions.ListSessions());
+            AuditToolResult(nameof(VsListSessions), null, response.Success, null, response.Message);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            return AuditBrokerException<IReadOnlyCollection<VsSessionInfo>>(nameof(VsListSessions), ex);
+        }
     }
     [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "vs_get_status", Title = "Get Broker Status", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns local broker endpoint, uptime, registration pipe, and registered Visual Studio session status.")]
     public ToolResponse<BrokerStatus> VsGetStatus()
     {
-        var response = ToolResponse<BrokerStatus>.Ok(_runtime.GetStatus());
-        AuditToolResult(nameof(VsGetStatus), null, response.Success, null, response.Message);
-        return response;
+        try
+        {
+            var response = ToolResponse<BrokerStatus>.Ok(_runtime.GetStatus());
+            AuditToolResult(nameof(VsGetStatus), null, response.Success, null, response.Message);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            return AuditBrokerException<BrokerStatus>(nameof(VsGetStatus), ex);
+        }
     }
     [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "netvs_doctor", Title = "Run NetVsMcp Doctor", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Diagnoses local broker endpoint, registration pipe, registered sessions, and tool endpoint health.")]
     public ToolResponse<BrokerDoctorResult> NetVsDoctor()
     {
-        var status = _runtime.GetStatus();
-        var capabilities = CreateCapabilities();
-        var checks = CreateDoctorChecks(status, capabilities).ToArray();
-        var errorCount = checks.Count(check => check.Severity == BrokerDoctorSeverity.Error && !check.Passed);
-        var warningCount = checks.Count(check => check.Severity == BrokerDoctorSeverity.Warning && !check.Passed);
-        var healthy = errorCount == 0;
-        var summary = healthy
-            ? warningCount == 0
-                ? "NetVsMcp broker and Visual Studio session health look good."
-                : $"NetVsMcp doctor found {warningCount} warning(s)."
-            : $"NetVsMcp doctor found {errorCount} error(s) and {warningCount} warning(s).";
+        try
+        {
+            var status = _runtime.GetStatus();
+            var capabilities = CreateCapabilities();
+            var checks = CreateDoctorChecks(status, capabilities).ToArray();
+            var errorCount = checks.Count(check => check.Severity == BrokerDoctorSeverity.Error && !check.Passed);
+            var warningCount = checks.Count(check => check.Severity == BrokerDoctorSeverity.Warning && !check.Passed);
+            var healthy = errorCount == 0;
+            var summary = healthy
+                ? warningCount == 0
+                    ? "NetVsMcp broker and Visual Studio session health look good."
+                    : $"NetVsMcp doctor found {warningCount} warning(s)."
+                : $"NetVsMcp doctor found {errorCount} error(s) and {warningCount} warning(s).";
 
-        var response = ToolResponse<BrokerDoctorResult>.Ok(new BrokerDoctorResult(
-            healthy,
-            summary,
-            status,
-            checks));
-        AuditToolResult(nameof(NetVsDoctor), null, response.Success, null, response.Message);
-        return response;
+            var response = ToolResponse<BrokerDoctorResult>.Ok(new BrokerDoctorResult(
+                healthy,
+                summary,
+                status,
+                checks));
+            AuditToolResult(nameof(NetVsDoctor), null, response.Success, null, response.Message);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            return AuditBrokerException<BrokerDoctorResult>(nameof(NetVsDoctor), ex);
+        }
     }
 
     private BrokerCapabilities CreateCapabilities()
@@ -178,9 +199,19 @@ internal sealed partial class BrokerToolService
         string? guide = null,
         string? file = null)
     {
-        var response = _runtime.BestPracticeGuides.Read(guide, file);
-        AuditToolResult(nameof(NetVsGetBestPractices), null, response.Success, null, response.Message);
-        return response;
+        try
+        {
+            var response = _runtime.BestPracticeGuides.Read(guide, file);
+            AuditToolResult(nameof(NetVsGetBestPractices), null, response.Success, null, response.Message);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            return AuditBrokerException<BestPracticeGuideToolResult>(
+                nameof(NetVsGetBestPractices),
+                ex,
+                requestPayload: new { guide, file });
+        }
     }
     [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "vs_get_usage_summary", Title = "Get Usage Analytics Summary", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
@@ -236,25 +267,33 @@ internal sealed partial class BrokerToolService
         string? workspacePath = null,
         string? rootPath = null)
     {
-        var target = CreateTarget(sessionId, solutionName, solutionPath, processId, workspacePath, rootPath);
-        var route = _runtime.Sessions.Resolve(target);
-        if (!route.Success || route.Session is null)
+        var request = new { sessionId, solutionName, solutionPath, processId, workspacePath, rootPath };
+        try
         {
-            var failure = new ToolResponse<VsSessionStatus>(
-                false,
-                default,
-                route.Message,
-                CreateRouteFailureMetadata(route));
-            AuditToolResult(nameof(VsGetSession), target, failure.Success, null, failure.Message, route.FailureReason.ToString());
-            return failure;
-        }
+            var target = CreateTarget(sessionId, solutionName, solutionPath, processId, workspacePath, rootPath);
+            var route = _runtime.Sessions.Resolve(target);
+            if (!route.Success || route.Session is null)
+            {
+                var failure = new ToolResponse<VsSessionStatus>(
+                    false,
+                    default,
+                    route.Message,
+                    CreateRouteFailureMetadata(route));
+                AuditToolResult(nameof(VsGetSession), target, failure.Success, null, failure.Message, route.FailureReason.ToString());
+                return failure;
+            }
 
-        var status = GetSessionStatus(route.Session);
-        var response = status is null
-            ? ToolResponse<VsSessionStatus>.Fail($"Visual Studio session '{route.Session.SessionId}' is no longer registered.")
-            : ToolResponse<VsSessionStatus>.Ok(status);
-        AuditToolResult(nameof(VsGetSession), target, response.Success, route.Session.SessionId, response.Message);
-        return response;
+            var status = GetSessionStatus(route.Session);
+            var response = status is null
+                ? ToolResponse<VsSessionStatus>.Fail($"Visual Studio session '{route.Session.SessionId}' is no longer registered.")
+                : ToolResponse<VsSessionStatus>.Ok(status);
+            AuditToolResult(nameof(VsGetSession), target, response.Success, route.Session.SessionId, response.Message);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            return AuditBrokerException<VsSessionStatus>(nameof(VsGetSession), ex, requestPayload: request);
+        }
     }
     [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "vs_select_session", Title = "Select Visual Studio Session", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
@@ -267,22 +306,30 @@ internal sealed partial class BrokerToolService
         string? workspacePath = null,
         string? rootPath = null)
     {
-        var target = CreateTarget(sessionId, solutionName, solutionPath, processId, workspacePath, rootPath);
-        var route = _runtime.Sessions.Resolve(target);
-        if (!route.Success || route.Session is null)
+        var request = new { sessionId, solutionName, solutionPath, processId, workspacePath, rootPath };
+        try
         {
-            var failure = new ToolResponse<VsSessionInfo>(
-                false,
-                default,
-                route.Message,
-                CreateRouteFailureMetadata(route));
-            AuditToolResult(nameof(VsSelectSession), target, failure.Success, null, failure.Message, route.FailureReason.ToString());
-            return failure;
-        }
+            var target = CreateTarget(sessionId, solutionName, solutionPath, processId, workspacePath, rootPath);
+            var route = _runtime.Sessions.Resolve(target);
+            if (!route.Success || route.Session is null)
+            {
+                var failure = new ToolResponse<VsSessionInfo>(
+                    false,
+                    default,
+                    route.Message,
+                    CreateRouteFailureMetadata(route));
+                AuditToolResult(nameof(VsSelectSession), target, failure.Success, null, failure.Message, route.FailureReason.ToString());
+                return failure;
+            }
 
-        var response = ToolResponse<VsSessionInfo>.Ok(route.Session);
-        AuditToolResult(nameof(VsSelectSession), target, response.Success, route.Session.SessionId, response.Message);
-        return response;
+            var response = ToolResponse<VsSessionInfo>.Ok(route.Session);
+            AuditToolResult(nameof(VsSelectSession), target, response.Success, route.Session.SessionId, response.Message);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            return AuditBrokerException<VsSessionInfo>(nameof(VsSelectSession), ex, requestPayload: request);
+        }
     }
     [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "vs_ping", Title = "Ping Broker or Session", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
@@ -295,30 +342,38 @@ internal sealed partial class BrokerToolService
         string? workspacePath = null,
         string? rootPath = null)
     {
-        if (!HasRoutingFields(sessionId, solutionName, solutionPath, processId, workspacePath, rootPath))
+        var request = new { sessionId, solutionName, solutionPath, processId, workspacePath, rootPath };
+        try
         {
-            var brokerOnlyResponse = ToolResponse<BrokerPing>.Ok(CreatePing(null));
-            AuditToolResult(nameof(VsPing), null, brokerOnlyResponse.Success, null, brokerOnlyResponse.Message);
-            return brokerOnlyResponse;
-        }
+            if (!HasRoutingFields(sessionId, solutionName, solutionPath, processId, workspacePath, rootPath))
+            {
+                var brokerOnlyResponse = ToolResponse<BrokerPing>.Ok(CreatePing(null));
+                AuditToolResult(nameof(VsPing), null, brokerOnlyResponse.Success, null, brokerOnlyResponse.Message);
+                return brokerOnlyResponse;
+            }
 
-        var target = CreateTarget(sessionId, solutionName, solutionPath, processId, workspacePath, rootPath);
-        var route = _runtime.Sessions.Resolve(target);
-        if (!route.Success || route.Session is null)
+            var target = CreateTarget(sessionId, solutionName, solutionPath, processId, workspacePath, rootPath);
+            var route = _runtime.Sessions.Resolve(target);
+            if (!route.Success || route.Session is null)
+            {
+                var failure = new ToolResponse<BrokerPing>(
+                    false,
+                    default,
+                    route.Message,
+                    CreateRouteFailureMetadata(route));
+                AuditToolResult(nameof(VsPing), target, failure.Success, null, failure.Message, route.FailureReason.ToString());
+                return failure;
+            }
+
+            var status = GetSessionStatus(route.Session);
+            var response = ToolResponse<BrokerPing>.Ok(CreatePing(status));
+            AuditToolResult(nameof(VsPing), target, response.Success, route.Session.SessionId, response.Message);
+            return response;
+        }
+        catch (Exception ex)
         {
-            var failure = new ToolResponse<BrokerPing>(
-                false,
-                default,
-                route.Message,
-                CreateRouteFailureMetadata(route));
-            AuditToolResult(nameof(VsPing), target, failure.Success, null, failure.Message, route.FailureReason.ToString());
-            return failure;
+            return AuditBrokerException<BrokerPing>(nameof(VsPing), ex, requestPayload: request);
         }
-
-        var status = GetSessionStatus(route.Session);
-        var response = ToolResponse<BrokerPing>.Ok(CreatePing(status));
-        AuditToolResult(nameof(VsPing), target, response.Success, route.Session.SessionId, response.Message);
-        return response;
     }
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "vs_launch_instance", Title = "Launch Visual Studio", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
@@ -330,12 +385,31 @@ internal sealed partial class BrokerToolService
         int timeoutSeconds = 60,
         CancellationToken cancellationToken = default)
     {
-        var result = await _runtime.Launcher.LaunchAsync(solutionPath, experimental, edition, timeoutSeconds, cancellationToken);
-        var response = result.Success
-            ? ToolResponse<VsLaunchInstanceResult>.Ok(result)
-            : new ToolResponse<VsLaunchInstanceResult>(false, result, result.Message);
-        AuditToolResult(nameof(VsLaunchInstance), null, response.Success, result.Session?.SessionId, response.Message);
-        return response;
+        var request = new { solutionPath, experimental, edition, timeoutSeconds };
+        try
+        {
+            var result = await _runtime.Launcher.LaunchAsync(solutionPath, experimental, edition, timeoutSeconds, cancellationToken);
+            var response = result.Success
+                ? ToolResponse<VsLaunchInstanceResult>.Ok(result)
+                : new ToolResponse<VsLaunchInstanceResult>(false, result, result.Message);
+            AuditToolResult(
+                nameof(VsLaunchInstance),
+                null,
+                response.Success,
+                result.Session?.SessionId,
+                response.Message,
+                requestPayload: request,
+                responsePayload: response);
+            return response;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return AuditBrokerException<VsLaunchInstanceResult>(nameof(VsLaunchInstance), ex, requestPayload: request);
+        }
     }
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "vs_context_snapshot", Title = "Get Visual Studio Context Snapshot", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
@@ -1206,23 +1280,31 @@ internal sealed partial class BrokerToolService
             return FailWithCode<BrokerLogResult>("minLevel must be one of: debug, info, warning, error.", ToolErrorCodes.InvalidRequest);
         }
 
-        var logsDirectory = _runtime.Options.EffectiveLogsDirectory;
-        if (!Directory.Exists(logsDirectory))
+        var request = new { maxFiles, maxCharsPerFile, minLevel };
+        try
         {
-            var empty = ToolResponse<BrokerLogResult>.Ok(new BrokerLogResult(logsDirectory, []));
-            AuditToolResult(nameof(VsGetLogs), null, empty.Success, null, empty.Message);
-            return empty;
-        }
+            var logsDirectory = _runtime.Options.EffectiveLogsDirectory;
+            if (!Directory.Exists(logsDirectory))
+            {
+                var empty = ToolResponse<BrokerLogResult>.Ok(new BrokerLogResult(logsDirectory, []));
+                AuditToolResult(nameof(VsGetLogs), null, empty.Success, null, empty.Message);
+                return empty;
+            }
 
-        var files = Directory.EnumerateFiles(logsDirectory)
-            .Select(path => new FileInfo(path))
-            .OrderByDescending(file => file.LastWriteTimeUtc)
-            .Take(maxFiles)
-            .Select(file => ReadBrokerLogEntry(file, maxCharsPerFile, parsedMinLevel))
-            .ToArray();
-        var response = ToolResponse<BrokerLogResult>.Ok(new BrokerLogResult(logsDirectory, files));
-        AuditToolResult(nameof(VsGetLogs), null, response.Success, null, response.Message);
-        return response;
+            var files = Directory.EnumerateFiles(logsDirectory)
+                .Select(path => new FileInfo(path))
+                .OrderByDescending(file => file.LastWriteTimeUtc)
+                .Take(maxFiles)
+                .Select(file => ReadBrokerLogEntry(file, maxCharsPerFile, parsedMinLevel))
+                .ToArray();
+            var response = ToolResponse<BrokerLogResult>.Ok(new BrokerLogResult(logsDirectory, files));
+            AuditToolResult(nameof(VsGetLogs), null, response.Success, null, response.Message);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            return AuditBrokerException<BrokerLogResult>(nameof(VsGetLogs), ex, requestPayload: request);
+        }
     }
 
     private static BrokerLogEntry ReadBrokerLogEntry(FileInfo file, int maxChars, BrokerLogLevel? minLevel)

@@ -415,6 +415,33 @@ internal sealed partial class BrokerToolService
         return ToolResponse<T>.Fail(message);
     }
 
+    private ToolResponse<T> AuditBrokerFailure<T>(
+        string toolName,
+        string message,
+        object? requestPayload = null,
+        BrokerLogLevel? level = null)
+    {
+        var response = FailWithCode<T>(message, ToolErrorCodes.BrokerError);
+        AuditToolResult(
+            toolName,
+            null,
+            success: false,
+            selectedSessionId: null,
+            response.Message,
+            failureReason: "BrokerFailure",
+            level: level,
+            requestPayload: requestPayload,
+            responsePayload: response);
+        return response;
+    }
+
+    private ToolResponse<T> AuditBrokerException<T>(
+        string toolName,
+        Exception exception,
+        object? requestPayload = null,
+        BrokerLogLevel? level = null) =>
+        AuditBrokerFailure<T>(toolName, $"{toolName} failed: {exception.Message}", requestPayload, level: level);
+
     private static string? NormalizeFailureReason(string? failureReason)
     {
         return string.IsNullOrWhiteSpace(failureReason) || failureReason == "None"

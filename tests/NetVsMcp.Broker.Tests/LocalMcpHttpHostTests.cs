@@ -451,6 +451,56 @@ public sealed class LocalMcpHttpHostTests
     }
 
     [Fact]
+    public async Task McpToolCall_BrokerException_ReturnsStructuredToolFailure()
+    {
+        var port = GetAvailablePort();
+        var runtime = CreateRuntime(
+            $"http://127.0.0.1:{port}",
+            settingsStore: new ThrowingSettingsStore());
+
+        await runtime.StartAsync(CancellationToken.None);
+
+        try
+        {
+            using var http = new HttpClient
+            {
+                BaseAddress = new Uri($"http://127.0.0.1:{port}")
+            };
+
+            using var initialize = await InitializeMcpAsync(http, "/mcp", 1);
+            initialize.EnsureSuccessStatusCode();
+
+            using var toolCall = await PostMcpAsync(http, "/mcp", new
+            {
+                jsonrpc = "2.0",
+                id = 2,
+                method = "tools/call",
+                @params = new
+                {
+                    name = "netvs_doctor",
+                    arguments = new { }
+                }
+            });
+            toolCall.EnsureSuccessStatusCode();
+
+            var body = await toolCall.Content.ReadAsStringAsync();
+            var jsonStart = body.IndexOf('{');
+            Assert.True(jsonStart >= 0, $"Expected JSON response body. Body: {body}");
+            using var document = JsonDocument.Parse(body[jsonStart..]);
+            Assert.False(document.RootElement.TryGetProperty("error", out _));
+
+            var toolResponse = await ReadMcpToolResponseAsync<BrokerDoctorResult>(toolCall);
+            Assert.False(toolResponse.Success);
+            Assert.Equal(ToolErrorCodes.BrokerError, toolResponse.Metadata!["error_code"]);
+            Assert.Contains("NetVsDoctor failed", toolResponse.Message);
+        }
+        finally
+        {
+            await runtime.StopAsync();
+        }
+    }
+
+    [Fact]
     public async Task McpToolCall_RoundTripsThroughHttpBrokerPipeAndVsixRpc()
     {
         var port = GetAvailablePort();
@@ -605,17 +655,32 @@ public sealed class LocalMcpHttpHostTests
         return CreateRuntime(endpoint, $"netvs-mcp-test-{Guid.NewGuid():N}");
     }
 
-    private static BrokerRuntime CreateRuntime(string endpoint, string pipeName)
+    private static BrokerRuntime CreateRuntime(
+        string endpoint,
+        string? pipeName = null,
+        IBrokerSettingsStore? settingsStore = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"));
+        var options = new BrokerOptions(
+            endpoint,
+            $@"\\.\pipe\{pipeName ?? $"netvs-mcp-test-{Guid.NewGuid():N}"}",
+            LogsDirectory: Path.Combine(root, "Logs"),
+            SessionsDirectory: Path.Combine(root, "Sessions"),
+            SettingsFilePath: Path.Combine(root, "settings.json"),
+            AnalyticsDatabasePath: Path.Combine(root, "Analytics", "analytics.db"));
+        var sessions = new SessionRegistry();
+        var connections = new VsSessionConnectionMap();
         return new BrokerRuntime(
-            new BrokerOptions(
-                endpoint,
-                $@"\\.\pipe\{pipeName}",
-                LogsDirectory: Path.Combine(root, "Logs"),
-                SessionsDirectory: Path.Combine(root, "Sessions"),
-                SettingsFilePath: Path.Combine(root, "settings.json")),
-            new SessionRegistry());
+            options,
+            sessions,
+            connections,
+            new VisualStudioLauncher(sessions),
+            new BrokerRegistrationRpcService(sessions, connections),
+            new AuditLogService(options.EffectiveLogsDirectory),
+            new DisabledToolUsageAnalyticsService(options.AnalyticsDatabaseFilePath),
+            new SessionManifestService(options.EffectiveSessionsDirectory),
+            settingsStore ?? new BrokerSettingsStore(options.EffectiveSettingsFilePath),
+            new BestPracticeGuideCatalog());
     }
 
     private static VsSessionRegistration CreateRegistration(string sessionId, string solutionName)
@@ -690,5 +755,15 @@ public sealed class LocalMcpHttpHostTests
         {
             return Task.FromResult(ToolResponse<string?>.Ok(_activeDocument));
         }
+    }
+
+    private sealed class ThrowingSettingsStore : IBrokerSettingsStore
+    {
+        public string FilePath => @"C:\NetVsMcp.Tests\throwing-settings.json";
+
+        public BrokerSettings Load() => throw new InvalidOperationException("settings store unavailable");
+
+        public void Update(Func<BrokerSettings, BrokerSettings> mutate) =>
+            throw new InvalidOperationException("settings store unavailable");
     }
 }
