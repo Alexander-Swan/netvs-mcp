@@ -115,11 +115,12 @@ internal sealed class ErrorListItemInfo
 
 internal static class TaskListCategories
 {
-    // EnvDTE task categories are free-form strings, not an enum - VS has no
-    // built-in "user task" constant. This is our own convention: task_list_add
-    // always tags new items with this category so task_list_remove/set_checked
-    // can tell them apart from read-only comment-token tasks (typically "Comment").
-    public const string User = "NetVsMcp User Task";
+    public const string LegacyUser = "NetVsMcp User Task";
+    public const string VisualStudioUser = "User";
+
+    public static bool IsEditableUserTask(string? category) =>
+        string.Equals(category, LegacyUser, System.StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(category, VisualStudioUser, System.StringComparison.OrdinalIgnoreCase);
 }
 
 internal sealed class TaskListRequest
@@ -174,7 +175,7 @@ internal sealed class TaskListItemInfo
     {
         ThreadHelper.ThrowIfNotOnUIThread();
 
-        var isUserTask = string.Equals(item.Category, TaskListCategories.User, System.StringComparison.OrdinalIgnoreCase);
+        var isUserTask = TaskListCategories.IsEditableUserTask(item.Category);
         bool? isChecked = null;
         try
         {

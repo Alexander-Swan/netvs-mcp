@@ -12,7 +12,10 @@ namespace NetVsMcp.Vsix;
 
 internal sealed class BuildCapabilityService : IBuildCapabilityService
 {
+    private static readonly Guid TaskProviderGuid = new("e22e7a99-2a83-4f12-ae69-1bc4504a7ee7");
+
     private readonly AsyncPackage package;
+    private TaskProvider? taskProvider;
 
     public BuildCapabilityService(AsyncPackage package)
     {
@@ -208,6 +211,20 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
             }
 
             var info = TaskListItemInfo.FromTaskItem(index, item);
+            var providerItem = FindProviderTaskItem(item);
+            if (providerItem is not null)
+            {
+                info = new TaskListItemInfo(
+                    info.Index,
+                    info.Description,
+                    info.File,
+                    info.Line,
+                    providerItem.Priority.ToString(),
+                    info.Category,
+                    info.IsUserTask,
+                    providerItem.Checked);
+            }
+
             if (info.IsUserTask && !request.IncludeUserTasks)
             {
                 continue;
@@ -233,23 +250,24 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
             return new TaskListMutationResult(false, "Description is required.");
         }
 
-        if (!Enum.TryParse<vsTaskPriority>("vsTaskPriority" + request.Priority, true, out var priority))
+        if (!TryParseTaskPriority(request.Priority, out var priority))
         {
             return new TaskListMutationResult(false, $"Unrecognized priority '{request.Priority}'. Use High, Medium, or Low.");
         }
 
-        var dte = await GetDte2Async()
-            ?? throw new InvalidOperationException("Visual Studio DTE2 service is unavailable.");
-        var taskItems = dte.ToolWindows?.TaskList?.TaskItems
-            ?? throw new InvalidOperationException("Visual Studio Task List service is unavailable.");
-
-        taskItems.Add(
-            TaskListCategories.User,
-            string.Empty,
-            request.Description,
-            priority,
-            vsTaskIcon.vsTaskIconUser,
-            Checkable: true);
+        var provider = GetTaskProvider();
+        provider.Tasks.Add(new TaskListItem
+        {
+            Category = TaskCategory.User,
+            Text = request.Description.Trim(),
+            Priority = priority,
+            Checked = false,
+            IsCheckedEditable = true,
+            IsPriorityEditable = true,
+            IsTextEditable = true,
+            CanDelete = true,
+        });
+        provider.Refresh();
 
         return new TaskListMutationResult(true, "Task item added.");
     }
@@ -258,31 +276,63 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
-        var item = await GetUserTaskItemAsync(request.Index, "removed", cancellationToken);
+        var item = await GetEditableTaskItemAsync(request.Index, "removed", cancellationToken);
         if (item is null)
         {
             return new TaskListMutationResult(false, $"No editable user task item was found at index {request.Index}.");
         }
 
-        item.Delete();
-        return new TaskListMutationResult(true, "Task item removed.");
+        if (item.ProviderItem is not null)
+        {
+            GetTaskProvider().Tasks.Remove(item.ProviderItem);
+            GetTaskProvider().Refresh();
+            return new TaskListMutationResult(true, "Task item removed.");
+        }
+
+        try
+        {
+            item.DteItem.Delete();
+            return new TaskListMutationResult(true, "Task item removed.");
+        }
+        catch (NotImplementedException)
+        {
+            return new TaskListMutationResult(
+                false,
+                "Visual Studio does not support removing this task item through DTE. Only tasks added by this running NetVsMcp VSIX session can be removed.");
+        }
     }
 
     public async Task<TaskListMutationResult> SetTaskItemCheckedAsync(TaskListSetCheckedRequest request, CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
-        var item = await GetUserTaskItemAsync(request.Index, "checked", cancellationToken);
+        var item = await GetEditableTaskItemAsync(request.Index, "checked", cancellationToken);
         if (item is null)
         {
             return new TaskListMutationResult(false, $"No editable user task item was found at index {request.Index}.");
         }
 
-        item.Checked = request.Checked;
-        return new TaskListMutationResult(true, "Task item updated.");
+        if (item.ProviderItem is not null)
+        {
+            item.ProviderItem.Checked = request.Checked;
+            GetTaskProvider().Refresh();
+            return new TaskListMutationResult(true, "Task item updated.");
+        }
+
+        try
+        {
+            item.DteItem.Checked = request.Checked;
+            return new TaskListMutationResult(true, "Task item updated.");
+        }
+        catch (NotImplementedException)
+        {
+            return new TaskListMutationResult(
+                false,
+                "Visual Studio does not support updating this task item through DTE. Only tasks added by this running NetVsMcp VSIX session can be checked.");
+        }
     }
 
-    private async Task<TaskItem?> GetUserTaskItemAsync(int index, string action, CancellationToken cancellationToken)
+    private async Task<EditableTaskItem?> GetEditableTaskItemAsync(int index, string action, CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
@@ -297,13 +347,13 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
         }
 
         var item = taskItems.Item(index);
-        if (item is null || !string.Equals(item.Category, TaskListCategories.User, StringComparison.OrdinalIgnoreCase))
+        if (item is null || !TaskListCategories.IsEditableUserTask(item.Category))
         {
             throw new InvalidOperationException(
                 $"Task item at index {index} is not a user task and cannot be {action}. Only tasks added via task_list_add can be modified.");
         }
 
-        return item;
+        return new EditableTaskItem(item, FindProviderTaskItem(item));
     }
 
     public async Task<OutputReadResult> ReadOutputAsync(OutputReadRequest request, CancellationToken cancellationToken)
@@ -407,6 +457,67 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         return await package.GetServiceAsync(typeof(DTE)) as DTE2;
+    }
+
+    private TaskProvider GetTaskProvider()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        if (taskProvider is null)
+        {
+            taskProvider = new TaskProvider(package)
+            {
+                ProviderGuid = TaskProviderGuid,
+                ProviderName = "NetVsMcp",
+            };
+        }
+
+        return taskProvider;
+    }
+
+    private TaskListItem? FindProviderTaskItem(TaskItem item)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        if (taskProvider is null)
+        {
+            return null;
+        }
+
+        foreach (TaskListItem candidate in taskProvider.Tasks)
+        {
+            if (string.Equals(candidate.Text, item.Description, StringComparison.Ordinal) &&
+                candidate.Category == TaskCategory.User)
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool TryParseTaskPriority(string? priorityText, out TaskPriority priority)
+    {
+        if (string.Equals(priorityText, "High", StringComparison.OrdinalIgnoreCase))
+        {
+            priority = TaskPriority.High;
+            return true;
+        }
+
+        if (string.Equals(priorityText, "Medium", StringComparison.OrdinalIgnoreCase))
+        {
+            priority = TaskPriority.Normal;
+            return true;
+        }
+
+        if (string.Equals(priorityText, "Low", StringComparison.OrdinalIgnoreCase))
+        {
+            priority = TaskPriority.Low;
+            return true;
+        }
+
+        priority = TaskPriority.Normal;
+        return false;
     }
 
     private static BuildStatusInfo GetBuildStatus(SolutionBuild solutionBuild)
@@ -547,5 +658,17 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
         }
 
         return null;
+    }
+
+    private sealed class EditableTaskItem
+    {
+        public EditableTaskItem(TaskItem dteItem, TaskListItem? providerItem)
+        {
+            DteItem = dteItem;
+            ProviderItem = providerItem;
+        }
+
+        public TaskItem DteItem { get; }
+        public TaskListItem? ProviderItem { get; }
     }
 }
