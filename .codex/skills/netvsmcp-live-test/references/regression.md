@@ -33,11 +33,11 @@ If a tool cannot currently be called, do not skip it merely because a prerequisi
 
 ## Full-Coverage Dependency Plan
 
-Use this plan when the requested regression pass is intended to call every exposed tool. It is a state-machine plan, not a mandate to operate on a user's working solution. Prefer a user-provided controlled test solution; use a disposable fixture only for coverage targets that have not been provided. Pass the same explicit `sessionId` on every routed call.
+Use this plan when the requested regression pass is intended to call every exposed tool. It is a state-machine plan, not a mandate to operate on a user's working solution. In this repository, use the local regression solution at `.regressionTarget/RegressionTarget.slnx` as the default controlled fixture. Use a different controlled solution only when the user explicitly provides or requests one. Pass the same explicit `sessionId` on every routed call.
 
 ### Fixture contract
 
-First use any user-provided controlled solution, debuggees, browser, and helper processes that satisfy this coverage. Only when a required target has not been provided, prepare the missing part in a throwaway fixture: a console debuggee, desktop UI debuggee, web app, test project, class library, intentional warning/error, code-action, and rename targets; a browser with a CDP endpoint; or separate disposable helper processes for attach, detach, and terminate coverage. Do not claim full coverage when the console, UI-automation, or CDP backend is unavailable; record the affected tools as blocked with that concrete capability gap.
+Open `.regressionTarget/RegressionTarget.slnx` for default coverage. It contains `RegressionTarget.Console`, `RegressionTarget.WinForms`, and `RegressionTarget.Web`; use the corresponding app for console, desktop UI, and web coverage. The directory is intentionally Git-ignored but persistent: restore its baseline after reversible test mutations rather than deleting it. Prepare separate throwaway targets only for coverage the solution does not supply, such as a test project, class library, intentional warning/error, code-action and rename targets, a browser with a CDP endpoint, or helper processes for attach, detach, and terminate coverage. Do not claim full coverage when the console, UI-automation, or CDP backend is unavailable; record the affected tools as blocked with that concrete capability gap.
 
 Retain returned values needed by later calls: `sessionId`, `solutionPath`, `projectName`, `documentPath`, `editId`, `breakpointName`, `threadId`, `watchId`, `processId`, `testFilter`, `webTarget`, and UI selectors.
 
