@@ -1001,7 +1001,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "task_list_add", Title = "Task List Add", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Adds a user task to the Task List through a routed Visual Studio session.")]
+    [Description("Adds a user task to the Task List through a routed Visual Studio session. Call task_list_get after adding it to obtain its live 1-based index before checking or removing it.")]
     public Task<ToolResponse<TaskListMutationResult>> TaskListAdd(
         [Description("The task description text.")]
         string description,
@@ -1032,7 +1032,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "task_list_remove", Title = "Task List Remove", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Removes a user task from the Task List through a routed Visual Studio session. Only user tasks (added via task_list_add) can be removed.")]
+    [Description("Removes a user task from the Task List through a routed Visual Studio session. Only user tasks (added via task_list_add) can be removed. Create the task first, then use its live 1-based index returned by task_list_get; do not assume index 0.")]
     public Task<ToolResponse<TaskListMutationResult>> TaskListRemove(
         [Description("The 1-based index of the task item, as returned by task_list_get.")]
         int index,
@@ -1052,7 +1052,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "task_list_set_checked", Title = "Task List Set Checked", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Checks or unchecks a user task in the Task List through a routed Visual Studio session. Only user tasks (added via task_list_add) support checking.")]
+    [Description("Checks or unchecks a user task in the Task List through a routed Visual Studio session. Only user tasks (added via task_list_add) support checking. Create the task first, then use its live 1-based index returned by task_list_get; do not assume index 0.")]
     public Task<ToolResponse<TaskListMutationResult>> TaskListSetChecked(
         [Description("The 1-based index of the task item, as returned by task_list_get.")]
         int index,

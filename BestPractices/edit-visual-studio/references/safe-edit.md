@@ -12,3 +12,5 @@ edit_reject({ "editId": "...", "sessionId": "..." })
 ```
 
 `operation` is `write`, `insert`, or `replace`. Use `prepare_safe_edit` when you have not already read the current document. Use `apply_safe_edit_and_build` when you want approval plus build diagnostics in one call.
+
+Read the returned identifier before the follow-up call: `edit_preview` returns it at `pendingEdit.editId`, while `prepare_safe_edit` returns it at `preview.pendingEdit.editId`. Preserve the same explicit route for the preview and decision calls.

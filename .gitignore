@@ -16,3 +16,6 @@ docs/IMPROVEMENT_PLAN.md
 
 # Disposable Visual Studio live-test fixtures.
 _live-test/
+
+# Local regression solution used for Visual Studio and broker validation.
+.regressionTarget/

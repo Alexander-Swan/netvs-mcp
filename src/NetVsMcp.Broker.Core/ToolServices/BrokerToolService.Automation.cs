@@ -14,17 +14,17 @@ internal sealed partial class BrokerToolService
     private const string UiSelectorParameterDescription = "UI Automation selector mini-language string, for example 'type=window', 'name=OK', 'id=SubmitButton', or plain text matching Name, AutomationId, or ClassName. Pass a string, not a structured object.";
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "console_read", Title = "Console Read", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Reads debuggee console output when a VSIX console backend is available.")]
+    [Description("Reads output from a live console debuggee when a VSIX console backend is available. Call console_get_info first and pass its returned target when one is provided.")]
     public Task<ToolResponse<AutomationResult>> ConsoleRead(string? target = null, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("console_read", target, null, null, null, null, null, null, null, timeoutMilliseconds, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.ConsoleReadAsync(request, ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "console_send", Title = "Console Send", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Sends debuggee console input when a VSIX console backend is available.")]
+    [Description("Sends input to a live console debuggee when a VSIX console backend is available. Start a console debuggee first, call console_get_info to discover its target, then pass that target here. A desktop GUI debuggee without a console cannot receive console input.")]
     public Task<ToolResponse<AutomationResult>> ConsoleSend(string text, string? target = null, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("console_send", target, null, null, text, null, null, null, null, timeoutMilliseconds, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.ConsoleSendAsync(request, ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "console_get_info", Title = "Console Get Info", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns debuggee console metadata when a VSIX console backend is available.")]
+    [Description("Returns metadata for a live console debuggee when a VSIX console backend is available. Call this after starting the console debuggee and use its returned target for console_read and console_send.")]
     public Task<ToolResponse<AutomationResult>> ConsoleGetInfo(string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("console_get_info", target, null, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.ConsoleGetInfoAsync(request, ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
