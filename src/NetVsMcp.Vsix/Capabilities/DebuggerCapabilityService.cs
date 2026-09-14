@@ -41,16 +41,24 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var dte = await GetDteAsync();
-        dte.ExecuteCommand("Debug.StartWithoutDebugging");
+        var solutionBuild = dte.Solution?.SolutionBuild
+            ?? throw new InvalidOperationException("Visual Studio solution build service is unavailable.");
+        solutionBuild.Run();
         return GetDebuggerState(dte.Debugger);
     }
 
     public async Task<DebuggerStateInfo> RestartAsync(CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-        var dte = await GetDteAsync();
-        dte.ExecuteCommand("Debug.Restart");
-        return GetDebuggerState(dte.Debugger);
+        var debugger = await GetDebuggerAsync();
+
+        if (debugger.CurrentMode != dbgDebugMode.dbgDesignMode)
+        {
+            debugger.Stop(WaitForDesignMode: true);
+        }
+
+        debugger.Go(WaitForBreakOrEnd: false);
+        return GetDebuggerState(debugger);
     }
 
     public async Task<DebuggerStateInfo> StopAsync(CancellationToken cancellationToken)
@@ -65,8 +73,39 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var debugger = await GetDebuggerAsync();
-        debugger.Go(WaitForBreakOrEnd: false);
+        await ContinueWhenPausedAsync(debugger, cancellationToken);
         return GetDebuggerState(debugger);
+    }
+
+    private async Task ContinueWhenPausedAsync(Debugger debugger, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        if (debugger.CurrentMode != dbgDebugMode.dbgBreakMode)
+        {
+            throw new InvalidOperationException($"The debugger must be paused before continuing; current mode is {debugger.CurrentMode}.");
+        }
+
+        try
+        {
+            debugger.Go(WaitForBreakOrEnd: false);
+        }
+        catch (Exception ex) when (
+            !cancellationToken.IsCancellationRequested &&
+            ex is System.Runtime.InteropServices.COMException or InvalidOperationException)
+        {
+            // DTE can briefly report break mode while it is completing a step transition. Yield
+            // once, confirm that it is still paused, and retry the idempotent continuation.
+            await Task.Delay(50, cancellationToken);
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+            if (debugger.CurrentMode != dbgDebugMode.dbgBreakMode)
+            {
+                throw new InvalidOperationException($"The debugger left break mode before it could continue; current mode is {debugger.CurrentMode}.");
+            }
+
+            debugger.Go(WaitForBreakOrEnd: false);
+        }
     }
 
     public async Task<HotReloadApplyResult> ApplyHotReloadAsync(CancellationToken cancellationToken)

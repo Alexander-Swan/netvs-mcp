@@ -475,7 +475,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "edit_approve", Title = "Edit Approve", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Approves a pending safe edit through a routed Visual Studio session.")]
+    [Description("Approves a pending safe edit through a routed Visual Studio session. First call edit_preview or prepare_safe_edit and pass its returned editId; preserve the same explicit route for both calls (sessionId, solutionPath, or solutionName).")]
     public Task<ToolResponse<EditDecisionResult>> EditApprove(
         string? editId = null,
         bool saveAfterApply = false,
@@ -504,7 +504,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Build, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "apply_safe_edit_and_build", Title = "Apply Safe Edit And Build", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Approves a pending safe edit, builds the routed solution, and returns diagnostics.")]
+    [Description("Approves a pending safe edit, builds the routed solution, and returns diagnostics. First call edit_preview or prepare_safe_edit and pass its returned editId; preserve the same explicit route for both calls (sessionId, solutionPath, or solutionName).")]
     public Task<ToolResponse<ApplySafeEditAndBuildResult>> ApplySafeEditAndBuild(
         string? editId = null,
         bool saveAfterApply = true,
@@ -552,7 +552,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.EditPreview, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "edit_reject", Title = "Edit Reject", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Rejects a pending safe edit through a routed Visual Studio session.")]
+    [Description("Rejects a pending safe edit through a routed Visual Studio session. First call edit_preview or prepare_safe_edit and pass its returned editId; preserve the same explicit route for both calls (sessionId, solutionPath, or solutionName).")]
     public Task<ToolResponse<EditDecisionResult>> EditReject(
         string? editId = null,
         string? sessionId = null,

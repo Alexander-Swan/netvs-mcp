@@ -66,6 +66,15 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
             ?? throw new InvalidOperationException("Visual Studio DTE2 service is unavailable.");
         var solutionBuild = dte.Solution?.SolutionBuild
             ?? throw new InvalidOperationException("Visual Studio solution build service is unavailable.");
+
+        // Build.Cancel reports E_FAIL when Visual Studio is idle. This tool is intentionally
+        // idempotent, so returning the current status is a safer and more useful result than
+        // forwarding that command failure to the caller.
+        if (solutionBuild.BuildState != vsBuildState.vsBuildStateInProgress)
+        {
+            return GetBuildStatus(solutionBuild);
+        }
+
         dte.ExecuteCommand("Build.Cancel");
         return GetBuildStatus(solutionBuild);
     }

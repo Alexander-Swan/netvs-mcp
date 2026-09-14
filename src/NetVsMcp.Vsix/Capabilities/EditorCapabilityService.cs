@@ -193,10 +193,27 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
             throw new FileNotFoundException("Document was not found on disk.", resolvedPath);
         }
 
-        var openedWindow = dte.ItemOperations.OpenFile(resolvedPath);
-        openedWindow.Activate();
+        var existingDocument = FindOpenDocument(dte, resolvedPath);
+        if (existingDocument is not null)
+        {
+            existingDocument.Activate();
+            return EditorDocumentInfo.FromDocument(existingDocument);
+        }
 
-        return EditorDocumentInfo.FromDocument(openedWindow.Document);
+        var openedWindow = dte.ItemOperations.OpenFile(resolvedPath);
+        if (openedWindow is null)
+        {
+            throw new InvalidOperationException($"Visual Studio did not return a window while opening '{resolvedPath}'.");
+        }
+
+        openedWindow.Activate();
+        var openedDocument = openedWindow.Document;
+        if (openedDocument is null)
+        {
+            throw new InvalidOperationException($"Visual Studio did not return a document while opening '{resolvedPath}'.");
+        }
+
+        return EditorDocumentInfo.FromDocument(openedDocument);
     }
 
     public async Task<SelectionInfo?> GetSelectionAsync(CancellationToken cancellationToken)

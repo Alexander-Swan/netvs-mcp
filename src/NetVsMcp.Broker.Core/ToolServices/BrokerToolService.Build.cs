@@ -134,7 +134,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Build, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "build_cancel", Title = "Build Cancel", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Cancels an active Visual Studio build.")]
+    [Description("Cancels an active Visual Studio build. When no build is active, returns the current build status without issuing a cancellation command.")]
     public Task<ToolResponse<BuildStatusInfo>> BuildCancel(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.BuildCancelAsync(ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Build, requiresVisualStudioSession: true)]
