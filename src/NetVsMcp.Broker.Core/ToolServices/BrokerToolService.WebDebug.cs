@@ -13,7 +13,7 @@ internal sealed partial class BrokerToolService
 {
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "web_connect", Title = "Web Connect", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = true)]
-    [Description("Connects browser debugging when a VSIX browser backend is available.")]
+    [Description("Connects browser debugging when a VSIX browser backend is available. Pass a Chrome or Edge remote debugging endpoint as target, such as http://127.0.0.1:9222, for CDP-backed JavaScript, console, and network coverage; passing only a page URL may fall back to the Visual Studio browser shell/UIA backend.")]
     public Task<ToolResponse<AutomationResult>> WebConnect(string? url = null, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("web_connect", target, null, url, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebConnectAsync(request, ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
@@ -23,7 +23,7 @@ internal sealed partial class BrokerToolService
         DispatchAutomation("web_disconnect", target, null, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebDisconnectAsync(request, ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "web_status", Title = "Web Status", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
-    [Description("Returns browser debugging status when a VSIX browser backend is available.")]
+    [Description("Returns browser debugging status when a VSIX browser backend is available. Check the reported backend before choosing follow-up tools: CDP supports JavaScript execution, console, and network inspection; browser-shell/UIA backends provide limited navigation, screenshot, DOM fallback, and UI automation.")]
     public Task<ToolResponse<AutomationResult>> WebStatus(string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("web_status", target, null, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebStatusAsync(request, ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
@@ -55,12 +55,12 @@ internal sealed partial class BrokerToolService
         DispatchAutomation("web_dom_query", target, selector, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebDomQueryAsync(request, ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "web_console", Title = "Web Console", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
-    [Description("Returns browser console entries when a VSIX browser backend is available.")]
+    [Description("Returns browser console entries when a VSIX browser backend is available. Requires a CDP backend from web_connect, typically Chrome or Edge launched with a remote debugging port; shell/UIA backends can return an empty supported result without console entries.")]
     public Task<ToolResponse<AutomationResult>> WebConsole(string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("web_console", target, null, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebConsoleAsync(request, ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "web_js_execute", Title = "Web Js Execute", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = true)]
-    [Description("Executes JavaScript in a connected browser when a VSIX browser backend is available.")]
+    [Description("Executes JavaScript in a connected browser when a VSIX browser backend is available. Call web_connect first with a Chrome or Edge remote debugging endpoint, such as http://127.0.0.1:9222; this tool requires the connected backend to be CDP and fails on browser-shell/UIA fallback connections.")]
     public Task<ToolResponse<AutomationResult>> WebJsExecute(string? text = null, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -72,17 +72,17 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "web_network", Title = "Web Network", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
-    [Description("Returns browser network events when a VSIX browser backend is available.")]
+    [Description("Returns browser network events when a VSIX browser backend is available. Requires a CDP backend from web_connect, typically Chrome or Edge launched with a remote debugging port; shell/UIA backends can return an empty supported result without captured network events.")]
     public Task<ToolResponse<AutomationResult>> WebNetwork(string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("web_network", target, null, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebNetworkAsync(request, ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "web_element_click", Title = "Web Element Click", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = true)]
-    [Description("Clicks a browser element when a VSIX browser backend is available.")]
+    [Description("Clicks a browser element when a VSIX browser backend is available. With browser-shell/UIA backends, selector is a UI Automation selector or visible/accessibility text, not a CSS selector; prefer DOM tools or a CDP connection when CSS/JavaScript targeting is required.")]
     public Task<ToolResponse<AutomationResult>> WebElementClick(string selector, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("web_element_click", target, selector, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebElementClickAsync(request, ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "web_element_set_value", Title = "Web Element Set Value", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = true)]
-    [Description("Sets a browser element value when a VSIX browser backend is available.")]
+    [Description("Sets a browser element value when a VSIX browser backend is available. With browser-shell/UIA backends, selector is a UI Automation selector or visible/accessibility text, not a CSS selector; prefer DOM tools or a CDP connection when CSS/JavaScript targeting is required.")]
     public Task<ToolResponse<AutomationResult>> WebElementSetValue(string selector, string text, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchAutomation("web_element_set_value", target, selector, null, text, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebElementSetValueAsync(request, ct), cancellationToken);
 }

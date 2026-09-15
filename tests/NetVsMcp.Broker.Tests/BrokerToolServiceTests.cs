@@ -1136,12 +1136,6 @@ public sealed partial class BrokerToolServiceTests
             return Task.FromResult(new ThreadCallStackResult(true, null, new DebugThreadInfo(request.ThreadId, "Main Thread", true), frames));
         }
 
-        public Task<ModuleListResult> ModuleListAsync(CancellationToken cancellationToken)
-        {
-            IReadOnlyCollection<DebugModuleInfo> modules = [new("NetVsMcp.Broker.dll", @"C:\Code\NetVsMcp\NetVsMcp.Broker.dll")];
-            return Task.FromResult(new ModuleListResult(true, null, modules));
-        }
-
         public Task<ImmediateExecuteResult> ImmediateExecuteAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(new ImmediateExecuteResult(true, true, null, "ok"));
 

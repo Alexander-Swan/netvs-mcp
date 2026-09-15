@@ -42,7 +42,6 @@ internal interface IDebuggerCapabilityService
     Task<ThreadSwitchResult> SwitchThreadAsync(ThreadSwitchRequest request, CancellationToken cancellationToken);
     Task<ThreadSetFrozenResult> SetThreadFrozenAsync(ThreadSetFrozenRequest request, CancellationToken cancellationToken);
     Task<ThreadCallStackResult> GetThreadCallStackAsync(ThreadCallStackRequest request, CancellationToken cancellationToken);
-    Task<ModuleListResult> ListModulesAsync(CancellationToken cancellationToken);
     Task<ImmediateExecuteResult> ExecuteImmediateAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken);
     Task<ExceptionSettingsResult> GetExceptionSettingsAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken);
     Task<ExceptionSettingsResult> SetExceptionSettingsAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken);

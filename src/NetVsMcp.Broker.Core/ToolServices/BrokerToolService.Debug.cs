@@ -79,7 +79,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_stop", Title = "Debug Stop", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Stops debugging in a routed Visual Studio session.")]
+    [Description("Stops an active debug session in a routed Visual Studio session. Call debug_status first; this tool is expected to fail when the debugger is already in design mode. After stopping, call debug_status again because Visual Studio can report the pre-stop mode in the immediate debug_stop response.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugStop(
         string? sessionId = null,
         string? solutionName = null,
@@ -588,13 +588,12 @@ internal sealed partial class BrokerToolService
         "breakpoints",
         "watch",
         "threads",
-        "modules",
         "parallelStacks",
         "parallelWatch"
     ];
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_snapshot", Title = "Debug Snapshot", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Optionally advances the debugger (stepInto, stepOver, stepOut, continue, or break), waits for it to settle, and returns a debugger state snapshot. Use 'include' to fetch any of callStack, locals, breakpoints, watch, threads, modules, parallelStacks, parallelWatch (omitting include fetches up to two callStack frames; pass an empty array to fetch none of them). maxFrames defaults to 2 and applies when callStack is included or include is omitted. callStack.hasMore is true when additional frames were omitted. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions. When 'action' is omitted this is a pure, non-mutating inspection of current state.")]
+    [Description("Optionally advances the debugger (stepInto, stepOver, stepOut, continue, or break), waits for it to settle, and returns a debugger state snapshot. Use 'include' to fetch any of callStack, locals, breakpoints, watch, threads, parallelStacks, parallelWatch (omitting include fetches up to two callStack frames; pass an empty array to fetch none of them). maxFrames defaults to 2 and applies when callStack is included or include is omitted. callStack.hasMore is true when additional frames were omitted. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions. When 'action' is omitted this is a pure, non-mutating inspection of current state.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugSnapshot(
         DebugAdvanceAction? action = null,
         string[]? include = null,
@@ -729,7 +728,6 @@ internal sealed partial class BrokerToolService
         var breakpoints = includeKeys.Contains("breakpoints") ? await connection.BreakpointListAsync(cancellationToken) : null;
         var watch = includeKeys.Contains("watch") ? await connection.WatchListAsync(watchRequest, cancellationToken) : null;
         var threads = includeKeys.Contains("threads") ? await connection.DebugGetThreadsAsync(cancellationToken) : null;
-        var modules = includeKeys.Contains("modules") ? await connection.ModuleListAsync(cancellationToken) : null;
         var parallelStacks = includeKeys.Contains("parallelStacks") ? await connection.ParallelStacksAsync(cancellationToken) : null;
         var parallelWatch = includeKeys.Contains("parallelWatch") ? await connection.ParallelWatchAsync(cancellationToken) : null;
 
@@ -740,7 +738,6 @@ internal sealed partial class BrokerToolService
             breakpoints,
             watch,
             threads,
-            modules,
             parallelStacks,
             parallelWatch,
             unrecognizedInclude,
@@ -1098,11 +1095,6 @@ internal sealed partial class BrokerToolService
         var request = new ImmediateExecuteRequest { Statement = statement };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, (connection, ct) => connection.ImmediateExecuteAsync(request, ct), cancellationToken);
     }
-    [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
-    [McpServerTool(Name = "module_list", Title = "Module List", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists debugger modules when supported by the VSIX debugger service.")]
-    public Task<ToolResponse<ModuleListResult>> ModuleList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
-        DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.ModuleListAsync(ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "exception_settings_get", Title = "Exception Settings Get", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Returns debugger exception settings when supported by the VSIX debugger service.")]

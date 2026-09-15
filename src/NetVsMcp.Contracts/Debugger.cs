@@ -202,15 +202,6 @@ public sealed record ThreadCallStackResult(
     DebugThreadInfo? Thread,
     IReadOnlyCollection<CallStackFrameInfo> Frames);
 
-public sealed record DebugModuleInfo(
-    string? Name,
-    string? Path);
-
-public sealed record ModuleListResult(
-    bool Supported,
-    string? Message,
-    IReadOnlyCollection<DebugModuleInfo> Modules);
-
 public sealed class ImmediateExecuteRequest
 {
     /// <summary>Expression or statement to run in the Immediate window, e.g. "myList.Count".</summary>
@@ -416,7 +407,6 @@ public sealed record DebugSnapshotResult(
     BreakpointListResult? Breakpoints,
     WatchListResult? Watch = null,
     DebugThreadListResult? Threads = null,
-    ModuleListResult? Modules = null,
     ParallelStacksResult? ParallelStacks = null,
     ParallelWatchResult? ParallelWatch = null,
     /// <summary>Section names from the request's include list that weren't recognized.</summary>

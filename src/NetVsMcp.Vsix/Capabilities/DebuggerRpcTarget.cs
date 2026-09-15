@@ -167,11 +167,6 @@ internal sealed class DebuggerRpcTarget
         return debugger.GetThreadCallStackAsync(request, cancellationToken);
     }
 
-    public Task<ModuleListResult> ModuleListAsync(CancellationToken cancellationToken)
-    {
-        return debugger.ListModulesAsync(cancellationToken);
-    }
-
     public Task<ImmediateExecuteResult> ImmediateExecuteAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken)
     {
         return debugger.ExecuteImmediateAsync(request, cancellationToken);

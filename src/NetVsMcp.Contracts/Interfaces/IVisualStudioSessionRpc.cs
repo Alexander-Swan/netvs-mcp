@@ -370,8 +370,6 @@ public interface IVisualStudioSessionRpc
         ThreadCallStackRequest request,
         CancellationToken cancellationToken);
 
-    Task<ModuleListResult> ModuleListAsync(CancellationToken cancellationToken);
-
     Task<ImmediateExecuteResult> ImmediateExecuteAsync(
         ImmediateExecuteRequest request,
         CancellationToken cancellationToken);

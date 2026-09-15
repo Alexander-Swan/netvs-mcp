@@ -704,33 +704,6 @@ internal sealed class ThreadCallStackResult
     public IReadOnlyCollection<CallStackFrameInfo> Frames { get; }
 }
 
-internal sealed class DebugModuleInfo
-{
-    public DebugModuleInfo(string? name, string? path)
-    {
-        Name = name;
-        Path = path;
-    }
-
-    public string? Name { get; }
-    public string? Path { get; }
-
-}
-
-internal sealed class ModuleListResult
-{
-    public ModuleListResult(bool supported, string? message, IReadOnlyCollection<DebugModuleInfo> modules)
-    {
-        Supported = supported;
-        Message = message;
-        Modules = modules;
-    }
-
-    public bool Supported { get; }
-    public string? Message { get; }
-    public IReadOnlyCollection<DebugModuleInfo> Modules { get; }
-}
-
 internal sealed class ImmediateExecuteRequest
 {
     public string Statement { get; set; } = string.Empty;

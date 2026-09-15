@@ -1,6 +1,6 @@
 ﻿# Debug Visual Studio With NetVsMcp
 
-Agent-neutral entrypoint for launching, attaching, pausing, stepping, inspecting, hot reload, breakpoints, tracepoints, watches, threads, modules, processes, and test debugging through NetVsMcp.
+Agent-neutral entrypoint for launching, attaching, pausing, stepping, inspecting, hot reload, breakpoints, tracepoints, watches, threads, processes, and test debugging through NetVsMcp.
 
 ## How To Read This Guide
 
@@ -30,8 +30,8 @@ Agent-neutral entrypoint for launching, attaching, pausing, stepping, inspecting
 | Use `debug_snapshot` or `debug_wait_for_break` | `debug-visual-studio/references/snapshots-waits.md` |
 | Use watches or immediate execution | `debug-visual-studio/references/watches-immediate.md` |
 | Attach, detach, list, or terminate processes, including remote transports | `debug-visual-studio/references/processes-attach.md` |
-| Threads, parallel stacks, modules, or exception settings | `debug-visual-studio/references/advanced-state.md` |
+| Threads, parallel stacks, or exception settings | `debug-visual-studio/references/advanced-state.md` |
 
 ## Covered Tools
 
-`debug_*`, `breakpoint_*`, `watch_*`, `thread_*`, `process_*`, `module_list`, `exception_settings_*`, `parallel_*`, `immediate_execute`, and `test_debug`.
+`debug_*`, `breakpoint_*`, `watch_*`, `thread_*`, `process_*`, `exception_settings_*`, `parallel_*`, `immediate_execute`, and `test_debug`.

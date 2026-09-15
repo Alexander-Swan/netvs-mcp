@@ -819,29 +819,6 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
     }
 
 
-    public async Task<ModuleListResult> ListModulesAsync(CancellationToken cancellationToken)
-    {
-        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-        var debugger = await GetDebuggerAsync();
-        var modules = new List<DebugModuleInfo>();
-
-        AddModulesFromObject(debugger.CurrentProgram, modules, cancellationToken);
-        foreach (Process process in debugger.DebuggedProcesses)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            AddModulesFromObject(process, modules, cancellationToken);
-        }
-
-        var distinctModules = modules
-            .GroupBy(module => $"{module.Name}|{module.Path}", StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.First())
-            .OrderBy(module => module.Name, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        return distinctModules.Length == 0
-            ? new ModuleListResult(false, "The active Visual Studio debug engine did not expose module data through EnvDTE.", distinctModules)
-            : new ModuleListResult(true, null, distinctModules);
-    }
-
     public async Task<ImmediateExecuteResult> ExecuteImmediateAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
@@ -1146,46 +1123,6 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         {
             return null;
         }
-    }
-
-    private static void AddModulesFromObject(object? source, ICollection<DebugModuleInfo> modules, CancellationToken cancellationToken)
-    {
-        ThreadHelper.ThrowIfNotOnUIThread();
-
-        var moduleCollection = TryGetProperty(source, "Modules");
-        if (moduleCollection is null)
-        {
-            return;
-        }
-
-        if (moduleCollection is System.Collections.IEnumerable enumerable)
-        {
-            foreach (var module in enumerable)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                AddModule(module, modules);
-            }
-        }
-    }
-
-    private static void AddModule(object? module, ICollection<DebugModuleInfo> modules)
-    {
-        ThreadHelper.ThrowIfNotOnUIThread();
-
-        if (module is null)
-        {
-            return;
-        }
-
-        var name = TryGetProperty(module, "Name")?.ToString();
-        var path = TryGetProperty(module, "Path")?.ToString() ??
-            TryGetProperty(module, "FileName")?.ToString();
-        if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(path))
-        {
-            return;
-        }
-
-        modules.Add(new DebugModuleInfo(name, path));
     }
 
     private static object? TryGetProperty(object? source, string propertyName)

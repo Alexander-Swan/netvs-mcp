@@ -554,8 +554,6 @@ public sealed class BrokerRegistrationRpcServiceTests
 
         public Task<ThreadCallStackResult> ThreadGetCallstackAsync(ThreadCallStackRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<ModuleListResult> ModuleListAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
-
         public Task<ImmediateExecuteResult> ImmediateExecuteAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<ExceptionSettingsResult> ExceptionSettingsGetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();

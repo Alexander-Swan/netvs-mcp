@@ -25,7 +25,7 @@ internal sealed class BestPracticeGuideCatalog
         ["navigate-visual-studio"] = "Definitions, references, symbols, diagnostics, code fixes, renames, call hierarchy, and workspace search. Read before using code_*, symbol_context, document_outline, find_implementations, rename_symbol_*, call_hierarchy_get, code_actions_*, diagnostics_*, editor_find, find_in_files, open_relevant_files, or related document read/open/list tools.",
         ["edit-visual-studio"] = "Documents, direct editor edits, selections, formatting, and safe-edit previews. Read before using document_*, editor_*, selection_*, document_cleanup, format_and_organize, edit_*, prepare_safe_edit, or apply_safe_edit_and_build.",
         ["build-visual-studio"] = "Build, rebuild, clean, NuGet/package operations, output panes, Task List, and error lists. Read before using build_*, clean_solution, rebuild_solution, errors_list, output_*, task_list_*, package_restore, project_dependencies, project_add_reference, project_remove_reference, or nuget_*.",
-        ["debug-visual-studio"] = "Debugger start/attach/step, breakpoints, locals, watches, threads, modules, processes, and test debugging. Read before using debug_*, breakpoint_*, watch_*, thread_*, process_*, module_list, exception_settings_*, parallel_*, immediate_execute, or test_debug.",
+        ["debug-visual-studio"] = "Debugger start/attach/step, breakpoints, locals, watches, threads, processes, and test debugging. Read before using debug_*, breakpoint_*, watch_*, thread_*, process_*, exception_settings_*, parallel_*, immediate_execute, or test_debug.",
         ["automate-visual-studio"] = "Debuggee UI automation, browser control, screenshots, DOM access, and console I/O. Read before using console_*, ui_*, or web_*."
     };
 
@@ -290,7 +290,7 @@ internal sealed class BestPracticeGuideResources
     public TextResourceContents BuildVisualStudio() => catalog.ReadResource("build-visual-studio");
 
     [McpServerResource(UriTemplate = "guide://netvsmcp/debug-visual-studio.md", Name = "NetVsMcp Debug Visual Studio Best Practices", MimeType = "text/markdown")]
-    [Description("Agent-neutral best-practices guide for debugger start/attach/step, breakpoints, locals, watches, threads, modules, and processes.")]
+    [Description("Agent-neutral best-practices guide for debugger start/attach/step, breakpoints, locals, watches, threads, and processes.")]
     public TextResourceContents DebugVisualStudio() => catalog.ReadResource("debug-visual-studio");
 
     [McpServerResource(UriTemplate = "guide://netvsmcp/automate-visual-studio.md", Name = "NetVsMcp Automate Visual Studio Best Practices", MimeType = "text/markdown")]
