@@ -94,7 +94,7 @@ public static class McpEndpointRouting
 /// </summary>
 public static class VsRpcProtocol
 {
-    public const string CurrentVersion = "1.1";
+    public const string CurrentVersion = "1.2";
     public const int CurrentMajorVersion = 1;
 }
 

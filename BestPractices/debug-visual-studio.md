@@ -16,7 +16,10 @@ Agent-neutral entrypoint for launching, attaching, pausing, stepping, inspecting
 - `dbgBreakMode` means paused; inspection and stepping tools apply.
 - Confirm before `debug_stop`, `process_terminate`, or broad breakpoint removal unless explicitly requested.
 - Prefer `debug_snapshot` or `debug_wait_for_break` when they avoid manual continue/step plus repeated inspection calls.
+- Before evaluating variables manually, prefer stepping or placing a breakpoint where their live values are available.
 - Keep locals opt-in; use watch expressions for targeted values.
+- Call-stack tools default to two frames; pass `maxFrames` only when deeper callers are needed.
+- Do not use removed module inspection tooling; if module state matters, report that NetVsMcp no longer exposes a module-list tool.
 
 ## Reference Files
 
