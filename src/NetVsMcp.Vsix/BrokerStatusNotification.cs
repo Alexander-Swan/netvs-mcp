@@ -1,10 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Imaging;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
+using NetVsMcp.Vsix.Interfaces;
 using Task = System.Threading.Tasks.Task;
 
 namespace NetVsMcp.Vsix;
@@ -38,9 +43,20 @@ internal sealed class BrokerInstallationDetector : IBrokerInstallationDetector
 {
     private const string BrokerRegistryKeyPath = @"Software\NetVsMcp\Broker";
     private const string BrokerInstalledValueName = "Installed";
+    private readonly IBrokerProcessLauncher bundledBrokerLauncher;
+
+    public BrokerInstallationDetector(IBrokerProcessLauncher bundledBrokerLauncher)
+    {
+        this.bundledBrokerLauncher = bundledBrokerLauncher;
+    }
 
     public bool IsInstalled()
     {
+        if (bundledBrokerLauncher.IsAvailable)
+        {
+            return true;
+        }
+
         if (IsInstalledInRegistry())
         {
             return true;
@@ -84,6 +100,66 @@ internal sealed class BrokerInstallationDetector : IBrokerInstallationDetector
     }
 }
 
+internal sealed class BundledBrokerProcessLauncher : IBrokerProcessLauncher
+{
+    private const string BundledBrokerRelativePath = @"Broker\NetVsMcp.Broker.exe";
+    private readonly string brokerExecutablePath;
+
+    public BundledBrokerProcessLauncher()
+        : this(GetDefaultBrokerExecutablePath())
+    {
+    }
+
+    internal BundledBrokerProcessLauncher(string brokerExecutablePath)
+    {
+        this.brokerExecutablePath = brokerExecutablePath;
+    }
+
+    public bool IsAvailable => File.Exists(brokerExecutablePath);
+
+    public Task<bool> TryLaunchAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!IsAvailable)
+        {
+            return Task.FromResult(false);
+        }
+
+        var workingDirectory = Path.GetDirectoryName(brokerExecutablePath);
+        if (string.IsNullOrWhiteSpace(workingDirectory))
+        {
+            return Task.FromResult(false);
+        }
+
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = brokerExecutablePath,
+                WorkingDirectory = workingDirectory,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+
+            return Task.FromResult(process is not null);
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceWarning("NetVsMcp bundled broker launch failed: {0}", ex);
+            return Task.FromResult(false);
+        }
+    }
+
+    private static string GetDefaultBrokerExecutablePath()
+    {
+        var extensionDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+        return string.IsNullOrWhiteSpace(extensionDirectory)
+            ? BundledBrokerRelativePath
+            : Path.Combine(extensionDirectory, BundledBrokerRelativePath);
+    }
+}
+
 internal sealed class BrokerNotificationContent
 {
     public BrokerNotificationContent(
@@ -121,20 +197,20 @@ internal static class BrokerNotificationContentFactory
         {
             BrokerConnectivityIssue.NotInstalled => new(
                 issue,
-                "NetVsMcp Broker is not running, or it is not installed in a location this extension can detect. Install the broker, or start it from your source checkout if you built locally, then reopen Visual Studio.",
-                "Download NetVsMcp Broker",
+                "NetVsMcp Broker is missing from this Visual Studio extension. Update or repair the NetVsMcp extension, then reopen Visual Studio.",
+                "Open NetVsMcp Releases",
                 BrokerReleasesUrl,
                 "broker-not-installed"),
             BrokerConnectivityIssue.NotRunning => new(
                 issue,
-                "NetVsMcp Broker is installed but not running. Start NetVsMcp Broker from the Start menu, or reinstall it if needed.",
-                "Open Broker Download Page",
+                "NetVsMcp Broker is available but could not be started or reached. Reopen Visual Studio, or update the NetVsMcp extension if the issue persists.",
+                "Open NetVsMcp Releases",
                 BrokerReleasesUrl,
                 "broker-not-running"),
             BrokerConnectivityIssue.UpdateRequired => new(
                 issue,
-                "This NetVsMcp extension needs a newer compatible NetVsMcp Broker. Update the broker, then restart Visual Studio if the warning does not clear automatically.",
-                "Download Latest Broker",
+                "This NetVsMcp extension and its broker are not compatible. Update the NetVsMcp extension, then restart Visual Studio if the warning does not clear automatically.",
+                "Open NetVsMcp Releases",
                 BrokerReleasesUrl,
                 "broker-update-required"),
             _ => throw new ArgumentOutOfRangeException(nameof(issue), issue, null)

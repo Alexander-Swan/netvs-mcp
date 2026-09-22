@@ -66,7 +66,9 @@
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Content="Check for Updates" Click="CheckForUpdates_Click" />
+                <Button Content="Check for Updates"
+                        Click="CheckForUpdates_Click"
+                        Visibility="{Binding UpdateChecksEnabled, Converter={StaticResource BoolToVis}}" />
                 <Button Content="Refresh" Click="Refresh_Click" />
                 <Button Content="Exit" Click="Exit_Click" Margin="0" />
             </StackPanel>
@@ -382,7 +384,9 @@
                         </Grid>
                     </GroupBox>
 
-                    <GroupBox Header="Updates" Margin="0,12,0,0">
+                    <GroupBox Header="Updates"
+                              Margin="0,12,0,0"
+                              Visibility="{Binding UpdateChecksEnabled, Converter={StaticResource BoolToVis}}">
                         <StackPanel Margin="14">
                             <CheckBox Content="Include dev/pre-release versions"
                                       IsChecked="{Binding IncludeDevVersions}" />

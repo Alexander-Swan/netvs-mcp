@@ -1,12 +1,12 @@
 # NetVsMcp
 
-NetVsMcp is a local MCP server for Visual Studio. It runs as a lightweight tray app on your Windows machine, exposes a standard MCP HTTP endpoint on loopback, and routes tool calls into whichever Visual Studio instance holds the solution you care about — including when several are open at once.
+NetVsMcp is a local MCP server for Visual Studio. The Visual Studio extension ships the broker payload, starts it locally when needed, exposes a standard MCP HTTP endpoint on loopback, and routes tool calls into whichever Visual Studio instance holds the solution you care about — including when several are open at once.
 
 No cloud services. No telemetry. No repo-local or per-project configuration files. Everything runs on your machine and stays there.
 
 ## What makes it different
 
-**One broker, all your instances.** Install once; the broker tray app auto-starts on login and manages every Visual Studio session. Open three solutions simultaneously, and MCP clients can target any of them by session ID, process ID, solution path, workspace path, or solution name — without a separate MCP config for each Visual Studio instance.
+**One broker, all your instances.** Install the VSIX once; the first Visual Studio instance connects to an already-running broker or starts the bundled broker in the Windows tray, and that broker manages every Visual Studio session. Open three solutions simultaneously, and MCP clients can target any of them by session ID, process ID, solution path, workspace path, or solution name — without a separate MCP config for each Visual Studio instance.
 
 **Deep IDE integration, not just file access.** NetVsMcp routes tool calls through the Visual Studio SDK, so it works with what Visual Studio actually knows: live error lists, the active debugger state, in-memory editor buffers, Roslyn's symbol index, and the real build system. Reading files from disk is the floor, not the ceiling.
 
@@ -55,13 +55,13 @@ Document/editor tools such as `document_open` and `document_read` use the parame
 ```text
 MCP client (Claude, Copilot, any agent)
   -> HTTP MCP  http://127.0.0.1:5050/mcp
-    -> NetVsMcp.Broker  (WPF tray app, always running)
+    -> NetVsMcp.Broker  (bundled local broker)
       -> NetVsMcp.Vsix  Visual Studio instance A  (named pipe)
       -> NetVsMcp.Vsix  Visual Studio instance B
       -> NetVsMcp.Vsix  Visual Studio instance C
 ```
 
-The broker is the only MCP server. Visual Studio extensions connect to it over a per-user named pipe using StreamJsonRpc. When a tool call arrives, the broker resolves the target session and forwards the call through the existing pipe connection to the correct VSIX instance. The VSIX executes it using the Visual Studio SDK and returns a structured result.
+The broker is the only MCP server. The VSIX includes the broker executable and starts it when Visual Studio opens if no compatible broker is already running; otherwise Visual Studio connects to the already-running broker. Visual Studio extensions connect to the broker over a per-user named pipe using StreamJsonRpc. When a tool call arrives, the broker resolves the target session and forwards the call through the existing pipe connection to the correct VSIX instance. The VSIX executes it using the Visual Studio SDK and returns a structured result.
 
 ## Session routing
 
@@ -83,6 +83,10 @@ Resolution order: explicit session ID → process ID → normalized solution pat
 Routing failures return a structured error with `failureReason`, `candidateCount`, and `candidateSessionIds` so the client can recover without guessing.
 
 ## MCP registration
+
+Open the broker from the Windows tray, select **Agents**, and click **Register** for your detected MCP client. The broker writes or updates the client's config file and backs it up to `<path>.bak` by default. Restart or reload the MCP client after registration.
+
+For manual registration, add an HTTP MCP server that points at the local broker:
 
 ```json
 {
@@ -120,7 +124,7 @@ NetVsMcp.slnx
   src/NetVsMcp.Broker        WPF tray/status app and local HTTP MCP broker
   src/NetVsMcp.Broker.Analytics  Local SQLite aggregate usage analytics
   src/NetVsMcp.Contracts     Shared DTOs and RPC contracts
-  src/NetVsMcp.Installer     WiX MSI installer for the broker tray app
+  src/NetVsMcp.Installer     Optional WiX MSI installer for standalone broker deployments
   src/NetVsMcp.Vsix          Visual Studio extension
   tests/NetVsMcp.Broker.Tests
 ```
@@ -134,7 +138,7 @@ dotnet build .\NetVsMcp.slnx
 
 Contributor Debug builds are isolated from the installed Release broker, so a locally debugged broker can run side by side with the Release tray app. See [docs/SETUP.md](docs/SETUP.md#run-the-broker) for the Debug defaults.
 
-Build the installer MSI:
+Build the optional standalone broker installer MSI:
 
 ```powershell
 dotnet build .\src\NetVsMcp.Installer\NetVsMcp.Installer.wixproj -c Release

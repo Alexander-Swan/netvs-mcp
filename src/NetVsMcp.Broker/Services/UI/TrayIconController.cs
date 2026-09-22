@@ -83,21 +83,24 @@ public sealed class TrayIconController : IDisposable
             autostartItem.Text = BuildAutostartMenuText();
         };
         menu.Items.Add(autostartItem);
-        var checkUpdateItem = new Forms.ToolStripMenuItem("Check for Updates");
-        checkUpdateItem.Click += async (_, _) =>
+        if (_viewModel.UpdateChecksEnabled)
         {
-            checkUpdateItem.Enabled = false;
-            checkUpdateItem.Text = "Checking...";
-            await _viewModel.CheckForUpdatesAsync();
-            checkUpdateItem.Text = "Check for Updates";
-            checkUpdateItem.Enabled = true;
+            var checkUpdateItem = new Forms.ToolStripMenuItem("Check for Updates");
+            checkUpdateItem.Click += async (_, _) =>
+            {
+                checkUpdateItem.Enabled = false;
+                checkUpdateItem.Text = "Checking...";
+                await _viewModel.CheckForUpdatesAsync();
+                checkUpdateItem.Text = "Check for Updates";
+                checkUpdateItem.Enabled = true;
 
-            if (_viewModel.UpdateAvailable)
-                ShowUpdateAvailableBalloon(_viewModel.UpdateVersionText);
-            else
-                _notifyIcon.ShowBalloonTip(3000, _viewModel.AppTitle, "You're up to date.", Forms.ToolTipIcon.Info);
-        };
-        menu.Items.Add(checkUpdateItem);
+                if (_viewModel.UpdateAvailable)
+                    ShowUpdateAvailableBalloon(_viewModel.UpdateVersionText);
+                else
+                    _notifyIcon.ShowBalloonTip(3000, _viewModel.AppTitle, "You're up to date.", Forms.ToolTipIcon.Info);
+            };
+            menu.Items.Add(checkUpdateItem);
+        }
         menu.Items.Add("Open Logs Folder", null, (_, _) => _viewModel.OpenLogsFolder());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => System.Windows.Application.Current.Shutdown());

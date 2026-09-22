@@ -9,6 +9,7 @@
     <VsixDeployOnDebug>true</VsixDeployOnDebug>
     <RootNamespace>NetVsMcp.Vsix</RootNamespace>
     <AssemblyName>NetVsMcp.Vsix</AssemblyName>
+    <BrokerVsixPublishDir Condition="'$(BrokerVsixPublishDir)' == ''">$(MSBuildProjectDirectory)\..\..\artifacts\vsix-broker\$(Configuration)\</BrokerVsixPublishDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -49,4 +50,24 @@
     <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="18.5.40034" PrivateAssets="all" />
     <PackageReference Include="StreamJsonRpc" Version="2.25.29" />
   </ItemGroup>
+
+  <Target Name="PublishBrokerForVsix" BeforeTargets="GetVsixSourceItems" Condition="'$(DesignTimeBuild)' != 'true'">
+    <MSBuild
+      Projects="..\NetVsMcp.Broker\NetVsMcp.Broker.csproj"
+      Targets="Publish"
+      Properties="Configuration=$(Configuration);PublishDir=$(BrokerVsixPublishDir);SelfContained=false" />
+    <WriteLinesToFile
+      File="$(BrokerVsixPublishDir).netvsmcp-vsix-bundled-broker"
+      Lines="This file marks this NetVsMcp Broker as bundled with the NetVsMcp Visual Studio extension. Do not delete it from the VSIX broker payload: the broker uses it to disable standalone broker self-updates because this copy is updated together with the Visual Studio extension."
+      Overwrite="true" />
+  </Target>
+
+  <Target Name="AddBrokerPayloadToVsix" BeforeTargets="GenerateFileManifest" DependsOnTargets="PublishBrokerForVsix" Condition="'$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <BrokerVsixPayload Include="$(BrokerVsixPublishDir)**\*" />
+      <VSIXSourceItem Include="@(BrokerVsixPayload)">
+        <TargetPath>Broker\%(BrokerVsixPayload.RecursiveDir)%(Filename)%(Extension)</TargetPath>
+      </VSIXSourceItem>
+    </ItemGroup>
+  </Target>
 </Project>

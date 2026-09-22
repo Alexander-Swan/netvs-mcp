@@ -16,6 +16,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly BrokerRuntime _runtime;
     private readonly IAutostartService _autostart;
     private readonly UpdateCheckService _updateCheckService;
+    private readonly BrokerUpdateAvailability _updateAvailability;
     private readonly McpClientRegistrationService _clientRegistration = new();
     private readonly List<ClientRegistrationViewModel> _allClients = [];
     private string _statusText = string.Empty;
@@ -30,11 +31,16 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private UpdateInfo? _updateInfo;
     private bool _isInstallingUpdate;
 
-    public MainWindowViewModel(BrokerRuntime runtime, IAutostartService autostart, UpdateCheckService updateCheckService)
+    public MainWindowViewModel(
+        BrokerRuntime runtime,
+        IAutostartService autostart,
+        UpdateCheckService updateCheckService,
+        BrokerUpdateAvailability updateAvailability)
     {
         _runtime = runtime;
         _autostart = autostart;
         _updateCheckService = updateCheckService;
+        _updateAvailability = updateAvailability;
         _runtime.Sessions.SessionsChanged += (_, _) => Refresh();
         _portText = (_runtime.PendingPort ?? _runtime.CurrentPort).ToString();
         _logsDirectoryText = _runtime.PendingLogsDirectory ?? _runtime.CurrentLogsDirectory;
@@ -150,7 +156,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         return $"v{Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0"}";
     }
 
-    public bool UpdateAvailable => _updateInfo is not null;
+    public bool UpdateChecksEnabled => _updateAvailability.SupportsBrokerUpdates;
+
+    public bool UpdateAvailable => UpdateChecksEnabled && _updateInfo is not null;
 
     public string UpdateVersionText => _updateInfo?.Version ?? string.Empty;
 
@@ -187,7 +195,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
             _runtime.IncludeDevVersionUpdates = value;
             OnPropertyChanged();
-            _ = CheckForUpdatesAsync();
+            if (UpdateChecksEnabled)
+            {
+                _ = CheckForUpdatesAsync();
+            }
         }
     }
 
@@ -275,6 +286,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public async Task CheckForUpdatesAsync(CancellationToken ct = default)
     {
+        if (!UpdateChecksEnabled)
+        {
+            _updateInfo = null;
+            OnPropertyChanged(nameof(UpdateAvailable));
+            OnPropertyChanged(nameof(UpdateVersionText));
+            OnPropertyChanged(nameof(UpdateBannerText));
+            return;
+        }
+
         var currentVersion = Version.TrimStart('v');
         _updateInfo = await _updateCheckService.CheckAsync(
             currentVersion,

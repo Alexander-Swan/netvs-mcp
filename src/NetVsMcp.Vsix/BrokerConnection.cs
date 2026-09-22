@@ -5,6 +5,7 @@ using System.IO.Pipes;
 using System.Threading;
 using System.Threading.Tasks;
 using NetVsMcp.Contracts;
+using NetVsMcp.Vsix.Interfaces;
 using StreamJsonRpc;
 
 namespace NetVsMcp.Vsix;
@@ -12,21 +13,47 @@ namespace NetVsMcp.Vsix;
 internal sealed class NamedPipeBrokerConnectionFactory : IBrokerConnectionFactory
 {
     private const int ConnectTimeoutMilliseconds = 2_000;
+    private static readonly TimeSpan BrokerStartupTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan BrokerStartupRetryDelay = TimeSpan.FromMilliseconds(250);
+
     private readonly string pipeName;
     private readonly object localRpcTarget;
     private readonly IBrokerInstallationDetector installationDetector;
+    private readonly IBrokerProcessLauncher brokerLauncher;
+    private bool launchAttempted;
 
     public NamedPipeBrokerConnectionFactory(
         string pipeName,
         object localRpcTarget,
-        IBrokerInstallationDetector installationDetector)
+        IBrokerInstallationDetector installationDetector,
+        IBrokerProcessLauncher brokerLauncher)
     {
         this.pipeName = pipeName;
         this.localRpcTarget = localRpcTarget;
         this.installationDetector = installationDetector;
+        this.brokerLauncher = brokerLauncher;
     }
 
     public async Task<IBrokerConnection> ConnectAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await ConnectOnceAsync(cancellationToken);
+        }
+        catch (BrokerConnectionException ex) when (CanTryLaunchBundledBroker(ex))
+        {
+            launchAttempted = true;
+
+            if (!await brokerLauncher.TryLaunchAsync(cancellationToken))
+            {
+                throw;
+            }
+
+            return await WaitForLaunchedBrokerAsync(ex, cancellationToken);
+        }
+    }
+
+    private async Task<IBrokerConnection> ConnectOnceAsync(CancellationToken cancellationToken)
     {
         var stream = new NamedPipeClientStream(
             ".",
@@ -56,14 +83,51 @@ internal sealed class NamedPipeBrokerConnectionFactory : IBrokerConnectionFactor
         }
     }
 
+    private bool CanTryLaunchBundledBroker(BrokerConnectionException ex)
+    {
+        return !launchAttempted &&
+            brokerLauncher.IsAvailable &&
+            (ex.Issue == BrokerConnectivityIssue.NotInstalled || ex.Issue == BrokerConnectivityIssue.NotRunning);
+    }
+
+    private async Task<IBrokerConnection> WaitForLaunchedBrokerAsync(
+        BrokerConnectionException initialFailure,
+        CancellationToken cancellationToken)
+    {
+        var timeoutAt = DateTimeOffset.UtcNow + BrokerStartupTimeout;
+        var lastFailure = initialFailure;
+
+        while (DateTimeOffset.UtcNow < timeoutAt)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                return await ConnectOnceAsync(cancellationToken);
+            }
+            catch (BrokerConnectionException ex) when (
+                ex.Issue == BrokerConnectivityIssue.NotInstalled ||
+                ex.Issue == BrokerConnectivityIssue.NotRunning)
+            {
+                lastFailure = ex;
+                await Task.Delay(BrokerStartupRetryDelay, cancellationToken);
+            }
+        }
+
+        throw new BrokerConnectionException(
+            BrokerConnectivityIssue.NotRunning,
+            "NetVsMcp Broker was launched from the Visual Studio extension payload, but it did not respond on its registration pipe before the startup timeout elapsed.",
+            lastFailure);
+    }
+
     private BrokerConnectionException CreateBrokerUnavailableException(Exception innerException)
     {
         var installed = installationDetector.IsInstalled();
         return new BrokerConnectionException(
             installed ? BrokerConnectivityIssue.NotRunning : BrokerConnectivityIssue.NotInstalled,
             installed
-                ? "NetVsMcp Broker is installed but is not responding on its registration pipe."
-                : "NetVsMcp Broker is not installed on this machine.",
+                ? "NetVsMcp Broker is available but is not responding on its registration pipe."
+                : "NetVsMcp Broker is missing from this Visual Studio extension.",
             innerException);
     }
 }

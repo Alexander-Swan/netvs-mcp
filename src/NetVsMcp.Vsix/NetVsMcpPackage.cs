@@ -38,6 +38,7 @@ public sealed class NetVsMcpPackage : AsyncPackage
             new SolutionCapabilityService(this));
         var capabilityRpcTarget = new VisualStudioCapabilityRpcTarget(capabilities, snapshotProvider);
         brokerNotificationService = new BrokerStatusInfoBarService(this);
+        var brokerLauncher = new BundledBrokerProcessLauncher();
 
         lifecycle = new BrokerRegistrationLifecycle(
             snapshotProvider,
@@ -46,7 +47,8 @@ public sealed class NetVsMcpPackage : AsyncPackage
             new NamedPipeBrokerConnectionFactory(
                 BrokerPipeName.CurrentUserDefault(),
                 capabilityRpcTarget,
-                new BrokerInstallationDetector()),
+                new BrokerInstallationDetector(brokerLauncher),
+                brokerLauncher),
             brokerNotificationService);
 
         await lifecycle.StartAsync(cancellationToken);

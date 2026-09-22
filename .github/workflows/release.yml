@@ -97,15 +97,11 @@ jobs:
             throw "Tag $tag already exists on origin."
           }
 
-      - name: Run tests
+      - name: Run broker tests
         run: dotnet test tests/NetVsMcp.Broker.Tests/NetVsMcp.Broker.Tests.csproj -c Release
 
-      - name: Build broker MSI
-        # VersionSuffix must be overridden here (not just left to whatever's committed in
-        # Directory.Build.props) so a "release" build's actual assembly metadata has no "-dev"
-        # baked in - the wixproj's PublishBrokerForInstaller target inherits this as a global
-        # MSBuild property when it publishes NetVsMcp.Broker.csproj.
-        run: dotnet build src/NetVsMcp.Installer/NetVsMcp.Installer.wixproj -c Release /p:VersionPrefix=${{ steps.version.outputs.build_prefix }} /p:VersionSuffix=${{ steps.version.outputs.suffix }}
+      - name: Run VSIX tests
+        run: dotnet test tests/NetVsMcp.Vsix.Tests/NetVsMcp.Vsix.Tests.csproj -c Release
 
       - name: Patch VSIX manifest version
         shell: pwsh
@@ -113,6 +109,40 @@ jobs:
 
       - name: Build VSIX
         run: dotnet build src/NetVsMcp.Vsix/NetVsMcp.Vsix.csproj -c Release /p:VersionPrefix=${{ steps.version.outputs.build_prefix }} /p:VersionSuffix=${{ steps.version.outputs.suffix }}
+
+      - name: Verify VSIX includes bundled broker
+        shell: pwsh
+        run: |
+          $vsixPath = "src/NetVsMcp.Vsix/bin/Release/net472/NetVsMcp.Vsix.vsix"
+          if (-not (Test-Path $vsixPath)) {
+            throw "VSIX was not produced at $vsixPath."
+          }
+
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $vsixPath))
+          try {
+            $entries = @{}
+            foreach ($entry in $archive.Entries) {
+              $entries[$entry.FullName] = $true
+            }
+
+            $required = @(
+              "Broker/NetVsMcp.Broker.exe",
+              "Broker/NetVsMcp.Broker.dll",
+              "Broker/NetVsMcp.Broker.deps.json",
+              "Broker/NetVsMcp.Broker.runtimeconfig.json",
+              "Broker/BestPractices/manage-visual-studio.md"
+            )
+
+            foreach ($path in $required) {
+              if (-not $entries.ContainsKey($path)) {
+                throw "VSIX is missing required bundled broker payload entry: $path"
+              }
+            }
+          }
+          finally {
+            $archive.Dispose()
+          }
 
       - name: Verify VSIX manifest version
         shell: pwsh
@@ -144,7 +174,6 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path release-assets | Out-Null
-          Copy-Item "src/NetVsMcp.Installer/bin/Release/NetVsMcp.Broker.msi" "release-assets/NetVsMcp.Broker-${{ steps.version.outputs.full }}.msi"
           $vsix = Get-ChildItem -Recurse -Filter "NetVsMcp.Vsix.vsix" -Path "src/NetVsMcp.Vsix/bin/Release" | Select-Object -First 1
           if (-not $vsix) {
             throw "NetVsMcp.Vsix.vsix was not produced."
@@ -154,7 +183,7 @@ jobs:
       - name: Generate release asset checksums
         shell: pwsh
         run: |
-          # Publish SHA-256 sidecars for downloaded MSI verification.
+          # Publish SHA-256 sidecars for downloaded release asset verification.
           Get-ChildItem -Path release-assets -File | ForEach-Object {
             $hash = (Get-FileHash -Path $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             Set-Content -Path "$($_.FullName).sha256" -Value $hash -NoNewline -Encoding ascii

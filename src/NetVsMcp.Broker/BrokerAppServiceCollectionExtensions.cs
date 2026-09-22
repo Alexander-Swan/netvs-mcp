@@ -16,6 +16,7 @@ public static class BrokerAppServiceCollectionExtensions
         services.AddNetVsMcpBrokerAnalytics(provider =>
             provider.GetRequiredService<BrokerOptions>().AnalyticsDatabaseFilePath);
         services.AddSingleton<IAutostartService, AutostartService>();
+        services.AddSingleton<BrokerUpdateAvailability>();
         services.AddSingleton<UpdateCheckService>();
         services.AddSingleton<StartupUpdateCheckService>();
         services.AddSingleton<MainWindowViewModel>();

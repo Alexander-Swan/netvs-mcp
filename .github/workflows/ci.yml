@@ -19,6 +19,40 @@ jobs:
       - name: Build solution
         run: dotnet build NetVsMcp.slnx -c Debug
 
+      - name: Verify VSIX includes bundled broker
+        shell: pwsh
+        run: |
+          $vsixPath = "src/NetVsMcp.Vsix/bin/Debug/net472/NetVsMcp.Vsix.vsix"
+          if (-not (Test-Path $vsixPath)) {
+            throw "VSIX was not produced at $vsixPath."
+          }
+
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $vsixPath))
+          try {
+            $entries = @{}
+            foreach ($entry in $archive.Entries) {
+              $entries[$entry.FullName] = $true
+            }
+
+            $required = @(
+              "Broker/NetVsMcp.Broker.exe",
+              "Broker/NetVsMcp.Broker.dll",
+              "Broker/NetVsMcp.Broker.deps.json",
+              "Broker/NetVsMcp.Broker.runtimeconfig.json",
+              "Broker/BestPractices/manage-visual-studio.md"
+            )
+
+            foreach ($path in $required) {
+              if (-not $entries.ContainsKey($path)) {
+                throw "VSIX is missing required bundled broker payload entry: $path"
+              }
+            }
+          }
+          finally {
+            $archive.Dispose()
+          }
+
       - name: Test broker
         run: dotnet test tests/NetVsMcp.Broker.Tests/NetVsMcp.Broker.Tests.csproj -c Debug --no-build
 

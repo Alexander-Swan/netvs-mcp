@@ -1,6 +1,6 @@
 # Broker UX
 
-`NetVsMcp.Broker` is the local always-running WPF tray app that hosts the HTTP MCP endpoint and accepts Visual Studio VSIX registrations over the per-user named pipe.
+`NetVsMcp.Broker` is the local WPF tray app that hosts the HTTP MCP endpoint and accepts Visual Studio VSIX registrations over the per-user named pipe. With the bundled VSIX flow, the first Visual Studio instance that loads the extension starts the broker if no compatible broker is already running; later Visual Studio instances connect to the same tray broker.
 
 ## Status Window
 
@@ -13,7 +13,7 @@ The status window is split into tabs:
 
 The header (running state badge, refresh) stays visible above the tabs regardless of which tab is selected.
 
-At startup, the broker checks for updates after the HTTP and pipe listeners are running. If no update is available, it stays tray-only. If a newer broker release is available, the status window opens with the update banner and active Install Update button visible.
+For standalone broker launches, the broker checks for updates after the HTTP and pipe listeners are running. If no update is available, it stays tray-only. If a newer broker release is available, the status window opens with the update banner and active Install Update button visible. For brokers running from the VSIX-bundled payload, update checks and update controls are hidden when the broker finds the VSIX marker file beside its executable, because that broker is updated with the Visual Studio extension.
 
 ## Persisted Settings
 
@@ -38,7 +38,7 @@ The tray icon menu includes:
 - Copy MCP Config
 - Refresh
 - Start at Login
-- Check for Updates
+- Check for Updates (standalone broker launches only)
 - Open Logs Folder
 - Exit
 

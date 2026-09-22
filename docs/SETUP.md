@@ -2,18 +2,19 @@
 
 NetVsMcp is a local-only Visual Studio MCP broker plus VSIX. The broker runs on your Windows machine, exposes MCP over loopback HTTP, and routes requests to registered Visual Studio instances.
 
-Two install paths exist:
+Two setup paths exist:
 
-- **Install (recommended)** -- get the VSIX from the Marketplace and the broker from the MSI installer. No source build required.
+- **Install (recommended)** -- install the VSIX. It includes the broker payload and can start it from Visual Studio. No separate broker installer is required.
 - **Build from source (contributors)** -- clone the repo and build/run the broker and VSIX yourself.
 
 ## Install (Recommended)
 
 1. **Install the Visual Studio extension**: search for "NetVsMcp" in Visual Studio's Extensions > Manage Extensions, or install it directly from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/). Restart Visual Studio when prompted.
-2. **Install the broker**: download the latest `NetVsMcp.Broker-*.msi` from the project's [GitHub Releases](https://github.com/Alexander-Swan/netvs-mcp/releases) page and run it. The installer sets up the broker as a Windows app that can start at login; launch it from the Start menu if it doesn't start automatically.
-3. Continue with [MCP Client Config](#mcp-client-config) below to point your MCP client at the running broker.
+2. **Open Visual Studio**: the first Visual Studio instance that loads the extension connects to an already-running broker if one exists. If no compatible broker is running, the extension starts the broker bundled inside the VSIX and the broker appears in the Windows tray.
+3. **Open a solution**: each Visual Studio instance registers itself with the broker through the per-user named pipe.
+4. Continue with [MCP Client Config](#mcp-client-config) below to point your MCP client at the running broker.
 
-The broker checks for updates on its own (see the tray/status window) and can install newer MSI releases without you repeating this process. The `NetVsMcp.Vsix` extension also has an independent version shown in the VSIX manifest -- update it the same way (Marketplace) when a new version ships.
+If you still use a separately installed standalone broker, Visual Studio will connect to that running broker instead of starting the VSIX-bundled one. Standalone broker launches keep the broker's own update UI for now. Brokers running from the VSIX package hide broker self-update controls because the marker file beside the broker executable identifies the broker as part of the Visual Studio extension payload; that payload updates with the extension.
 
 ## Build From Source (Contributors)
 
@@ -37,7 +38,7 @@ The solution contains the broker app, shared contracts, and the Visual Studio ex
 
 ### Run The Broker
 
-Run the broker project locally:
+For normal installed usage, open Visual Studio and let the extension start the bundled broker. Contributors can also run the broker project directly:
 
 ```powershell
 dotnet run --project .\src\NetVsMcp.Broker\NetVsMcp.Broker.csproj
@@ -58,9 +59,17 @@ The broker also opens a per-user named pipe for VSIX registration. The tray/stat
 
 ## MCP Client Config
 
-The broker's status window has an **Agents** tab that can register NetVsMcp directly into a known client's own config file (Claude Desktop, Claude Code CLI, Codex CLI, GitHub Copilot CLI, Cursor, Windsurf, VS Code). It shows whether each client is detected on this machine and whether NetVsMcp is already registered. Clicking "Register" or "Update" writes the merged config immediately; by default, an existing file is backed up to `<path>.bak` first, and that backup can be disabled with the checkbox in the tab. Use "Open Config" there if you'd rather inspect or edit the file yourself.
+The easiest path is the broker's **Agents** tab:
 
-To configure a client manually instead, or one the Agents tab doesn't know about yet, point it at HTTP on localhost:
+1. Open the broker status window from the Windows tray icon.
+2. Select **Agents**.
+3. Find your MCP client in the detected clients list.
+4. Click **Register**. If the client already points at this broker endpoint, the button changes to **Update** and updates the existing entry.
+5. Restart or reload your MCP client so it reads the updated config.
+
+The Agents tab can register NetVsMcp directly into a known client's own config file (Claude Desktop, Claude Code CLI, Codex CLI, GitHub Copilot CLI, Cursor, Windsurf, VS Code). It shows only clients detected on this machine and whether NetVsMcp is already registered. Clicking "Register" or "Update" writes the merged config immediately; by default, an existing file is backed up to `<path>.bak` first, and that backup can be disabled with the checkbox in the tab. Use "Open Config" there if you'd rather inspect or edit the file yourself.
+
+To configure a client manually instead, or one the Agents tab doesn't know about yet, add an HTTP MCP server that points at localhost:
 
 ```json
 {
@@ -77,7 +86,7 @@ To configure a client manually instead, or one the Agents tab doesn't know about
 }
 ```
 
-Use `127.0.0.1` or `localhost`; the broker rejects non-loopback hosts. The `netvs-web-automation` entry is optional if you do not need the `ui_*`/`web_*` debuggee automation tools; they are intentionally excluded from `/mcp`.
+Use `127.0.0.1` or `localhost`; the broker rejects non-loopback hosts. The `netvs-web-automation` entry is optional if you do not need the `ui_*`/`web_*` debuggee automation tools; they are intentionally excluded from `/mcp`. Some clients call this shape `mcpServers`, while others use a TOML or UI equivalent; the important values are HTTP transport plus `http://127.0.0.1:5050/mcp`.
 
 ## Best-Practices Guides
 
@@ -89,13 +98,13 @@ The MCP server provides the tools; the guides provide the Visual Studio operatin
 
 ## VSIX Registration Model
 
-The Visual Studio extension connects to the local broker through the per-user named pipe when a VS instance starts. It registers session information such as the VS process, opened solution, active document, and current debugger state. The broker keeps those registrations in memory and uses solution name/path routing to select the correct VS instance for MCP tool calls.
+The Visual Studio extension connects to the local broker through the per-user named pipe when a VS instance starts. If no compatible broker is already running, the first Visual Studio instance starts the broker bundled inside the VSIX; later Visual Studio instances connect to the same tray broker. Each instance registers session information such as the VS process, opened solution, active document, and current debugger state. The broker keeps those registrations in memory and uses solution name/path routing to select the correct VS instance for MCP tool calls.
 
 When more than one Visual Studio instance is open, MCP calls should include a solution name or solution path whenever the target is not obvious.
 
 ## Troubleshooting
 
-- Broker not running: start `NetVsMcp.Broker` and check `http://127.0.0.1:5050/health`.
+- Broker not running: open Visual Studio with the NetVsMcp extension enabled, then check the Windows tray and `http://127.0.0.1:5050/health`. If you use a standalone broker install, you can still start `NetVsMcp.Broker` directly.
 - Endpoint not reachable: confirm port `5050` is free, use `127.0.0.1` or `localhost`, and include `/mcp` for MCP clients.
 - VS instance not registered: make sure the VSIX is installed or running in the experimental Visual Studio instance, then open a solution so the extension has session data to report.
 - Ambiguous solution selection: specify the solution name or full solution path in the MCP request when multiple registered VS instances could match.

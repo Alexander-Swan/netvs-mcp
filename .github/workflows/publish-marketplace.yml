@@ -52,6 +52,40 @@ jobs:
       - name: Build VSIX
         run: dotnet build src/NetVsMcp.Vsix/NetVsMcp.Vsix.csproj -c Release /p:VersionPrefix=${{ steps.version.outputs.prefix }} /p:VersionSuffix=
 
+      - name: Verify VSIX includes bundled broker
+        shell: pwsh
+        run: |
+          $vsixPath = "src/NetVsMcp.Vsix/bin/Release/net472/NetVsMcp.Vsix.vsix"
+          if (-not (Test-Path $vsixPath)) {
+            throw "VSIX was not produced at $vsixPath."
+          }
+
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $vsixPath))
+          try {
+            $entries = @{}
+            foreach ($entry in $archive.Entries) {
+              $entries[$entry.FullName] = $true
+            }
+
+            $required = @(
+              "Broker/NetVsMcp.Broker.exe",
+              "Broker/NetVsMcp.Broker.dll",
+              "Broker/NetVsMcp.Broker.deps.json",
+              "Broker/NetVsMcp.Broker.runtimeconfig.json",
+              "Broker/BestPractices/manage-visual-studio.md"
+            )
+
+            foreach ($path in $required) {
+              if (-not $entries.ContainsKey($path)) {
+                throw "VSIX is missing required bundled broker payload entry: $path"
+              }
+            }
+          }
+          finally {
+            $archive.Dispose()
+          }
+
       - name: Verify VSIX manifest version
         shell: pwsh
         run: ./scripts/set-vsix-version.ps1 -Version "${{ steps.version.outputs.prefix }}" -VsixPath "src/NetVsMcp.Vsix/bin/Release/net472/NetVsMcp.Vsix.vsix"

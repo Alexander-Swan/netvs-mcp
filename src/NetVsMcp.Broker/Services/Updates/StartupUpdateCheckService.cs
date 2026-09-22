@@ -16,6 +16,12 @@ public sealed class StartupUpdateCheckService
 
     public void Start()
     {
+        if (!_viewModel.UpdateChecksEnabled)
+        {
+            Trace.WriteLine("NetVsMcp broker startup update check skipped for VSIX-bundled broker launch.");
+            return;
+        }
+
         _ = CheckForUpdatesAsync();
     }
 
