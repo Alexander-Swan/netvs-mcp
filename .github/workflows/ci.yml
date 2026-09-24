@@ -40,6 +40,7 @@ jobs:
               "Broker/NetVsMcp.Broker.dll",
               "Broker/NetVsMcp.Broker.deps.json",
               "Broker/NetVsMcp.Broker.runtimeconfig.json",
+              "Broker/.netvsmcp-vsix-bundled-broker",
               "Broker/BestPractices/manage-visual-studio.md"
             )
 

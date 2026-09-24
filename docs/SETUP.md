@@ -4,7 +4,8 @@ NetVsMcp is a local-only Visual Studio MCP broker plus VSIX. The broker runs on 
 
 Two setup paths exist:
 
-- **Install (recommended)** -- install the VSIX. It includes the broker payload and can start it from Visual Studio. No separate broker installer is required.
+- **Install (recommended)** -- install the VSIX. It includes the broker payload and can start it from Visual Studio. No separate broker installer is required for normal use.
+- **Standalone broker fallback** -- if the bundled broker cannot be used on a machine, install the broker MSI from the GitHub release assets, then open Visual Studio. The extension will connect to the already-running standalone broker instead of starting its bundled broker.
 - **Build from source (contributors)** -- clone the repo and build/run the broker and VSIX yourself.
 
 ## Install (Recommended)
@@ -14,7 +15,7 @@ Two setup paths exist:
 3. **Open a solution**: each Visual Studio instance registers itself with the broker through the per-user named pipe.
 4. Continue with [MCP Client Config](#mcp-client-config) below to point your MCP client at the running broker.
 
-If you still use a separately installed standalone broker, Visual Studio will connect to that running broker instead of starting the VSIX-bundled one. Standalone broker launches keep the broker's own update UI for now. Brokers running from the VSIX package hide broker self-update controls because the marker file beside the broker executable identifies the broker as part of the Visual Studio extension payload; that payload updates with the extension.
+If you install the standalone broker MSI, launch the broker from the Start menu or enable its start-at-login option, then open Visual Studio. Visual Studio will connect to that running broker instead of starting the VSIX-bundled one. Standalone broker launches keep the broker's own update UI for now. MSI-installed brokers must not include the VSIX marker file. Only brokers running from the VSIX package hide broker self-update controls because the marker file beside the broker executable identifies that copy as part of the Visual Studio extension payload; that payload updates with the extension.
 
 ## Build From Source (Contributors)
 
@@ -105,6 +106,7 @@ When more than one Visual Studio instance is open, MCP calls should include a so
 ## Troubleshooting
 
 - Broker not running: open Visual Studio with the NetVsMcp extension enabled, then check the Windows tray and `http://127.0.0.1:5050/health`. If you use a standalone broker install, you can still start `NetVsMcp.Broker` directly.
+- Bundled broker blocked by policy: install the standalone broker MSI from the same GitHub release assets, start it manually or at login, then reopen Visual Studio so the VSIX connects to that broker.
 - Endpoint not reachable: confirm port `5050` is free, use `127.0.0.1` or `localhost`, and include `/mcp` for MCP clients.
 - VS instance not registered: make sure the VSIX is installed or running in the experimental Visual Studio instance, then open a solution so the extension has session data to report.
 - Ambiguous solution selection: specify the solution name or full solution path in the MCP request when multiple registered VS instances could match.

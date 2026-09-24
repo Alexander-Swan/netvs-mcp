@@ -110,6 +110,17 @@ jobs:
       - name: Build VSIX
         run: dotnet build src/NetVsMcp.Vsix/NetVsMcp.Vsix.csproj -c Release /p:VersionPrefix=${{ steps.version.outputs.build_prefix }} /p:VersionSuffix=${{ steps.version.outputs.suffix }}
 
+      - name: Build standalone broker MSI
+        run: dotnet build src/NetVsMcp.Installer/NetVsMcp.Installer.wixproj -c Release /p:ProductVersion=${{ steps.version.outputs.build_prefix }} /p:VersionPrefix=${{ steps.version.outputs.build_prefix }} /p:VersionSuffix=${{ steps.version.outputs.suffix }}
+
+      - name: Verify standalone broker MSI payload is not marked as VSIX-bundled
+        shell: pwsh
+        run: |
+          $marker = "artifacts/publish/NetVsMcp.Broker/.netvsmcp-vsix-bundled-broker"
+          if (Test-Path $marker) {
+            throw "Standalone broker MSI payload must not contain the VSIX-bundled marker file: $marker"
+          }
+
       - name: Verify VSIX includes bundled broker
         shell: pwsh
         run: |
@@ -131,6 +142,7 @@ jobs:
               "Broker/NetVsMcp.Broker.dll",
               "Broker/NetVsMcp.Broker.deps.json",
               "Broker/NetVsMcp.Broker.runtimeconfig.json",
+              "Broker/.netvsmcp-vsix-bundled-broker",
               "Broker/BestPractices/manage-visual-studio.md"
             )
 
@@ -179,6 +191,11 @@ jobs:
             throw "NetVsMcp.Vsix.vsix was not produced."
           }
           Copy-Item $vsix.FullName "release-assets/NetVsMcp.Vsix-${{ steps.version.outputs.full }}.vsix"
+          $msi = Get-ChildItem -Recurse -Filter "NetVsMcp.Broker.msi" -Path "src/NetVsMcp.Installer/bin/Release" | Select-Object -First 1
+          if (-not $msi) {
+            throw "NetVsMcp.Broker.msi was not produced."
+          }
+          Copy-Item $msi.FullName "release-assets/NetVsMcp.Broker-${{ steps.version.outputs.full }}.msi"
 
       - name: Generate release asset checksums
         shell: pwsh

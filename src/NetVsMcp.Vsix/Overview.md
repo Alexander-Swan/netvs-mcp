@@ -6,14 +6,14 @@ This extension includes the **NetVsMcp Broker**, a lightweight local app that ex
 
 NetVsMcp does not use repo-local configuration files and does not require separate MCP client configuration for each Visual Studio instance. Register the broker once, then target open Visual Studio sessions by session ID, process ID, solution path, workspace path, or solution name.
 
-> **Broker included** - installing this extension also installs the local broker payload. The first Visual Studio instance that loads the extension connects to an existing broker if one is already running; otherwise it starts the bundled broker and shows it in the Windows tray.
+> **Broker included** - installing this extension also installs the local broker payload. The first Visual Studio instance that loads the extension connects to an existing broker if one is already running; otherwise it starts the bundled broker and shows it in the Windows tray. If the bundled broker cannot be used on a machine, the GitHub release assets include a standalone broker MSI that the extension can connect to instead.
 
 ## Broker setup
 
 This Visual Studio extension does **not** run MCP tools inside Visual Studio itself. Instead, it ships the NetVsMcp Broker and starts that broker locally when Visual Studio opens. The broker is still the MCP server; the extension registers each open Visual Studio instance with it.
 
 1. Install the NetVsMcp Visual Studio extension.
-2. Open Visual Studio. The extension connects to an already-running broker, or starts the bundled tray broker if no compatible broker is running.
+2. Open Visual Studio. The extension connects to an already-running broker, or starts the bundled tray broker if no compatible broker is running. For fallback/manual deployments, install and start the standalone broker MSI first.
 3. Register your MCP client from the broker status window's **Agents** tab, or configure HTTP manually with the endpoint shown there, usually `http://127.0.0.1:5050/mcp`.
 4. For better results, use the agent-neutral NetVsMcp best-practices guides when an agent is about to use a matching tool family. The broker exposes small entrypoints as MCP resources such as `guide://netvsmcp/manage-visual-studio.md`, and tool-only clients can call `netvs_get_best_practices` to list and read entrypoints or focused references.
 

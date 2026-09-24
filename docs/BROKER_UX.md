@@ -13,7 +13,7 @@ The status window is split into tabs:
 
 The header (running state badge, refresh) stays visible above the tabs regardless of which tab is selected.
 
-For standalone broker launches, the broker checks for updates after the HTTP and pipe listeners are running. If no update is available, it stays tray-only. If a newer broker release is available, the status window opens with the update banner and active Install Update button visible. For brokers running from the VSIX-bundled payload, update checks and update controls are hidden when the broker finds the VSIX marker file beside its executable, because that broker is updated with the Visual Studio extension.
+For standalone broker launches, the broker checks for updates after the HTTP and pipe listeners are running. If no update is available, it stays tray-only. If a newer broker release is available, the status window opens with the update banner and active Install Update button visible. The MSI-installed broker must not contain the VSIX marker file. For brokers running from the VSIX-bundled payload, update checks and update controls are hidden when the broker finds the VSIX marker file beside its executable, because that broker is updated with the Visual Studio extension.
 
 ## Persisted Settings
 

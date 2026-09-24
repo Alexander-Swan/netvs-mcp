@@ -55,13 +55,13 @@ Document/editor tools such as `document_open` and `document_read` use the parame
 ```text
 MCP client (Claude, Copilot, any agent)
   -> HTTP MCP  http://127.0.0.1:5050/mcp
-    -> NetVsMcp.Broker  (bundled local broker)
+    -> NetVsMcp.Broker  (bundled WPF tray broker)
       -> NetVsMcp.Vsix  Visual Studio instance A  (named pipe)
       -> NetVsMcp.Vsix  Visual Studio instance B
       -> NetVsMcp.Vsix  Visual Studio instance C
 ```
 
-The broker is the only MCP server. The VSIX includes the broker executable and starts it when Visual Studio opens if no compatible broker is already running; otherwise Visual Studio connects to the already-running broker. Visual Studio extensions connect to the broker over a per-user named pipe using StreamJsonRpc. When a tool call arrives, the broker resolves the target session and forwards the call through the existing pipe connection to the correct VSIX instance. The VSIX executes it using the Visual Studio SDK and returns a structured result.
+The broker is the only MCP server. The VSIX includes the same WPF tray/status broker app and starts it when Visual Studio opens if no compatible broker is already running; otherwise Visual Studio connects to the already-running broker. Release assets also include a standalone broker MSI for fallback deployments where the bundled broker cannot be used or where an administrator wants to install the broker separately. Visual Studio extensions connect to the broker over a per-user named pipe using StreamJsonRpc. When a tool call arrives, the broker resolves the target session and forwards the call through the existing pipe connection to the correct VSIX instance. The VSIX executes it using the Visual Studio SDK and returns a structured result.
 
 ## Session routing
 
@@ -124,7 +124,7 @@ NetVsMcp.slnx
   src/NetVsMcp.Broker        WPF tray/status app and local HTTP MCP broker
   src/NetVsMcp.Broker.Analytics  Local SQLite aggregate usage analytics
   src/NetVsMcp.Contracts     Shared DTOs and RPC contracts
-  src/NetVsMcp.Installer     Optional WiX MSI installer for standalone broker deployments
+  src/NetVsMcp.Installer     Fallback WiX MSI installer for standalone broker deployments
   src/NetVsMcp.Vsix          Visual Studio extension
   tests/NetVsMcp.Broker.Tests
 ```
@@ -138,7 +138,7 @@ dotnet build .\NetVsMcp.slnx
 
 Contributor Debug builds are isolated from the installed Release broker, so a locally debugged broker can run side by side with the Release tray app. See [docs/SETUP.md](docs/SETUP.md#run-the-broker) for the Debug defaults.
 
-Build the optional standalone broker installer MSI:
+Build the standalone broker installer MSI, mainly for fallback/manual broker deployments:
 
 ```powershell
 dotnet build .\src\NetVsMcp.Installer\NetVsMcp.Installer.wixproj -c Release
