@@ -3,15 +3,14 @@ name: Release
 # Versioning scheme:
 # - Directory.Build.props tracks the current stable line plus a dev build number. For example,
 #   after stable "1.2", dev builds are tagged "1.2.1-dev", "1.2.2-dev", etc.
-# - "release" (stable) builds promote the current stable line to the next minor version, e.g.
-#   "1.2.4-dev" releases as "1.3". The public tag/title has no build number or suffix, while
-#   binaries are built as "1.3.0".
+# - "release" (stable) builds the current stable line from VersionPrefix, e.g.
+#   "2.0.0-dev" releases as "2.0". The public tag/title has no patch number or
+#   suffix, while binaries are built as "2.0.0".
 # - "dev"/"alpha" builds are versioned Major.Minor.Build-suffix, e.g. "1.0.12-dev",
 #   "1.11.20-alpha" - Build only ever advances on a "dev" channel run (alpha runs reuse
 #   whatever Build dev has already reached, labeled "-alpha", rather than keeping a separate
 #   counter), and always counts up from the last stable release.
-# - After a "release" run ships Major.Minor, the next cycle resumes on that stable line with
-#   build counter 1: Major.Minor.1-dev.
+# - Release runs do not bump Directory.Build.props automatically.
 on:
   workflow_dispatch:
     inputs:
@@ -64,16 +63,14 @@ jobs:
             "release" { "" }
             default { throw "Unknown channel: $channel" }
           }
-          # Stable releases promote the current stable line to the next minor version and
-          # display/tag as Major.Minor. Dev/alpha keep the full Major.Minor.Build so each
-          # prerelease build since the last stable is distinguishable.
+          # Stable releases display/tag as Major.Minor from the current VersionPrefix.
+          # Dev/alpha keep the full Major.Minor.Build so each prerelease build is distinguishable.
           $displayVersion = $prefix
           $buildPrefix = $prefix
           if ($channel -eq "release") {
             $parsed = [version]$prefix
-            $releaseMinor = $parsed.Minor + 1
-            $displayVersion = "$($parsed.Major).$releaseMinor"
-            $buildPrefix = "$($parsed.Major).$releaseMinor.0"
+            $displayVersion = "$($parsed.Major).$($parsed.Minor)"
+            $buildPrefix = "$($parsed.Major).$($parsed.Minor).0"
           }
           $full = if ($suffix) { "$displayVersion-$suffix" } else { $displayVersion }
           "prefix=$prefix" >> $env:GITHUB_OUTPUT
@@ -235,56 +232,3 @@ jobs:
           publish-manifest-file: vs-publish.json
           personal-access-code: ${{ secrets.VS_MARKETPLACE_TOKEN }}
 
-      - name: Bump version for next cycle
-        # Ref promotions do not bump master's dev version.
-        if: (inputs.channel == 'dev' || inputs.channel == 'release') && inputs.ref == ''
-        shell: pwsh
-        run: |
-          $path = "Directory.Build.props"
-          $content = Get-Content $path -Raw
-          [xml]$props = $content
-          $prefix = [version]$props.Project.PropertyGroup.VersionPrefix
-          $channel = "${{ inputs.channel }}"
-          if ($channel -eq "release") {
-            # Resume dev on the newly released stable line.
-            $nextPrefix = "$($prefix.Major).$($prefix.Minor + 1).1"
-            $nextSuffix = "dev"
-          } else {
-            $nextPrefix = "$($prefix.Major).$($prefix.Minor).$($prefix.Build + 1)"
-            $nextSuffix = "${{ steps.version.outputs.suffix }}"
-          }
-          $content = $content -replace '<VersionPrefix>[^<]*</VersionPrefix>', "<VersionPrefix>$nextPrefix</VersionPrefix>"
-          $content = $content -replace '<VersionSuffix>[^<]*</VersionSuffix>', "<VersionSuffix>$nextSuffix</VersionSuffix>"
-          Set-Content $path $content -NoNewline
-
-      - name: Commit version bump
-        # Retry the version-bump push if master moved during the release.
-        if: (inputs.channel == 'dev' || inputs.channel == 'release') && inputs.ref == ''
-        shell: pwsh
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Directory.Build.props
-          git commit -m "chore: bump version after releasing ${{ steps.version.outputs.full }}"
-
-          $maxAttempts = 5
-          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-            git push origin HEAD:master
-            if ($LASTEXITCODE -eq 0) {
-              Write-Host "Version bump pushed to master on attempt $attempt."
-              exit 0
-            }
-
-            if ($attempt -eq $maxAttempts) {
-              break
-            }
-
-            Write-Host "Push failed (attempt $attempt/$maxAttempts) -- master likely moved. Fetching and rebasing before retrying."
-            git fetch origin master
-            git rebase origin/master
-            if ($LASTEXITCODE -ne 0) {
-              throw "Rebase onto origin/master failed -- Directory.Build.props likely conflicts with a concurrent change. Manual recovery required: check out master, verify VersionPrefix/VersionSuffix, and commit by hand."
-            }
-          }
-
-          throw "Failed to push the version-bump commit to master after $maxAttempts attempts. Directory.Build.props is now stale relative to what was tagged/released as ${{ steps.version.outputs.full }} -- fix it manually before the next release run."
