@@ -38,7 +38,7 @@ internal sealed class NamedPipeBrokerConnectionFactory : IBrokerConnectionFactor
     {
         try
         {
-            return await ConnectOnceAsync(cancellationToken);
+            return await ConnectAndResetLaunchGuardAsync(cancellationToken);
         }
         catch (BrokerConnectionException ex) when (CanTryLaunchBundledBroker(ex))
         {
@@ -51,6 +51,13 @@ internal sealed class NamedPipeBrokerConnectionFactory : IBrokerConnectionFactor
 
             return await WaitForLaunchedBrokerAsync(ex, cancellationToken);
         }
+    }
+
+    private async Task<IBrokerConnection> ConnectAndResetLaunchGuardAsync(CancellationToken cancellationToken)
+    {
+        var connection = await ConnectOnceAsync(cancellationToken);
+        launchAttempted = false;
+        return connection;
     }
 
     private async Task<IBrokerConnection> ConnectOnceAsync(CancellationToken cancellationToken)
@@ -103,7 +110,7 @@ internal sealed class NamedPipeBrokerConnectionFactory : IBrokerConnectionFactor
 
             try
             {
-                return await ConnectOnceAsync(cancellationToken);
+                return await ConnectAndResetLaunchGuardAsync(cancellationToken);
             }
             catch (BrokerConnectionException ex) when (
                 ex.Issue == BrokerConnectivityIssue.NotInstalled ||
