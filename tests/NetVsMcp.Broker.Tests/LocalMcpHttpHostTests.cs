@@ -218,6 +218,9 @@ public sealed class LocalMcpHttpHostTests
             var uiFindElements = tools
                 .EnumerateArray()
                 .Single(tool => tool.GetProperty("name").GetString() == "ui_find_elements");
+            var webConnect = tools
+                .EnumerateArray()
+                .Single(tool => tool.GetProperty("name").GetString() == "web_connect");
             var selector = uiFindElements
                 .GetProperty("inputSchema")
                 .GetProperty("properties")
@@ -229,6 +232,11 @@ public sealed class LocalMcpHttpHostTests
             Assert.Contains("selector mini-language string", description);
             Assert.Contains("type=window", description);
             Assert.Contains("Pass a string, not a structured object.", description);
+
+            var webConnectDescription = webConnect.GetProperty("description").GetString();
+            Assert.Contains("Use web_* tools only when no dedicated browser automation tool is installed or available", webConnectDescription);
+            Assert.Contains("Playwright", webConnectDescription);
+            Assert.Contains("Chrome DevTools", webConnectDescription);
         }
         finally
         {
