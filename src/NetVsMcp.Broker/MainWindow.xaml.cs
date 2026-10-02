@@ -1,11 +1,15 @@
 using System.Windows;
+using System.Windows.Interop;
 using NetVsMcp.Broker.ViewModels;
 
 namespace NetVsMcp.Broker;
 
 public partial class MainWindow : Window
 {
+    private const int ShowWindowRestore = 9;
+
     private readonly MainWindowViewModel _viewModel;
+    private bool _isHidingToTray;
 
     public MainWindow(MainWindowViewModel viewModel)
     {
@@ -17,8 +21,85 @@ public partial class MainWindow : Window
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
         e.Cancel = true;
-        Hide();
+        HideToTray();
     }
+
+    protected override void OnStateChanged(EventArgs e)
+    {
+        base.OnStateChanged(e);
+
+        if (!_isHidingToTray && WindowState == WindowState.Minimized)
+        {
+            Dispatcher.BeginInvoke(HideToTray);
+        }
+    }
+
+    public void RestoreFromTray()
+    {
+        ShowInTaskbar = true;
+
+        if (!IsVisible)
+        {
+            Show();
+        }
+
+        WindowState = WindowState.Normal;
+        BringToForeground();
+        Dispatcher.BeginInvoke(BringToForeground);
+    }
+
+    public void ToggleFromTray()
+    {
+        if (IsVisible && WindowState != WindowState.Minimized)
+        {
+            HideToTray();
+            return;
+        }
+
+        RestoreFromTray();
+    }
+
+    private void HideToTray()
+    {
+        if (!IsVisible)
+        {
+            ShowInTaskbar = false;
+            return;
+        }
+
+        _isHidingToTray = true;
+        try
+        {
+            WindowState = WindowState.Normal;
+            ShowInTaskbar = false;
+            Hide();
+        }
+        finally
+        {
+            _isHidingToTray = false;
+        }
+    }
+
+    private void BringToForeground()
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle != IntPtr.Zero)
+        {
+            ShowWindow(handle, ShowWindowRestore);
+            SetForegroundWindow(handle);
+        }
+
+        Activate();
+        Topmost = true;
+        Topmost = false;
+        Focus();
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
     private void CopyConfig_Click(object sender, RoutedEventArgs e) => _viewModel.CopyMcpConfig();
 

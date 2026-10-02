@@ -29,6 +29,7 @@ public sealed class TrayIconController : IDisposable
             ContextMenuStrip = BuildMenu()
         };
 
+        _notifyIcon.MouseClick += OnNotifyIconMouseClick;
         _notifyIcon.DoubleClick += (_, _) => ShowStatusWindow();
         _runtime.Sessions.SessionsChanged += (_, _) => UpdateStatus();
         _runtime.Sessions.SessionConnected += OnSessionConnected;
@@ -56,6 +57,7 @@ public sealed class TrayIconController : IDisposable
         }
 
         _notifyIcon.Visible = false;
+        _notifyIcon.MouseClick -= OnNotifyIconMouseClick;
         _runtime.Sessions.SessionConnected -= OnSessionConnected;
         _notifyIcon.Dispose();
         _disposed = true;
@@ -115,6 +117,33 @@ public sealed class TrayIconController : IDisposable
 
     private string BuildAutostartMenuText() => $"Start at Login: {_viewModel.AutostartStatus}";
 
+    private void OnNotifyIconMouseClick(object? sender, Forms.MouseEventArgs e)
+    {
+        if (e.Button == Forms.MouseButtons.Left)
+        {
+            ToggleStatusWindow();
+        }
+    }
+
+    private void ToggleStatusWindow()
+    {
+        var window = _windowFactory();
+        if (window is MainWindow mainWindow)
+        {
+            mainWindow.ToggleFromTray();
+            return;
+        }
+
+        if (window.IsVisible && window.WindowState != WindowState.Minimized)
+        {
+            window.ShowInTaskbar = false;
+            window.Hide();
+            return;
+        }
+
+        ShowStatusWindow();
+    }
+
     private void OnSessionConnected(object? sender, SessionConnectedEventArgs e)
     {
         System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
@@ -145,8 +174,15 @@ public sealed class TrayIconController : IDisposable
     public void ShowStatusWindow()
     {
         var window = _windowFactory();
+        if (window is MainWindow mainWindow)
+        {
+            mainWindow.RestoreFromTray();
+            return;
+        }
+
         if (!window.IsVisible)
         {
+            window.ShowInTaskbar = true;
             window.Show();
         }
 

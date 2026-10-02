@@ -6,7 +6,8 @@
         Height="720"
         MinHeight="640"
         Width="1120"
-        MinWidth="860">
+        MinWidth="860"
+        ResizeMode="CanMinimize">
     <DockPanel Margin="20">
         <Grid DockPanel.Dock="Top" Margin="0,0,0,18">
             <Grid.ColumnDefinitions>
