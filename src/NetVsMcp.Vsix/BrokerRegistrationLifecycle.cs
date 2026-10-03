@@ -21,7 +21,7 @@ internal sealed class BrokerRegistrationLifecycle : IDisposable
     private readonly SemaphoreSlim stateChanged = new(0, 1);
 
     private IBrokerConnection? activeConnection;
-    private bool disposed;
+    private volatile bool disposed;
 
     public BrokerRegistrationLifecycle(
         IVisualStudioSessionSnapshotProvider snapshotProvider,
@@ -61,6 +61,7 @@ internal sealed class BrokerRegistrationLifecycle : IDisposable
         // real chance to complete before the process tears down VS - and so this doesn't race
         // the background connection loop's own `finally` (RunConnectionLoopAsync), which can
         // observe the same cancellation and call UnregisterAndDisconnectAsync concurrently.
+        // Both paths request broker shutdown once disposal has started, and
         // UnregisterAndDisconnectAsync itself guards the shared `activeConnection` field with
         // Interlocked.Exchange so only one caller ever owns and disposes a given connection.
         // Dispose() must stay synchronous (IDisposable), so this uses JoinableTaskFactory.Run
@@ -70,7 +71,7 @@ internal sealed class BrokerRegistrationLifecycle : IDisposable
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
             try
             {
-                await UnregisterAndDisconnectAsync(timeout.Token);
+                await UnregisterAndDisconnectAsync(timeout.Token, requestBrokerShutdown: true);
             }
             catch (Exception ex)
             {
@@ -116,7 +117,7 @@ internal sealed class BrokerRegistrationLifecycle : IDisposable
             }
             finally
             {
-                await UnregisterAndDisconnectAsync(CancellationToken.None);
+                await UnregisterAndDisconnectAsync(CancellationToken.None, requestBrokerShutdown: disposed);
             }
 
             await DelayBeforeReconnectAsync(reconnectDelay, cancellationToken);
@@ -147,7 +148,7 @@ internal sealed class BrokerRegistrationLifecycle : IDisposable
         await connection.HeartbeatAsync(VsHeartbeatRequest.FromSnapshot(snapshot, capabilities), cancellationToken);
     }
 
-    private async Task UnregisterAndDisconnectAsync(CancellationToken cancellationToken)
+    private async Task UnregisterAndDisconnectAsync(CancellationToken cancellationToken, bool requestBrokerShutdown)
     {
         // Interlocked.Exchange makes "take ownership of the current connection and null the
         // field" atomic, so Dispose() (main thread) and RunConnectionLoopAsync's `finally`
@@ -162,11 +163,26 @@ internal sealed class BrokerRegistrationLifecycle : IDisposable
 
         try
         {
-            await connection.UnregisterAsync(SessionIdentity.CurrentProcessSessionId(), cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            Trace.TraceInformation("NetVsMcp broker unregister skipped: {0}", ex.Message);
+            try
+            {
+                await connection.UnregisterAsync(SessionIdentity.CurrentProcessSessionId(), cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceInformation("NetVsMcp broker unregister skipped: {0}", ex.Message);
+            }
+
+            if (requestBrokerShutdown)
+            {
+                try
+                {
+                    await connection.ShutdownAsync(cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    Trace.TraceInformation("NetVsMcp broker shutdown request skipped: {0}", ex.Message);
+                }
+            }
         }
         finally
         {

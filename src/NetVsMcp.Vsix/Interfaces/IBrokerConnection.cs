@@ -15,4 +15,5 @@ internal interface IBrokerConnection : IDisposable
     Task RegisterAsync(VsRegistrationRequest request, CancellationToken cancellationToken);
     Task HeartbeatAsync(VsHeartbeatRequest request, CancellationToken cancellationToken);
     Task UnregisterAsync(string sessionId, CancellationToken cancellationToken);
+    Task ShutdownAsync(CancellationToken cancellationToken);
 }

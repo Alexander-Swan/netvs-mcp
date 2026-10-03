@@ -176,6 +176,12 @@ internal sealed class JsonRpcBrokerConnection : IBrokerConnection
         return InvokeAndValidateAsync("UnregisterAsync", cancellationToken, sessionId);
     }
 
+    public Task ShutdownAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return InvokeAndValidateAsync("ShutdownAsync", cancellationToken);
+    }
+
     private async Task HeartbeatAndUpdateAsync(VsHeartbeatRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

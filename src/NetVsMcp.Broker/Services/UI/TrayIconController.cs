@@ -78,13 +78,17 @@ public sealed class TrayIconController : IDisposable
         menu.Items.Add($"Open {_viewModel.AppTitle} Status Window", null, (_, _) => ShowStatusWindow());
         menu.Items.Add("Copy MCP Config", null, (_, _) => _viewModel.CopyMcpConfig());
         menu.Items.Add("Refresh", null, (_, _) => Refresh());
-        var autostartItem = new Forms.ToolStripMenuItem(BuildAutostartMenuText());
-        autostartItem.Click += (_, _) =>
+        if (_viewModel.ShowStandaloneBrokerControls)
         {
-            _viewModel.ToggleAutostart();
-            autostartItem.Text = BuildAutostartMenuText();
-        };
-        menu.Items.Add(autostartItem);
+            var autostartItem = new Forms.ToolStripMenuItem(BuildAutostartMenuText());
+            autostartItem.Click += (_, _) =>
+            {
+                _viewModel.ToggleAutostart();
+                autostartItem.Text = BuildAutostartMenuText();
+            };
+            menu.Items.Add(autostartItem);
+        }
+
         if (_viewModel.UpdateChecksEnabled)
         {
             var checkUpdateItem = new Forms.ToolStripMenuItem("Check for Updates");
@@ -104,8 +108,12 @@ public sealed class TrayIconController : IDisposable
             menu.Items.Add(checkUpdateItem);
         }
         menu.Items.Add("Open Logs Folder", null, (_, _) => _viewModel.OpenLogsFolder());
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Exit", null, (_, _) => System.Windows.Application.Current.Shutdown());
+        if (_viewModel.ShowStandaloneBrokerControls)
+        {
+            menu.Items.Add(new Forms.ToolStripSeparator());
+            menu.Items.Add("Exit", null, (_, _) => System.Windows.Application.Current.Shutdown());
+        }
+
         return menu;
     }
 

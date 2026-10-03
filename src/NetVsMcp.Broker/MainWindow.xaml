@@ -71,7 +71,10 @@
                         Click="CheckForUpdates_Click"
                         Visibility="{Binding UpdateChecksEnabled, Converter={StaticResource BoolToVis}}" />
                 <Button Content="Refresh" Click="Refresh_Click" />
-                <Button Content="Exit" Click="Exit_Click" Margin="0" />
+                <Button Content="Exit"
+                        Click="Exit_Click"
+                        Margin="0"
+                        Visibility="{Binding ShowStandaloneBrokerControls, Converter={StaticResource BoolToVis}}" />
             </StackPanel>
         </Grid>
 
@@ -149,9 +152,24 @@
                         <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PipeName}" Margin="0,10,0,0" VerticalAlignment="Center" />
                         <Button Grid.Row="2" Grid.Column="2" Content="Copy" Click="CopyPipe_Click" Margin="0,10,0,0" />
 
-                        <TextBlock Grid.Row="3" Text="Start at login" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Center" />
-                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding AutostartStatus}" Margin="0,10,0,0" VerticalAlignment="Center" />
-                        <Button Grid.Row="3" Grid.Column="2" Content="Toggle" Click="ToggleAutostart_Click" Margin="0,10,0,0" />
+                        <TextBlock Grid.Row="3"
+                                   Text="Start at login"
+                                   FontWeight="SemiBold"
+                                   Margin="0,10,0,0"
+                                   VerticalAlignment="Center"
+                                   Visibility="{Binding ShowStandaloneBrokerControls, Converter={StaticResource BoolToVis}}" />
+                        <TextBlock Grid.Row="3"
+                                   Grid.Column="1"
+                                   Text="{Binding AutostartStatus}"
+                                   Margin="0,10,0,0"
+                                   VerticalAlignment="Center"
+                                   Visibility="{Binding ShowStandaloneBrokerControls, Converter={StaticResource BoolToVis}}" />
+                        <Button Grid.Row="3"
+                                Grid.Column="2"
+                                Content="Toggle"
+                                Click="ToggleAutostart_Click"
+                                Margin="0,10,0,0"
+                                Visibility="{Binding ShowStandaloneBrokerControls, Converter={StaticResource BoolToVis}}" />
 
                         <TextBlock Grid.Row="4" Text="Logs folder" FontWeight="SemiBold" Margin="0,10,0,0" VerticalAlignment="Center" />
                         <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LogsFolder}" Margin="0,10,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />

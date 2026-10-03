@@ -12,11 +12,15 @@ public static class BrokerAppServiceCollectionExtensions
         this IServiceCollection services,
         string[]? args)
     {
-        services.AddNetVsMcpBrokerCore(args);
+        services.AddSingleton<BrokerUpdateAvailability>();
+        services.AddNetVsMcpBrokerCore(
+            args,
+            shutdownAllowed: provider => provider.GetRequiredService<BrokerUpdateAvailability>().IsVsixBundled,
+            requestShutdown: _ => System.Windows.Application.Current.Dispatcher.BeginInvoke(
+                new Action(System.Windows.Application.Current.Shutdown)));
         services.AddNetVsMcpBrokerAnalytics(provider =>
             provider.GetRequiredService<BrokerOptions>().AnalyticsDatabaseFilePath);
         services.AddSingleton<IAutostartService, AutostartService>();
-        services.AddSingleton<BrokerUpdateAvailability>();
         services.AddSingleton<UpdateCheckService>();
         services.AddSingleton<StartupUpdateCheckService>();
         services.AddSingleton<MainWindowViewModel>();

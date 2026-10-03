@@ -57,6 +57,48 @@ public sealed class VsixRegistrationPipeListenerTests
         await WaitForAsync(() => !connections.TryGet("vs-1", out _));
     }
 
+    [Fact]
+    public async Task RegisteredPipeSession_RequestsShutdownOnDisconnect_WhenNoSessionsRemain()
+    {
+        var pipeName = $"netvs-mcp-test-{Guid.NewGuid():N}";
+        var registry = new SessionRegistry();
+        var connections = new VsSessionConnectionMap();
+        var shutdownRequested = false;
+        await using var listener = new VsixRegistrationPipeListener(
+            new BrokerOptions("http://127.0.0.1:0", $@"\\.\pipe\{pipeName}"),
+            registry,
+            connections,
+            new BrokerShutdownPolicy(
+                isShutdownAllowed: () => true,
+                requestShutdown: () => shutdownRequested = true));
+
+        await listener.StartAsync(CancellationToken.None);
+
+        await using var clientPipe = new NamedPipeClientStream(
+            ".",
+            pipeName,
+            PipeDirection.InOut,
+            PipeOptions.Asynchronous);
+        await clientPipe.ConnectAsync(5000);
+
+        using var jsonRpc = new JsonRpc(clientPipe);
+        jsonRpc.AddLocalRpcTarget<IVisualStudioSessionRpc>(
+            new FakeVisualStudioSessionRpc("Program.cs"),
+            options: null);
+        var registration = jsonRpc.Attach<IBrokerRegistrationRpc>();
+        jsonRpc.StartListening();
+
+        var response = await registration.RegisterAsync(
+            CreateRegistration("vs-1", "NetVsMcp"),
+            CancellationToken.None);
+        Assert.True(response.Success);
+
+        jsonRpc.Dispose();
+        clientPipe.Dispose();
+
+        await WaitForAsync(() => shutdownRequested);
+    }
+
     private static async Task WaitForAsync(Func<bool> condition)
     {
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));

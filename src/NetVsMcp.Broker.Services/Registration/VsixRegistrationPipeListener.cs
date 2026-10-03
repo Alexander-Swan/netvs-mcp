@@ -11,6 +11,7 @@ internal sealed class VsixRegistrationPipeListener : IAsyncDisposable
     private readonly BrokerOptions _options;
     private readonly SessionRegistry _sessions;
     private readonly IVsSessionConnectionMap _connections;
+    private readonly BrokerShutdownPolicy _shutdownPolicy;
     private readonly List<Task> _clientTasks = [];
     private readonly object _gate = new();
     private CancellationTokenSource? _listenerCancellation;
@@ -19,11 +20,13 @@ internal sealed class VsixRegistrationPipeListener : IAsyncDisposable
     public VsixRegistrationPipeListener(
         BrokerOptions options,
         SessionRegistry sessions,
-        IVsSessionConnectionMap connections)
+        IVsSessionConnectionMap connections,
+        BrokerShutdownPolicy? shutdownPolicy = null)
     {
         _options = options;
         _sessions = sessions;
         _connections = connections;
+        _shutdownPolicy = shutdownPolicy ?? new BrokerShutdownPolicy();
     }
 
     public bool IsRunning => _listenerTask is { IsCompleted: false };
@@ -112,7 +115,9 @@ internal sealed class VsixRegistrationPipeListener : IAsyncDisposable
                 registrationService = new BrokerRegistrationRpcService(
                     _sessions,
                     _connections,
-                    sessionConnection);
+                    sessionConnection,
+                    _shutdownPolicy.IsShutdownAllowed,
+                    _shutdownPolicy.RequestShutdown);
 
                 jsonRpc.AddLocalRpcTarget(registrationService);
                 jsonRpc.StartListening();

@@ -11,4 +11,6 @@ public interface IBrokerRegistrationRpc
     Task<ToolResponse> HeartbeatAsync(string sessionId, CancellationToken cancellationToken);
 
     Task<ToolResponse> UnregisterAsync(string sessionId, CancellationToken cancellationToken);
+
+    Task<ToolResponse> ShutdownAsync(CancellationToken cancellationToken);
 }

@@ -193,6 +193,41 @@ public sealed class BrokerRegistrationRpcServiceTests
     }
 
     [Fact]
+    public async Task UnregisterAsync_RequestsShutdown_WhenLastSessionIsRemovedAndShutdownIsAllowed()
+    {
+        var shutdownRequested = false;
+        var registry = new SessionRegistry();
+        var service = new BrokerRegistrationRpcService(
+            registry,
+            shutdownAllowed: () => true,
+            requestShutdown: () => shutdownRequested = true);
+        await service.RegisterAsync(CreateRegistration("vs-1", "NetVsMcp"), CancellationToken.None);
+
+        var response = await service.UnregisterAsync("vs-1", CancellationToken.None);
+
+        Assert.True(response.Success);
+        Assert.True(shutdownRequested);
+    }
+
+    [Fact]
+    public async Task UnregisterAsync_SkipsShutdown_WhenOtherSessionsRemainRegistered()
+    {
+        var shutdownRequested = false;
+        var registry = new SessionRegistry();
+        var service = new BrokerRegistrationRpcService(
+            registry,
+            shutdownAllowed: () => true,
+            requestShutdown: () => shutdownRequested = true);
+        await service.RegisterAsync(CreateRegistration("vs-1", "NetVsMcp"), CancellationToken.None);
+        await service.RegisterAsync(CreateRegistration("vs-2", "Other"), CancellationToken.None);
+
+        var response = await service.UnregisterAsync("vs-1", CancellationToken.None);
+
+        Assert.True(response.Success);
+        Assert.False(shutdownRequested);
+    }
+
+    [Fact]
     public async Task RemoveRegisteredConnections_RemovesConnectionsAndSessionsForDisconnectedPipe()
     {
         var registry = new SessionRegistry();
@@ -212,6 +247,22 @@ public sealed class BrokerRegistrationRpcServiceTests
     }
 
     [Fact]
+    public async Task RemoveRegisteredConnections_RequestsShutdown_WhenNoSessionsRemain()
+    {
+        var shutdownRequested = false;
+        var registry = new SessionRegistry();
+        var service = new BrokerRegistrationRpcService(
+            registry,
+            shutdownAllowed: () => true,
+            requestShutdown: () => shutdownRequested = true);
+        await service.RegisterAsync(CreateRegistration("vs-1", "NetVsMcp"), CancellationToken.None);
+
+        service.RemoveRegisteredConnections();
+
+        Assert.True(shutdownRequested);
+    }
+
+    [Fact]
     public async Task UnregisterAsync_ReturnsFailureForUnknownSession()
     {
         var service = new BrokerRegistrationRpcService(new SessionRegistry());
@@ -219,6 +270,48 @@ public sealed class BrokerRegistrationRpcServiceTests
         var response = await service.UnregisterAsync("missing", CancellationToken.None);
 
         Assert.False(response.Success);
+    }
+
+    [Fact]
+    public async Task ShutdownAsync_ReturnsFailure_WhenShutdownIsNotAllowed()
+    {
+        var service = new BrokerRegistrationRpcService(new SessionRegistry());
+
+        var response = await service.ShutdownAsync(CancellationToken.None);
+
+        Assert.False(response.Success);
+    }
+
+    [Fact]
+    public async Task ShutdownAsync_RequestsShutdown_WhenShutdownIsAllowed()
+    {
+        var shutdownRequested = false;
+        var service = new BrokerRegistrationRpcService(
+            new SessionRegistry(),
+            shutdownAllowed: () => true,
+            requestShutdown: () => shutdownRequested = true);
+
+        var response = await service.ShutdownAsync(CancellationToken.None);
+
+        Assert.True(response.Success);
+        Assert.True(shutdownRequested);
+    }
+
+    [Fact]
+    public async Task ShutdownAsync_SkipsShutdown_WhenSessionsRemainRegistered()
+    {
+        var shutdownRequested = false;
+        var registry = new SessionRegistry();
+        var service = new BrokerRegistrationRpcService(
+            registry,
+            shutdownAllowed: () => true,
+            requestShutdown: () => shutdownRequested = true);
+        await service.RegisterAsync(CreateRegistration("vs-1", "NetVsMcp"), CancellationToken.None);
+
+        var response = await service.ShutdownAsync(CancellationToken.None);
+
+        Assert.False(response.Success);
+        Assert.False(shutdownRequested);
     }
 
     private static VsSessionRegistration CreateRegistration(string sessionId, string solutionName)

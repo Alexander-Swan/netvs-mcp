@@ -8,17 +8,23 @@ internal sealed class BrokerRegistrationRpcService : IBrokerRegistrationRpc
     private readonly SessionRegistry _sessions;
     private readonly IVsSessionConnectionMap? _connections;
     private readonly IVisualStudioSessionRpc? _sessionConnection;
+    private readonly Func<bool> _shutdownAllowed;
+    private readonly Action _requestShutdown;
     private readonly HashSet<string> _registeredSessionIds = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _gate = new();
 
     public BrokerRegistrationRpcService(
         SessionRegistry sessions,
         IVsSessionConnectionMap? connections = null,
-        IVisualStudioSessionRpc? sessionConnection = null)
+        IVisualStudioSessionRpc? sessionConnection = null,
+        Func<bool>? shutdownAllowed = null,
+        Action? requestShutdown = null)
     {
         _sessions = sessions;
         _connections = connections;
         _sessionConnection = sessionConnection;
+        _shutdownAllowed = shutdownAllowed ?? (() => false);
+        _requestShutdown = requestShutdown ?? (() => { });
     }
 
     public IReadOnlyCollection<string> RegisteredSessionIds
@@ -91,6 +97,20 @@ internal sealed class BrokerRegistrationRpcService : IBrokerRegistrationRpc
         if (response.Success)
         {
             RemoveConnection(sessionId);
+            RequestShutdownIfAllowedAndNoSessionsRemain();
+        }
+
+        return Task.FromResult(response);
+    }
+
+    public Task<ToolResponse> ShutdownAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var response = RequestShutdownIfAllowedAndNoSessionsRemain();
+        if (!response.Success)
+        {
+            return Task.FromResult(response);
         }
 
         return Task.FromResult(response);
@@ -98,10 +118,17 @@ internal sealed class BrokerRegistrationRpcService : IBrokerRegistrationRpc
 
     public void RemoveRegisteredConnections()
     {
+        var removedAny = false;
         foreach (var sessionId in RegisteredSessionIds)
         {
-            _sessions.Unregister(sessionId);
+            var response = _sessions.Unregister(sessionId);
+            removedAny = removedAny || response.Success;
             RemoveConnection(sessionId);
+        }
+
+        if (removedAny)
+        {
+            RequestShutdownIfAllowedAndNoSessionsRemain();
         }
     }
 
@@ -113,6 +140,22 @@ internal sealed class BrokerRegistrationRpcService : IBrokerRegistrationRpc
         }
 
         _connections?.Remove(sessionId);
+    }
+
+    private ToolResponse RequestShutdownIfAllowedAndNoSessionsRemain()
+    {
+        if (!_shutdownAllowed())
+        {
+            return ToolResponse.Fail("Broker shutdown is not available for this broker launch mode.");
+        }
+
+        if (_sessions.ListSessions().Count > 0)
+        {
+            return ToolResponse.Fail("Broker shutdown skipped because Visual Studio sessions are still registered.");
+        }
+
+        _requestShutdown();
+        return ToolResponse.Ok("Broker shutdown requested.");
     }
 
     private static bool IsCompatibleProtocol(string? protocolVersion)

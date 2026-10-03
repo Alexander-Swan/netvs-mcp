@@ -158,6 +158,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public bool UpdateChecksEnabled => _updateAvailability.SupportsBrokerUpdates;
 
+    public bool ShowStandaloneBrokerControls => !_updateAvailability.IsVsixBundled;
+
     public bool UpdateAvailable => UpdateChecksEnabled && _updateInfo is not null;
 
     public string UpdateVersionText => _updateInfo?.Version ?? string.Empty;
@@ -547,6 +549,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public void ToggleAutostart()
     {
+        if (!ShowStandaloneBrokerControls)
+        {
+            return;
+        }
+
         if (!_autostart.IsSupported)
         {
             System.Windows.MessageBox.Show(

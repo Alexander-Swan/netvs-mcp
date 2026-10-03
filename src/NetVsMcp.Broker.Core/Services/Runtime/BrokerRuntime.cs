@@ -12,6 +12,8 @@ public sealed class BrokerRuntime
     // MainWindowViewModel.Refresh() - a UI-layer method - so it would silently stop happening
     // if the status window were never opened. Own it here instead, as a runtime-level timer.
     private static readonly TimeSpan StaleSessionSweepInterval = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan VsixIdleShutdownInitialDelay = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan VsixIdleShutdownInterval = TimeSpan.FromSeconds(5);
 
     // Audit-yyyyMMdd.jsonl is a daily rolling log. Keep today's file by default and prune older
     // files once at startup and then daily, similar in spirit to SessionManifestService.CleanupStale.
@@ -22,9 +24,12 @@ public sealed class BrokerRuntime
     private readonly LocalMcpHttpHost _httpHost;
     private readonly VsixRegistrationPipeListener _registrationPipeListener;
     private readonly IBrokerSettingsStore _settingsStore;
+    private readonly BrokerShutdownPolicy _shutdownPolicy;
     private System.Threading.Timer? _staleSessionSweepTimer;
+    private System.Threading.Timer? _vsixIdleShutdownTimer;
     private System.Threading.Timer? _auditLogPruneTimer;
     private System.Threading.Timer? _usageAnalyticsPruneTimer;
+    private volatile bool _hasSeenVisualStudioSession;
 
     internal BrokerRuntime(BrokerOptions options, SessionRegistry sessions)
         : this(
@@ -51,7 +56,8 @@ public sealed class BrokerRuntime
         IToolUsageAnalyticsService usageAnalytics,
         ISessionManifestService sessionManifests,
         IBrokerSettingsStore settingsStore,
-        BestPracticeGuideCatalog bestPracticeGuides)
+        BestPracticeGuideCatalog bestPracticeGuides,
+        BrokerShutdownPolicy? shutdownPolicy = null)
     {
         Options = options;
         Sessions = sessions;
@@ -64,11 +70,13 @@ public sealed class BrokerRuntime
         UsageAnalytics = usageAnalytics;
         SessionManifests = sessionManifests;
         _settingsStore = settingsStore;
+        _shutdownPolicy = shutdownPolicy ?? new BrokerShutdownPolicy();
         BestPracticeGuides = bestPracticeGuides;
         Tools = new BrokerToolService(this);
         _httpHost = new LocalMcpHttpHost(options, Tools, BestPracticeGuides);
-        _registrationPipeListener = new VsixRegistrationPipeListener(options, sessions, Connections);
+        _registrationPipeListener = new VsixRegistrationPipeListener(options, sessions, Connections, _shutdownPolicy);
         Sessions.SessionsChanged += OnSessionsChanged;
+        Sessions.SessionConnected += OnSessionConnected;
     }
 
     internal static BrokerRuntime Create(IServiceProvider provider) => new(
@@ -81,7 +89,8 @@ public sealed class BrokerRuntime
         provider.GetRequiredService<IToolUsageAnalyticsService>(),
         provider.GetRequiredService<ISessionManifestService>(),
         provider.GetRequiredService<IBrokerSettingsStore>(),
-        provider.GetRequiredService<BestPracticeGuideCatalog>());
+        provider.GetRequiredService<BestPracticeGuideCatalog>(),
+        provider.GetService<BrokerShutdownPolicy>());
 
     public BrokerOptions Options { get; }
 
@@ -237,6 +246,15 @@ public sealed class BrokerRuntime
             StaleSessionSweepInterval,
             StaleSessionSweepInterval);
 
+        if (_shutdownPolicy.IsShutdownAllowed())
+        {
+            _vsixIdleShutdownTimer = new System.Threading.Timer(
+                _ => RequestShutdownIfNoSessionsRemain(),
+                null,
+                VsixIdleShutdownInitialDelay,
+                VsixIdleShutdownInterval);
+        }
+
         _auditLogPruneTimer = new System.Threading.Timer(
             _ => PruneAuditLogs(),
             null,
@@ -255,6 +273,9 @@ public sealed class BrokerRuntime
         _staleSessionSweepTimer?.Dispose();
         _staleSessionSweepTimer = null;
 
+        _vsixIdleShutdownTimer?.Dispose();
+        _vsixIdleShutdownTimer = null;
+
         _auditLogPruneTimer?.Dispose();
         _auditLogPruneTimer = null;
 
@@ -264,6 +285,7 @@ public sealed class BrokerRuntime
         await _registrationPipeListener.StopAsync();
         await _httpHost.StopAsync();
         Sessions.SessionsChanged -= OnSessionsChanged;
+        Sessions.SessionConnected -= OnSessionConnected;
     }
 
     private void SweepStaleSessions()
@@ -274,11 +296,41 @@ public sealed class BrokerRuntime
             if (removed > 0)
             {
                 Trace.WriteLine($"NetVsMcp broker swept {removed} stale Visual Studio session(s).");
+                RequestShutdownIfNoSessionsRemain();
             }
         }
         catch (Exception ex)
         {
             Trace.WriteLine($"NetVsMcp broker stale-session sweep failed: {ex}");
+        }
+    }
+
+    private void RequestShutdownIfNoSessionsRemain()
+    {
+        try
+        {
+            if (Sessions.ListSessions().Count > 0)
+            {
+                return;
+            }
+
+            if (!_hasSeenVisualStudioSession)
+            {
+                return;
+            }
+
+            var response = Registration.ShutdownAsync(CancellationToken.None)
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
+            if (response.Success)
+            {
+                Trace.WriteLine("NetVsMcp broker requested shutdown because no Visual Studio sessions remain.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine($"NetVsMcp broker idle shutdown check failed: {ex}");
         }
     }
 
@@ -329,5 +381,11 @@ public sealed class BrokerRuntime
         {
             Trace.WriteLine($"NetVsMcp session manifest sync failed: {ex}");
         }
+    }
+
+    private void OnSessionConnected(object? sender, SessionConnectedEventArgs e)
+    {
+        _ = e;
+        _hasSeenVisualStudioSession = true;
     }
 }
