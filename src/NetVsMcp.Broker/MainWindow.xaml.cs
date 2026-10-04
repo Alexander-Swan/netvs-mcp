@@ -48,6 +48,12 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(BringToForeground);
     }
 
+    public void ShowAgentsTab()
+    {
+        MainTabs.SelectedIndex = 2;
+        RestoreFromTray();
+    }
+
     public void ToggleFromTray()
     {
         if (IsVisible && WindowState != WindowState.Minimized)

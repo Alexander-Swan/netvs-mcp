@@ -145,6 +145,11 @@ public sealed class BrokerRuntime
         set => _settingsStore.Update(s => s with { BackupConfigBeforeRegistering = value });
     }
 
+    public bool HasOnboarded => _settingsStore.Load().HasOnboarded;
+
+    public void MarkOnboarded() =>
+        _settingsStore.Update(s => s with { HasOnboarded = true });
+
     /// <summary>
     /// The version of the last update the user chose to ignore, or <c>null</c> if none was ignored.
     /// Suppresses the update banner for that specific version only; a newer release still surfaces.

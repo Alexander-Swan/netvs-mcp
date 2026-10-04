@@ -16,7 +16,8 @@ public sealed record BrokerSettings(
     bool UsageAnalyticsEnabled = false,
     int? UsageAnalyticsRetentionDays = null,
     BrokerLogLevel MinimumLogLevel = BrokerLogLevel.Info,
-    bool BackupConfigBeforeRegistering = true);
+    bool BackupConfigBeforeRegistering = true,
+    bool HasOnboarded = false);
 
 internal sealed class BrokerSettingsStore : IBrokerSettingsStore
 {
@@ -80,4 +81,5 @@ internal sealed class BrokerSettingsStore : IBrokerSettingsStore
             File.WriteAllText(FilePath, JsonSerializer.Serialize(updated, SerializerOptions));
         }
     }
+
 }

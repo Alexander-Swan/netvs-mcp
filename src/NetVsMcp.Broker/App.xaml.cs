@@ -61,6 +61,12 @@ public partial class App : System.Windows.Application
             _mainWindow = _services.GetRequiredService<MainWindow>();
             _trayIcon = _services.GetRequiredService<TrayIconController>();
 
+            if (_mainWindow.DataContext is MainWindowViewModel viewModel &&
+                viewModel.ShouldShowAgentsRegistration())
+            {
+                _mainWindow.ShowAgentsTab();
+            }
+
             _services.GetRequiredService<StartupUpdateCheckService>().Start();
         }
         catch (Exception ex)

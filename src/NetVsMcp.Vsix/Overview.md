@@ -6,7 +6,7 @@ This extension includes the **NetVsMcp Broker**, a lightweight local app that ex
 
 NetVsMcp does not use repo-local configuration files and does not require separate MCP client configuration for each Visual Studio instance. Register the broker once, then target open Visual Studio sessions by session ID, process ID, solution path, workspace path, or solution name.
 
-> **Broker included** - installing this extension also installs the local broker payload. The first Visual Studio instance that loads the extension connects to an existing broker if one is already running; otherwise it starts the bundled broker and shows it in the Windows tray. If the bundled broker cannot be used on a machine, the GitHub release assets include a standalone broker MSI that the extension can connect to instead.
+> **Broker included** - installing this extension also installs the local broker payload. The first Visual Studio instance that loads the extension connects to an existing broker if one is already running; otherwise it starts the bundled broker and shows it in the Windows tray. If no detected MCP client is already registered for the broker endpoint and setup has not already been shown, the status window opens on **Agents** so you can register or copy configuration. If the bundled broker cannot be used on a machine, the GitHub release assets include a standalone broker MSI that the extension can connect to instead.
 
 ## Broker setup
 
@@ -14,8 +14,10 @@ This Visual Studio extension does **not** run MCP tools inside Visual Studio its
 
 1. Install the NetVsMcp Visual Studio extension.
 2. Open Visual Studio. The extension connects to an already-running broker, or starts the bundled tray broker if no compatible broker is running. For fallback/manual deployments, install and start the standalone broker MSI first.
-3. Register your MCP client from the broker status window's **Agents** tab, or configure HTTP manually with the endpoint shown there, usually `http://127.0.0.1:5050/mcp`.
+3. Register your MCP client from the broker status window's **Agents** tab. The broker opens this tab automatically when none of the detected MCP clients are already registered for the endpoint and setup has not already been shown; later launches stay in the tray once setup is complete. You can also configure HTTP manually with the endpoint shown there, usually `http://127.0.0.1:5050/mcp`.
 4. For better results, use the agent-neutral NetVsMcp best-practices guides when an agent is about to use a matching tool family. The broker exposes small entrypoints as MCP resources such as `guide://netvsmcp/manage-visual-studio.md`, and tool-only clients can call `netvs_get_best_practices` to list and read entrypoints or focused references.
+
+The VSIX-bundled broker exits after all Visual Studio sessions are gone, and Visual Studio starts a replacement broker if the bundled broker process is killed while Visual Studio is still running. Standalone broker MSI runs remain user-managed.
 
 Project source, documentation, issues, and release assets are available in the [NetVsMcp GitHub repository](https://github.com/Alexander-Swan/netvs-mcp).
 

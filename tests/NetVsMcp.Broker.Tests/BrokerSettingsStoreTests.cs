@@ -18,6 +18,7 @@ public sealed class BrokerSettingsStoreTests
         Assert.Equal(BrokerLogLevel.Info, settings.MinimumLogLevel);
         Assert.False(settings.UsageAnalyticsEnabled);
         Assert.Null(settings.UsageAnalyticsRetentionDays);
+        Assert.False(settings.HasOnboarded);
     }
 
     [Fact]
@@ -29,6 +30,7 @@ public sealed class BrokerSettingsStoreTests
         store.Update(s => s with { Port = 5099 });
         store.Update(s => s with { MinimumLogLevel = BrokerLogLevel.Warning });
         store.Update(s => s with { UsageAnalyticsEnabled = true, UsageAnalyticsRetentionDays = 30 });
+        store.Update(s => s with { HasOnboarded = true });
 
         var loaded = store.Load();
 
@@ -37,6 +39,7 @@ public sealed class BrokerSettingsStoreTests
         Assert.Equal(BrokerLogLevel.Warning, loaded.MinimumLogLevel);
         Assert.True(loaded.UsageAnalyticsEnabled);
         Assert.Equal(30, loaded.UsageAnalyticsRetentionDays);
+        Assert.True(loaded.HasOnboarded);
     }
 
     [Fact]

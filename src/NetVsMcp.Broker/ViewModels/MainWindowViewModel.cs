@@ -218,6 +218,41 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
+    public bool ShouldShowAgentsRegistration()
+    {
+        RefreshDetectedClients();
+
+        if (DetectedClients.Any(client => client.IsRegistered))
+        {
+            _runtime.MarkOnboarded();
+            return false;
+        }
+
+        if (_runtime.HasOnboarded)
+        {
+            return false;
+        }
+
+        _runtime.MarkOnboarded();
+        return true;
+    }
+
+    private void RefreshDetectedClients()
+    {
+        foreach (var client in _allClients)
+        {
+            client.IsDetected = _clientRegistration.IsDetected(client.Definition);
+            client.IsRegistered = client.IsDetected && _clientRegistration.IsRegistered(client.Definition, _runtime.Options);
+        }
+
+        DetectedClients.Clear();
+        foreach (var client in _allClients.Where(c => c.IsDetected))
+            DetectedClients.Add(client);
+
+        OnPropertyChanged(nameof(HasDetectedClients));
+        OnPropertyChanged(nameof(NoDetectedClients));
+    }
+
     public IReadOnlyList<string> LogLevelOptions { get; } =
     [
         BrokerLogLevel.Debug.ToString(),
@@ -475,18 +510,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(HasSessions));
         OnPropertyChanged(nameof(NoSessions));
 
-        foreach (var client in _allClients)
-        {
-            client.IsDetected = _clientRegistration.IsDetected(client.Definition);
-            client.IsRegistered = client.IsDetected && _clientRegistration.IsRegistered(client.Definition, _runtime.Options);
-        }
-
-        DetectedClients.Clear();
-        foreach (var client in _allClients.Where(c => c.IsDetected))
-            DetectedClients.Add(client);
-
-        OnPropertyChanged(nameof(HasDetectedClients));
-        OnPropertyChanged(nameof(NoDetectedClients));
+        RefreshDetectedClients();
     }
 
     /// <summary>
