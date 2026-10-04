@@ -10,7 +10,8 @@ name: Release
 #   "1.11.20-alpha" - Build only ever advances on a "dev" channel run (alpha runs reuse
 #   whatever Build dev has already reached, labeled "-alpha", rather than keeping a separate
 #   counter), and always counts up from the last stable release.
-# - Release runs do not bump Directory.Build.props automatically.
+# - After a "release" run ships Major.Minor, the next cycle resumes one minor ahead with the
+#   build counter reset: Major.(Minor+1).0-dev.
 on:
   workflow_dispatch:
     inputs:
@@ -231,4 +232,58 @@ jobs:
           extension-file: release-assets/NetVsMcp.Vsix-${{ steps.version.outputs.full }}.vsix
           publish-manifest-file: vs-publish.json
           personal-access-code: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+
+      - name: Bump version for next cycle
+        # Ref promotions do not bump master's dev version.
+        if: (inputs.channel == 'dev' || inputs.channel == 'release') && inputs.ref == ''
+        shell: pwsh
+        run: |
+          $path = "Directory.Build.props"
+          $content = Get-Content $path -Raw
+          [xml]$props = $content
+          $prefix = [version]$props.Project.PropertyGroup.VersionPrefix
+          $channel = "${{ inputs.channel }}"
+          if ($channel -eq "release") {
+            # Resume dev one minor ahead after a stable release.
+            $nextPrefix = "$($prefix.Major).$($prefix.Minor + 1).0"
+            $nextSuffix = "dev"
+          } else {
+            $nextPrefix = "$($prefix.Major).$($prefix.Minor).$($prefix.Build + 1)"
+            $nextSuffix = "${{ steps.version.outputs.suffix }}"
+          }
+          $content = $content -replace '<VersionPrefix>[^<]*</VersionPrefix>', "<VersionPrefix>$nextPrefix</VersionPrefix>"
+          $content = $content -replace '<VersionSuffix>[^<]*</VersionSuffix>', "<VersionSuffix>$nextSuffix</VersionSuffix>"
+          Set-Content $path $content -NoNewline
+
+      - name: Commit version bump
+        # Retry the version-bump push if master moved during the release.
+        if: (inputs.channel == 'dev' || inputs.channel == 'release') && inputs.ref == ''
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Directory.Build.props
+          git commit -m "chore: bump version after releasing ${{ steps.version.outputs.full }}"
+
+          $maxAttempts = 5
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            git push origin HEAD:master
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "Version bump pushed to master on attempt $attempt."
+              exit 0
+            }
+
+            if ($attempt -eq $maxAttempts) {
+              break
+            }
+
+            Write-Host "Push failed (attempt $attempt/$maxAttempts) -- master likely moved. Fetching and rebasing before retrying."
+            git fetch origin master
+            git rebase origin/master
+            if ($LASTEXITCODE -ne 0) {
+              throw "Rebase onto origin/master failed -- Directory.Build.props likely conflicts with a concurrent change. Manual recovery required: check out master, verify VersionPrefix/VersionSuffix, and commit by hand."
+            }
+          }
+
+          throw "Failed to push the version-bump commit to master after $maxAttempts attempts. Directory.Build.props is now stale relative to what was tagged/released as ${{ steps.version.outputs.full }} -- fix it manually before the next release run."
 
