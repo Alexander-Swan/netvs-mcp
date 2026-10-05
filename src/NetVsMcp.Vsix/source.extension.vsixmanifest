@@ -3,7 +3,7 @@
   <Metadata>
     <Identity Id="NetVsMcp.Vsix" Version="1.0.2" Language="en-US" Publisher="Alex Swan" />
     <DisplayName>NetVsMcp - MCP Tools for Visual Studio</DisplayName>
-    <Description xml:space="preserve">Local MCP bridge for Visual Studio with built-in NetVsMcp Broker. Opens Agents setup when no detected MCP client is registered. Lets AI agents use live editor buffers, Roslyn navigation, build diagnostics, debugger control, tests, and UI/browser automation. A standalone broker MSI is available as a fallback for manual deployments.</Description>
+    <Description xml:space="preserve">Connect AI coding agents to local Visual Studio instances through a secure MCP broker with editor, build, test, and debugger tools.</Description>
     <Icon>Assets\broker.ico</Icon>
     <Tags>mcp;ai agent;visual studio;vsix;debugger;build;tests;automation;roslyn;copilot;claude;local broker</Tags>
   </Metadata>
