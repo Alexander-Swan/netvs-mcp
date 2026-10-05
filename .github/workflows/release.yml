@@ -1,17 +1,17 @@
 name: Release
 
 # Versioning scheme:
-# - Directory.Build.props tracks the current stable line plus a dev build number. For example,
+# - Directory.Build.props tracks the most recent stable line plus a dev build number. For example,
 #   after stable "1.2", dev builds are tagged "1.2.1-dev", "1.2.2-dev", etc.
-# - "release" (stable) builds the current stable line from VersionPrefix, e.g.
-#   "2.0.0-dev" releases as "2.0". The public tag/title has no patch number or
-#   suffix, while binaries are built as "2.0.0".
+# - "release" (stable) builds the current stable line when Build is 0, e.g.
+#   "2.0.0-dev" releases as "2.0". Once dev builds have advanced beyond that
+#   stable line, e.g. "2.0.3-dev", the next stable is the next minor, "2.1".
 # - "dev"/"alpha" builds are versioned Major.Minor.Build-suffix, e.g. "1.0.12-dev",
 #   "1.11.20-alpha" - Build only ever advances on a "dev" channel run (alpha runs reuse
 #   whatever Build dev has already reached, labeled "-alpha", rather than keeping a separate
 #   counter), and always counts up from the last stable release.
-# - After a "release" run ships Major.Minor, the next cycle resumes one minor ahead with the
-#   build counter reset: Major.(Minor+1).0-dev.
+# - After a "release" run ships Major.Minor, the next dev version starts at
+#   Major.Minor.1-dev.
 on:
   workflow_dispatch:
     inputs:
@@ -64,14 +64,19 @@ jobs:
             "release" { "" }
             default { throw "Unknown channel: $channel" }
           }
-          # Stable releases display/tag as Major.Minor from the current VersionPrefix.
+          # Stable releases display/tag as Major.Minor when Build is 0; once dev
+          # builds have advanced beyond the current stable line, release as next minor.
           # Dev/alpha keep the full Major.Minor.Build so each prerelease build is distinguishable.
           $displayVersion = $prefix
           $buildPrefix = $prefix
           if ($channel -eq "release") {
             $parsed = [version]$prefix
-            $displayVersion = "$($parsed.Major).$($parsed.Minor)"
-            $buildPrefix = "$($parsed.Major).$($parsed.Minor).0"
+            $releaseMinor = $parsed.Minor
+            if ($parsed.Build -gt 0) {
+              $releaseMinor += 1
+            }
+            $displayVersion = "$($parsed.Major).$releaseMinor"
+            $buildPrefix = "$($parsed.Major).$releaseMinor.0"
           }
           $full = if ($suffix) { "$displayVersion-$suffix" } else { $displayVersion }
           "prefix=$prefix" >> $env:GITHUB_OUTPUT
@@ -244,8 +249,12 @@ jobs:
           $prefix = [version]$props.Project.PropertyGroup.VersionPrefix
           $channel = "${{ inputs.channel }}"
           if ($channel -eq "release") {
-            # Resume dev one minor ahead after a stable release.
-            $nextPrefix = "$($prefix.Major).$($prefix.Minor + 1).0"
+            # Resume dev on the stable version that was just released.
+            $releasedMinor = $prefix.Minor
+            if ($prefix.Build -gt 0) {
+              $releasedMinor += 1
+            }
+            $nextPrefix = "$($prefix.Major).$releasedMinor.1"
             $nextSuffix = "dev"
           } else {
             $nextPrefix = "$($prefix.Major).$($prefix.Minor).$($prefix.Build + 1)"
