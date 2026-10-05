@@ -8,6 +8,7 @@
   "identity": {
     "internalName": "NetVS-mcp"
   },
+  "description": "Connect AI coding agents to local Visual Studio instances through a secure MCP broker with editor, build, test, and debugger tools.",
   "overview": "src/NetVsMcp.Vsix/Overview.md",
   "priceCategory": "free",
   "publisher": "AlexSwan",
