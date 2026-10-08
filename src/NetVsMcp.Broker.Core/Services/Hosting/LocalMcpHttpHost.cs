@@ -63,6 +63,7 @@ internal sealed class LocalMcpHttpHost : IAsyncDisposable
         });
         builder.Services.AddSingleton(_tools);
         builder.Services.AddSingleton(_bestPracticeGuides);
+        builder.Services.AddSingleton<BestPracticeGuideSurfacer>();
         builder.Services
             .AddMcpServer()
             .WithHttpTransport(options =>
@@ -71,7 +72,18 @@ internal sealed class LocalMcpHttpHost : IAsyncDisposable
                 options.ConfigureSessionOptions = ConfigureSessionOptionsForEndpoint;
             })
             .WithTools<BrokerToolService>(_tools, McpToolSerializerOptions)
-            .WithResources(new BestPracticeGuideResources(_bestPracticeGuides));
+            .WithResources(new BestPracticeGuideResources(_bestPracticeGuides))
+            .WithRequestFilters(filters =>
+            {
+                filters.AddCallToolFilter(next => async (request, cancellationToken) =>
+                {
+                    var result = await next(request, cancellationToken);
+                    request.Services
+                        ?.GetService<BestPracticeGuideSurfacer>()
+                        ?.AppendGuideIfFirstUse(request, result);
+                    return result;
+                });
+            });
 
         var app = builder.Build();
         MapRoutes(app);

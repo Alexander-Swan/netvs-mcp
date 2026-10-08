@@ -405,6 +405,90 @@ public sealed class LocalMcpHttpHostTests
     }
 
     [Fact]
+    public async Task McpToolCall_AppendsBestPracticeGuideOncePerCategory()
+    {
+        var port = GetAvailablePort();
+        var runtime = CreateRuntime($"http://127.0.0.1:{port}");
+
+        await runtime.StartAsync(CancellationToken.None);
+
+        try
+        {
+            using var http = new HttpClient
+            {
+                BaseAddress = new Uri($"http://127.0.0.1:{port}")
+            };
+
+            using var initialize = await InitializeMcpAsync(http, "/mcp", 1);
+            initialize.EnsureSuccessStatusCode();
+
+            using var firstEditCall = await PostMcpAsync(http, "/mcp", new
+            {
+                jsonrpc = "2.0",
+                id = 2,
+                method = "tools/call",
+                @params = new
+                {
+                    name = "document_read",
+                    arguments = new { }
+                }
+            });
+            firstEditCall.EnsureSuccessStatusCode();
+
+            var firstEditContent = await ReadMcpToolContentTextAsync(firstEditCall);
+            Assert.Equal(2, firstEditContent.Count);
+            Assert.Contains("Mandatory parameter", firstEditContent[0]);
+            Assert.Contains("path", firstEditContent[0]);
+            Assert.Contains("guide://netvsmcp/edit-visual-studio.md", firstEditContent[1]);
+
+            using var secondEditCall = await PostMcpAsync(http, "/mcp", new
+            {
+                jsonrpc = "2.0",
+                id = 3,
+                method = "tools/call",
+                @params = new
+                {
+                    name = "editor_insert",
+                    arguments = new
+                    {
+                        path = "src/Program.cs",
+                        column = 1,
+                        text = "hello"
+                    }
+                }
+            });
+            secondEditCall.EnsureSuccessStatusCode();
+
+            var secondEditContent = await ReadMcpToolContentTextAsync(secondEditCall);
+            Assert.Single(secondEditContent);
+            Assert.Contains("Mandatory parameter", secondEditContent[0]);
+            Assert.Contains("line", secondEditContent[0]);
+
+            using var buildCall = await PostMcpAsync(http, "/mcp", new
+            {
+                jsonrpc = "2.0",
+                id = 4,
+                method = "tools/call",
+                @params = new
+                {
+                    name = "build_status",
+                    arguments = new { }
+                }
+            });
+            buildCall.EnsureSuccessStatusCode();
+
+            var buildContent = await ReadMcpToolContentTextAsync(buildCall);
+            Assert.Equal(2, buildContent.Count);
+            Assert.Contains("No Visual Studio sessions", buildContent[0]);
+            Assert.Contains("guide://netvsmcp/build-visual-studio.md", buildContent[1]);
+        }
+        finally
+        {
+            await runtime.StopAsync();
+        }
+    }
+
+    [Fact]
     public async Task McpToolCall_OmitsNullResponseProperties()
     {
         var port = GetAvailablePort();
@@ -725,22 +809,28 @@ public sealed class LocalMcpHttpHostTests
 
     private static async Task<ToolResponse<T>> ReadMcpToolResponseAsync<T>(HttpResponseMessage response)
     {
-        var body = await response.Content.ReadAsStringAsync();
-        var jsonStart = body.IndexOf('{');
-        Assert.True(jsonStart >= 0, $"Expected JSON response body. Body: {body}");
-
-        using var document = JsonDocument.Parse(body[jsonStart..]);
-        var text = document.RootElement
-            .GetProperty("result")
-            .GetProperty("content")[0]
-            .GetProperty("text")
-            .GetString();
+        var text = (await ReadMcpToolContentTextAsync(response))[0];
 
         Assert.False(string.IsNullOrWhiteSpace(text));
         return JsonSerializer.Deserialize<ToolResponse<T>>(text, new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
         })!;
+    }
+
+    private static async Task<IReadOnlyList<string>> ReadMcpToolContentTextAsync(HttpResponseMessage response)
+    {
+        var body = await response.Content.ReadAsStringAsync();
+        var jsonStart = body.IndexOf('{');
+        Assert.True(jsonStart >= 0, $"Expected JSON response body. Body: {body}");
+
+        using var document = JsonDocument.Parse(body[jsonStart..]);
+        return document.RootElement
+            .GetProperty("result")
+            .GetProperty("content")
+            .EnumerateArray()
+            .Select(content => content.GetProperty("text").GetString()!)
+            .ToArray();
     }
 
     private static int GetAvailablePort()
