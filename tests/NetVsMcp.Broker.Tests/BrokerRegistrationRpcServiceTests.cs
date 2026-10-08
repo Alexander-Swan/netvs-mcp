@@ -163,6 +163,42 @@ public sealed class BrokerRegistrationRpcServiceTests
     }
 
     [Fact]
+    public async Task PublishEventAsync_AddsEventForRegisteredSession()
+    {
+        var registry = new SessionRegistry();
+        var events = new BrokerEventStore();
+        var service = new BrokerRegistrationRpcService(registry, events: events);
+        await service.RegisterAsync(CreateRegistration("vs-1", "NetVsMcp"), CancellationToken.None);
+
+        var response = await service.PublishEventAsync(
+            new BrokerEventNotification(
+                "vs-1",
+                BrokerEventTypes.BuildCompleted,
+                "Build completed.",
+                new Dictionary<string, string> { ["succeeded"] = "True" }),
+            CancellationToken.None);
+
+        Assert.True(response.Success);
+        var evt = Assert.Single(events.List("vs-1", sinceSequence: 0, eventTypes: null, maxEvents: 10).Events);
+        Assert.Equal(BrokerEventTypes.BuildCompleted, evt.Type);
+        Assert.Equal("True", evt.Data!["succeeded"]);
+    }
+
+    [Fact]
+    public async Task PublishEventAsync_ReturnsFailureForUnknownSession()
+    {
+        var events = new BrokerEventStore();
+        var service = new BrokerRegistrationRpcService(new SessionRegistry(), events: events);
+
+        var response = await service.PublishEventAsync(
+            new BrokerEventNotification("missing", BrokerEventTypes.BuildCompleted, "Build completed.", null),
+            CancellationToken.None);
+
+        Assert.False(response.Success);
+        Assert.Empty(events.List("missing", sinceSequence: 0, eventTypes: null, maxEvents: 10).Events);
+    }
+
+    [Fact]
     public async Task UnregisterAsync_RemovesExistingSession()
     {
         var registry = new SessionRegistry();

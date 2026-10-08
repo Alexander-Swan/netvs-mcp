@@ -32,6 +32,7 @@ Document/editor tools such as `document_open` and `document_read` use the parame
 | Code fixes & refactorings | `code_actions_list`, `code_actions_apply` |
 | Search | `editor_find`, `find_in_files`, `open_relevant_files` |
 | Build | `build_solution`, `build_project`, `build_and_get_errors`, `build_status`, `build_cancel`, `build_configuration_get`, `build_configuration_set`, `rebuild_solution`, `clean_solution`, `package_restore` |
+| Events | `events_list`, `events_wait` |
 | Diagnostics | `errors_list`, `output_read`, `output_write`, `output_clear`, `output_list_panes`, `diagnostics_for_document`, `diagnostics_binding_errors` |
 | Task List | `task_list_get`, `task_list_add`, `task_list_remove`, `task_list_set_checked` |
 | Debugger | `debug_start`, `debug_start_without_debugging`, `debug_stop`, `debug_restart`, `debug_continue`, `debug_break`, `debug_step`, `debug_attach`, `debug_status`, `debug_get_mode`, `debug_get_callstack`, `debug_get_locals`, `debug_evaluate`, `debug_eval_many`, `debug_set_variable`, `debug_snapshot`, `debug_wait_for_break`, `debug_hot_reload_apply` |

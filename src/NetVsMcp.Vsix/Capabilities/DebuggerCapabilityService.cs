@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using EnvDTE;
 using EnvDTE80;
 using Microsoft.VisualStudio.Shell;
+using NetVsMcp.Contracts;
 using Task = System.Threading.Tasks.Task;
 
 namespace NetVsMcp.Vsix;
@@ -22,11 +23,18 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
 {
     private const int DefaultCallStackFrameLimit = 2;
     private readonly AsyncPackage package;
+    private readonly VisualStudioStateChangeMonitor? stateMonitor;
     private readonly List<string> watchExpressions = new();
 
     public DebuggerCapabilityService(AsyncPackage package)
+        : this(package, null)
+    {
+    }
+
+    public DebuggerCapabilityService(AsyncPackage package, VisualStudioStateChangeMonitor? stateMonitor)
     {
         this.package = package;
+        this.stateMonitor = stateMonitor;
     }
 
     public async Task<DebuggerStateInfo> StartAsync(CancellationToken cancellationToken)
@@ -243,7 +251,9 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
             var breakpoint = breakpoints.Item(1);
             var metadata = BreakpointMetadata.FromRequest(request);
             metadata.ApplyTo(breakpoint);
-            return BreakpointInfo.FromBreakpoint(breakpoint);
+            var info = BreakpointInfo.FromBreakpoint(breakpoint);
+            PublishBreakpointChanged("added", info);
+            return info;
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
         {
@@ -296,8 +306,10 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
 
             foreach (var breakpoint in matches)
             {
+                var info = BreakpointInfo.FromBreakpoint(breakpoint);
                 breakpoint.Delete();
                 removed++;
+                PublishBreakpointChanged("removed", info);
             }
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
@@ -329,10 +341,47 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
 
             breakpoint.Enabled = request.Enabled;
             updated++;
-            breakpoints.Add(BreakpointInfo.FromBreakpoint(breakpoint));
+            var info = BreakpointInfo.FromBreakpoint(breakpoint);
+            breakpoints.Add(info);
+            PublishBreakpointChanged(request.Enabled ? "enabled" : "disabled", info);
         }
 
         return new BreakpointEnableResult(updated, breakpoints);
+    }
+
+    private void PublishBreakpointChanged(string action, BreakpointInfo breakpoint)
+    {
+        var data = new Dictionary<string, string>
+        {
+            ["action"] = action,
+            ["line"] = breakpoint.Line.ToString(),
+            ["column"] = breakpoint.Column.ToString(),
+            ["enabled"] = breakpoint.Enabled.ToString()
+        };
+        AddIfNotBlank(data, "name", breakpoint.Name);
+        AddIfNotBlank(data, "file", breakpoint.File);
+        AddIfNotBlank(data, "functionName", breakpoint.FunctionName);
+        AddIfNotBlank(data, "condition", breakpoint.Condition);
+        AddIfNotBlank(data, "groupName", breakpoint.GroupName);
+
+        var location = !string.IsNullOrWhiteSpace(breakpoint.File)
+            ? $"{breakpoint.File}:{breakpoint.Line}"
+            : breakpoint.Name ?? "breakpoint";
+        stateMonitor?.PublishBrokerEvent(
+            VisualStudioStateChangeKind.BreakpointChanged,
+            new BrokerEventNotification(
+                SessionIdentity.CurrentProcessSessionId(),
+                BrokerEventTypes.BreakpointChanged,
+                $"Visual Studio breakpoint {action} at {location}.",
+                data));
+    }
+
+    private static void AddIfNotBlank(IDictionary<string, string> data, string key, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            data[key] = value!;
+        }
     }
 
     public async Task<CallStackResult> GetCallStackAsync(CallStackRequest request, CancellationToken cancellationToken)

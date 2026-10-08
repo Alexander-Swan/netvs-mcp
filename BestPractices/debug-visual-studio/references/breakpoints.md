@@ -17,3 +17,5 @@ Pass conditions as literal code expressions, not HTML-encoded text: use `count >
 For inspection, prefer a breakpoint on or after the line where the needed values are available. Do not stop before variables are declared and then manually reconstruct their values when stepping or moving the breakpoint would expose the live runtime values.
 
 Group breakpoints created for one investigation. When finished, disable or remove only the breakpoints you created, then continue execution if the debuggee is paused and the user did not ask to stop.
+
+After breakpoint mutations, use `events_wait({ "eventTypes": ["breakpoint_changed"], ... })` or `events_list` when you need to confirm the change through the event stream instead of re-listing all breakpoints.

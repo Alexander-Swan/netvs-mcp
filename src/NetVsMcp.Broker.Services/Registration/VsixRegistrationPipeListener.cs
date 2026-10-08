@@ -11,6 +11,7 @@ internal sealed class VsixRegistrationPipeListener : IAsyncDisposable
     private readonly BrokerOptions _options;
     private readonly SessionRegistry _sessions;
     private readonly IVsSessionConnectionMap _connections;
+    private readonly IBrokerEventStore? _events;
     private readonly BrokerShutdownPolicy _shutdownPolicy;
     private readonly List<Task> _clientTasks = [];
     private readonly object _gate = new();
@@ -21,11 +22,13 @@ internal sealed class VsixRegistrationPipeListener : IAsyncDisposable
         BrokerOptions options,
         SessionRegistry sessions,
         IVsSessionConnectionMap connections,
-        BrokerShutdownPolicy? shutdownPolicy = null)
+        BrokerShutdownPolicy? shutdownPolicy = null,
+        IBrokerEventStore? events = null)
     {
         _options = options;
         _sessions = sessions;
         _connections = connections;
+        _events = events;
         _shutdownPolicy = shutdownPolicy ?? new BrokerShutdownPolicy();
     }
 
@@ -116,6 +119,7 @@ internal sealed class VsixRegistrationPipeListener : IAsyncDisposable
                     _sessions,
                     _connections,
                     sessionConnection,
+                    _events,
                     _shutdownPolicy.IsShutdownAllowed,
                     _shutdownPolicy.RequestShutdown);
 

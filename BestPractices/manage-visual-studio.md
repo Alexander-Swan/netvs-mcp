@@ -15,6 +15,7 @@ Agent-neutral entrypoint for session routing, launching Visual Studio, windows, 
 - Repeat the chosen explicit routing field on later routed calls; NetVsMcp does not persist a global selection.
 - If no Visual Studio session is registered, infer the target solution and launch Visual Studio with `vs_launch_instance` when available.
 - Prefer focused combo tools such as `vs_context_snapshot`, `solution_overview`, and `test_run_and_get_results` when they match the task.
+- Prefer `events_wait` for `test_run_completed` when coordinating around test-run lifecycle without repeatedly polling results.
 - Confirm before broad project/reference/test changes unless the user explicitly requested the mutation.
 
 ## Reference Files
@@ -32,4 +33,4 @@ Read only the rows that match the task.
 
 ## Covered Tools
 
-`vs_*`, `netvs_doctor`, `get_help`, `execute_command`, `window_*`, `toolwindow_*`, `solution_*`, `project_*`, `startup_project_*`, `test_*`, `task_list_*`, `git_context`, and `vs_context_snapshot`.
+`vs_*`, `netvs_doctor`, `get_help`, `execute_command`, `window_*`, `toolwindow_*`, `solution_*`, `project_*`, `startup_project_*`, `test_*`, `events_*`, `task_list_*`, `git_context`, and `vs_context_snapshot`.

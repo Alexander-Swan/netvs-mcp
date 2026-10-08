@@ -2,7 +2,7 @@ namespace NetVsMcp.Contracts;
 
 public sealed class BuildSolutionRequest
 {
-    /// <summary>If false, the call returns immediately after kicking off the build; poll <c>build_status</c> for completion.</summary>
+    /// <summary>If false, the call returns immediately after kicking off the build; prefer <c>events_wait</c> for <c>build_completed</c>, or use <c>build_status</c> as a fallback.</summary>
     public bool WaitForBuildToFinish { get; set; }
 }
 

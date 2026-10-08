@@ -100,4 +100,80 @@ public sealed partial class BrokerToolServiceTests
         Assert.Equal("MissingConnection", response.Metadata!["failureReason"]);
         Assert.Equal("vs-1", response.Metadata["sessionId"]);
     }
+
+    [Fact]
+    public void EventsList_ReturnsQueuedEventsForRoutedSession()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Events.Publish(new BrokerEventNotification(
+            "vs-1",
+            BrokerEventTypes.BuildCompleted,
+            "Build completed.",
+            new Dictionary<string, string> { ["succeeded"] = "True" }));
+
+        var response = runtime.Tools.EventsList(
+            eventTypes: [BrokerEventTypes.BuildCompleted],
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        var evt = Assert.Single(response.Value!.Events);
+        Assert.Equal(BrokerEventTypes.BuildCompleted, evt.Type);
+        Assert.Equal("True", evt.Data!["succeeded"]);
+        Assert.False(response.Value.TimedOut);
+    }
+
+    [Fact]
+    public async Task EventsWait_ReturnsQueuedEventWithoutPolling()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+
+        var wait = runtime.Tools.EventsWait(
+            eventTypes: [BrokerEventTypes.BuildCompleted],
+            timeoutSeconds: 5,
+            sessionId: "vs-1");
+
+        runtime.Events.Publish(new BrokerEventNotification(
+            "vs-1",
+            BrokerEventTypes.BuildCompleted,
+            "Build completed.",
+            null));
+
+        var response = await wait;
+
+        Assert.True(response.Success);
+        Assert.False(response.Value!.TimedOut);
+        Assert.Equal(BrokerEventTypes.BuildCompleted, Assert.Single(response.Value.Events).Type);
+    }
+
+    [Fact]
+    public async Task EventsWait_TimesOutWhenNoMatchingEventArrives()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+
+        var response = await runtime.Tools.EventsWait(
+            eventTypes: [BrokerEventTypes.BuildCompleted],
+            timeoutSeconds: 0,
+            sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.True(response.Value!.TimedOut);
+        Assert.Empty(response.Value.Events);
+    }
+
+    [Fact]
+    public async Task EventsWait_ReturnsRoutingFailureForAmbiguousSession()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "Shared", @"C:\Code\One\Shared.slnx", isActive: false));
+        runtime.Sessions.Register(CreateRegistration("vs-2", "Shared", @"C:\Code\Two\Shared.slnx", isActive: false));
+
+        var response = await runtime.Tools.EventsWait(timeoutSeconds: 0, solutionName: "Shared");
+
+        Assert.False(response.Success);
+        Assert.Equal("Ambiguous", response.Metadata!["failureReason"]);
+        Assert.Contains("sessionId", response.Metadata["nextActions"]);
+    }
 }

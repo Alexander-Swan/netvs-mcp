@@ -11,7 +11,7 @@ Agent-neutral entrypoint for build, rebuild, clean, build status, diagnostics, o
 
 - Use explicit routing when multiple Visual Studio sessions may match.
 - Prefer `build_and_get_errors` when you need post-build diagnostics.
-- Poll `build_status` after a non-waiting build.
+- Prefer `events_wait` for `build_completed` after a non-waiting build; use `build_status` only as a fallback.
 - Confirm before package install/update/uninstall unless the user explicitly requested it.
 - Report exit codes/messages from package operations instead of retrying blindly.
 
@@ -26,4 +26,4 @@ Agent-neutral entrypoint for build, rebuild, clean, build status, diagnostics, o
 
 ## Covered Tools
 
-`build_*`, `clean_solution`, `rebuild_solution`, `errors_list`, `output_*`, `task_list_*`, `package_restore`, `project_dependencies`, `project_add_reference`, `project_remove_reference`, and `nuget_*`.
+`build_*`, `clean_solution`, `rebuild_solution`, `events_*`, `errors_list`, `output_*`, `task_list_*`, `package_restore`, `project_dependencies`, `project_add_reference`, `project_remove_reference`, and `nuget_*`.

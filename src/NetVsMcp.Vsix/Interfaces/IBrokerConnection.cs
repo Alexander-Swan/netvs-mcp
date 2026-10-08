@@ -14,6 +14,7 @@ internal interface IBrokerConnection : IDisposable
     bool IsConnected { get; }
     Task RegisterAsync(VsRegistrationRequest request, CancellationToken cancellationToken);
     Task HeartbeatAsync(VsHeartbeatRequest request, CancellationToken cancellationToken);
+    Task PublishEventAsync(BrokerEventNotification notification, CancellationToken cancellationToken);
     Task UnregisterAsync(string sessionId, CancellationToken cancellationToken);
     Task ShutdownAsync(CancellationToken cancellationToken);
 }

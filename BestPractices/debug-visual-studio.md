@@ -16,6 +16,7 @@ Agent-neutral entrypoint for launching, attaching, pausing, stepping, inspecting
 - `dbgBreakMode` means paused; inspection and stepping tools apply.
 - Confirm before `debug_stop`, `process_terminate`, or broad breakpoint removal unless explicitly requested.
 - Prefer `debug_snapshot` or `debug_wait_for_break` when they avoid manual continue/step plus repeated inspection calls.
+- Prefer `events_wait` for `debugger_break`, `debugger_stopped`, `debugger_mode_changed`, or `breakpoint_changed` when waiting for debugger state changes after an async action.
 - Before evaluating variables manually, prefer stepping or placing a breakpoint where their live values are available.
 - Keep locals opt-in; use watch expressions for targeted values.
 - Call-stack tools default to two frames; pass `maxFrames` only when deeper callers are needed.
@@ -37,4 +38,4 @@ Agent-neutral entrypoint for launching, attaching, pausing, stepping, inspecting
 
 ## Covered Tools
 
-`debug_*`, `breakpoint_*`, `watch_*`, `thread_*`, `process_*`, `exception_settings_*`, `parallel_*`, `immediate_execute`, and `test_debug`.
+`debug_*`, `events_*`, `breakpoint_*`, `watch_*`, `thread_*`, `process_*`, `exception_settings_*`, `parallel_*`, `immediate_execute`, and `test_debug`.

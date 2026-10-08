@@ -202,16 +202,43 @@ internal sealed class BrokerRegistrationLifecycle : IDisposable
 
     private void OnVisualStudioStateChanged(object? sender, VisualStudioStateChangedEventArgs e)
     {
-        _ = e;
-
         if (disposed)
         {
             return;
+        }
+
+        foreach (var brokerEvent in e.BrokerEvents)
+        {
+            PublishEvent(brokerEvent);
         }
 
         if (stateChanged.CurrentCount == 0)
         {
             stateChanged.Release();
         }
+    }
+
+    private void PublishEvent(NetVsMcp.Contracts.BrokerEventNotification brokerEvent)
+    {
+        var connection = activeConnection;
+        if (connection is null || !connection.IsConnected)
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await connection.PublishEventAsync(brokerEvent, stop.Token);
+            }
+            catch (OperationCanceledException) when (stop.IsCancellationRequested)
+            {
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceInformation("NetVsMcp broker event publish skipped: {0}", ex.Message);
+            }
+        }, CancellationToken.None);
     }
 }

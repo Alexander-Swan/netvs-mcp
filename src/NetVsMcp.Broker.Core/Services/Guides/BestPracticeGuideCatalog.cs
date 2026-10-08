@@ -21,11 +21,11 @@ internal sealed class BestPracticeGuideCatalog
 
     private static readonly IReadOnlyDictionary<string, string> Descriptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
-        ["manage-visual-studio"] = "Session routing, launching Visual Studio, windows, solutions, projects, references, and tests. Read before using vs_*, solution_*, project_*, startup_project_*, test_*, window_*, toolwindow_*, task_list_*, git_context, execute_command, or vs_context_snapshot.",
+        ["manage-visual-studio"] = "Session routing, launching Visual Studio, windows, solutions, projects, references, tests, and test events. Read before using vs_*, solution_*, project_*, startup_project_*, test_*, events_*, window_*, toolwindow_*, task_list_*, git_context, execute_command, or vs_context_snapshot.",
         ["navigate-visual-studio"] = "Definitions, references, symbols, diagnostics, code fixes, renames, call hierarchy, and workspace search. Read before using code_*, symbol_context, document_outline, find_implementations, rename_symbol_*, call_hierarchy_get, code_actions_*, diagnostics_*, editor_find, find_in_files, open_relevant_files, or related document read/open/list tools.",
         ["edit-visual-studio"] = "Documents, direct editor edits, selections, formatting, and safe-edit previews. Read before using document_*, editor_*, selection_*, document_cleanup, format_and_organize, edit_*, prepare_safe_edit, or apply_safe_edit_and_build.",
-        ["build-visual-studio"] = "Build, rebuild, clean, NuGet/package operations, output panes, Task List, and error lists. Read before using build_*, clean_solution, rebuild_solution, errors_list, output_*, task_list_*, package_restore, project_dependencies, project_add_reference, project_remove_reference, or nuget_*.",
-        ["debug-visual-studio"] = "Debugger start/attach/step, breakpoints, locals, watches, threads, processes, and test debugging. Read before using debug_*, breakpoint_*, watch_*, thread_*, process_*, exception_settings_*, parallel_*, immediate_execute, or test_debug.",
+        ["build-visual-studio"] = "Build, rebuild, clean, build events, NuGet/package operations, output panes, Task List, and error lists. Read before using build_*, clean_solution, rebuild_solution, events_*, errors_list, output_*, task_list_*, package_restore, project_dependencies, project_add_reference, project_remove_reference, or nuget_*.",
+        ["debug-visual-studio"] = "Debugger start/attach/step, debugger events, breakpoints, locals, watches, threads, processes, and test debugging. Read before using debug_*, events_*, breakpoint_*, watch_*, thread_*, process_*, exception_settings_*, parallel_*, immediate_execute, or test_debug.",
         ["automate-visual-studio"] = "Debuggee UI automation, browser control, screenshots, DOM access, and console I/O. Read before using console_*, ui_*, or web_*."
     };
 

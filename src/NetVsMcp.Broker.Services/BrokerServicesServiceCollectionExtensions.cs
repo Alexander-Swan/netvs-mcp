@@ -21,6 +21,7 @@ public static class BrokerServicesServiceCollectionExtensions
             new VsSessionDispatcher(
                 provider.GetRequiredService<SessionRegistry>(),
                 provider.GetRequiredService<IVsSessionConnectionMap>()));
+        services.AddSingleton<IBrokerEventStore, BrokerEventStore>();
         services.AddSingleton(provider =>
             new VisualStudioLauncher(provider.GetRequiredService<SessionRegistry>()));
         services.AddSingleton(provider =>
@@ -29,6 +30,7 @@ public static class BrokerServicesServiceCollectionExtensions
             return new BrokerRegistrationRpcService(
                 provider.GetRequiredService<SessionRegistry>(),
                 provider.GetRequiredService<IVsSessionConnectionMap>(),
+                events: provider.GetRequiredService<IBrokerEventStore>(),
                 shutdownAllowed: shutdownPolicy.IsShutdownAllowed,
                 requestShutdown: shutdownPolicy.RequestShutdown);
         });

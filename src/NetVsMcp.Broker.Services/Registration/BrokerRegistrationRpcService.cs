@@ -7,6 +7,7 @@ internal sealed class BrokerRegistrationRpcService : IBrokerRegistrationRpc
 {
     private readonly SessionRegistry _sessions;
     private readonly IVsSessionConnectionMap? _connections;
+    private readonly IBrokerEventStore? _events;
     private readonly IVisualStudioSessionRpc? _sessionConnection;
     private readonly Func<bool> _shutdownAllowed;
     private readonly Action _requestShutdown;
@@ -17,11 +18,13 @@ internal sealed class BrokerRegistrationRpcService : IBrokerRegistrationRpc
         SessionRegistry sessions,
         IVsSessionConnectionMap? connections = null,
         IVisualStudioSessionRpc? sessionConnection = null,
+        IBrokerEventStore? events = null,
         Func<bool>? shutdownAllowed = null,
         Action? requestShutdown = null)
     {
         _sessions = sessions;
         _connections = connections;
+        _events = events;
         _sessionConnection = sessionConnection;
         _shutdownAllowed = shutdownAllowed ?? (() => false);
         _requestShutdown = requestShutdown ?? (() => { });
@@ -85,6 +88,29 @@ internal sealed class BrokerRegistrationRpcService : IBrokerRegistrationRpc
     {
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult(_sessions.Heartbeat(sessionId));
+    }
+
+    public Task<ToolResponse> PublishEventAsync(
+        BrokerEventNotification notification,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_events is null)
+        {
+            return Task.FromResult(ToolResponse.Ok());
+        }
+
+        if (!_sessions.ListSessions().Any(session => string.Equals(
+            session.SessionId,
+            notification.SessionId,
+            StringComparison.OrdinalIgnoreCase)))
+        {
+            return Task.FromResult(ToolResponse.Fail($"Visual Studio session '{notification.SessionId}' is not registered."));
+        }
+
+        _events.Publish(notification);
+        return Task.FromResult(ToolResponse.Ok());
     }
 
     public Task<ToolResponse> UnregisterAsync(

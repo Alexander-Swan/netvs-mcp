@@ -13,7 +13,7 @@ internal sealed partial class BrokerToolService
 {
     [BrokerToolMetadata(BrokerToolCategory.Build, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "build_solution", Title = "Build Solution", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Starts a solution build in a routed Visual Studio session.")]
+    [Description("Starts a solution build in a routed Visual Studio session. When waitForBuildToFinish is false, call events_wait for build_completed instead of polling build_status.")]
     public async Task<ToolResponse<BuildSolutionResult>> BuildSolution(
         bool waitForBuildToFinish = false,
         string? sessionId = null,

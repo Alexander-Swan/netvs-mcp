@@ -11,6 +11,7 @@ using System.Xml.Linq;
 using EnvDTE;
 using EnvDTE80;
 using Microsoft.VisualStudio.Shell;
+using NetVsMcp.Contracts;
 using Task = System.Threading.Tasks.Task;
 
 namespace NetVsMcp.Vsix;
@@ -20,12 +21,19 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
     private const string DotnetExecutable = "dotnet";
 
     private readonly AsyncPackage package;
+    private readonly VisualStudioStateChangeMonitor? stateMonitor;
     private TestOperationResult? lastTestResult;
     private string? lastTestRunId;
 
     public SolutionCapabilityService(AsyncPackage package)
+        : this(package, null)
+    {
+    }
+
+    public SolutionCapabilityService(AsyncPackage package, VisualStudioStateChangeMonitor? stateMonitor)
     {
         this.package = package;
+        this.stateMonitor = stateMonitor;
     }
 
     public async Task<SolutionInfoResult> GetSolutionInfoAsync(CancellationToken cancellationToken)
@@ -431,8 +439,10 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
         var dte = await GetDteAsync();
         var target = ResolveTestTarget(dte, request.ProjectName);
         var runId = Guid.NewGuid().ToString("N");
+        var filter = EmptyToNull(request.Filter);
         var resultsDirectory = Path.Combine(Path.GetTempPath(), "NetVsMcp", "TestResults", runId);
         Directory.CreateDirectory(resultsDirectory);
+        PublishTestRunStarted(runId, target, filter);
 
         var arguments = new StringBuilder()
             .Append("test ")
@@ -442,7 +452,6 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
             .Append(" --results-directory ")
             .Append(QuoteArgument(resultsDirectory));
 
-        var filter = EmptyToNull(request.Filter);
         if (filter is not null)
         {
             arguments
@@ -469,6 +478,7 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
                     : CreateProcessFailureMessage($"Test run failed for {target.DisplayName}. RunId: {runId}", process),
                 tests: [],
                 results: results);
+            PublishTestRunCompleted(runId, target, filter, process.ExitCode, result);
 
             lastTestRunId = runId;
             lastTestResult = result;
@@ -498,6 +508,57 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
         {
             Trace.TraceInformation("NetVsMcp: failed to clean up test-run temp directory '{0}': {1}", path, ex.Message);
         }
+    }
+
+    private void PublishTestRunStarted(string runId, TestTarget target, string? filter)
+    {
+        var data = CreateTestRunEventData(runId, target, filter);
+        stateMonitor?.PublishBrokerEvent(
+            VisualStudioStateChangeKind.TestRunStarted,
+            new BrokerEventNotification(
+                SessionIdentity.CurrentProcessSessionId(),
+                BrokerEventTypes.TestRunStarted,
+                $"Visual Studio test run started for {target.DisplayName}.",
+                data));
+    }
+
+    private void PublishTestRunCompleted(
+        string runId,
+        TestTarget target,
+        string? filter,
+        int exitCode,
+        TestOperationResult result)
+    {
+        var data = CreateTestRunEventData(runId, target, filter);
+        data["exitCode"] = exitCode.ToString();
+        data["supported"] = result.Supported.ToString();
+        data["resultCount"] = result.Results.Count.ToString();
+        data["passedCount"] = result.Results.Count(test => string.Equals(test.Outcome, "Passed", StringComparison.OrdinalIgnoreCase)).ToString();
+        data["failedCount"] = result.Results.Count(test => string.Equals(test.Outcome, "Failed", StringComparison.OrdinalIgnoreCase)).ToString();
+
+        stateMonitor?.PublishBrokerEvent(
+            VisualStudioStateChangeKind.TestRunCompleted,
+            new BrokerEventNotification(
+                SessionIdentity.CurrentProcessSessionId(),
+                BrokerEventTypes.TestRunCompleted,
+                result.Supported
+                    ? $"Visual Studio test run completed successfully for {target.DisplayName}."
+                    : $"Visual Studio test run failed for {target.DisplayName}.",
+                data));
+    }
+
+    private static Dictionary<string, string> CreateTestRunEventData(string runId, TestTarget target, string? filter)
+    {
+        var data = new Dictionary<string, string>
+        {
+            ["runId"] = runId,
+            ["target"] = target.DisplayName,
+            ["targetPath"] = target.Path
+        };
+
+        AddIfNotBlank(data, "projectName", target.ProjectName);
+        AddIfNotBlank(data, "filter", filter);
+        return data;
     }
 
     public async Task<TestDebugResult> DebugTestAsync(TestDebugRequest request, CancellationToken cancellationToken)
@@ -1021,6 +1082,14 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
 
     private static string? EmptyToNull(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private static void AddIfNotBlank(IDictionary<string, string> data, string key, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            data[key] = value!;
+        }
+    }
 
     private static TestTarget ResolveTestTarget(DTE2 dte, string? requestedProjectName)
     {
