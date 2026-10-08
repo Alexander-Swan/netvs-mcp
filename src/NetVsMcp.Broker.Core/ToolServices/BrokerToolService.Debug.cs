@@ -973,8 +973,14 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "watch_remove", Title = "Watch Remove", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Removes a debugger watch expression when supported by the VSIX debugger service.")]
-    public Task<ToolResponse<WatchOperationResult>> WatchRemove(string expression, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    [Description("Removes a debugger watch by expression text when supported by the VSIX debugger service. Pass expression, not an id.")]
+    public Task<ToolResponse<WatchOperationResult>> WatchRemove(
+        [Description("The watch expression text to remove; watch_remove does not accept a watch id.")]
+        string expression,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(expression))
         {
@@ -1084,8 +1090,14 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "immediate_execute", Title = "Immediate Execute", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Executes text in the immediate window when supported by the VSIX debugger service.")]
-    public Task<ToolResponse<ImmediateExecuteResult>> ImmediateExecute(string? statement = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    [Description("Executes text in the immediate window when supported by the VSIX debugger service. Pass statement, not expression.")]
+    public Task<ToolResponse<ImmediateExecuteResult>> ImmediateExecute(
+        [Description("Immediate-window text to execute. Use the argument name statement, not expression.")]
+        string? statement = null,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(statement))
         {
@@ -1105,8 +1117,15 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "exception_settings_set", Title = "Exception Settings Set", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Sets debugger exception settings when supported by the VSIX debugger service.")]
-    public Task<ToolResponse<ExceptionSettingsResult>> ExceptionSettingsSet(string exceptionName, bool breakOnThrown, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    [Description("Sets debugger exception settings when supported by the VSIX debugger service. Pass breakOnThrown for thrown-exception behavior.")]
+    public Task<ToolResponse<ExceptionSettingsResult>> ExceptionSettingsSet(
+        string exceptionName,
+        [Description("Whether to break when this exception is thrown. Use breakOnThrown.")]
+        bool breakOnThrown,
+        string? sessionId = null,
+        string? solutionName = null,
+        string? solutionPath = null,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(exceptionName))
         {

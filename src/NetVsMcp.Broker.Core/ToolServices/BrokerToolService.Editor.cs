@@ -198,9 +198,9 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "editor_goto_line", Title = "Editor Goto Line", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Moves the caret through a routed Visual Studio session.")]
+    [Description("Moves the caret through a routed Visual Studio session. Pass path, not documentPath.")]
     public Task<ToolResponse<EditorDocumentInfo>> EditorGotoLine(
-        [Description(DocumentPathParameterDescription)]
+        [Description(PathParameterDescription)]
         string? path = null,
         [Description(LineParameterDescription)]
         int? line = null,
@@ -237,9 +237,9 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "selection_set", Title = "Selection Set", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Sets the editor selection through a routed Visual Studio session.")]
+    [Description("Sets the editor selection through a routed Visual Studio session. Pass path, not documentPath.")]
     public Task<ToolResponse<SelectionInfo>> SelectionSet(
-        [Description(DocumentPathParameterDescription)]
+        [Description(PathParameterDescription)]
         string? path = null,
         [Description(LineParameterDescription)]
         int? startLine = null,

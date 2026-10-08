@@ -305,6 +305,98 @@ public sealed class LocalMcpHttpHostTests
     }
 
     [Fact]
+    public async Task ToolsList_DescribesCommonArgumentNameMismatches()
+    {
+        var port = GetAvailablePort();
+        var runtime = CreateRuntime($"http://127.0.0.1:{port}");
+
+        await runtime.StartAsync(CancellationToken.None);
+
+        try
+        {
+            using var http = new HttpClient
+            {
+                BaseAddress = new Uri($"http://127.0.0.1:{port}")
+            };
+
+            using var initialize = await InitializeMcpAsync(http, "/mcp", 1);
+            initialize.EnsureSuccessStatusCode();
+
+            using var listTools = await PostMcpAsync(http, "/mcp", new
+            {
+                jsonrpc = "2.0",
+                id = 2,
+                method = "tools/list",
+                @params = new { }
+            });
+            listTools.EnsureSuccessStatusCode();
+
+            var body = await listTools.Content.ReadAsStringAsync();
+            var jsonStart = body.IndexOf('{');
+            Assert.True(jsonStart >= 0, $"Expected JSON response body. Body: {body}");
+
+            using var document = JsonDocument.Parse(body[jsonStart..]);
+            var tools = document.RootElement.GetProperty("result").GetProperty("tools");
+
+            foreach (var toolName in new[] { "document_read", "document_open", "editor_goto_line", "selection_set" })
+            {
+                var tool = tools
+                    .EnumerateArray()
+                    .Single(candidate => candidate.GetProperty("name").GetString() == toolName);
+                Assert.Contains("path, not documentPath", tool.GetProperty("description").GetString());
+
+                var path = tool
+                    .GetProperty("inputSchema")
+                    .GetProperty("properties")
+                    .GetProperty("path");
+                Assert.Contains("argument name path, not documentPath", path.GetProperty("description").GetString());
+            }
+
+            var toolwindowShow = tools
+                .EnumerateArray()
+                .Single(tool => tool.GetProperty("name").GetString() == "toolwindow_show");
+            Assert.Contains("caption or objectKind", toolwindowShow.GetProperty("description").GetString());
+            Assert.Contains("there is no toolWindow argument", toolwindowShow.GetProperty("description").GetString());
+
+            var immediateExecute = tools
+                .EnumerateArray()
+                .Single(tool => tool.GetProperty("name").GetString() == "immediate_execute");
+            Assert.Contains("statement, not expression", immediateExecute.GetProperty("description").GetString());
+            var statement = immediateExecute
+                .GetProperty("inputSchema")
+                .GetProperty("properties")
+                .GetProperty("statement");
+            Assert.Contains("argument name statement, not expression", statement.GetProperty("description").GetString());
+
+            var exceptionSettingsSet = tools
+                .EnumerateArray()
+                .Single(tool => tool.GetProperty("name").GetString() == "exception_settings_set");
+            Assert.Contains("breakOnThrown", exceptionSettingsSet.GetProperty("description").GetString());
+            var breakOnThrown = exceptionSettingsSet
+                .GetProperty("inputSchema")
+                .GetProperty("properties")
+                .GetProperty("breakOnThrown");
+            Assert.Contains("Use breakOnThrown", breakOnThrown.GetProperty("description").GetString());
+
+            var watchRemove = tools
+                .EnumerateArray()
+                .Single(tool => tool.GetProperty("name").GetString() == "watch_remove");
+            Assert.Contains("Pass expression, not an id", watchRemove.GetProperty("description").GetString());
+            var expression = watchRemove
+                .GetProperty("inputSchema")
+                .GetProperty("properties")
+                .GetProperty("expression");
+            Assert.Contains("does not accept a watch id", expression.GetProperty("description").GetString());
+
+            Assert.DoesNotContain(tools.EnumerateArray(), tool => tool.GetProperty("name").GetString() == "module_list");
+        }
+        finally
+        {
+            await runtime.StopAsync();
+        }
+    }
+
+    [Fact]
     public async Task McpToolCall_MissingRequiredArguments_ReturnsSpecificToolValidation()
     {
         var port = GetAvailablePort();

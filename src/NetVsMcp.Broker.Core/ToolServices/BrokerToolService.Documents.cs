@@ -441,9 +441,9 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "document_read", Title = "Document Read", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Reads a document through a routed Visual Studio session.")]
+    [Description("Reads a document through a routed Visual Studio session. Pass path, not documentPath.")]
     public Task<ToolResponse<DocumentReadResult>> DocumentRead(
-        [Description(DocumentPathParameterDescription)]
+        [Description(PathParameterDescription)]
         string? path = null,
         string? sessionId = null,
         string? solutionName = null,
@@ -467,9 +467,9 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "document_open", Title = "Document Open", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Opens a document through a routed Visual Studio session.")]
+    [Description("Opens a document through a routed Visual Studio session. Pass path, not documentPath.")]
     public async Task<ToolResponse<EditorDocumentInfo>> DocumentOpen(
-        [Description(DocumentPathParameterDescription)]
+        [Description(PathParameterDescription)]
         string? path = null,
         string? sessionId = null,
         string? solutionName = null,

@@ -17,6 +17,7 @@ namespace NetVsMcp.Broker.Services;
 internal sealed partial class BrokerToolService
 {
     private const string DocumentPathParameterDescription = "Solution-relative or absolute path; prefer forward slashes.";
+    private const string PathParameterDescription = "Use the argument name path, not documentPath. Solution-relative or absolute path; prefer forward slashes.";
     private const string OptionalDocumentPathParameterDescription = "Optional solution-relative or absolute path; prefer forward slashes.";
     private const string DocumentPathsParameterDescription = "Solution-relative or absolute paths; prefer forward slashes.";
     private const string LineParameterDescription = "1-based line number.";

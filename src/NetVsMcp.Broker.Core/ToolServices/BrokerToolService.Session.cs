@@ -552,9 +552,11 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "toolwindow_show", Title = "Toolwindow Show", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Shows a Visual Studio tool window in a routed session.")]
+    [Description("Shows a Visual Studio tool window in a routed session. Pass caption or objectKind; there is no toolWindow argument.")]
     public Task<ToolResponse<ToolWindowResult>> ToolwindowShow(
+        [Description("Visible tool window caption, for example Error List. Required when objectKind is omitted.")]
         string? caption = null,
+        [Description("Visual Studio tool window object kind GUID. Required when caption is omitted.")]
         string? objectKind = null,
         string? sessionId = null,
         string? solutionName = null,
@@ -575,9 +577,11 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "toolwindow_hide", Title = "Toolwindow Hide", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Hides a Visual Studio tool window in a routed session.")]
+    [Description("Hides a Visual Studio tool window in a routed session. Pass caption or objectKind; there is no toolWindow argument.")]
     public Task<ToolResponse<ToolWindowResult>> ToolwindowHide(
+        [Description("Visible tool window caption, for example Error List. Required when objectKind is omitted.")]
         string? caption = null,
+        [Description("Visual Studio tool window object kind GUID. Required when caption is omitted.")]
         string? objectKind = null,
         string? sessionId = null,
         string? solutionName = null,

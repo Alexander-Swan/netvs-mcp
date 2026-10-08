@@ -40,7 +40,6 @@ Document/editor tools such as `document_open` and `document_read` use the parame
 | Threads & processes | `debug_get_threads`, `thread_switch`, `thread_get_callstack`, `thread_set_frozen`, `parallel_stacks`, `parallel_watch`, `process_list_debugged`, `process_list_local`, `process_detach`, `process_terminate` |
 | Watches & immediate | `watch_add`, `watch_list`, `watch_remove`, `immediate_execute` |
 | Exceptions | `exception_settings_get`, `exception_settings_set` |
-| Modules | `module_list` |
 | Solution & projects | `solution_info`, `solution_overview`, `solution_open`, `solution_close`, `solution_add_project`, `solution_remove_project`, `project_list`, `project_info`, `project_dependencies`, `project_add_file`, `project_remove_file`, `project_add_reference`, `project_remove_reference`, `startup_project_get`, `startup_project_set` |
 | NuGet | `nuget_list`, `nuget_search`, `nuget_install`, `nuget_update`, `nuget_uninstall` |
 | Tests | `test_discover`, `test_run`, `test_debug`, `test_run_and_get_results`, `test_results` |
