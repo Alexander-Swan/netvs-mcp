@@ -241,6 +241,140 @@ internal sealed class WebDebugCapabilityService
             ?? AutomationSupport.Failure(request, "JavaScript execution requires a connected browser debug protocol backend; call web_connect with a CDP endpoint first.", ("backend", "browser-shell-uia"));
     }
 
+    public async Task<AutomationResult> WebBlazorInspectAsync(AutomationRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var cdpResult = await TryUseCdpAsync(request, async client =>
+        {
+            var result = await client.EvaluateAsync(BlazorInspectExpression, cancellationToken);
+            var metadata = ParseBlazorInspectionMetadata(result);
+            return AutomationSupport.Success(
+                request,
+                AutomationSupport.Truncate(result),
+                ("backend", "cdp"),
+                ("detected", metadata.Detected),
+                ("hostingModel", metadata.HostingModel),
+                ("scriptCount", metadata.ScriptCount),
+                ("frameworkResourceCount", metadata.FrameworkResourceCount));
+        });
+
+        return cdpResult
+            ?? AutomationSupport.Failure(request, "Blazor inspection requires a connected browser debug protocol backend; call web_connect with a CDP endpoint first.", ("backend", "browser-shell-uia"));
+    }
+
+    public async Task<AutomationResult> WebBlazorWaitReadyAsync(AutomationRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var cdpResult = await TryUseCdpAsync(request, async client =>
+        {
+            var result = await client.EvaluateAsync(BuildBlazorWaitReadyExpression(request.TimeoutMilliseconds), cancellationToken);
+            return AutomationSupport.Success(
+                request,
+                AutomationSupport.Truncate(result),
+                ("backend", "cdp"),
+                ("ready", TryReadJsonProperty(result, "ready")),
+                ("hostingModel", TryReadJsonProperty(result, "hostingModel")),
+                ("timedOut", TryReadJsonProperty(result, "timedOut")));
+        });
+
+        return cdpResult
+            ?? AutomationSupport.Failure(request, "Blazor readiness checks require a connected browser debug protocol backend; call web_connect with a CDP endpoint first.", ("backend", "browser-shell-uia"));
+    }
+
+    public async Task<AutomationResult> WebBlazorGetComponentsAsync(AutomationRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var cdpResult = await TryUseCdpAsync(request, async client =>
+        {
+            var result = await client.EvaluateAsync(BlazorGetComponentsExpression, cancellationToken);
+            return AutomationSupport.Success(
+                request,
+                AutomationSupport.Truncate(result),
+                ("backend", "cdp"),
+                ("componentMarkerCount", TryReadJsonProperty(result, "componentMarkerCount")),
+                ("commentMarkerCount", TryReadJsonProperty(result, "commentMarkerCount")));
+        });
+
+        return cdpResult
+            ?? AutomationSupport.Failure(request, "Blazor component inspection requires a connected browser debug protocol backend; call web_connect with a CDP endpoint first.", ("backend", "browser-shell-uia"));
+    }
+
+    public async Task<AutomationResult> WebBlazorGetStateAsync(AutomationRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var cdpResult = await TryUseCdpAsync(request, async client =>
+        {
+            var result = await client.EvaluateAsync(BuildBlazorGetStateExpression(request.Selector), cancellationToken);
+            return AutomationSupport.Success(
+                request,
+                AutomationSupport.Truncate(result),
+                ("backend", "cdp"),
+                ("found", TryReadJsonProperty(result, "found")),
+                ("controlCount", TryReadJsonProperty(result, "controlCount")),
+                ("statusCount", TryReadJsonProperty(result, "statusCount")));
+        });
+
+        return cdpResult
+            ?? AutomationSupport.Failure(request, "Blazor state inspection requires a connected browser debug protocol backend; call web_connect with a CDP endpoint first.", ("backend", "browser-shell-uia"));
+    }
+
+    public async Task<AutomationResult> WebBlazorTriggerEventAsync(AutomationRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var cdpResult = await TryUseCdpAsync(request, async client =>
+        {
+            var result = await client.EvaluateAsync(BuildBlazorTriggerEventExpression(request.Selector, request.Text), cancellationToken);
+            return AutomationSupport.Success(
+                request,
+                AutomationSupport.Truncate(result),
+                ("backend", "cdp"),
+                ("found", TryReadJsonProperty(result, "found")),
+                ("dispatched", TryReadJsonProperty(result, "dispatched")),
+                ("eventName", TryReadJsonProperty(result, "eventName")));
+        });
+
+        return cdpResult
+            ?? AutomationSupport.Failure(request, "Blazor event dispatch requires a connected browser debug protocol backend; call web_connect with a CDP endpoint first.", ("backend", "browser-shell-uia"));
+    }
+
+    public async Task<AutomationResult> WebBlazorInspectCircuitAsync(AutomationRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var cdpResult = await TryUseCdpAsync(request, async client =>
+        {
+            var result = await client.EvaluateAsync(BlazorInspectCircuitExpression, cancellationToken);
+            return AutomationSupport.Success(
+                request,
+                AutomationSupport.Truncate(result),
+                ("backend", "cdp"),
+                ("detected", TryReadJsonProperty(result, "detected")),
+                ("serverDescriptorCount", TryReadJsonProperty(result, "serverDescriptorCount")),
+                ("blazorEndpointResourceCount", TryReadJsonProperty(result, "blazorEndpointResourceCount")));
+        });
+
+        return cdpResult
+            ?? AutomationSupport.Failure(request, "Blazor circuit inspection requires a connected browser debug protocol backend; call web_connect with a CDP endpoint first.", ("backend", "browser-shell-uia"));
+    }
+
+    public async Task<AutomationResult> WebBlazorInspectWasmAsync(AutomationRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var cdpResult = await TryUseCdpAsync(request, async client =>
+        {
+            var result = await client.EvaluateAsync(BlazorInspectWasmExpression, cancellationToken);
+            return AutomationSupport.Success(
+                request,
+                AutomationSupport.Truncate(result),
+                ("backend", "cdp"),
+                ("detected", TryReadJsonProperty(result, "detected")),
+                ("wasmResourceCount", TryReadJsonProperty(result, "wasmResourceCount")),
+                ("bootResourceCount", TryReadJsonProperty(result, "bootResourceCount")));
+        });
+
+        return cdpResult
+            ?? AutomationSupport.Failure(request, "Blazor WebAssembly inspection requires a connected browser debug protocol backend; call web_connect with a CDP endpoint first.", ("backend", "browser-shell-uia"));
+    }
+
     public async Task<AutomationResult> WebNetworkAsync(AutomationRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -421,4 +555,335 @@ internal sealed class WebDebugCapabilityService
         client.Encoding = Encoding.UTF8;
         return client.DownloadString(url);
     }
+
+    private const string BlazorInspectExpression = """
+        (() => {
+          const scripts = Array.from(document.scripts)
+            .map(s => s.src || s.getAttribute('src') || '')
+            .filter(Boolean);
+          const resources = performance.getEntriesByType('resource')
+            .map(e => e.name || '')
+            .filter(Boolean);
+          const allUrls = scripts.concat(resources);
+          const hasBlazorGlobal = !!window.Blazor;
+          const componentMarkerCount = document.querySelectorAll('[blazor\\:id],[_bl_]').length;
+          const frameworkResourceCount = allUrls.filter(u => u.includes('/_framework/') || u.includes('\\_framework\\')).length;
+          const hasServerScript = allUrls.some(u => /_framework\/blazor(\.web)?\.js/i.test(u) || /_framework\/blazor\.server\.js/i.test(u));
+          const hasServerCircuit = allUrls.some(u => /\/_blazor(\?|\/|$)/i.test(u));
+          const hasWasmResource = allUrls.some(u =>
+            /_framework\/blazor\.webassembly\.js/i.test(u) ||
+            /_framework\/dotnet(\..*)?\.js/i.test(u) ||
+            /_framework\/dotnet\.wasm/i.test(u) ||
+            /_framework\/blazor\.boot\.json/i.test(u) ||
+            /\.wasm(\?|$)/i.test(u));
+          const detected = hasBlazorGlobal || componentMarkerCount > 0 || frameworkResourceCount > 0 || hasServerCircuit;
+          const hostingModel = hasWasmResource
+            ? 'webassembly'
+            : hasServerCircuit || (hasServerScript && !hasWasmResource)
+              ? 'server'
+              : detected
+                ? 'unknown'
+                : 'none';
+          return JSON.stringify({
+            detected,
+            hostingModel,
+            hasBlazorGlobal,
+            componentMarkerCount,
+            scriptCount: scripts.length,
+            frameworkResourceCount,
+            sampleScripts: scripts.filter(u => u.includes('_framework') || u.includes('_blazor')).slice(0, 10),
+            sampleFrameworkResources: allUrls.filter(u => u.includes('_framework') || u.includes('_blazor')).slice(0, 20),
+            url: location.href,
+            title: document.title
+          });
+        })()
+        """;
+
+    private const string BlazorGetComponentsExpression = """
+        (() => {
+          const commentMarkers = [];
+          const walker = document.createTreeWalker(document, NodeFilter.SHOW_COMMENT);
+          while (walker.nextNode()) {
+            const value = walker.currentNode.nodeValue || '';
+            if (value.trim().startsWith('Blazor:')) {
+              commentMarkers.push(value.trim().slice(0, 500));
+            }
+          }
+          const markerElements = Array.from(document.querySelectorAll('*'))
+            .map((element) => {
+              const attrs = Array.from(element.attributes || [])
+                .map(a => a.name)
+                .filter(name => name.startsWith('_bl_') || name.startsWith('blazor:'));
+              if (attrs.length === 0) return null;
+              return {
+                tagName: element.tagName.toLowerCase(),
+                id: element.id || '',
+                attributes: attrs,
+                text: (element.innerText || element.textContent || '').trim().slice(0, 200)
+              };
+            })
+            .filter(Boolean);
+          return JSON.stringify({
+            componentMarkerCount: markerElements.length,
+            commentMarkerCount: commentMarkers.length,
+            markerElements: markerElements.slice(0, 100),
+            commentMarkers: commentMarkers.slice(0, 100),
+            url: location.href
+          });
+        })()
+        """;
+
+    private const string BlazorInspectCircuitExpression = """
+        (() => {
+          const resources = performance.getEntriesByType('resource')
+            .map(e => e.name || '')
+            .filter(Boolean);
+          const scripts = Array.from(document.scripts)
+            .map(s => s.src || s.getAttribute('src') || '')
+            .filter(Boolean);
+          const allUrls = scripts.concat(resources);
+          const commentMarkers = [];
+          const walker = document.createTreeWalker(document, NodeFilter.SHOW_COMMENT);
+          while (walker.nextNode()) {
+            const value = walker.currentNode.nodeValue || '';
+            if (value.trim().startsWith('Blazor:')) commentMarkers.push(value.trim());
+          }
+          const serverDescriptors = commentMarkers.filter(value => /"type"\s*:\s*"server"/i.test(value));
+          const blazorEndpointResources = allUrls.filter(url => /\/_blazor(\?|\/|$)/i.test(url));
+          const serverScripts = allUrls.filter(url =>
+            !/_framework\/blazor\.webassembly/i.test(url) &&
+            /_framework\/blazor(?:\.server|\.web)?(?:\.[^\/]+)?\.js(?:\?|$)/i.test(url));
+          const detected = serverDescriptors.length > 0 || blazorEndpointResources.length > 0 || serverScripts.length > 0;
+          return JSON.stringify({
+            detected,
+            serverDescriptorCount: serverDescriptors.length,
+            blazorEndpointResourceCount: blazorEndpointResources.length,
+            serverScriptCount: serverScripts.length,
+            serverDescriptors: serverDescriptors.slice(0, 20),
+            blazorEndpointResources: blazorEndpointResources.slice(0, 20),
+            serverScripts: serverScripts.slice(0, 20),
+            url: location.href
+          });
+        })()
+        """;
+
+    private const string BlazorInspectWasmExpression = """
+        (() => {
+          const resources = performance.getEntriesByType('resource')
+            .map(e => e.name || '')
+            .filter(Boolean);
+          const scripts = Array.from(document.scripts)
+            .map(s => s.src || s.getAttribute('src') || '')
+            .filter(Boolean);
+          const allUrls = scripts.concat(resources);
+          const wasmResources = allUrls.filter(url => /\.wasm(\?|$)/i.test(url) || /_framework\/dotnet\.wasm/i.test(url));
+          const bootResources = allUrls.filter(url => /_framework\/blazor\.boot\.json/i.test(url));
+          const dotnetScripts = allUrls.filter(url => /_framework\/dotnet(\..*)?\.js/i.test(url));
+          const wasmScripts = allUrls.filter(url => /_framework\/blazor\.webassembly(\.[^\/]+)?\.js/i.test(url));
+          const detected = wasmResources.length > 0 || bootResources.length > 0 || dotnetScripts.length > 0 || wasmScripts.length > 0;
+          return JSON.stringify({
+            detected,
+            wasmResourceCount: wasmResources.length,
+            bootResourceCount: bootResources.length,
+            dotnetScriptCount: dotnetScripts.length,
+            webAssemblyScriptCount: wasmScripts.length,
+            wasmResources: wasmResources.slice(0, 20),
+            bootResources: bootResources.slice(0, 20),
+            dotnetScripts: dotnetScripts.slice(0, 20),
+            webAssemblyScripts: wasmScripts.slice(0, 20),
+            url: location.href
+          });
+        })()
+        """;
+
+    private static string BuildBlazorWaitReadyExpression(int timeoutMilliseconds) =>
+        $$"""
+        new Promise(resolve => {
+          const timeout = {{Math.Max(1, timeoutMilliseconds)}};
+          const started = Date.now();
+          const inspect = () => {
+            const resources = performance.getEntriesByType('resource').map(e => e.name || '').filter(Boolean);
+            const scripts = Array.from(document.scripts).map(s => s.src || s.getAttribute('src') || '').filter(Boolean);
+            const allUrls = scripts.concat(resources);
+            const hasBlazorGlobal = !!window.Blazor;
+            const hasComponentComments = (() => {
+              const walker = document.createTreeWalker(document, NodeFilter.SHOW_COMMENT);
+              while (walker.nextNode()) {
+                if ((walker.currentNode.nodeValue || '').trim().startsWith('Blazor:')) return true;
+              }
+              return false;
+            })();
+            const hasFrameworkResource = allUrls.some(url => url.includes('/_framework/') || url.includes('\\_framework\\'));
+            const hasServerCircuit = allUrls.some(url => /\/_blazor(\?|\/|$)/i.test(url));
+            const hasWasmResource = allUrls.some(url => /_framework\/blazor\.webassembly/i.test(url) || /\.wasm(\?|$)/i.test(url) || /_framework\/blazor\.boot\.json/i.test(url));
+            const ready = document.readyState !== 'loading' && (hasBlazorGlobal || hasComponentComments || hasFrameworkResource || hasServerCircuit);
+            const hostingModel = hasWasmResource ? 'webassembly' : hasServerCircuit || hasComponentComments ? 'server' : ready ? 'unknown' : 'none';
+            return {
+              ready,
+              timedOut: Date.now() - started >= timeout,
+              elapsedMilliseconds: Date.now() - started,
+              hostingModel,
+              documentReadyState: document.readyState,
+              hasBlazorGlobal,
+              hasComponentComments,
+              hasFrameworkResource,
+              hasServerCircuit,
+              hasWasmResource,
+              url: location.href
+            };
+          };
+          const tick = () => {
+            const state = inspect();
+            if (state.ready || state.timedOut) {
+              resolve(JSON.stringify(state));
+              return;
+            }
+            setTimeout(tick, 50);
+          };
+          tick();
+        })
+        """;
+
+    private static string BuildBlazorGetStateExpression(string? selector)
+    {
+        var selectorJson = JsonSerializer.Serialize(selector);
+        return $$"""
+        (() => {
+          const selector = {{selectorJson}};
+          const root = selector ? document.querySelector(selector) : document.body;
+          if (!root) {
+            return JSON.stringify({ found: false, selector, url: location.href });
+          }
+          const controls = Array.from(root.querySelectorAll('input, textarea, select'))
+            .map(element => ({
+              tagName: element.tagName.toLowerCase(),
+              id: element.id || '',
+              name: element.name || '',
+              type: element.type || '',
+              value: element.value ?? '',
+              checked: !!element.checked
+            }));
+          const statuses = Array.from(root.querySelectorAll('[role="status"], [aria-live]'))
+            .map(element => ({
+              tagName: element.tagName.toLowerCase(),
+              id: element.id || '',
+              text: (element.innerText || element.textContent || '').trim()
+            }));
+          const dataAttributes = Object.fromEntries(
+            Array.from(root.attributes || [])
+              .filter(attribute => attribute.name.startsWith('data-'))
+              .map(attribute => [attribute.name, attribute.value]));
+          const markerAttributeCount = Array.from(root.querySelectorAll('*'))
+            .filter(element => Array.from(element.attributes || []).some(attribute => attribute.name.startsWith('_bl_') || attribute.name.startsWith('blazor:')))
+            .length;
+          return JSON.stringify({
+            found: true,
+            selector,
+            tagName: root.tagName ? root.tagName.toLowerCase() : 'document',
+            id: root.id || '',
+            text: (root.innerText || root.textContent || '').trim().slice(0, 1000),
+            dataAttributes,
+            controlCount: controls.length,
+            statusCount: statuses.length,
+            markerAttributeCount,
+            controls: controls.slice(0, 100),
+            statuses: statuses.slice(0, 50),
+            url: location.href
+          });
+        })()
+        """;
+    }
+
+    private static string BuildBlazorTriggerEventExpression(string? selector, string? eventName)
+    {
+        var selectorJson = JsonSerializer.Serialize(selector ?? string.Empty);
+        var eventNameJson = JsonSerializer.Serialize(eventName ?? string.Empty);
+        return $$"""
+        (() => {
+          const selector = {{selectorJson}};
+          const eventName = {{eventNameJson}}.trim();
+          const element = document.querySelector(selector);
+          if (!element || !eventName) {
+            return JSON.stringify({ found: !!element, dispatched: false, selector, eventName, url: location.href });
+          }
+          let dispatched = false;
+          if (eventName === 'click' && typeof element.click === 'function') {
+            element.click();
+            dispatched = true;
+          } else {
+            const lower = eventName.toLowerCase();
+            const event = lower.startsWith('key')
+              ? new KeyboardEvent(eventName, { bubbles: true, cancelable: true })
+              : lower.startsWith('mouse')
+                ? new MouseEvent(eventName, { bubbles: true, cancelable: true })
+                : new Event(eventName, { bubbles: true, cancelable: true });
+            dispatched = element.dispatchEvent(event);
+          }
+          return JSON.stringify({
+            found: true,
+            dispatched,
+            selector,
+            eventName,
+            tagName: element.tagName.toLowerCase(),
+            id: element.id || '',
+            text: (element.innerText || element.textContent || '').trim().slice(0, 200),
+            url: location.href
+          });
+        })()
+        """;
+    }
+
+    private static BlazorInspectionMetadata ParseBlazorInspectionMetadata(string result)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(result);
+            var root = document.RootElement;
+            return new BlazorInspectionMetadata(
+                GetJsonProperty(root, "detected"),
+                GetJsonProperty(root, "hostingModel"),
+                GetJsonProperty(root, "scriptCount"),
+                GetJsonProperty(root, "frameworkResourceCount"));
+        }
+        catch (JsonException)
+        {
+            return new BlazorInspectionMetadata("unknown", "unknown", "unknown", "unknown");
+        }
+    }
+
+    private static string GetJsonProperty(JsonElement element, string propertyName) =>
+        element.TryGetProperty(propertyName, out var property) ? property.ToString() : string.Empty;
+
+    private static string TryReadJsonProperty(string json, string propertyName)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            return GetJsonProperty(document.RootElement, propertyName);
+        }
+        catch (JsonException)
+        {
+            return string.Empty;
+        }
+    }
+}
+
+internal sealed class BlazorInspectionMetadata
+{
+    public BlazorInspectionMetadata(
+        string detected,
+        string hostingModel,
+        string scriptCount,
+        string frameworkResourceCount)
+    {
+        Detected = detected;
+        HostingModel = hostingModel;
+        ScriptCount = scriptCount;
+        FrameworkResourceCount = frameworkResourceCount;
+    }
+
+    public string Detected { get; }
+    public string HostingModel { get; }
+    public string ScriptCount { get; }
+    public string FrameworkResourceCount { get; }
 }

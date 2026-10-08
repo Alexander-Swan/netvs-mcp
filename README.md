@@ -48,7 +48,7 @@ Document/editor tools such as `document_open` and `document_read` use the parame
 | Console | `console_get_info`, `console_read`, `console_send` |
 | Visual Studio UI | `window_activate`, `window_list`, `toolwindow_show`, `toolwindow_hide`, `execute_command`, `format_and_organize` |
 | Debuggee UI automation (`/mcp-wu`) | `ui_capture_window`, `ui_capture_region`, `ui_snapshot`, `ui_get_tree`, `ui_find_elements`, `ui_get_element`, `ui_click`, `ui_double_click`, `ui_right_click`, `ui_drag`, `ui_set_value`, `ui_invoke`, `ui_send_keys`, `ui_wait_for_element`, `ui_wait_idle` |
-| Browser automation (`/mcp-wu`) | `web_connect`, `web_disconnect`, `web_status`, `web_navigate`, `web_screenshot`, `web_dom_get`, `web_dom_query`, `web_console`, `web_js_execute`, `web_network`, `web_element_click`, `web_element_set_value` |
+| Browser automation (`/mcp-wu`) | `web_connect`, `web_disconnect`, `web_status`, `web_navigate`, `web_screenshot`, `web_dom_get`, `web_dom_query`, `web_console`, `web_js_execute`, `web_blazor_inspect`, `web_blazor_wait_ready`, `web_blazor_get_components`, `web_blazor_get_state`, `web_blazor_trigger_event`, `web_blazor_inspect_circuit`, `web_blazor_inspect_wasm`, `web_network`, `web_element_click`, `web_element_set_value` |
 
 ## Architecture
 

@@ -435,6 +435,27 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<AutomationResult> WebJsExecuteAsync(AutomationRequest request, CancellationToken cancellationToken) =>
         InvokeAsync(() => automation.WebJsExecuteAsync(request, cancellationToken), nameof(WebJsExecuteAsync));
 
+    public Task<AutomationResult> WebBlazorInspectAsync(AutomationRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => automation.WebBlazorInspectAsync(request, cancellationToken), nameof(WebBlazorInspectAsync));
+
+    public Task<AutomationResult> WebBlazorWaitReadyAsync(AutomationRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => automation.WebBlazorWaitReadyAsync(request, cancellationToken), nameof(WebBlazorWaitReadyAsync));
+
+    public Task<AutomationResult> WebBlazorGetComponentsAsync(AutomationRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => automation.WebBlazorGetComponentsAsync(request, cancellationToken), nameof(WebBlazorGetComponentsAsync));
+
+    public Task<AutomationResult> WebBlazorGetStateAsync(AutomationRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => automation.WebBlazorGetStateAsync(request, cancellationToken), nameof(WebBlazorGetStateAsync));
+
+    public Task<AutomationResult> WebBlazorTriggerEventAsync(AutomationRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => automation.WebBlazorTriggerEventAsync(request, cancellationToken), nameof(WebBlazorTriggerEventAsync));
+
+    public Task<AutomationResult> WebBlazorInspectCircuitAsync(AutomationRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => automation.WebBlazorInspectCircuitAsync(request, cancellationToken), nameof(WebBlazorInspectCircuitAsync));
+
+    public Task<AutomationResult> WebBlazorInspectWasmAsync(AutomationRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => automation.WebBlazorInspectWasmAsync(request, cancellationToken), nameof(WebBlazorInspectWasmAsync));
+
     public Task<AutomationResult> WebNetworkAsync(AutomationRequest request, CancellationToken cancellationToken) =>
         InvokeAsync(() => automation.WebNetworkAsync(request, cancellationToken), nameof(WebNetworkAsync));
 

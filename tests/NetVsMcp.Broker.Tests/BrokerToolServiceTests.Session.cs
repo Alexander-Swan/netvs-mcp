@@ -217,6 +217,8 @@ public sealed partial class BrokerToolServiceTests
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "console_get_info", McpEndpointPath: McpEndpointRouting.DefaultEndpointPath });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "ui_capture_region", McpEndpointPath: McpEndpointRouting.WebAutomationEndpointPath });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "web_connect", McpEndpointPath: McpEndpointRouting.WebAutomationEndpointPath });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "web_blazor_inspect", McpEndpointPath: McpEndpointRouting.WebAutomationEndpointPath });
+        Assert.Contains(response.Value.Tools, tool => tool is { Name: "web_blazor_wait_ready", McpEndpointPath: McpEndpointRouting.WebAutomationEndpointPath });
         Assert.NotNull(response.Message);
     }
 

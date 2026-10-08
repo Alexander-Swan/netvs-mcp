@@ -35,6 +35,13 @@ internal interface IAutomationCapabilityService
     Task<AutomationResult> WebDomQueryAsync(AutomationRequest request, CancellationToken cancellationToken);
     Task<AutomationResult> WebConsoleAsync(AutomationRequest request, CancellationToken cancellationToken);
     Task<AutomationResult> WebJsExecuteAsync(AutomationRequest request, CancellationToken cancellationToken);
+    Task<AutomationResult> WebBlazorInspectAsync(AutomationRequest request, CancellationToken cancellationToken);
+    Task<AutomationResult> WebBlazorWaitReadyAsync(AutomationRequest request, CancellationToken cancellationToken);
+    Task<AutomationResult> WebBlazorGetComponentsAsync(AutomationRequest request, CancellationToken cancellationToken);
+    Task<AutomationResult> WebBlazorGetStateAsync(AutomationRequest request, CancellationToken cancellationToken);
+    Task<AutomationResult> WebBlazorTriggerEventAsync(AutomationRequest request, CancellationToken cancellationToken);
+    Task<AutomationResult> WebBlazorInspectCircuitAsync(AutomationRequest request, CancellationToken cancellationToken);
+    Task<AutomationResult> WebBlazorInspectWasmAsync(AutomationRequest request, CancellationToken cancellationToken);
     Task<AutomationResult> WebNetworkAsync(AutomationRequest request, CancellationToken cancellationToken);
     Task<AutomationResult> WebElementClickAsync(AutomationRequest request, CancellationToken cancellationToken);
     Task<AutomationResult> WebElementSetValueAsync(AutomationRequest request, CancellationToken cancellationToken);

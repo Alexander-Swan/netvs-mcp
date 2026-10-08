@@ -11,6 +11,13 @@ web_dom_get({ "sessionId": "..." })
 web_dom_query({ "selector": "#submit-button", "sessionId": "..." })
 web_console({ "sessionId": "..." })
 web_js_execute({ "text": "document.title", "sessionId": "..." })
+web_blazor_inspect({ "sessionId": "..." })
+web_blazor_wait_ready({ "sessionId": "...", "timeoutMilliseconds": 10000 })
+web_blazor_get_components({ "sessionId": "..." })
+web_blazor_get_state({ "selector": "#blazorFixtureRoot", "sessionId": "..." })
+web_blazor_trigger_event({ "selector": "#blazorEchoButton", "eventName": "click", "sessionId": "..." })
+web_blazor_inspect_circuit({ "sessionId": "..." })
+web_blazor_inspect_wasm({ "sessionId": "..." })
 web_network({ "sessionId": "..." })
 web_element_click({ "selector": "#submit-button", "sessionId": "..." })
 web_element_set_value({ "selector": "#username", "text": "alice", "sessionId": "..." })
@@ -21,4 +28,6 @@ After connecting, check `Metadata.backend`, not just success. `backend: "cdp"` m
 
 `web_dom_get` and `web_dom_query` operate on the most recent connected/navigated URL; they do not accept a URL parameter.
 
-`web_js_execute`, real console events, and network events require CDP. Disconnect when finished.
+`web_blazor_*` tools report observable browser-side Blazor state. They can detect readiness, component markers, DOM-visible state, Server circuit indicators, and WebAssembly runtime resources, but they do not expose private .NET component fields.
+
+`web_js_execute`, `web_blazor_*`, real console events, and network events require CDP. Disconnect when finished.

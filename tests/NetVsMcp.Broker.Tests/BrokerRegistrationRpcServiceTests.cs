@@ -685,6 +685,13 @@ public sealed class BrokerRegistrationRpcServiceTests
         public Task<AutomationResult> WebDomQueryAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<AutomationResult> WebConsoleAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<AutomationResult> WebJsExecuteAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebBlazorInspectAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebBlazorWaitReadyAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebBlazorGetComponentsAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebBlazorGetStateAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebBlazorTriggerEventAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebBlazorInspectCircuitAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AutomationResult> WebBlazorInspectWasmAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<AutomationResult> WebNetworkAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<AutomationResult> WebElementClickAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<AutomationResult> WebElementSetValueAsync(AutomationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();

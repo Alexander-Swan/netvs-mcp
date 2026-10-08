@@ -111,6 +111,27 @@ internal sealed class AutomationCapabilityService : IAutomationCapabilityService
     public Task<AutomationResult> WebJsExecuteAsync(AutomationRequest request, CancellationToken cancellationToken) =>
         web.WebJsExecuteAsync(request, cancellationToken);
 
+    public Task<AutomationResult> WebBlazorInspectAsync(AutomationRequest request, CancellationToken cancellationToken) =>
+        web.WebBlazorInspectAsync(request, cancellationToken);
+
+    public Task<AutomationResult> WebBlazorWaitReadyAsync(AutomationRequest request, CancellationToken cancellationToken) =>
+        web.WebBlazorWaitReadyAsync(request, cancellationToken);
+
+    public Task<AutomationResult> WebBlazorGetComponentsAsync(AutomationRequest request, CancellationToken cancellationToken) =>
+        web.WebBlazorGetComponentsAsync(request, cancellationToken);
+
+    public Task<AutomationResult> WebBlazorGetStateAsync(AutomationRequest request, CancellationToken cancellationToken) =>
+        web.WebBlazorGetStateAsync(request, cancellationToken);
+
+    public Task<AutomationResult> WebBlazorTriggerEventAsync(AutomationRequest request, CancellationToken cancellationToken) =>
+        web.WebBlazorTriggerEventAsync(request, cancellationToken);
+
+    public Task<AutomationResult> WebBlazorInspectCircuitAsync(AutomationRequest request, CancellationToken cancellationToken) =>
+        web.WebBlazorInspectCircuitAsync(request, cancellationToken);
+
+    public Task<AutomationResult> WebBlazorInspectWasmAsync(AutomationRequest request, CancellationToken cancellationToken) =>
+        web.WebBlazorInspectWasmAsync(request, cancellationToken);
+
     public Task<AutomationResult> WebNetworkAsync(AutomationRequest request, CancellationToken cancellationToken) =>
         web.WebNetworkAsync(request, cancellationToken);
 

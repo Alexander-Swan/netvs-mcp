@@ -73,6 +73,53 @@ internal sealed partial class BrokerToolService
         return DispatchAutomation("web_js_execute", target, null, null, text, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebJsExecuteAsync(request, ct), cancellationToken);
     }
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_blazor_inspect", Title = "Web Blazor Inspect", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
+    [Description(WebAutomationFallbackDescription + "Inspects the connected browser page for Blazor runtime markers and reports whether the page appears to be Blazor Server, Blazor WebAssembly, or an unknown Blazor hosting model. Call web_connect first with a Chrome or Edge remote debugging endpoint; this tool requires CDP.")]
+    public Task<ToolResponse<AutomationResult>> WebBlazorInspect(string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchAutomation("web_blazor_inspect", target, null, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebBlazorInspectAsync(request, ct), cancellationToken);
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_blazor_wait_ready", Title = "Web Blazor Wait Ready", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
+    [Description(WebAutomationFallbackDescription + "Waits until the connected browser page exposes observable Blazor readiness markers, such as the Blazor browser global, component markers, or framework resources. Call web_connect first with a Chrome or Edge remote debugging endpoint; this tool requires CDP.")]
+    public Task<ToolResponse<AutomationResult>> WebBlazorWaitReady(int timeoutMilliseconds = 10000, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchAutomation("web_blazor_wait_ready", target, null, null, null, null, null, null, null, timeoutMilliseconds, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebBlazorWaitReadyAsync(request, ct), cancellationToken);
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_blazor_get_components", Title = "Web Blazor Get Components", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
+    [Description(WebAutomationFallbackDescription + "Returns observable Blazor component markers from the connected page, including Blazor comment descriptors and elements with Blazor-generated marker attributes. This reports browser-visible markers, not private .NET component instances. Requires CDP.")]
+    public Task<ToolResponse<AutomationResult>> WebBlazorGetComponents(string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchAutomation("web_blazor_get_components", target, null, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebBlazorGetComponentsAsync(request, ct), cancellationToken);
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_blazor_get_state", Title = "Web Blazor Get State", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
+    [Description(WebAutomationFallbackDescription + "Returns browser-visible Blazor page state for a selector or the document, including form values, status text, component markers, and runtime/resource markers. This does not expose private .NET component fields. Requires CDP.")]
+    public Task<ToolResponse<AutomationResult>> WebBlazorGetState(string? selector = null, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchAutomation("web_blazor_get_state", target, selector, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebBlazorGetStateAsync(request, ct), cancellationToken);
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_blazor_trigger_event", Title = "Web Blazor Trigger Event", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = true)]
+    [Description(WebAutomationFallbackDescription + "Dispatches a browser event such as click, input, change, keydown, or submit on a selected element in a connected Blazor page. Requires CDP.")]
+    public Task<ToolResponse<AutomationResult>> WebBlazorTriggerEvent(string selector, string eventName, string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    {
+        if (ValidateSelector(selector) is { } selectorValidation)
+        {
+            return Task.FromResult(FailWithCode<AutomationResult>(selectorValidation, ToolErrorCodes.InvalidRequest));
+        }
+
+        if (string.IsNullOrWhiteSpace(eventName))
+        {
+            return Task.FromResult(FailWithCode<AutomationResult>("Event name is required.", ToolErrorCodes.InvalidRequest));
+        }
+
+        return DispatchAutomation("web_blazor_trigger_event", target, selector, null, eventName, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebBlazorTriggerEventAsync(request, ct), cancellationToken);
+    }
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_blazor_inspect_circuit", Title = "Web Blazor Inspect Circuit", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
+    [Description(WebAutomationFallbackDescription + "Inspects observable Blazor Server circuit indicators on the connected page, including _blazor resources, server component descriptors, and SignalR endpoint evidence. Requires CDP.")]
+    public Task<ToolResponse<AutomationResult>> WebBlazorInspectCircuit(string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchAutomation("web_blazor_inspect_circuit", target, null, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebBlazorInspectCircuitAsync(request, ct), cancellationToken);
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
+    [McpServerTool(Name = "web_blazor_inspect_wasm", Title = "Web Blazor Inspect Wasm", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
+    [Description(WebAutomationFallbackDescription + "Inspects observable Blazor WebAssembly runtime resources on the connected page, including dotnet JavaScript, .wasm, boot JSON, and loaded framework resources. Requires CDP.")]
+    public Task<ToolResponse<AutomationResult>> WebBlazorInspectWasm(string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
+        DispatchAutomation("web_blazor_inspect_wasm", target, null, null, null, null, null, null, null, 5000, sessionId, solutionName, solutionPath, static (connection, request, ct) => connection.WebBlazorInspectWasmAsync(request, ct), cancellationToken);
+    [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "web_network", Title = "Web Network", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = true)]
     [Description(WebAutomationFallbackDescription + "Returns browser network events when a VSIX browser backend is available. Requires a CDP backend from web_connect, typically Chrome or Edge launched with a remote debugging port; shell/UIA backends can return an empty supported result without captured network events.")]
     public Task<ToolResponse<AutomationResult>> WebNetwork(string? target = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>

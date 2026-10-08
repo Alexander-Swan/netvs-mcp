@@ -174,6 +174,13 @@ public sealed class LocalMcpHttpHostTests
             var webAutomationEndpointTools = await ListToolNamesAsync(http, "/mcp-wu");
             Assert.Contains("ui_capture_region", webAutomationEndpointTools);
             Assert.Contains("web_connect", webAutomationEndpointTools);
+            Assert.Contains("web_blazor_inspect", webAutomationEndpointTools);
+            Assert.Contains("web_blazor_wait_ready", webAutomationEndpointTools);
+            Assert.Contains("web_blazor_get_components", webAutomationEndpointTools);
+            Assert.Contains("web_blazor_get_state", webAutomationEndpointTools);
+            Assert.Contains("web_blazor_trigger_event", webAutomationEndpointTools);
+            Assert.Contains("web_blazor_inspect_circuit", webAutomationEndpointTools);
+            Assert.Contains("web_blazor_inspect_wasm", webAutomationEndpointTools);
             Assert.All(webAutomationEndpointTools, name => Assert.True(McpEndpointRouting.IsWebAutomationTool(name)));
         }
         finally
