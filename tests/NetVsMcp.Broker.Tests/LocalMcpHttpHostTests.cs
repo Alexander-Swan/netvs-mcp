@@ -397,6 +397,7 @@ public sealed class LocalMcpHttpHostTests
             Assert.False(uiFindElementsResponse.Success);
             Assert.Equal("Selector is required.", uiFindElementsResponse.Message);
             Assert.Equal(ToolErrorCodes.InvalidRequest, uiFindElementsResponse.Metadata!["error_code"]);
+            Assert.Contains("tool schema", uiFindElementsResponse.Metadata["nextActions"]);
         }
         finally
         {

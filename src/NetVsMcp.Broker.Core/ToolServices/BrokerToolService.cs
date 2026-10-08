@@ -228,11 +228,15 @@ internal sealed partial class BrokerToolService
         return dispatch.Value ?? ToolResponse<T>.Fail("Visual Studio session returned no response.");
     }
 
-    private static ToolResponse<T> FailWithCode<T>(string message, string errorCode) =>
-        new(false, default, message, new Dictionary<string, string>
+    private static ToolResponse<T> FailWithCode<T>(string message, string errorCode)
+    {
+        var metadata = new Dictionary<string, string>
         {
             ["error_code"] = errorCode
-        });
+        };
+        AddNextActions(metadata, CreateErrorCodeNextActions(errorCode, message));
+        return new ToolResponse<T>(false, default, message, metadata);
+    }
 
     private static ToolResponse<T> ToValueToolResponse<T>(
         VsSessionDispatchResult<T> dispatch)
@@ -539,6 +543,7 @@ internal sealed partial class BrokerToolService
         };
 
         AddCandidateMetadata(metadata, route.Candidates);
+        AddNextActions(metadata, CreateRouteFailureNextActions(route.FailureReason));
         return metadata;
     }
 
@@ -561,6 +566,7 @@ internal sealed partial class BrokerToolService
             AddCandidateMetadata(metadata, dispatch.Candidates);
         }
 
+        AddNextActions(metadata, CreateDispatchFailureNextActions(dispatch.FailureReason));
         return metadata;
     }
 
@@ -575,6 +581,105 @@ internal sealed partial class BrokerToolService
             VsSessionDispatchFailureReason.OperationTimedOut => ToolErrorCodes.OperationTimedOut,
             _ => ToolErrorCodes.SessionRoutingFailed
         };
+    }
+
+    private static string? CreateErrorCodeNextActions(string errorCode, string message)
+    {
+        return errorCode switch
+        {
+            ToolErrorCodes.InvalidRequest when TryExtractMissingParameter(message, out var parameter) =>
+                $"Retry the tool call with the required `{parameter}` parameter.",
+            ToolErrorCodes.InvalidRequest =>
+                "Check the tool schema and retry with valid arguments.",
+            ToolErrorCodes.BrokerError =>
+                "Call `netvs_doctor` and inspect broker logs with `vs_get_logs` if the failure persists.",
+            ToolErrorCodes.ProtocolMismatch =>
+                "Update or reinstall the NetVsMcp Visual Studio extension so the VSIX and broker use compatible RPC versions.",
+            ToolErrorCodes.UnsupportedByVsix =>
+                "Reinstall or update the NetVsMcp Visual Studio extension, then restart Visual Studio.",
+            ToolErrorCodes.OperationTimedOut =>
+                "Check whether Visual Studio is busy or blocked, then retry; use a narrower target or smaller request when possible.",
+            ToolErrorCodes.SessionNotConnected =>
+                "Call `vs_list_sessions` to confirm the target session is connected, then retry with `sessionId` or reopen Visual Studio.",
+            ToolErrorCodes.SessionRoutingFailed =>
+                "Call `vs_list_sessions`, then retry with `sessionId`, `solutionPath`, or `workspacePath`.",
+            ToolErrorCodes.RpcFailure or ToolErrorCodes.VisualStudioError =>
+                "Check Visual Studio for modal dialogs or extension errors; call `vs_get_logs` if the failure persists.",
+            _ => null
+        };
+    }
+
+    private static string CreateRouteFailureNextActions(RouteFailureReason reason)
+    {
+        return reason switch
+        {
+            RouteFailureReason.NoRegisteredSessions =>
+                "Open Visual Studio with the NetVsMcp extension enabled, then call `vs_list_sessions` or `netvs_doctor`.",
+            RouteFailureReason.Ambiguous =>
+                "Call `vs_list_sessions`, choose the intended session, then retry with `sessionId`, `solutionPath`, or `workspacePath`.",
+            RouteFailureReason.SessionNotFound =>
+                "Call `vs_list_sessions` to get current session IDs, then retry with a valid `sessionId`.",
+            RouteFailureReason.ProcessIdNotFound =>
+                "Call `vs_list_sessions` to get current process IDs, then retry with a valid `processId` or `sessionId`.",
+            RouteFailureReason.SolutionPathNotFound =>
+                "Call `vs_list_sessions` to inspect open solution paths, then retry with the exact `solutionPath` or a containing `workspacePath`.",
+            RouteFailureReason.SolutionNameNotFound =>
+                "Call `vs_list_sessions` to inspect open solution names, then retry with the exact `solutionName` or `sessionId`.",
+            RouteFailureReason.WorkspacePathNotFound =>
+                "Call `vs_list_sessions` to inspect open solutions, then retry with a `workspacePath` inside one of those solution folders.",
+            _ =>
+                "Call `vs_list_sessions`, then retry with explicit routing fields."
+        };
+    }
+
+    private static string CreateDispatchFailureNextActions(VsSessionDispatchFailureReason reason)
+    {
+        return reason switch
+        {
+            VsSessionDispatchFailureReason.NoRegisteredSessions =>
+                "Open Visual Studio with the NetVsMcp extension enabled, then call `vs_list_sessions` or `netvs_doctor`.",
+            VsSessionDispatchFailureReason.AmbiguousTarget =>
+                "Call `vs_list_sessions`, choose the intended session, then retry with `sessionId`, `solutionPath`, or `workspacePath`.",
+            VsSessionDispatchFailureReason.SessionNotFound =>
+                "Call `vs_list_sessions` to get current sessions, then retry with a valid `sessionId`, `solutionPath`, or `workspacePath`.",
+            VsSessionDispatchFailureReason.SolutionPathNotFound =>
+                "Call `vs_list_sessions` to inspect open solution paths, then retry with the exact `solutionPath` or a containing `workspacePath`.",
+            VsSessionDispatchFailureReason.SolutionNameNotFound =>
+                "Call `vs_list_sessions` to inspect open solution names, then retry with the exact `solutionName` or `sessionId`.",
+            VsSessionDispatchFailureReason.StaleSession =>
+                "Call `vs_list_sessions` to choose a connected session, or reopen Visual Studio if the target session has exited.",
+            VsSessionDispatchFailureReason.MissingConnection =>
+                "Call `vs_list_sessions` to confirm the session is connected; if it remains disconnected, restart Visual Studio or run `netvs_doctor`.",
+            VsSessionDispatchFailureReason.UnsupportedByVsix =>
+                "Reinstall or update the NetVsMcp Visual Studio extension, then restart Visual Studio.",
+            VsSessionDispatchFailureReason.OperationTimedOut =>
+                "Check whether Visual Studio is busy or blocked, then retry; use a narrower target or smaller request when possible.",
+            VsSessionDispatchFailureReason.RpcFailure =>
+                "Check Visual Studio for modal dialogs or extension errors; call `vs_get_logs` if the failure persists.",
+            _ =>
+                "Call `vs_list_sessions`, then retry with explicit routing fields."
+        };
+    }
+
+    private static void AddNextActions(IDictionary<string, string> metadata, string? nextActions)
+    {
+        if (!string.IsNullOrWhiteSpace(nextActions))
+        {
+            metadata["nextActions"] = nextActions;
+        }
+    }
+
+    private static bool TryExtractMissingParameter(string message, out string parameter)
+    {
+        var match = Regex.Match(message, @"(?:Mandatory parameter|Parameter) '([^']+)'", RegexOptions.IgnoreCase);
+        if (match.Success)
+        {
+            parameter = match.Groups[1].Value;
+            return true;
+        }
+
+        parameter = string.Empty;
+        return false;
     }
 
     private static void AddCandidateMetadata(

@@ -307,6 +307,8 @@ public sealed partial class BrokerToolServiceTests
         Assert.Equal("Ambiguous", response.Metadata!["failureReason"]);
         Assert.Equal("2", response.Metadata["candidateCount"]);
         Assert.Equal("vs-1,vs-2", response.Metadata["candidateSessionIds"]);
+        Assert.Contains("vs_list_sessions", response.Metadata["nextActions"]);
+        Assert.Contains("sessionId", response.Metadata["nextActions"]);
     }
 
     [Fact]
@@ -318,6 +320,8 @@ public sealed partial class BrokerToolServiceTests
 
         Assert.False(response.Success);
         Assert.Equal("NoRegisteredSessions", response.Metadata!["failureReason"]);
+        Assert.Contains("Open Visual Studio", response.Metadata["nextActions"]);
+        Assert.Contains("netvs_doctor", response.Metadata["nextActions"]);
     }
 
     [Fact]
@@ -947,6 +951,8 @@ public sealed partial class BrokerToolServiceTests
 
         Assert.False(response.Success);
         Assert.Equal("MissingConnection", response.Metadata!["failureReason"]);
+        Assert.Contains("vs_list_sessions", response.Metadata["nextActions"]);
+        Assert.Contains("netvs_doctor", response.Metadata["nextActions"]);
     }
 
     [Fact]
