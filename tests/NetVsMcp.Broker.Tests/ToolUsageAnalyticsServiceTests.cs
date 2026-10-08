@@ -62,6 +62,110 @@ public sealed class ToolUsageAnalyticsServiceTests
     }
 
     [Fact]
+    public void Query_NormalizesGroupByAliases()
+    {
+        var service = CreateService();
+        service.Record(CreateRecord(
+            DateTimeOffset.Parse("2026-09-09T12:00:00Z"),
+            toolName: "document_read",
+            appVersion: "1.6.1-dev"));
+
+        var result = service.Query(
+            new ToolUsageSummaryQuery(GroupBy: " Tool-Version "),
+            analyticsEnabled: true,
+            retentionDays: null);
+
+        var row = Assert.Single(result.Rows);
+        Assert.Equal("tool_version", result.GroupBy);
+        Assert.Equal("document_read", row.ToolName);
+        Assert.Equal("1.6.1-dev", row.AppVersion);
+        Assert.Null(row.Bucket);
+    }
+
+    [Fact]
+    public void Query_CanExcludeFailures()
+    {
+        var service = CreateService();
+        var timestamp = DateTimeOffset.Parse("2026-09-09T12:00:00Z");
+        service.Record(CreateRecord(timestamp, success: true, requestChars: 8));
+        service.Record(CreateRecord(timestamp, success: false, requestChars: 16));
+
+        var result = service.Query(
+            new ToolUsageSummaryQuery(IncludeFailures: false),
+            analyticsEnabled: true,
+            retentionDays: null);
+
+        var row = Assert.Single(result.Rows);
+        Assert.Equal(1, row.CallCount);
+        Assert.Equal(1, row.SuccessCount);
+        Assert.Equal(0, row.FailureCount);
+        Assert.Equal(8, row.RequestCharsTotal);
+    }
+
+    [Fact]
+    public void Query_FiltersInclusiveDateRange()
+    {
+        var service = CreateService();
+        service.Record(CreateRecord(DateTimeOffset.Parse("2026-09-08T12:00:00Z")));
+        service.Record(CreateRecord(DateTimeOffset.Parse("2026-09-09T12:00:00Z")));
+        service.Record(CreateRecord(DateTimeOffset.Parse("2026-09-10T12:00:00Z")));
+
+        var result = service.Query(
+            new ToolUsageSummaryQuery(
+                FromDate: " 2026-09-09 ",
+                ToDate: "2026-09-10",
+                GroupBy: "day"),
+            analyticsEnabled: true,
+            retentionDays: null);
+
+        Assert.Equal(new[] { "2026-09-09", "2026-09-10" }, result.Rows.Select(row => row.Bucket).ToArray());
+    }
+
+    [Fact]
+    public void Query_RejectsInvalidDateRange()
+    {
+        var service = CreateService();
+
+        var exception = Assert.Throws<ArgumentException>(() =>
+            service.Query(
+                new ToolUsageSummaryQuery(FromDate: "2026-09-10", ToDate: "2026-09-09"),
+                analyticsEnabled: true,
+                retentionDays: null));
+
+        Assert.Contains("fromDate", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("2026/09/09")]
+    [InlineData("09-09-2026")]
+    public void Query_RejectsMalformedDates(string fromDate)
+    {
+        var service = CreateService();
+
+        var exception = Assert.Throws<ArgumentException>(() =>
+            service.Query(
+                new ToolUsageSummaryQuery(FromDate: fromDate),
+                analyticsEnabled: true,
+                retentionDays: null));
+
+        Assert.Contains("yyyy-MM-dd", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Query_RejectsUnknownGroupBy()
+    {
+        var service = CreateService();
+
+        var exception = Assert.Throws<ArgumentException>(() =>
+            service.Query(
+                new ToolUsageSummaryQuery(GroupBy: "endpoint"),
+                analyticsEnabled: true,
+                retentionDays: null));
+
+        Assert.Contains("groupBy", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Query_FiltersByToolCategoryAndVersion()
     {
         var service = CreateService();
@@ -80,6 +184,55 @@ public sealed class ToolUsageAnalyticsServiceTests
     }
 
     [Fact]
+    public void Query_GroupsByCategoryVersion()
+    {
+        var service = CreateService();
+        var timestamp = DateTimeOffset.Parse("2026-09-09T12:00:00Z");
+        service.Record(CreateRecord(timestamp, category: BrokerToolCategory.Read, appVersion: "1.6.1-dev"));
+        service.Record(CreateRecord(timestamp, category: BrokerToolCategory.Read, appVersion: "1.6.1-dev"));
+        service.Record(CreateRecord(timestamp, category: BrokerToolCategory.Build, appVersion: "1.6.2-dev"));
+
+        var result = service.Query(
+            new ToolUsageSummaryQuery(GroupBy: "category_version"),
+            analyticsEnabled: true,
+            retentionDays: null);
+
+        Assert.Collection(
+            result.Rows,
+            row =>
+            {
+                Assert.Equal("1.6.2-dev", row.AppVersion);
+                Assert.Equal("Build", row.Category);
+                Assert.Equal(1, row.CallCount);
+            },
+            row =>
+            {
+                Assert.Equal("1.6.1-dev", row.AppVersion);
+                Assert.Equal("Read", row.Category);
+                Assert.Equal(2, row.CallCount);
+            });
+    }
+
+    [Fact]
+    public void Query_RoundsAveragesToTwoDecimals()
+    {
+        var service = CreateService();
+        var timestamp = DateTimeOffset.Parse("2026-09-09T12:00:00Z");
+        service.Record(CreateRecord(timestamp, requestChars: 1, responseChars: 2, durationMs: 10));
+        service.Record(CreateRecord(timestamp, requestChars: 1, responseChars: 2, durationMs: 11));
+        service.Record(CreateRecord(timestamp, requestChars: 2, responseChars: 3, durationMs: 12));
+
+        var row = Assert.Single(service.Query(
+            new ToolUsageSummaryQuery(GroupBy: "tool"),
+            analyticsEnabled: true,
+            retentionDays: null).Rows);
+
+        Assert.Equal(1.33, row.AverageRequestChars);
+        Assert.Equal(2.33, row.AverageResponseChars);
+        Assert.Equal(11, row.AverageDurationMs);
+    }
+
+    [Fact]
     public void PruneOldBuckets_RemovesRowsOlderThanRetentionWindow()
     {
         var service = CreateService();
@@ -94,6 +247,14 @@ public sealed class ToolUsageAnalyticsServiceTests
         Assert.DoesNotContain(result.Rows, row => row.Bucket == "2026-09-06");
         Assert.Contains(result.Rows, row => row.Bucket == "2026-09-07");
         Assert.Contains(result.Rows, row => row.Bucket == "2026-09-09");
+    }
+
+    [Fact]
+    public void PruneOldBuckets_RejectsNonPositiveRetention()
+    {
+        var service = CreateService();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => service.PruneOldBuckets(0));
     }
 
     [Fact]
