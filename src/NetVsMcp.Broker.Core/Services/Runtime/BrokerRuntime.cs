@@ -57,8 +57,7 @@ public sealed class BrokerRuntime
         ISessionManifestService sessionManifests,
         IBrokerSettingsStore settingsStore,
         BestPracticeGuideCatalog bestPracticeGuides,
-        BrokerShutdownPolicy? shutdownPolicy = null,
-        IBrokerEventStore? events = null)
+        BrokerShutdownPolicy? shutdownPolicy = null)
     {
         Options = options;
         Sessions = sessions;
@@ -67,7 +66,6 @@ public sealed class BrokerRuntime
         Dispatcher = new VsSessionDispatcher(sessions, Connections);
         Launcher = launcher;
         Registration = registration;
-        Events = events ?? new BrokerEventStore();
         AuditLog = auditLog;
         UsageAnalytics = usageAnalytics;
         SessionManifests = sessionManifests;
@@ -76,7 +74,7 @@ public sealed class BrokerRuntime
         BestPracticeGuides = bestPracticeGuides;
         Tools = new BrokerToolService(this);
         _httpHost = new LocalMcpHttpHost(options, Tools, BestPracticeGuides);
-        _registrationPipeListener = new VsixRegistrationPipeListener(options, sessions, Connections, _shutdownPolicy, Events);
+        _registrationPipeListener = new VsixRegistrationPipeListener(options, sessions, Connections, _shutdownPolicy);
         Sessions.SessionsChanged += OnSessionsChanged;
         Sessions.SessionConnected += OnSessionConnected;
     }
@@ -92,8 +90,7 @@ public sealed class BrokerRuntime
         provider.GetRequiredService<ISessionManifestService>(),
         provider.GetRequiredService<IBrokerSettingsStore>(),
         provider.GetRequiredService<BestPracticeGuideCatalog>(),
-        provider.GetService<BrokerShutdownPolicy>(),
-        provider.GetRequiredService<IBrokerEventStore>());
+        provider.GetService<BrokerShutdownPolicy>());
 
     public BrokerOptions Options { get; }
 
@@ -213,8 +210,6 @@ public sealed class BrokerRuntime
     internal BrokerToolService Tools { get; }
 
     internal BrokerRegistrationRpcService Registration { get; }
-
-    public IBrokerEventStore Events { get; }
 
     public IAuditLogService AuditLog { get; }
 
