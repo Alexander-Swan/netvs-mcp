@@ -15,19 +15,27 @@ internal sealed partial class BrokerToolService
 
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_status", Title = "Debug Status", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns debugger status from a routed Visual Studio session.")]
+    [Description("Returns the current debugger state, including broker-defined dbgModalBlock with dialogs when VS is waiting on a modal window. Modal detection runs outside the VS UI thread, including when a dialog appears after debug_continue returned. underlyingMode preserves the last known native mode and underlyingModeIsStale indicates a cached reading. Respond to an appropriate enabled button with dialog_respond, then call debug_status again. If an earlier command returned an operationId, pass it to retrieve that original command's running/completed/failed outcome in operation without repeating the command. Without operationId, includes the latest retained operation for the selected session. Completed outcomes are retained for 10 minutes. Canceling a status check does not cancel a retained command.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugStatus(
-        string? sessionId = null,
-        string? solutionName = null,
-        string? solutionPath = null,
-        CancellationToken cancellationToken = default)
+        [Description(DialogSessionDescription)] string? sessionId = null,
+        [Description(DialogSolutionNameDescription)] string? solutionName = null,
+        [Description(DialogSolutionPathDescription)] string? solutionPath = null,
+        [Description("Optional exact operationId from an earlier modal-blocked command's state.operation.operationId or metadata.operationId. Retrieves that original command's outcome without executing it again. If routing is omitted, the ID selects its original VS session; explicit routing must match. Omit to inspect current state and the latest retained operation for the selected session.")] string? operationId = null,
+        CancellationToken cancellationToken = default) =>
+        ReadDebuggerStatus(sessionId, solutionName, solutionPath, operationId, cancellationToken);
+
+    private async Task<ToolResponse<DebuggerStateInfo>> ReadDebuggerStatus(string? sessionId, string? solutionName,
+        string? solutionPath, string? operationId, CancellationToken cancellationToken,
+        [CallerMemberName] string toolName = "")
     {
-        return DispatchValueAsync(
-            sessionId,
-            solutionName,
-            solutionPath,
-            static (connection, ct) => connection.DebugStatusAsync(ct),
-            cancellationToken);
+        if (operationId is not null && string.IsNullOrWhiteSpace(operationId))
+            return FailWithCode<DebuggerStateInfo>("operationId must be a non-empty ID when supplied.", ToolErrorCodes.InvalidRequest);
+        var target = CreateTarget(sessionId, solutionName, solutionPath);
+        var watch = Stopwatch.StartNew();
+        var response = await _runtime.DialogOperations.GetDebugStatusAsync(target, operationId, cancellationToken);
+        AuditToolResult(toolName, target, response.Success, response.Value?.SessionId, response.Message,
+            requestPayload: new { target, operationId }, responsePayload: response, duration: watch.Elapsed);
+        return response;
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_hot_reload_apply", Title = "Debug Hot Reload Apply", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
@@ -47,19 +55,14 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_get_mode", Title = "Debug Get Mode", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns debugger mode from a routed Visual Studio session.")]
+    [Description("Returns the same effective debugger state as debug_status, including dbgModalBlock and dialogs when VS has a modal window. Respond with dialog_respond and check debug_status afterward. Use debug_status(operationId: ...) to retrieve the outcome of a specific modal-blocked command.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugGetMode(
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
         CancellationToken cancellationToken = default)
     {
-        return DispatchValueAsync(
-            sessionId,
-            solutionName,
-            solutionPath,
-            static (connection, ct) => connection.DebugGetModeAsync(ct),
-            cancellationToken);
+        return ReadDebuggerStatus(sessionId, solutionName, solutionPath, null, cancellationToken);
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_start", Title = "Debug Start", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
@@ -365,11 +368,11 @@ internal sealed partial class BrokerToolService
             Enabled = enabled
         };
 
-        return DispatchValueAsync(
+        return DispatchDebugValueAsync(
             sessionId,
             solutionName,
             solutionPath,
-            async (connection, ct) =>
+            async (connection, session, ct) =>
             {
                 var result = await connection.BreakpointEnableAsync(request, ct);
 
@@ -378,7 +381,7 @@ internal sealed partial class BrokerToolService
                     return result;
                 }
 
-                var state = await SettleDebuggerStateAsync(connection, continueExecution, settleTimeoutMilliseconds, ct);
+                var state = await SettleDebuggerStateAsync(connection, session, continueExecution, settleTimeoutMilliseconds, ct);
                 return result with { State = state };
             },
             cancellationToken);
@@ -408,11 +411,11 @@ internal sealed partial class BrokerToolService
         }
 
         var normalizedGroupName = groupName.Trim();
-        return DispatchValueAsync(
+        return DispatchDebugValueAsync(
             sessionId,
             solutionName,
             solutionPath,
-            async (connection, ct) =>
+            async (connection, session, ct) =>
             {
                 var list = await connection.BreakpointListAsync(ct);
                 var matches = BreakpointsInGroup(list.Breakpoints, normalizedGroupName).ToArray();
@@ -435,7 +438,7 @@ internal sealed partial class BrokerToolService
                 DebuggerStateInfo? state = null;
                 if (!enabled)
                 {
-                    state = await SettleDebuggerStateAsync(connection, continueExecution, settleTimeoutMilliseconds, ct);
+                    state = await SettleDebuggerStateAsync(connection, session, continueExecution, settleTimeoutMilliseconds, ct);
                 }
 
                 return new BreakpointGroupOperationResult(normalizedGroupName, matches.Length, updated, updatedBreakpoints, state);
@@ -557,13 +560,31 @@ internal sealed partial class BrokerToolService
             cancellationToken);
     }
     private const int DebugSnapshotPollIntervalMilliseconds = 50;
-    private static async Task<DebuggerStateInfo> SettleDebuggerStateAsync(
+    private Task<ToolResponse<T>> DispatchDebugValueAsync<T>(string? sessionId, string? solutionName, string? solutionPath,
+        Func<IVisualStudioSessionRpc, VsSessionInfo, CancellationToken, Task<T>> operation,
+        CancellationToken cancellationToken, [CallerMemberName] string toolName = "")
+    {
+        var target = CreateTarget(sessionId, solutionName, solutionPath);
+        var route = _runtime.Sessions.Resolve(target);
+        if (!route.Success || route.Session is null)
+        {
+            var response = new ToolResponse<T>(false, default, route.Message, CreateRouteFailureMetadata(route));
+            AuditToolResult(toolName, target, false, null, response.Message, responsePayload: response);
+            return Task.FromResult(response);
+        }
+        var session = route.Session;
+        return DispatchValueAsync(session.SessionId, null, null,
+            (connection, ct) => operation(connection, session, ct), cancellationToken, toolName: toolName);
+    }
+
+    private async Task<DebuggerStateInfo> SettleDebuggerStateAsync(
         IVisualStudioSessionRpc connection,
+        VsSessionInfo session,
         bool continueExecution,
         int settleTimeoutMilliseconds,
         CancellationToken cancellationToken)
     {
-        var state = await connection.DebugStatusAsync(cancellationToken);
+        var state = await _runtime.DialogOperations.ReadDebugStateAsync(session, connection, cancellationToken);
 
         if (!continueExecution || state.Mode != "dbgBreakMode")
         {
@@ -571,12 +592,13 @@ internal sealed partial class BrokerToolService
         }
 
         state = await connection.DebugContinueAsync(cancellationToken);
+        _runtime.DialogOperations.RememberState(session, state);
 
         var stopwatch = Stopwatch.StartNew();
         while (state.Mode == "dbgRunMode" && stopwatch.ElapsedMilliseconds < settleTimeoutMilliseconds)
         {
             await Task.Delay(DebugSnapshotPollIntervalMilliseconds, cancellationToken);
-            state = await connection.DebugStatusAsync(cancellationToken);
+            state = await _runtime.DialogOperations.ReadDebugStateAsync(session, connection, cancellationToken);
         }
 
         return state;
@@ -593,7 +615,7 @@ internal sealed partial class BrokerToolService
     ];
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_snapshot", Title = "Debug Snapshot", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Optionally advances the debugger (stepInto, stepOver, stepOut, continue, or break), waits for it to settle, and returns a debugger state snapshot. Use 'include' to fetch any of callStack, locals, breakpoints, watch, threads, parallelStacks, parallelWatch (omitting include fetches up to two callStack frames; pass an empty array to fetch none of them). maxFrames defaults to 2 and applies when callStack is included or include is omitted. callStack.hasMore is true when additional frames were omitted. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions. When 'action' is omitted this is a pure, non-mutating inspection of current state.")]
+    [Description("Optionally advances the debugger (stepInto, stepOver, stepOut, continue, or break), waits for it to settle, and returns a debugger state snapshot. Use 'include' to fetch any of callStack, locals, breakpoints, watch, threads, parallelStacks, parallelWatch (omitting include fetches up to two callStack frames; pass an empty array to fetch none of them). maxFrames defaults to 2 and applies when callStack is included or include is omitted. callStack.hasMore is true when additional frames were omitted. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions. When 'action' is omitted this is a pure, non-mutating inspection of current state. Returns state.mode=dbgModalBlock with dialogs promptly when VS has a modal window; inspection sections are omitted. Respond with dialog_respond, then check debug_status with any returned state.operation.operationId instead of repeating an action.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugSnapshot(
         DebugAdvanceAction? action = null,
         string[]? include = null,
@@ -621,17 +643,17 @@ internal sealed partial class BrokerToolService
         var watchRequest = CreateWatchListRequest(watchExpressions);
         var callStackRequest = new CallStackRequest { MaxFrames = maxFrames };
 
-        return DispatchValueAsync(
+        return DispatchDebugValueAsync(
             sessionId,
             solutionName,
             solutionPath,
-            async (connection, ct) =>
+            async (connection, session, ct) =>
             {
                 DebuggerStateInfo state;
 
                 if (action is null)
                 {
-                    state = await connection.DebugStatusAsync(ct);
+                    state = await _runtime.DialogOperations.ReadDebugStateAsync(session, connection, ct);
                 }
                 else
                 {
@@ -642,14 +664,15 @@ internal sealed partial class BrokerToolService
                         DebugAdvanceAction.StepOut => await connection.DebugStepAsync(new DebugStepRequest { StepKind = DebugStepKind.Out }, ct),
                         DebugAdvanceAction.Continue => await connection.DebugContinueAsync(ct),
                         DebugAdvanceAction.Break => await connection.DebugBreakAsync(ct),
-                        _ => await connection.DebugStatusAsync(ct)
+                        _ => await _runtime.DialogOperations.ReadDebugStateAsync(session, connection, ct)
                     };
 
+                    _runtime.DialogOperations.RememberState(session, state);
                     var stopwatch = Stopwatch.StartNew();
                     while (state.Mode == "dbgRunMode" && stopwatch.ElapsedMilliseconds < settleTimeoutMilliseconds)
                     {
                         await Task.Delay(DebugSnapshotPollIntervalMilliseconds, ct);
-                        state = await connection.DebugStatusAsync(ct);
+                        state = await _runtime.DialogOperations.ReadDebugStateAsync(session, connection, ct);
                     }
                 }
 
@@ -659,7 +682,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_wait_for_break", Title = "Debug Wait For Break", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Waits for a routed Visual Studio session's debugger to leave dbgRunMode - typically because a breakpoint or tracepoint fired - then returns the requested snapshot categories in the same shape as debug_snapshot. maxFrames defaults to 2 and applies when callStack is included or include is omitted; an empty include array does not fetch the call stack. callStack.hasMore is true when additional frames were omitted. Does not itself advance the debugger; call debug_continue, debug_snapshot (with an action), or breakpoint_group_enable(..., continueExecution: true) first if the debuggee is not already running. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions.")]
+    [Description("Waits for a routed Visual Studio session's debugger to leave dbgRunMode - typically because a breakpoint or tracepoint fired - then returns the requested snapshot categories in the same shape as debug_snapshot. maxFrames defaults to 2 and applies when callStack is included or include is omitted; an empty include array does not fetch the call stack. callStack.hasMore is true when additional frames were omitted. Also returns promptly with state.mode=dbgModalBlock and dialogs when VS is waiting for a modal response, even if Continue returned earlier; snapshot inspection is skipped. Respond with dialog_respond, then check debug_status. Does not itself advance the debugger; call debug_continue, debug_snapshot (with an action), or breakpoint_group_enable(..., continueExecution: true) first if the debuggee is not already running. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugWaitForBreak(
         [Description("Maximum time in seconds to wait for the debugger to leave dbgRunMode before giving up and returning the still-running state.")]
         int timeoutSeconds = 30,
@@ -688,19 +711,19 @@ internal sealed partial class BrokerToolService
         var callStackRequest = new CallStackRequest { MaxFrames = maxFrames };
         var timeoutMilliseconds = timeoutSeconds * 1000L;
 
-        return DispatchValueAsync(
+        return DispatchDebugValueAsync(
             sessionId,
             solutionName,
             solutionPath,
-            async (connection, ct) =>
+            async (connection, session, ct) =>
             {
-                var state = await connection.DebugStatusAsync(ct);
+                var state = await _runtime.DialogOperations.ReadDebugStateAsync(session, connection, ct);
 
                 var stopwatch = Stopwatch.StartNew();
                 while (state.Mode == "dbgRunMode" && stopwatch.ElapsedMilliseconds < timeoutMilliseconds)
                 {
                     await Task.Delay(DebugSnapshotPollIntervalMilliseconds, ct);
-                    state = await connection.DebugStatusAsync(ct);
+                    state = await _runtime.DialogOperations.ReadDebugStateAsync(session, connection, ct);
                 }
 
                 var timedOut = state.Mode == "dbgRunMode" && stopwatch.ElapsedMilliseconds >= timeoutMilliseconds;

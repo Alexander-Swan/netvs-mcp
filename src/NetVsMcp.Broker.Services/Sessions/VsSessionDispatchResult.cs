@@ -14,7 +14,8 @@ public enum VsSessionDispatchFailureReason
     MissingConnection,
     RpcFailure,
     UnsupportedByVsix,
-    OperationTimedOut
+    OperationTimedOut,
+    DialogBlocked
 }
 
 public sealed record VsSessionDispatchResult<T>(
@@ -25,6 +26,9 @@ public sealed record VsSessionDispatchResult<T>(
     string? Message,
     IReadOnlyCollection<VsSessionInfo> Candidates)
 {
+    public string? OperationId { get; init; }
+    public IReadOnlyList<DialogInfo>? Dialogs { get; init; }
+
     public static VsSessionDispatchResult<T> Ok(VsSessionInfo session, T value) =>
         new(true, value, session, VsSessionDispatchFailureReason.None, null, Array.Empty<VsSessionInfo>());
 

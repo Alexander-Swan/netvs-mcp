@@ -28,8 +28,23 @@ public enum DebugAdvanceAction
     Break
 }
 
-/// <summary>Raw DTE debugger mode label (e.g. "Design", "Run", "Break").</summary>
-public sealed record DebuggerStateInfo(string Mode);
+/// <summary>Debugger mode, or broker-defined dbgModalBlock when VS has a modal dialog.</summary>
+public sealed record DebuggerStateInfo(
+    string Mode,
+    string? UnderlyingMode = null,
+    bool UnderlyingModeIsStale = false,
+    IReadOnlyList<DialogInfo>? Dialogs = null,
+    string? SessionId = null,
+    DebugOperationInfo? Operation = null);
+
+/// <summary>An original IDE command retained while the client answers a modal dialog.</summary>
+public sealed record DebugOperationInfo(
+    string OperationId,
+    string Status,
+    bool? Success = null,
+    object? Result = null,
+    string? Message = null,
+    string? ErrorCode = null);
 
 public sealed record HotReloadApplyResult(
     bool Success,

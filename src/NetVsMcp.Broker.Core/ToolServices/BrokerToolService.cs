@@ -42,10 +42,18 @@ internal sealed partial class BrokerToolService
     ];
 
     private readonly BrokerRuntime _runtime;
+    private readonly DialogAutomationCoordinator _dialogs;
 
     public BrokerToolService(BrokerRuntime runtime)
     {
         _runtime = runtime;
+        _dialogs = runtime.Dialogs;
+    }
+
+    internal BrokerToolService(BrokerRuntime runtime, IDialogAutomationService dialogs)
+    {
+        _runtime = runtime;
+        _dialogs = new DialogAutomationCoordinator(dialogs);
     }
 
     private static RoutingTarget? CreateTarget(
@@ -239,11 +247,19 @@ internal sealed partial class BrokerToolService
         return new ToolResponse<T>(false, default, message, metadata);
     }
 
-    private static ToolResponse<T> ToValueToolResponse<T>(
+    private ToolResponse<T> ToValueToolResponse<T>(
         VsSessionDispatchResult<T> dispatch)
     {
         if (!dispatch.Success)
         {
+            if (dispatch.FailureReason == VsSessionDispatchFailureReason.DialogBlocked && dispatch.Session is { } session)
+            {
+                var state = _runtime.DialogOperations.ModalState(session, dispatch.Dialogs!, dispatch.OperationId);
+                object? value = typeof(T) == typeof(DebuggerStateInfo) ? state :
+                    typeof(T) == typeof(DebugSnapshotResult) ? new DebugSnapshotResult(state, null, null, null) : null;
+                if (value is T modal)
+                    return ToolResponse<T>.Ok(modal, dispatch.Message);
+            }
             return new ToolResponse<T>(
                 false,
                 default,
@@ -535,7 +551,7 @@ internal sealed partial class BrokerToolService
             .ToArray();
     }
 
-    private static IReadOnlyDictionary<string, string> CreateRouteFailureMetadata(RouteResult route)
+    internal static IReadOnlyDictionary<string, string> CreateRouteFailureMetadata(RouteResult route)
     {
         var metadata = new Dictionary<string, string>
         {
@@ -548,7 +564,7 @@ internal sealed partial class BrokerToolService
         return metadata;
     }
 
-    private static IReadOnlyDictionary<string, string> CreateFailureMetadata<T>(
+    internal static IReadOnlyDictionary<string, string> CreateFailureMetadata<T>(
         VsSessionDispatchResult<T> dispatch)
     {
         var metadata = new Dictionary<string, string>
@@ -562,6 +578,13 @@ internal sealed partial class BrokerToolService
             metadata["sessionId"] = dispatch.Session.SessionId;
         }
 
+        if (dispatch.OperationId is not null)
+        {
+            metadata["operationId"] = dispatch.OperationId;
+            metadata["originalOperationRunning"] = "true";
+            metadata["dialogs"] = JsonSerializer.Serialize(dispatch.Dialogs, UsageSerializerOptions);
+        }
+
         if (dispatch.Candidates.Count > 0)
         {
             AddCandidateMetadata(metadata, dispatch.Candidates);
@@ -571,7 +594,7 @@ internal sealed partial class BrokerToolService
         return metadata;
     }
 
-    private static string MapDispatchFailureToErrorCode(VsSessionDispatchFailureReason reason)
+    internal static string MapDispatchFailureToErrorCode(VsSessionDispatchFailureReason reason)
     {
         return reason switch
         {
@@ -580,6 +603,7 @@ internal sealed partial class BrokerToolService
             VsSessionDispatchFailureReason.RpcFailure => ToolErrorCodes.RpcFailure,
             VsSessionDispatchFailureReason.UnsupportedByVsix => ToolErrorCodes.UnsupportedByVsix,
             VsSessionDispatchFailureReason.OperationTimedOut => ToolErrorCodes.OperationTimedOut,
+            VsSessionDispatchFailureReason.DialogBlocked => ToolErrorCodes.DialogBlocked,
             _ => ToolErrorCodes.SessionRoutingFailed
         };
     }
@@ -637,6 +661,8 @@ internal sealed partial class BrokerToolService
     {
         return reason switch
         {
+            VsSessionDispatchFailureReason.DialogBlocked =>
+                "Read the returned dialogs, choose an enabled button consistent with the user's task, and call dialog_respond with its dialogId, buttonId, and sessionId. Then call debug_status with sessionId and operationId to inspect the original outcome. Do not repeat the original command. Call dialog_list only if the dialog changed or its IDs are rejected.",
             VsSessionDispatchFailureReason.NoRegisteredSessions =>
                 "Open Visual Studio with the NetVsMcp extension enabled, then call `vs_list_sessions` or `netvs_doctor`.",
             VsSessionDispatchFailureReason.AmbiguousTarget =>

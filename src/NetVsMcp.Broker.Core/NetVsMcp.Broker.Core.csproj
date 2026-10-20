@@ -11,6 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\NetVsMcp.Broker.Analytics\NetVsMcp.Broker.Analytics.csproj" />
     <ProjectReference Include="..\NetVsMcp.Contracts\NetVsMcp.Contracts.csproj" />

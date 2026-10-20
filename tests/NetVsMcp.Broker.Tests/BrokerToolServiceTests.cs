@@ -9,7 +9,7 @@ namespace NetVsMcp.Broker.Tests;
 public sealed partial class BrokerToolServiceTests
 {
 
-    private static BrokerRuntime CreateRuntime()
+    private static BrokerRuntime CreateRuntime(IDialogAutomationService? dialogAutomation = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"));
         var options = BrokerOptions.LocalDefault with
@@ -35,7 +35,8 @@ public sealed partial class BrokerToolServiceTests
             analytics,
             new SessionManifestService(options.EffectiveSessionsDirectory),
             new BrokerSettingsStore(options.EffectiveSettingsFilePath),
-            new BestPracticeGuideCatalog());
+            new BestPracticeGuideCatalog(),
+            dialogAutomation: dialogAutomation);
     }
 
     private static JsonElement ReadSingleAuditEntry(BrokerRuntime runtime)
@@ -84,6 +85,8 @@ public sealed partial class BrokerToolServiceTests
         private readonly string _activeDocument;
         private readonly string _solutionName;
         private readonly string _solutionPath;
+
+        public Func<CancellationToken, Task<DebuggerStateInfo>>? DebugStartHandler { get; init; }
 
         public FakeVisualStudioSessionRpc(
             string activeDocument,
@@ -949,11 +952,13 @@ public sealed partial class BrokerToolServiceTests
 
         public string DebugStatusMode { get; set; } = "Break";
 
+        public Func<CancellationToken, Task<DebuggerStateInfo>>? DebugStatusHandler { get; init; }
+
         public bool CallStackHasMore { get; set; }
 
         public Task<DebuggerStateInfo> DebugStatusAsync(CancellationToken cancellationToken)
         {
-            return Task.FromResult(new DebuggerStateInfo(DebugStatusMode));
+            return DebugStatusHandler?.Invoke(cancellationToken) ?? Task.FromResult(new DebuggerStateInfo(DebugStatusMode));
         }
 
         public Task<HotReloadApplyResult> DebugHotReloadApplyAsync(CancellationToken cancellationToken)
@@ -968,7 +973,7 @@ public sealed partial class BrokerToolServiceTests
 
         public Task<DebuggerStateInfo> DebugStartAsync(CancellationToken cancellationToken)
         {
-            return Task.FromResult(new DebuggerStateInfo("Run"));
+            return DebugStartHandler?.Invoke(cancellationToken) ?? Task.FromResult(new DebuggerStateInfo("Run"));
         }
 
         public Task<DebuggerStateInfo> DebugStartWithoutDebuggingAsync(CancellationToken cancellationToken)

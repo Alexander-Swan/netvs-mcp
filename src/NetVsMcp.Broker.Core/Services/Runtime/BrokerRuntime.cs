@@ -57,13 +57,16 @@ public sealed class BrokerRuntime
         ISessionManifestService sessionManifests,
         IBrokerSettingsStore settingsStore,
         BestPracticeGuideCatalog bestPracticeGuides,
-        BrokerShutdownPolicy? shutdownPolicy = null)
+        BrokerShutdownPolicy? shutdownPolicy = null,
+        IDialogAutomationService? dialogAutomation = null)
     {
         Options = options;
         Sessions = sessions;
         StartedUtc = DateTimeOffset.UtcNow;
         Connections = connections;
-        Dispatcher = new VsSessionDispatcher(sessions, Connections);
+        Dialogs = new DialogAutomationCoordinator(dialogAutomation ?? new DialogAutomationService());
+        DialogOperations = new DialogAwareSessionDispatcher(new VsSessionDispatcher(sessions, Connections), sessions, Dialogs);
+        Dispatcher = DialogOperations;
         Launcher = launcher;
         Registration = registration;
         AuditLog = auditLog;
@@ -204,6 +207,10 @@ public sealed class BrokerRuntime
     public IVsSessionConnectionMap Connections { get; }
 
     public IVsSessionDispatcher Dispatcher { get; }
+
+    internal DialogAutomationCoordinator Dialogs { get; }
+
+    internal DialogAwareSessionDispatcher DialogOperations { get; }
 
     internal VisualStudioLauncher Launcher { get; }
 
