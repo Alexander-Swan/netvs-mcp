@@ -16,6 +16,14 @@ public partial class MainWindow : Window
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = viewModel;
+
+        // Client configs can change while the broker is in the tray or another tab is open.
+        Activated += (_, _) => _viewModel.Refresh();
+        MainTabs.SelectionChanged += (_, e) =>
+        {
+            if (ReferenceEquals(e.OriginalSource, MainTabs) && MainTabs.SelectedItem == AgentsTab)
+                _viewModel.Refresh();
+        };
     }
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)

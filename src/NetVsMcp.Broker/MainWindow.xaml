@@ -219,7 +219,7 @@
                 </Grid>
             </TabItem>
 
-            <TabItem Header="AGENTS">
+            <TabItem x:Name="AgentsTab" Header="AGENTS">
                 <Grid Margin="0,4,0,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -231,6 +231,10 @@
                         <TextBlock Text="NetVsMcp can write its MCP registration directly into a client's own config file. Only clients detected on this machine are listed."
                                    TextWrapping="Wrap"
                                    Style="{StaticResource MutedTextStyle}" />
+                        <TextBlock Text="{Binding McpEndpoint, StringFormat=Registration status is for this broker: {0}}"
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}"
+                                   Margin="0,4,0,0" />
                         <CheckBox Content="Back up a client's existing config file (as &lt;file&gt;.bak) before writing to it"
                                   IsChecked="{Binding BackupConfigBeforeRegistering}"
                                   Margin="0,8,0,0" />
