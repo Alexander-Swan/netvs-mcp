@@ -13,8 +13,7 @@ namespace NetVsMcp.Vsix;
 
 internal sealed class EditorCapabilityService : IEditorCapabilityService
 {
-    private readonly object pendingEditLock = new();
-    private readonly Dictionary<string, PendingEdit> pendingEdits = new(StringComparer.OrdinalIgnoreCase);
+    private readonly PendingEditStore pendingEdits = new();
     private readonly AsyncPackage package;
     private int nextPendingEditId;
 
@@ -430,19 +429,16 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
             var dte = await GetDteAsync() ?? throw new InvalidOperationException("Visual Studio DTE service is unavailable.");
             var operation = NormalizeEditOperation(request.Operation);
             var resolvedPath = ResolveDocumentPath(dte, request.Path);
-            var originalText = CaptureOriginalText(dte, request, operation, resolvedPath);
+            var originalText = CaptureOriginalText(dte, request, operation, resolvedPath, out var snapshot);
             var info = CreatePendingEditInfo(
                 NextPendingEditId(),
                 operation,
                 resolvedPath,
                 originalText,
                 request);
-            var pendingEdit = new PendingEdit(info, ClonePreviewRequest(request, resolvedPath, operation));
-
-            lock (pendingEditLock)
-            {
-                pendingEdits[info.EditId] = pendingEdit;
-            }
+            // The range shown in the preview is not enough to validate saved coordinates:
+            // changes anywhere in the document can shift an insertion or replacement.
+            pendingEdits.Add(new PendingEdit(info, ClonePreviewRequest(request, resolvedPath, operation), snapshot));
 
             return new EditPreviewResult(true, null, info);
         }
@@ -454,98 +450,81 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
 
     public async Task<EditDecisionResult> ApproveEditAsync(EditDecisionRequest request, CancellationToken cancellationToken)
     {
-        if (!TryRemovePendingEdit(request.EditId, out var pendingEdit))
-        {
-            return new EditDecisionResult(false, "Pending edit was not found.", request.EditId, false, null, null);
-        }
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var dte = await GetDteAsync() ?? throw new InvalidOperationException("Visual Studio DTE service is unavailable.");
+        cancellationToken.ThrowIfCancellationRequested();
 
-        var preview = pendingEdit.Request;
-        DocumentMutationResult mutation;
-        switch (pendingEdit.Info.Operation)
-        {
-            case "write":
-                mutation = await WriteDocumentAsync(
-                    new DocumentWriteRequest
-                    {
-                        Path = preview.Path,
-                        Text = preview.Text,
-                        CreateIfMissing = preview.CreateIfMissing,
-                        SaveAfterWrite = request.SaveAfterApply || preview.SaveAfterEdit
-                    },
-                    cancellationToken);
-                break;
-            case "insert":
-                mutation = await InsertAsync(
-                    new EditorInsertRequest
-                    {
-                        Path = preview.Path,
-                        Line = preview.Line,
-                        Column = preview.Column,
-                        Text = preview.Text,
-                        SaveAfterEdit = request.SaveAfterApply || preview.SaveAfterEdit
-                    },
-                    cancellationToken);
-                break;
-            case "replace":
-                mutation = await ReplaceAsync(
-                    new EditorReplaceRequest
-                    {
-                        Path = preview.Path,
-                        StartLine = preview.StartLine,
-                        StartColumn = preview.StartColumn,
-                        EndLine = preview.EndLine,
-                        EndColumn = preview.EndColumn,
-                        Text = preview.Text,
-                        SaveAfterEdit = request.SaveAfterApply || preview.SaveAfterEdit
-                    },
-                    cancellationToken);
-                break;
-            default:
-                mutation = new DocumentMutationResult(false, "Unsupported pending edit operation.", null, false, 0);
-                break;
-        }
+        Document? document = null;
+        TextDocument? textDocument = null;
+        return pendingEdits.Approve(request.EditId,
+            edit =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                // Open before validating so any disk reload has already happened. Keep the
+                // same text document through validation and mutation, without an await.
+                var snapshot = CaptureEditSnapshot(dte, edit.Request.Path);
+                if (!snapshot.Exists)
+                    return snapshot;
+                document = OpenTextDocument(dte, edit.Request.Path, false, out textDocument);
+                return new EditDocumentSnapshot(true, textDocument.StartPoint.CreateEditPoint().GetText(textDocument.EndPoint));
+            },
+            edit =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                cancellationToken.ThrowIfCancellationRequested();
+                var preview = edit.Request;
+                if (document is null || textDocument is null)
+                {
+                    // The preview targeted a missing file. CreateNew also protects against
+                    // another process creating even an empty file after the snapshot check.
+                    if (!preview.CreateIfMissing)
+                        throw new FileNotFoundException("Document was not found on disk.", preview.Path);
+                    var directory = Path.GetDirectoryName(preview.Path);
+                    if (!string.IsNullOrEmpty(directory))
+                        Directory.CreateDirectory(directory);
+                    using (File.Open(preview.Path, FileMode.CreateNew, FileAccess.Write, FileShare.Read)) { }
+                    document = OpenTextDocument(dte, preview.Path, false, out textDocument);
+                    if (!string.IsNullOrEmpty(textDocument.StartPoint.CreateEditPoint().GetText(textDocument.EndPoint)))
+                        throw new InvalidOperationException("Document changed since this edit was previewed. Create a fresh preview.");
+                }
 
-        return new EditDecisionResult(
-            mutation.Success,
-            mutation.Message,
-            pendingEdit.Info.EditId,
-            mutation.Success,
-            pendingEdit.Info,
-            mutation);
+                var start = textDocument.StartPoint.CreateEditPoint();
+                switch (edit.Info.Operation)
+                {
+                    case "write":
+                        start.Delete(textDocument.EndPoint);
+                        break;
+                    case "insert":
+                        start.MoveToLineAndOffset(preview.Line, preview.Column);
+                        break;
+                    case "replace":
+                        var end = textDocument.StartPoint.CreateEditPoint();
+                        start.MoveToLineAndOffset(preview.StartLine, preview.StartColumn);
+                        end.MoveToLineAndOffset(preview.EndLine, preview.EndColumn);
+                        start.Delete(end);
+                        break;
+                    default:
+                        throw new InvalidOperationException("Unsupported pending edit operation.");
+                }
+                start.Insert(preview.Text ?? string.Empty);
+                var saved = SaveIfRequested(document, request.SaveAfterApply || preview.SaveAfterEdit);
+                return new DocumentMutationResult(true, null, EditorDocumentInfo.FromDocument(document),
+                    saved, preview.Text?.Length ?? 0);
+            });
     }
 
     public Task<EditDecisionResult> RejectEditAsync(EditDecisionRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!TryRemovePendingEdit(request.EditId, out var pendingEdit))
-        {
-            return Task.FromResult(new EditDecisionResult(false, "Pending edit was not found.", request.EditId, false, null, null));
-        }
-
-        return Task.FromResult(new EditDecisionResult(
-            true,
-            "Pending edit rejected.",
-            pendingEdit.Info.EditId,
-            false,
-            pendingEdit.Info,
-            null));
+        return Task.FromResult(pendingEdits.Reject(request.EditId));
     }
 
     public Task<PendingEditListResult> ListPendingEditsAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        PendingEditInfo[] edits;
-        lock (pendingEditLock)
-        {
-            edits = pendingEdits.Values
-                .OrderBy(edit => edit.Info.CreatedUtc)
-                .Select(edit => edit.Info)
-                .ToArray();
-        }
-
-        return Task.FromResult(new PendingEditListResult(edits));
+        return Task.FromResult(new PendingEditListResult(pendingEdits.List()));
     }
 
     private async Task<DTE?> GetDteAsync()
@@ -869,40 +848,30 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
         return Environment.CurrentDirectory;
     }
 
-    private static string CaptureOriginalText(DTE dte, EditPreviewRequest request, string operation, string resolvedPath)
+    private static string CaptureOriginalText(DTE dte, EditPreviewRequest request, string operation, string resolvedPath,
+        out EditDocumentSnapshot snapshot)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
 
         if (operation == "write")
         {
-            var document = FindOpenDocument(dte, resolvedPath);
-            if (document is not null && TryReadTextDocument(document, out var liveText))
-            {
-                return liveText;
-            }
-
-            if (File.Exists(resolvedPath))
-            {
-                return File.ReadAllText(resolvedPath);
-            }
-
-            if (request.CreateIfMissing)
-            {
-                return string.Empty;
-            }
-
+            snapshot = CaptureEditSnapshot(dte, resolvedPath);
+            if (snapshot.Exists || request.CreateIfMissing)
+                return snapshot.Text;
             throw new FileNotFoundException("Document was not found for edit preview.", resolvedPath);
         }
 
         if (operation == "insert")
         {
             ValidatePosition(request.Line, request.Column);
-            OpenTextDocument(dte, resolvedPath, createIfMissing: false, out _);
+            OpenTextDocument(dte, resolvedPath, createIfMissing: false, out var insertDocument);
+            snapshot = new EditDocumentSnapshot(true, insertDocument.StartPoint.CreateEditPoint().GetText(insertDocument.EndPoint));
             return string.Empty;
         }
 
         ValidateRange(request.StartLine, request.StartColumn, request.EndLine, request.EndColumn);
         OpenTextDocument(dte, resolvedPath, createIfMissing: false, out var textDocument);
+        snapshot = new EditDocumentSnapshot(true, textDocument.StartPoint.CreateEditPoint().GetText(textDocument.EndPoint));
         var startPoint = textDocument.StartPoint.CreateEditPoint();
         var endPoint = textDocument.StartPoint.CreateEditPoint();
         startPoint.MoveToLineAndOffset(request.StartLine, request.StartColumn);
@@ -1026,22 +995,6 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
     {
         var id = Interlocked.Increment(ref nextPendingEditId);
         return $"edit-{id:000000}";
-    }
-
-    private bool TryRemovePendingEdit(string editId, out PendingEdit pendingEdit)
-    {
-        var key = editId ?? string.Empty;
-        lock (pendingEditLock)
-        {
-            if (pendingEdits.TryGetValue(key, out pendingEdit))
-            {
-                pendingEdits.Remove(key);
-                return true;
-            }
-        }
-
-        pendingEdit = null!;
-        return false;
     }
 
     private static PendingEditInfo CreatePendingEditInfo(
@@ -1231,15 +1184,18 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
             .TrimStart(Path.DirectorySeparatorChar);
     }
 
-    private sealed class PendingEdit
+    private static EditDocumentSnapshot CaptureEditSnapshot(DTE dte, string path)
     {
-        public PendingEdit(PendingEditInfo info, EditPreviewRequest request)
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var document = FindOpenDocument(dte, path);
+        if (document is not null)
         {
-            Info = info;
-            Request = request;
+            if (!TryReadTextDocument(document, out var text))
+                throw new NotSupportedException("The document is not a text document.");
+            return new EditDocumentSnapshot(true, text);
         }
-
-        public PendingEditInfo Info { get; }
-        public EditPreviewRequest Request { get; }
+        return File.Exists(path)
+            ? new EditDocumentSnapshot(true, File.ReadAllText(path))
+            : new EditDocumentSnapshot(false, string.Empty);
     }
 }

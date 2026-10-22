@@ -12,6 +12,8 @@ No cloud services. No telemetry. No repo-local or per-project configuration file
 
 **Safe-edit workflow.** Edits can be queued as previews before they touch the buffer. The agent calls `edit_preview`, the developer reviews the diff in Visual Studio, then approves or rejects it. Nothing lands in the editor without an explicit accept, and multiple pending edits can be queued and managed independently.
 
+Approval checks that the full live document still matches the preview snapshot, including whether the target existed. Conflicts and failed approvals stay pending; reject a stale edit and create a fresh preview before applying it to changed text.
+
 **Full debugger control.** Start, stop, attach, and step through code. Set conditional breakpoints, read locals and the call stack, evaluate arbitrary expressions in the current frame, manage watch expressions, switch threads, and take structured snapshots of debugger state — all from MCP.
 
 **Audit log.** Every routed tool call is appended to a local JSONL audit log — tool name, target session, routing fields, success/failure, and failure reason. Enough to reconstruct what happened, without capturing full source text or secret values.
