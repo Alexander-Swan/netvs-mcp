@@ -612,7 +612,9 @@ internal sealed partial class BrokerToolService
         var request = new ErrorListRequest
         {
             IncludeWarnings = includeWarnings,
-            MaxItems = maxItems
+            // Older VSIX versions also support this request. Fetch before limiting so
+            // unrelated errors cannot consume the requested document's result budget.
+            MaxItems = int.MaxValue
         };
 
         return DispatchValueAsync(
@@ -621,13 +623,39 @@ internal sealed partial class BrokerToolService
             solutionPath,
             async (connection, ct) =>
             {
+                var solution = await connection.SolutionInfoAsync(ct);
+                var solutionDirectory = string.IsNullOrWhiteSpace(solution.Path) ? null : Path.GetDirectoryName(solution.Path);
+                var targetPath = NormalizeDiagnosticPath(normalizedPath, solutionDirectory)
+                    ?? throw new ArgumentException("Use an absolute documentPath or open a solution to resolve a relative path.");
                 var errors = await connection.ErrorsListAsync(request, ct);
                 var items = errors.Items
-                    .Where(item => PathsEqual(item.File, normalizedPath))
+                    .Where(item => string.Equals(NormalizeDiagnosticPath(item.File, solutionDirectory), targetPath, StringComparison.OrdinalIgnoreCase))
+                    .Take(maxItems)
                     .ToArray();
                 return new DiagnosticsForDocumentResult(normalizedPath, items);
             },
             cancellationToken);
+    }
+
+    private static string? NormalizeDiagnosticPath(string? path, string? solutionDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return null;
+        try
+        {
+            var normalized = path.Trim().Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+            if (!Path.IsPathRooted(normalized))
+            {
+                if (string.IsNullOrWhiteSpace(solutionDirectory))
+                    return null;
+                normalized = Path.Combine(solutionDirectory, normalized);
+            }
+            return Path.GetFullPath(normalized);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return null;
+        }
     }
     private static string ResolveSearchRoot(string? rootPath, SolutionInfoResult solution)
     {

@@ -82,6 +82,8 @@ public sealed partial class BrokerToolServiceTests
 
     private sealed class FakeVisualStudioSessionRpc : IVisualStudioSessionRpc
     {
+        public IReadOnlyCollection<ErrorListItemInfo>? DiagnosticItems { get; init; }
+
         private readonly string _activeDocument;
         private readonly string _solutionName;
         private readonly string _solutionPath;
@@ -866,6 +868,11 @@ public sealed partial class BrokerToolServiceTests
             CancellationToken cancellationToken)
         {
             LastErrorListRequest = request;
+            if (DiagnosticItems is not null)
+            {
+                var matching = DiagnosticItems.Where(item => request.IncludeWarnings || item.Level != "Warning").Take(request.MaxItems).ToArray();
+                return Task.FromResult(new ErrorListResult(matching));
+            }
             IReadOnlyCollection<ErrorListItemInfo> items =
             [
                 new(
