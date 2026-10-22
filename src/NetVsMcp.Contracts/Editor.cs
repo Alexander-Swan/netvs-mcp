@@ -86,7 +86,11 @@ public sealed record DocumentReadResult(
     /// <summary>Where <see cref="Text"/> came from, e.g. "live-buffer" vs. "disk".</summary>
     string Source,
     /// <summary>True if the document was already open in VS and its in-memory (possibly unsaved) buffer was read.</summary>
-    bool UsedLiveBuffer);
+    bool UsedLiveBuffer,
+    int? StartLine = null,
+    int? LineCount = null,
+    int? TotalLines = null,
+    bool? Truncated = null);
 
 public sealed class DocumentOpenRequest
 {

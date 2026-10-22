@@ -82,6 +82,8 @@ public sealed partial class BrokerToolServiceTests
 
     private sealed class FakeVisualStudioSessionRpc : IVisualStudioSessionRpc
     {
+        public string DocumentText { get; init; } = "class Program {}";
+
         public IReadOnlyCollection<ErrorListItemInfo>? DiagnosticItems { get; init; }
 
         private readonly string _activeDocument;
@@ -533,7 +535,7 @@ public sealed partial class BrokerToolServiceTests
             CancellationToken cancellationToken)
         {
             LastDocumentReadRequest = request;
-            return Task.FromResult(new DocumentReadResult(CreateDocument(request.Path), "class Program {}", "live", true));
+            return Task.FromResult(new DocumentReadResult(CreateDocument(request.Path), DocumentText, "live", true));
         }
 
         public Task<EditorDocumentInfo> DocumentOpenAsync(

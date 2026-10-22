@@ -441,13 +441,17 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "document_read", Title = "Document Read", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Reads a document through a routed Visual Studio session. Pass path, not documentPath.")]
+    [Description("Reads a document through a routed Visual Studio session, including unsaved buffers. Pass path, not documentPath. Optional startLine (1-based) and lineCount select a range; omit them to read the full document. Returns startLine, returned lineCount, totalLines, and truncated. Line endings are preserved; an empty document has one line, and a trailing newline starts an empty final line. A startLine beyond EOF returns empty text and lineCount=0.")]
     public Task<ToolResponse<DocumentReadResult>> DocumentRead(
         [Description(PathParameterDescription)]
         string? path = null,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
+        [Description("1-based first line to return. Defaults to 1.")]
+        int startLine = 1,
+        [Description("Maximum lines to return. Omit to read through the end of the document.")]
+        int? lineCount = null,
         CancellationToken cancellationToken = default)
     {
         if (ValidateRequiredPath(path) is { } validation)
@@ -456,12 +460,14 @@ internal sealed partial class BrokerToolService
         }
 
         var trimmedPath = path!.Trim();
+        if (startLine < 1 || lineCount is <= 0)
+            return Task.FromResult(ToolResponse<DocumentReadResult>.Fail("startLine and lineCount must be greater than zero."));
         var request = new DocumentReadRequest { Path = trimmedPath };
         return DispatchValueAsync(
             sessionId,
             solutionName,
             solutionPath,
-            (connection, ct) => connection.DocumentReadAsync(request, ct),
+            async (connection, ct) => DocumentReadRange.Select(await connection.DocumentReadAsync(request, ct), startLine, lineCount),
             cancellationToken,
             workspacePath: GetRoutableWorkspacePath(request.Path));
     }
