@@ -331,6 +331,10 @@ public sealed class BrokerRegistrationRpcServiceTests
 
     private sealed class FakeVisualStudioSessionRpc : IVisualStudioSessionRpc
     {
+        public Task<DebugFrameInspectionResult> DebugInspectFrameAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+        public Task<DebugSelectFrameResult> DebugSelectFrameAsync(DebugSelectFrameRequest request, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
         public Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken)
         {
             throw new NotSupportedException();

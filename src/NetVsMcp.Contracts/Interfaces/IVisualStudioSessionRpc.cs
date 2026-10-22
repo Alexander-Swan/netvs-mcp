@@ -320,6 +320,14 @@ public interface IVisualStudioSessionRpc
 
     Task<LocalsResult> DebugGetLocalsAsync(CancellationToken cancellationToken);
 
+    Task<DebugSelectFrameResult> DebugSelectFrameAsync(
+        DebugSelectFrameRequest request,
+        CancellationToken cancellationToken);
+
+    Task<DebugFrameInspectionResult> DebugInspectFrameAsync(
+        DebugFrameInspectionRequest request,
+        CancellationToken cancellationToken);
+
     Task<EvaluateExpressionResult> DebugEvaluateAsync(
         EvaluateExpressionRequest request,
         CancellationToken cancellationToken);

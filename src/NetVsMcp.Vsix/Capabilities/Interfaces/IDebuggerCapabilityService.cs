@@ -27,6 +27,8 @@ internal interface IDebuggerCapabilityService
     Task<BreakpointRemoveResult> RemoveBreakpointAsync(BreakpointRemoveRequest request, CancellationToken cancellationToken);
     Task<BreakpointEnableResult> SetBreakpointEnabledAsync(BreakpointEnableRequest request, CancellationToken cancellationToken);
     Task<CallStackResult> GetCallStackAsync(CallStackRequest request, CancellationToken cancellationToken);
+    Task<DebugSelectFrameResult> SelectFrameAsync(DebugSelectFrameRequest request, CancellationToken cancellationToken);
+    Task<DebugFrameInspectionResult> InspectFrameAsync(NetVsMcp.Contracts.DebugFrameInspectionRequest request, CancellationToken cancellationToken);
     Task<LocalsResult> GetLocalsAsync(CancellationToken cancellationToken);
     Task<EvaluateExpressionResult> EvaluateAsync(EvaluateExpressionRequest request, CancellationToken cancellationToken);
     Task<DebugSetVariableResult> SetVariableAsync(DebugSetVariableRequest request, CancellationToken cancellationToken);

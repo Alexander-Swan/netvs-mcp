@@ -365,7 +365,7 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
                         break;
                     }
 
-                    frames.Add(CallStackFrameInfo.FromStackFrame(frame));
+                    frames.Add(CallStackFrameInfo.FromStackFrame(frame, frames.Count + 1, frame == debugger.CurrentStackFrame));
                 }
             }
         }
@@ -375,6 +375,121 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         }
 
         return new CallStackResult(GetDebuggerState(debugger), frames, hasMore);
+    }
+
+    public async Task<DebugSelectFrameResult> SelectFrameAsync(DebugSelectFrameRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var debugger = await GetDebuggerAsync();
+        StackFrames? frames = null;
+        try
+        {
+            var selected = DebuggerFrameSelector.Select(debugger.CurrentMode == dbgDebugMode.dbgBreakMode, request.FrameIndex,
+                () =>
+                {
+                    ThreadHelper.ThrowIfNotOnUIThread();
+                    frames = debugger.CurrentThread?.StackFrames;
+                    return frames?.Count ?? 0;
+                },
+                index =>
+                {
+                    ThreadHelper.ThrowIfNotOnUIThread();
+                    return frames!.Item(index);
+                },
+                frame =>
+                {
+                    ThreadHelper.ThrowIfNotOnUIThread();
+                    debugger.CurrentStackFrame = frame;
+                }, cancellationToken);
+            return new DebugSelectFrameResult(GetDebuggerState(debugger), request.FrameIndex,
+                CallStackFrameInfo.FromStackFrame(selected, request.FrameIndex, true));
+        }
+        catch (System.Runtime.InteropServices.COMException ex)
+        {
+            throw WrapComFailure("selecting a stack frame", ex);
+        }
+    }
+
+    public async Task<DebugFrameInspectionResult> InspectFrameAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var debugger = await GetDebuggerAsync();
+        if (request.TimeoutMilliseconds <= 0)
+            throw new ArgumentOutOfRangeException(nameof(request.TimeoutMilliseconds));
+        StackFrames? frames = null;
+        return DebuggerFrameSelector.Inspect(debugger.CurrentMode == dbgDebugMode.dbgBreakMode, request.StackFrame,
+            () =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                return debugger.CurrentStackFrame ?? throw new InvalidOperationException("No current stack frame is available.");
+            },
+            () =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                frames = debugger.CurrentThread?.StackFrames;
+                return frames?.Count ?? 0;
+            },
+            index =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                return frames!.Item(index);
+            },
+            frame =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                debugger.CurrentStackFrame = frame;
+            },
+            () =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                // Selection, collection, and restoration share one UI-thread RPC with no
+                // await, so a later request cannot inherit this temporary inspection frame.
+                var state = GetDebuggerState(debugger);
+                LocalsResult? locals = null;
+                if (request.IncludeLocals)
+                {
+                    var values = new List<DebugExpressionInfo>();
+                    if (debugger.CurrentStackFrame?.Locals is Expressions expressions)
+                        foreach (Expression expression in expressions)
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            values.Add(DebugExpressionInfo.FromExpression(expression));
+                        }
+                    locals = new LocalsResult(state, values);
+                }
+                EvaluateExpressionResult Evaluate(string text)
+                {
+                    ThreadHelper.ThrowIfNotOnUIThread();
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (string.IsNullOrWhiteSpace(text))
+                        throw new ArgumentException("Expression is required.");
+                    var value = debugger.GetExpression(text, UseAutoExpandRules: true, Timeout: request.TimeoutMilliseconds);
+                    return new EvaluateExpressionResult(GetDebuggerState(debugger), DebugExpressionInfo.FromExpression(value));
+                }
+                var results = request.Expressions.Select(Evaluate).ToList();
+                if (request.AddWatchExpression is not null)
+                {
+                    var text = request.AddWatchExpression.Trim();
+                    if (string.IsNullOrWhiteSpace(text))
+                        throw new ArgumentException("Watch expression is required.");
+                    if (!watchExpressions.Contains(text, StringComparer.OrdinalIgnoreCase))
+                        watchExpressions.Add(text);
+                    results.Add(Evaluate(text));
+                }
+                WatchListResult? watch = null;
+                if (request.Watch is not null)
+                {
+                    var watched = new List<DebugExpressionInfo>();
+                    foreach (var text in NormalizeWatchExpressions(request.Watch.Expressions) ?? watchExpressions.ToArray())
+                    {
+                        try { watched.Add(Evaluate(text).Expression); }
+                        catch (OperationCanceledException) { throw; }
+                        catch (Exception ex) { watched.Add(new DebugExpressionInfo(text, ex.Message, null, false)); }
+                    }
+                    watch = new WatchListResult(true, null, watched);
+                }
+                return new DebugFrameInspectionResult(state, locals, results, watch);
+            }, cancellationToken);
     }
 
     public async Task<LocalsResult> GetLocalsAsync(CancellationToken cancellationToken)

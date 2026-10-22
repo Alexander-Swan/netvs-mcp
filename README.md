@@ -36,7 +36,7 @@ Document/editor tools such as `document_open` and `document_read` use the parame
 | Build | `build_solution`, `build_project`, `build_and_get_errors`, `build_status`, `build_cancel`, `build_configuration_get`, `build_configuration_set`, `rebuild_solution`, `clean_solution`, `package_restore` |
 | Diagnostics | `errors_list`, `output_read`, `output_write`, `output_clear`, `output_list_panes`, `diagnostics_for_document`, `diagnostics_binding_errors` |
 | Task List | `task_list_get`, `task_list_add`, `task_list_remove`, `task_list_set_checked` |
-| Debugger | `debug_start`, `debug_start_without_debugging`, `debug_stop`, `debug_restart`, `debug_continue`, `debug_break`, `debug_step`, `debug_attach`, `debug_status`, `debug_get_mode`, `debug_get_callstack`, `debug_get_locals`, `debug_evaluate`, `debug_eval_many`, `debug_set_variable`, `debug_snapshot`, `debug_wait_for_break`, `debug_hot_reload_apply` |
+| Debugger | `debug_start`, `debug_start_without_debugging`, `debug_stop`, `debug_restart`, `debug_continue`, `debug_break`, `debug_step`, `debug_attach`, `debug_status`, `debug_get_mode`, `debug_get_callstack`, `debug_select_frame`, `debug_get_locals`, `debug_evaluate`, `debug_eval_many`, `debug_set_variable`, `debug_snapshot`, `debug_wait_for_break`, `debug_hot_reload_apply` |
 | Breakpoints | `breakpoint_set`, `breakpoint_list`, `breakpoint_remove`, `breakpoint_enable`, `breakpoint_group_list`, `breakpoint_group_enable`, `breakpoint_group_remove` |
 | Threads & processes | `debug_get_threads`, `thread_switch`, `thread_get_callstack`, `thread_set_frozen`, `parallel_stacks`, `parallel_watch`, `process_list_debugged`, `process_list_local`, `process_detach`, `process_terminate` |
 | Watches & immediate | `watch_add`, `watch_list`, `watch_remove`, `immediate_execute` |
@@ -55,6 +55,10 @@ Document/editor tools such as `document_open` and `document_read` use the parame
 `document_read` accepts optional `startLine` (1-based) and `lineCount` arguments to return a portion of the live buffer or disk document, with returned line count, total lines, and truncation metadata. Omit both arguments for a full read.
 
 `diagnostics_for_document` matches full paths relative to the routed solution and applies `maxItems` after filtering to that file.
+
+While paused, `debug_select_frame` selects a 1-based `frameIndex` from the current thread's call stack so subsequent locals, evaluations, and watches use that frame. It requires an updated VSIX. Refresh indices after stepping or changing threads.
+
+For operations without a persistent frame-selection change, pass optional `stackFrame` to `debug_get_locals`, `debug_evaluate`, `debug_eval_many`, `debug_snapshot`, `debug_wait_for_break`, `watch_add`, `watch_list`, `debug_set_variable`, or `immediate_execute`. Omit it to use the currently selected frame with existing behavior. When supplied, the requested 1-based frame is used and the previous selection is restored; snapshots apply it to locals and watches. Assignment and statement side effects persist. Saved watches remain expression-based rather than bound to frames. Older VSIX versions receive guidance to omit the argument or update.
 
 Debug tools report the broker-defined effective mode `dbgModalBlock` when the selected VS process has a modal dialog. The state includes `dialogs` with accessible messages and button IDs, `sessionId`, `underlyingMode`, and `underlyingModeIsStale`. The underlying mode is the last known native debugger state, or `Unknown` if unavailable; modal blocking does not establish whether the debuggee is running or paused. `debug_status` and `debug_get_mode` inspect dialogs directly from the broker, including dialogs that appear after `debug_continue` has returned. `debug_snapshot` and `debug_wait_for_break` return modal state promptly without fetching locals, stacks, or watch expressions while a known modal is open.
 

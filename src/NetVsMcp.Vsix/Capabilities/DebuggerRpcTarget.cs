@@ -97,6 +97,12 @@ internal sealed class DebuggerRpcTarget
         return debugger.GetLocalsAsync(cancellationToken);
     }
 
+    public Task<DebugSelectFrameResult> DebugSelectFrameAsync(DebugSelectFrameRequest request, CancellationToken cancellationToken) =>
+        debugger.SelectFrameAsync(request, cancellationToken);
+
+    public Task<DebugFrameInspectionResult> DebugInspectFrameAsync(NetVsMcp.Contracts.DebugFrameInspectionRequest request, CancellationToken cancellationToken) =>
+        debugger.InspectFrameAsync(request, cancellationToken);
+
     public Task<EvaluateExpressionResult> DebugEvaluateAsync(EvaluateExpressionRequest request, CancellationToken cancellationToken)
     {
         return debugger.EvaluateAsync(request, cancellationToken);

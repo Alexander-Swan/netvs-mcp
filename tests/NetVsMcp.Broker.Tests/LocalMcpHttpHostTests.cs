@@ -252,7 +252,7 @@ public sealed class LocalMcpHttpHostTests
     }
 
     [Fact]
-    public async Task DebugTools_DescribeMaxFramesDefault()
+    public async Task DebugTools_DescribeMaxFramesAndOptionalFrameContext()
     {
         var port = GetAvailablePort();
         var runtime = CreateRuntime($"http://127.0.0.1:{port}");
@@ -297,6 +297,16 @@ public sealed class LocalMcpHttpHostTests
                 Assert.Equal(2, maxFrames.GetProperty("default").GetInt32());
                 Assert.Contains("Defaults to 2", maxFrames.GetProperty("description").GetString());
             }
+            foreach (var toolName in new[] { "debug_get_locals", "debug_evaluate", "debug_eval_many", "debug_snapshot",
+                "debug_wait_for_break", "watch_list", "watch_add", "debug_set_variable", "immediate_execute" })
+            {
+                var schema = tools.EnumerateArray().Single(tool => tool.GetProperty("name").GetString() == toolName).GetProperty("inputSchema");
+                Assert.True(schema.GetProperty("properties").TryGetProperty("stackFrame", out _), toolName);
+                if (schema.TryGetProperty("required", out var required))
+                    Assert.DoesNotContain(required.EnumerateArray(), item => item.GetString() == "stackFrame");
+            }
+            var selection = tools.EnumerateArray().Single(tool => tool.GetProperty("name").GetString() == "debug_select_frame");
+            Assert.Contains(selection.GetProperty("inputSchema").GetProperty("required").EnumerateArray(), item => item.GetString() == "frameIndex");
         }
         finally
         {
@@ -766,6 +776,73 @@ public sealed class LocalMcpHttpHostTests
         }
     }
 
+    [Theory]
+    [InlineData("debug_get_locals")]
+    [InlineData("debug_evaluate")]
+    public async Task LegacyDebugClient_OmittedOrNullFrameWorksWithOlderVsix(string tool)
+    {
+        var port = GetAvailablePort();
+        var pipeName = $"netvs-mcp-test-{Guid.NewGuid():N}";
+        var runtime = CreateRuntime($"http://127.0.0.1:{port}", pipeName);
+        await runtime.StartAsync(CancellationToken.None);
+
+        await using var clientPipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+        await clientPipe.ConnectAsync(5000);
+        using var jsonRpc = new JsonRpc(clientPipe);
+        // This target deliberately has only legacy RPC methods: no frame inspection or selection.
+        jsonRpc.AddLocalRpcTarget(new FakeVisualStudioSessionRpc("Program.cs"));
+        var registration = jsonRpc.Attach<IBrokerRegistrationRpc>();
+        jsonRpc.StartListening();
+        using var http = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+
+        try
+        {
+            Assert.True((await registration.RegisterAsync(CreateRegistration("vs-legacy", "NetVsMcp"), CancellationToken.None)).Success);
+            using var initialize = await InitializeMcpAsync(http, "/mcp", 1);
+            initialize.EnsureSuccessStatusCode();
+
+            // Retry the unchanged legacy request after an unsupported explicit-frame request, too.
+            for (var attempt = 0; attempt < 4; attempt++)
+            {
+                var arguments = new Dictionary<string, object?> { ["sessionId"] = "vs-legacy" };
+                if (tool == "debug_evaluate")
+                    arguments["expression"] = "currentLocal";
+                if (attempt == 1)
+                    arguments["stackFrame"] = null;
+                if (attempt == 2)
+                    arguments["stackFrame"] = 2;
+
+                using var call = await PostMcpAsync(http, "/mcp", new
+                {
+                    jsonrpc = "2.0", id = attempt + 2, method = "tools/call",
+                    @params = new { name = tool, arguments }
+                });
+                call.EnsureSuccessStatusCode();
+                var response = await ReadMcpToolResponseAsync<JsonElement>(call);
+                if (attempt == 2)
+                {
+                    Assert.False(response.Success);
+                    Assert.Equal(ToolErrorCodes.UnsupportedByVsix, response.Metadata!["error_code"]);
+                    Assert.Contains("Omit stackFrame", response.Message);
+                    continue;
+                }
+
+                Assert.True(response.Success, response.Message);
+                var value = response.Value;
+                var expression = tool == "debug_get_locals"
+                    ? value.GetProperty("locals")[0]
+                    : value.GetProperty("expression");
+                Assert.Equal("currentLocal", expression.GetProperty("name").GetString());
+                Assert.Equal("selected-frame-3", expression.GetProperty("value").GetString());
+            }
+        }
+        finally
+        {
+            jsonRpc.Dispose();
+            await runtime.StopAsync();
+        }
+    }
+
     [Fact]
     public async Task LogsEndpoint_ReturnsRecentAuditLogs()
     {
@@ -953,6 +1030,14 @@ public sealed class LocalMcpHttpHostTests
         {
             return Task.FromResult(ToolResponse<string?>.Ok(_activeDocument));
         }
+
+        public Task<LocalsResult> DebugGetLocalsAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(new LocalsResult(new DebuggerStateInfo("dbgBreakMode"),
+                [new DebugExpressionInfo("currentLocal", "selected-frame-3", "string", true)]));
+
+        public Task<EvaluateExpressionResult> DebugEvaluateAsync(EvaluateExpressionRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(new EvaluateExpressionResult(new DebuggerStateInfo("dbgBreakMode"),
+                new DebugExpressionInfo(request.Expression, "selected-frame-3", "string", true)));
     }
 
     private sealed class ThrowingSettingsStore : IBrokerSettingsStore

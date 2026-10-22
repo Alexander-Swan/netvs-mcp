@@ -387,7 +387,36 @@ public sealed record CallStackFrameInfo(
     string? FunctionName,
     string? File,
     int Line,
-    int Column);
+    int Column,
+    int? FrameIndex = null,
+    bool? IsCurrent = null);
+
+public sealed class DebugSelectFrameRequest
+{
+    /// <summary>1-based index in the current thread's call stack, not an instruction pointer.</summary>
+    public int FrameIndex { get; set; }
+}
+
+public sealed record DebugSelectFrameResult(
+    DebuggerStateInfo State,
+    int FrameIndex,
+    CallStackFrameInfo Frame);
+
+public sealed class DebugFrameInspectionRequest
+{
+    public int StackFrame { get; set; }
+    public bool IncludeLocals { get; set; }
+    public string[] Expressions { get; set; } = [];
+    public WatchListRequest? Watch { get; set; }
+    public string? AddWatchExpression { get; set; }
+    public int TimeoutMilliseconds { get; set; } = 5000;
+}
+
+public sealed record DebugFrameInspectionResult(
+    DebuggerStateInfo State,
+    LocalsResult? Locals,
+    IReadOnlyCollection<EvaluateExpressionResult> Results,
+    WatchListResult? Watch);
 
 public sealed record LocalsResult(
     DebuggerStateInfo State,

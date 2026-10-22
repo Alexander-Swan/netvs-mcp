@@ -9,6 +9,10 @@ namespace NetVsMcp.Broker.Tests;
 /// </summary>
 internal sealed class FakeVisualStudioSessionRpc : IVisualStudioSessionRpc
 {
+    public Task<DebugFrameInspectionResult> DebugInspectFrameAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+    public Task<DebugSelectFrameResult> DebugSelectFrameAsync(DebugSelectFrameRequest request, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
     private readonly string _activeDocument;
 
     public FakeVisualStudioSessionRpc(string activeDocument)

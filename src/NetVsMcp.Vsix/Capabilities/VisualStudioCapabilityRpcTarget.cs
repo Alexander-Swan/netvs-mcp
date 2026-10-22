@@ -294,6 +294,12 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<LocalsResult> DebugGetLocalsAsync(CancellationToken cancellationToken) =>
         InvokeAsync(() => debugger.DebugGetLocalsAsync(cancellationToken), nameof(DebugGetLocalsAsync));
 
+    public Task<DebugSelectFrameResult> DebugSelectFrameAsync(DebugSelectFrameRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => debugger.DebugSelectFrameAsync(request, cancellationToken), nameof(DebugSelectFrameAsync));
+
+    public Task<DebugFrameInspectionResult> DebugInspectFrameAsync(NetVsMcp.Contracts.DebugFrameInspectionRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => debugger.DebugInspectFrameAsync(request, cancellationToken), nameof(DebugInspectFrameAsync));
+
     public Task<EvaluateExpressionResult> DebugEvaluateAsync(EvaluateExpressionRequest request, CancellationToken cancellationToken) =>
         InvokeAsync(() => debugger.DebugEvaluateAsync(request, cancellationToken), nameof(DebugEvaluateAsync));
 

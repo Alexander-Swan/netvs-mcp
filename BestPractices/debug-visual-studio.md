@@ -19,6 +19,8 @@ Agent-neutral entrypoint for launching, attaching, pausing, stepping, inspecting
 - Before evaluating variables manually, prefer stepping or placing a breakpoint where their live values are available.
 - Keep locals opt-in; use watch expressions for targeted values.
 - Call-stack tools default to two frames; pass `maxFrames` only when deeper callers are needed.
+- Frame-dependent tools accept optional `stackFrame` (1-based). Omit it for the currently selected frame; an explicit frame is used for that call and the original selection is restored.
+- Use `debug_select_frame` when you deliberately want to change the selected frame for subsequent calls. Refresh indices after stepping or switching threads.
 - Do not use removed module inspection tooling; if module state matters, report that NetVsMcp no longer exposes a module-list tool.
 
 ## Reference Files

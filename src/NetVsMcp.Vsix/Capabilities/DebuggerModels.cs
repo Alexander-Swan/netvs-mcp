@@ -452,12 +452,14 @@ internal sealed class CallStackRequest
 
 internal sealed class CallStackFrameInfo
 {
-    public CallStackFrameInfo(string? functionName, string? file, int line, int column)
+    public CallStackFrameInfo(string? functionName, string? file, int line, int column, int? frameIndex = null, bool? isCurrent = null)
     {
         FunctionName = functionName;
         File = file;
         Line = line;
         Column = column;
+        FrameIndex = frameIndex;
+        IsCurrent = isCurrent;
     }
 
     public string? FunctionName { get; }
@@ -465,7 +467,10 @@ internal sealed class CallStackFrameInfo
     public int Line { get; }
     public int Column { get; }
 
-    public static CallStackFrameInfo FromStackFrame(StackFrame frame)
+    public int? FrameIndex { get; }
+    public bool? IsCurrent { get; }
+
+    public static CallStackFrameInfo FromStackFrame(StackFrame frame, int? frameIndex = null, bool? isCurrent = null)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
 
@@ -473,8 +478,22 @@ internal sealed class CallStackFrameInfo
             frame.FunctionName,
             null,
             0,
-            0);
+            0,
+            frameIndex,
+            isCurrent);
     }
+}
+
+internal sealed class DebugSelectFrameRequest
+{
+    public int FrameIndex { get; set; }
+}
+
+internal sealed class DebugSelectFrameResult(DebuggerStateInfo state, int frameIndex, CallStackFrameInfo frame)
+{
+    public DebuggerStateInfo State { get; } = state;
+    public int FrameIndex { get; } = frameIndex;
+    public CallStackFrameInfo Frame { get; } = frame;
 }
 
 internal sealed class LocalsResult
@@ -487,6 +506,15 @@ internal sealed class LocalsResult
 
     public DebuggerStateInfo State { get; }
     public IReadOnlyCollection<DebugExpressionInfo> Locals { get; }
+}
+
+internal sealed class DebugFrameInspectionResult(DebuggerStateInfo state, LocalsResult? locals,
+    IReadOnlyCollection<EvaluateExpressionResult> results, WatchListResult? watch)
+{
+    public DebuggerStateInfo State { get; } = state;
+    public LocalsResult? Locals { get; } = locals;
+    public IReadOnlyCollection<EvaluateExpressionResult> Results { get; } = results;
+    public WatchListResult? Watch { get; } = watch;
 }
 
 internal sealed class EvaluateExpressionRequest

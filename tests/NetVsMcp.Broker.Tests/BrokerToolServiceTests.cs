@@ -82,10 +82,34 @@ public sealed partial class BrokerToolServiceTests
 
     private sealed class FakeVisualStudioSessionRpc : IVisualStudioSessionRpc
     {
-        public string DocumentText { get; init; } = "class Program {}";
+        public DebugFrameInspectionRequest? LastFrameInspectionRequest { get; private set; }
+        public Func<DebugFrameInspectionRequest, CancellationToken, Task<DebugFrameInspectionResult>>? FrameInspectionHandler { get; init; }
 
+        public Task<DebugFrameInspectionResult> DebugInspectFrameAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken)
+        {
+            LastFrameInspectionRequest = request;
+            if (FrameInspectionHandler is not null)
+                return FrameInspectionHandler(request, cancellationToken);
+            var state = new DebuggerStateInfo("dbgBreakMode");
+            var expressions = request.AddWatchExpression is null ? request.Expressions
+                : request.Expressions.Concat([request.AddWatchExpression.Trim()]).ToArray();
+            return Task.FromResult(new DebugFrameInspectionResult(state,
+                request.IncludeLocals ? new LocalsResult(state, [new DebugExpressionInfo("callerLocal", "42", "int", true)]) : null,
+                expressions.Select(text => new EvaluateExpressionResult(state, new DebugExpressionInfo(text, "42", "int", true))).ToArray(),
+                request.Watch is not null ? new WatchListResult(true, null, [new DebugExpressionInfo("callerWatch", "42", "int", true)]) : null));
+        }
+        public DebugSelectFrameRequest? LastDebugSelectFrameRequest { get; private set; }
+        public Func<DebugSelectFrameRequest, CancellationToken, Task<DebugSelectFrameResult>>? DebugSelectFrameHandler { get; init; }
+        public string DocumentText { get; init; } = "class Program {}";
         public IReadOnlyCollection<ErrorListItemInfo>? DiagnosticItems { get; init; }
 
+        public Task<DebugSelectFrameResult> DebugSelectFrameAsync(DebugSelectFrameRequest request, CancellationToken cancellationToken)
+        {
+            LastDebugSelectFrameRequest = request;
+            return DebugSelectFrameHandler?.Invoke(request, cancellationToken) ?? Task.FromResult(
+                new DebugSelectFrameResult(new DebuggerStateInfo("dbgBreakMode"), request.FrameIndex,
+                    new CallStackFrameInfo("Program.Caller", null, 0, 0, request.FrameIndex, true)));
+        }
         private readonly string _activeDocument;
         private readonly string _solutionName;
         private readonly string _solutionPath;
