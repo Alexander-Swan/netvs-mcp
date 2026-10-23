@@ -5,6 +5,19 @@ namespace NetVsMcp.Vsix;
 
 internal static class DebuggerFrameSelector
 {
+    public static bool IsCurrentFrame<TFrame>(TFrame frame, TFrame? currentFrame,
+        bool isCurrentThread, Func<TFrame, uint?> getDepth) where TFrame : class
+    {
+        if (!isCurrentThread || currentFrame is null)
+            return false;
+        if (ReferenceEquals(frame, currentFrame))
+            return true;
+        // DTE can return distinct automation objects for the same frame. Depth is
+        // unique within a thread, even when recursive frames share a function name.
+        var depth = getDepth(frame);
+        return depth.HasValue && depth == getDepth(currentFrame);
+    }
+
     public static TThread ResolveThread<TThread>(bool isPaused, int? threadId,
         Func<TThread?> getCurrentThread, Func<int, TThread?> findThread) where TThread : class
     {

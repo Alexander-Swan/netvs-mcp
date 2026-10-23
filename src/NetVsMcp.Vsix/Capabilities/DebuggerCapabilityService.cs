@@ -355,6 +355,7 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         {
             if (debugger.CurrentThread?.StackFrames is StackFrames stackFrames)
             {
+                var currentFrame = debugger.CurrentStackFrame;
                 foreach (StackFrame frame in stackFrames)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -365,7 +366,8 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
                         break;
                     }
 
-                    frames.Add(CallStackFrameInfo.FromStackFrame(frame, frames.Count + 1, frame == debugger.CurrentStackFrame));
+                    frames.Add(CallStackFrameInfo.FromStackFrame(frame, frames.Count + 1,
+                        DebuggerFrameSelector.IsCurrentFrame(frame, currentFrame, true, GetFrameDepth)));
                 }
             }
         }
@@ -375,6 +377,20 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         }
 
         return new CallStackResult(GetDebuggerState(debugger), frames, hasMore);
+    }
+
+    private static uint? GetFrameDepth(StackFrame frame)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        try
+        {
+            return (frame as EnvDTE90a.StackFrame2)?.Depth;
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            // Optional metadata must not prevent reading a debugger's call stack.
+            return null;
+        }
     }
 
     public async Task<DebugSelectFrameResult> SelectFrameAsync(DebugSelectFrameRequest request, CancellationToken cancellationToken)
@@ -488,12 +504,14 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
             if (limit <= 0)
                 throw new ArgumentOutOfRangeException(nameof(request.CallStack.MaxFrames));
             var frames = new List<CallStackFrameInfo>();
+            var currentFrame = debugger.CurrentStackFrame;
+            var isCurrentThread = debugger.CurrentThread is { } currentThread && thread.ID == currentThread.ID;
             foreach (StackFrame stackFrame in thread.StackFrames)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (frames.Count == limit) break;
                 frames.Add(CallStackFrameInfo.FromStackFrame(stackFrame, frames.Count + 1,
-                    stackFrame == debugger.CurrentStackFrame));
+                    DebuggerFrameSelector.IsCurrentFrame(stackFrame, currentFrame, isCurrentThread, GetFrameDepth)));
             }
             callStack = new CallStackResult(state, frames, thread.StackFrames.Count > frames.Count);
         }

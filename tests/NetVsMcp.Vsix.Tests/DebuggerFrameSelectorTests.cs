@@ -5,6 +5,49 @@ namespace NetVsMcp.Vsix.Tests;
 
 public class DebuggerFrameSelectorTests
 {
+    private sealed class Frame(uint? depth)
+    {
+        public uint? Depth { get; } = depth;
+    }
+
+    [Fact]
+    public void IsCurrentFrame_MatchesDistinctAutomationObjectsByDepth()
+    {
+        var enumerated = new Frame(2);
+        var selected = new Frame(2);
+        Assert.True(DebuggerFrameSelector.IsCurrentFrame(enumerated, selected, true, frame => frame.Depth));
+    }
+
+    [Fact]
+    public void IsCurrentFrame_DistinguishesRecursiveFramesByDepth() =>
+        Assert.False(DebuggerFrameSelector.IsCurrentFrame(new Frame(1), new Frame(2), true, frame => frame.Depth));
+
+    [Fact]
+    public void IsCurrentFrame_DoesNotMatchTheSameDepthOnAnotherThread() =>
+        Assert.False(DebuggerFrameSelector.IsCurrentFrame(new Frame(2), new Frame(2), false,
+            _ => throw new Exception("Should not read depths on another thread")));
+
+    [Fact]
+    public void IsCurrentFrame_NoSelectionDoesNotReadDepth() =>
+        Assert.False(DebuggerFrameSelector.IsCurrentFrame(new Frame(2), null, true,
+            _ => throw new Exception("Should not read depth without a selection")));
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(2U, null)]
+    [InlineData(null, 2U)]
+    public void IsCurrentFrame_UnavailableDepthDoesNotMatchDistinctObjects(uint? depth, uint? selectedDepth) =>
+        Assert.False(DebuggerFrameSelector.IsCurrentFrame(new Frame(depth), new Frame(selectedDepth), true, frame => frame.Depth));
+
+    [Fact]
+    public void IsCurrentFrame_ReferenceMatchWorksWithoutDepthSupport()
+    {
+        var frame = new Frame(null);
+        Assert.True(DebuggerFrameSelector.IsCurrentFrame(frame, frame, true,
+            _ => throw new Exception("Should not read depth for a reference match")));
+        Assert.False(DebuggerFrameSelector.IsCurrentFrame(frame, frame, false, value => value.Depth));
+    }
+
     [Theory]
     [InlineData(null, "selected")]
     [InlineData(42, "worker")]
