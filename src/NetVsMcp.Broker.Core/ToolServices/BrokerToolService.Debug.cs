@@ -662,11 +662,12 @@ internal sealed partial class BrokerToolService
         "watch",
         "threads",
         "parallelStacks",
-        "parallelWatch"
+        "parallelWatch",
+        "modules"
     ];
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_snapshot", Title = "Debug Snapshot", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Optionally advances the debugger (stepInto, stepOver, stepOut, continue, or break), waits for it to settle, and returns a debugger state snapshot with state.breakReason when paused (breakpoint, stepCompleted, exception, manualPause, unknown, or other). Use 'include' to fetch any of callStack, locals, breakpoints, watch, threads, parallelStacks, parallelWatch (omitting include fetches up to two callStack frames; pass an empty array to fetch none of them). maxFrames defaults to 2 and applies when callStack is included or include is omitted. callStack.hasMore is true when additional frames were omitted. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions. When 'action' is omitted this is a pure, non-mutating inspection of current state. Returns state.mode=dbgModalBlock with dialogs promptly when VS has a modal window; inspection sections are omitted. Respond with dialog_respond, then check debug_status with any returned state.operation.operationId instead of repeating an action. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1.")]
+    [Description("Optionally advances the debugger (stepInto, stepOver, stepOut, continue, or break), waits for it to settle, and returns a debugger state snapshot with state.breakReason when paused (breakpoint, stepCompleted, exception, manualPause, unknown, or other). Use 'include' to fetch any of callStack, locals, breakpoints, watch, threads, parallelStacks, parallelWatch, modules (omitting include fetches up to two callStack frames; pass an empty array to fetch none of them). maxFrames defaults to 2 and applies when callStack is included or include is omitted. callStack.hasMore is true when additional frames were omitted. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions. When 'action' is omitted this is a pure, non-mutating inspection of current state. Returns state.mode=dbgModalBlock with dialogs promptly when VS has a modal window; inspection sections are omitted. Respond with dialog_respond, then check debug_status with any returned state.operation.operationId instead of repeating an action. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1. Include modules to read loaded binaries and symbol status once paused; moduleOptions controls process/name filters and optional symbol-search diagnostics. Modules use session/process scope independently of threadId and stackFrame.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugSnapshot(
         DebugAdvanceAction? action = null,
         string[]? include = null,
@@ -682,6 +683,8 @@ internal sealed partial class BrokerToolService
         int? stackFrame = null,
         [Description("Optional debugger thread ID from debug_get_threads. Requires break mode. Defaults stackFrame to 1 on this thread; leaves the selected thread and frame unchanged.")]
         int? threadId = null,
+        [Description("Options for include: ['modules']: optional processId, case-insensitive name/path substring, and includeSymbolLoadInformation. Omit to list all Concord modules without search diagnostics. Ignored unless modules is included; requires an updated VSIX.")]
+        ModuleListRequest? moduleOptions = null,
         CancellationToken cancellationToken = default)
     {
         if (stackFrame is <= 0)
@@ -699,6 +702,8 @@ internal sealed partial class BrokerToolService
         }
 
         var (includeKeys, unrecognizedInclude) = ParseDebugSnapshotInclude(include);
+        if (includeKeys.Contains("modules") && moduleOptions?.ProcessId is <= 0)
+            return Task.FromResult(FailWithCode<DebugSnapshotResult>("moduleOptions.processId must be positive.", ToolErrorCodes.InvalidRequest));
         var watchRequest = CreateWatchListRequest(watchExpressions);
         var callStackRequest = new CallStackRequest { MaxFrames = maxFrames };
 
@@ -735,14 +740,14 @@ internal sealed partial class BrokerToolService
                     }
                 }
 
-                return await CollectDebugSnapshotAsync(connection, state, includeKeys, callStackRequest, watchRequest, unrecognizedInclude, ct, stackFrame: stackFrame, threadId: threadId);
+                return await CollectDebugSnapshotAsync(connection, state, includeKeys, callStackRequest, watchRequest, unrecognizedInclude, ct, stackFrame: stackFrame, threadId: threadId, moduleOptions: moduleOptions);
             },
             cancellationToken,
             unsupportedByVsixMessage: threadId.HasValue ? ThreadInspectionUnsupportedMessage : stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_wait_for_break", Title = "Debug Wait For Break", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Waits for a routed Visual Studio session's debugger to leave dbgRunMode - typically because a breakpoint or tracepoint fired - then returns the requested snapshot categories in the same shape as debug_snapshot. maxFrames defaults to 2 and applies when callStack is included or include is omitted; an empty include array does not fetch the call stack. callStack.hasMore is true when additional frames were omitted. Also returns promptly with state.mode=dbgModalBlock and dialogs when VS is waiting for a modal response, even if Continue returned earlier; snapshot inspection is skipped. Respond with dialog_respond, then check debug_status. Does not itself advance the debugger; call debug_continue, debug_snapshot (with an action), or breakpoint_group_enable(..., continueExecution: true) first if the debuggee is not already running. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1.")]
+    [Description("Waits for a routed Visual Studio session's debugger to leave dbgRunMode - typically because a breakpoint or tracepoint fired - then returns the requested snapshot categories in the same shape as debug_snapshot. maxFrames defaults to 2 and applies when callStack is included or include is omitted; an empty include array does not fetch the call stack. callStack.hasMore is true when additional frames were omitted. Also returns promptly with state.mode=dbgModalBlock and dialogs when VS is waiting for a modal response, even if Continue returned earlier; snapshot inspection is skipped. Respond with dialog_respond, then check debug_status. Does not itself advance the debugger; call debug_continue, debug_snapshot (with an action), or breakpoint_group_enable(..., continueExecution: true) first if the debuggee is not already running. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1. Include modules to read loaded binaries and symbol status once paused; moduleOptions controls process/name filters and optional symbol-search diagnostics. Modules use session/process scope independently of threadId and stackFrame.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugWaitForBreak(
         [Description("Maximum time in seconds to wait for the debugger to leave dbgRunMode before giving up and returning the still-running state.")]
         int timeoutSeconds = 30,
@@ -758,6 +763,8 @@ internal sealed partial class BrokerToolService
         int? stackFrame = null,
         [Description("Optional debugger thread ID from debug_get_threads. Requires break mode. Defaults stackFrame to 1 on this thread; leaves the selected thread and frame unchanged.")]
         int? threadId = null,
+        [Description("Options for include: ['modules']: optional processId, case-insensitive name/path substring, and includeSymbolLoadInformation. Omit to list all Concord modules without search diagnostics. Ignored unless modules is included; requires an updated VSIX.")]
+        ModuleListRequest? moduleOptions = null,
         CancellationToken cancellationToken = default)
     {
         if (stackFrame is <= 0)
@@ -775,6 +782,8 @@ internal sealed partial class BrokerToolService
         }
 
         var (includeKeys, unrecognizedInclude) = ParseDebugSnapshotInclude(include);
+        if (includeKeys.Contains("modules") && moduleOptions?.ProcessId is <= 0)
+            return Task.FromResult(FailWithCode<DebugSnapshotResult>("moduleOptions.processId must be positive.", ToolErrorCodes.InvalidRequest));
         var watchRequest = CreateWatchListRequest(watchExpressions);
         var callStackRequest = new CallStackRequest { MaxFrames = maxFrames };
         var timeoutMilliseconds = timeoutSeconds * 1000L;
@@ -795,7 +804,7 @@ internal sealed partial class BrokerToolService
                 }
 
                 var timedOut = state.Mode == "dbgRunMode" && stopwatch.ElapsedMilliseconds >= timeoutMilliseconds;
-                return await CollectDebugSnapshotAsync(connection, state, includeKeys, callStackRequest, watchRequest, unrecognizedInclude, ct, timedOut, stackFrame, threadId);
+                return await CollectDebugSnapshotAsync(connection, state, includeKeys, callStackRequest, watchRequest, unrecognizedInclude, ct, timedOut, stackFrame, threadId, moduleOptions);
             },
             cancellationToken,
             unsupportedByVsixMessage: threadId.HasValue ? ThreadInspectionUnsupportedMessage : stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
@@ -810,7 +819,8 @@ internal sealed partial class BrokerToolService
         CancellationToken cancellationToken,
         bool timedOut = false,
         int? stackFrame = null,
-        int? threadId = null)
+        int? threadId = null,
+        ModuleListRequest? moduleOptions = null)
     {
         if (state.Mode != "dbgBreakMode")
         {
@@ -838,6 +848,20 @@ internal sealed partial class BrokerToolService
         var parallelStacks = includeKeys.Contains("parallelStacks") ? await connection.ParallelStacksAsync(cancellationToken) : null;
         var parallelWatch = includeKeys.Contains("parallelWatch") ? await connection.ParallelWatchAsync(cancellationToken) : null;
 
+        ModuleListResult? modules = null;
+        if (includeKeys.Contains("modules"))
+        {
+            try
+            {
+                modules = await connection.ModuleListAsync(moduleOptions ?? new ModuleListRequest(), cancellationToken);
+            }
+            catch (StreamJsonRpc.RemoteMethodNotFoundException)
+            {
+                modules = new ModuleListResult(false,
+                    "This Visual Studio extension does not support module listing. Update the extension or omit modules from include.", []);
+            }
+        }
+
         return new DebugSnapshotResult(
             state,
             callStack,
@@ -848,7 +872,8 @@ internal sealed partial class BrokerToolService
             parallelStacks,
             parallelWatch,
             unrecognizedInclude,
-            timedOut);
+            timedOut,
+            Modules: modules);
     }
 
     private static WatchListRequest CreateWatchListRequest(string[]? watchExpressions)

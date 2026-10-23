@@ -610,6 +610,8 @@ public sealed class BrokerRegistrationRpcServiceTests
             throw new NotSupportedException();
         }
 
+        public Task<ModuleListResult> ModuleListAsync(ModuleListRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<DebuggedProcessListResult> ProcessListDebuggedAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<LocalProcessListResult> ProcessListLocalAsync(CancellationToken cancellationToken) => throw new NotSupportedException();

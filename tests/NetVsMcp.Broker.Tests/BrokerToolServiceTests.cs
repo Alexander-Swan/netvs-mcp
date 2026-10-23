@@ -1115,6 +1115,18 @@ public sealed partial class BrokerToolServiceTests
             return Task.FromResult(new EvaluateExpressionResult(new DebuggerStateInfo("Break"), expression));
         }
 
+        public ModuleListRequest? LastModuleListRequest { get; private set; }
+        public Func<ModuleListRequest, CancellationToken, Task<ModuleListResult>>? ModuleListHandler { get; init; }
+        public ModuleListResult ModulesResult { get; set; } = new(true, null,
+            [new ModuleInfo(1234, Guid.NewGuid(), Guid.NewGuid(), "App.dll", "C:/app/App.dll", "1.0", 4096, 1024,
+                true, "loaded", "C:/app/App.pdb", "Symbols loaded.")]);
+
+        public Task<ModuleListResult> ModuleListAsync(ModuleListRequest request, CancellationToken cancellationToken)
+        {
+            LastModuleListRequest = request;
+            return ModuleListHandler?.Invoke(request, cancellationToken) ?? Task.FromResult(ModulesResult);
+        }
+
         public Task<DebuggedProcessListResult> ProcessListDebuggedAsync(CancellationToken cancellationToken)
         {
             IReadOnlyCollection<DebuggedProcessInfo> processes = [new(1234, "NetVsMcp.Broker.exe", "Default", "alex")];

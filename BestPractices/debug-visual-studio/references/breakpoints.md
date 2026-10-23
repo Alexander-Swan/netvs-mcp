@@ -18,4 +18,6 @@ For inspection, prefer a breakpoint on or after the line where the needed values
 
 Group breakpoints created for one investigation. When finished, disable or remove only the breakpoints you created, then continue execution if the debuggee is paused and the user did not ask to stop.
 
+If a breakpoint does not bind, use `module_list` in break mode to check the loaded binary path and symbol association, then request symbol-search diagnostics if needed. See `modules-symbols.md`; loaded symbols alone do not guarantee a bindable source line.
+
 After breakpoint mutations, re-list breakpoints when you need to confirm the resulting state.

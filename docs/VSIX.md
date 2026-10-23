@@ -765,7 +765,7 @@ WatchRemoveAsync(WatchRemoveRequest request, CancellationToken cancellationToken
 WatchListAsync(WatchListRequest request, CancellationToken cancellationToken)
 DebugGetThreadsAsync(CancellationToken cancellationToken)
 ThreadSwitchAsync(ThreadSwitchRequest request, CancellationToken cancellationToken)
-ModuleListAsync(CancellationToken cancellationToken)
+ModuleListAsync(ModuleListRequest request, CancellationToken cancellationToken)
 ImmediateExecuteAsync(ImmediateExecuteRequest request, CancellationToken cancellationToken)
 ExceptionSettingsGetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken)
 ExceptionSettingsSetAsync(ExceptionSettingsRequest request, CancellationToken cancellationToken)
@@ -1020,15 +1020,44 @@ The EnvDTE `StackFrame` API available to this project exposes function names and
 }
 ```
 
-`module_list` currently returns an unsupported result because the EnvDTE `Program` API available to this VSIX target does not expose module enumeration:
+`module_list` lists modules from the public Concord debugger API. Pause the debuggee before calling it. Optional `processId` selects an OS process; `name` matches a case-insensitive substring of a module name or full path. `includeSymbolLoadInformation` adds the debugger's symbol-search diagnostics without loading symbols.
 
 ```json
 {
-  "supported": false,
-  "message": "Module listing is not exposed through this VSIX skeleton yet.",
-  "modules": []
+  "supported": true,
+  "message": null,
+  "modules": [
+    {
+      "processId": 1234,
+      "processUniqueId": "3c176c83-e70d-4b4e-9c74-52154b8c040d",
+      "moduleId": "85391711-1e66-4bb2-9b8b-6bcfd33fca55",
+      "name": "App.dll",
+      "path": "C:/app/App.dll",
+      "version": "1.0.0.0",
+      "loadAddress": 140700000000000,
+      "size": 32768,
+      "symbolsLoaded": true,
+      "symbolStatus": "loaded",
+      "symbolFile": "C:/app/App.pdb",
+      "symbolLoadInformation": null
+    }
+  ]
 }
 ```
+
+The broker's `debug_wait_for_break` and `debug_snapshot` also accept `include: ["modules"]`, returning this result under `modules` only once paused. Optional `moduleOptions` has the same fields as `ModuleListRequest`:
+
+```json
+{
+  "include": ["callStack", "modules"],
+  "moduleOptions": { "name": "App.dll", "includeSymbolLoadInformation": true },
+  "sessionId": "..."
+}
+```
+
+Module inspection runs once after break mode is reached; polling does not enumerate modules. Modules remain null when not included, while running (including a wait timeout), after exiting, or when a modal dialog blocks inspection. Module scope is independent of snapshot thread/frame targeting. An older VSIX missing `ModuleListAsync` returns an unsupported module section without discarding other requested snapshot sections.
+
+`symbolsLoaded` reflects the debugger's symbol association, not PDB presence on disk. `symbolStatus` is `loaded`, `notLoaded`, or `unavailable` (the debugger marks symbols permanently unavailable). `symbolFile` may be null even when symbols are loaded, for example with embedded symbols. Process and module GUIDs distinguish instances with identical paths or recycled OS process IDs; `processId` is null for dump processes. A module-name filter with no matches returns an empty supported result. A process filter that cannot be resolved through Concord fails explicitly. Engines without any Concord processes return `supported: false` with an explanation; enumeration covers only Concord runtimes in mixed-engine sessions.
 
 `immediate_execute` request:
 

@@ -321,6 +321,9 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<DebugThreadListResult> DebugGetThreadsAsync(CancellationToken cancellationToken) =>
         InvokeAsync(() => debugger.DebugGetThreadsAsync(cancellationToken), nameof(DebugGetThreadsAsync));
 
+    public Task<NetVsMcp.Contracts.ModuleListResult> ModuleListAsync(NetVsMcp.Contracts.ModuleListRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => debugger.ModuleListAsync(request, cancellationToken), nameof(ModuleListAsync));
+
     public Task<DebuggedProcessListResult> ProcessListDebuggedAsync(CancellationToken cancellationToken) =>
         InvokeAsync(() => debugger.ProcessListDebuggedAsync(cancellationToken), nameof(ProcessListDebuggedAsync));
 

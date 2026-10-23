@@ -64,6 +64,7 @@ internal sealed class BestPracticeGuideSurfacer
             toolName.StartsWith("watch_", StringComparison.Ordinal) ||
             toolName.StartsWith("thread_", StringComparison.Ordinal) ||
             toolName.StartsWith("process_", StringComparison.Ordinal) ||
+            string.Equals(toolName, "module_list", StringComparison.Ordinal) ||
             toolName.StartsWith("exception_settings_", StringComparison.Ordinal) ||
             toolName.StartsWith("parallel_", StringComparison.Ordinal) ||
             string.Equals(toolName, "immediate_execute", StringComparison.Ordinal) ||

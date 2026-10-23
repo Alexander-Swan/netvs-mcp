@@ -462,7 +462,9 @@ public sealed record DebugSnapshotResult(
     /// <summary>Section names from the request's include list that weren't recognized.</summary>
     IReadOnlyCollection<string>? UnrecognizedInclude = null,
     /// <summary>True if snapshot collection was cut short by an internal time budget.</summary>
-    bool TimedOut = false);
+    bool TimedOut = false,
+    /// <summary>Loaded module and symbol state when modules was requested and the debugger is paused.</summary>
+    ModuleListResult? Modules = null);
 
 public sealed record DebugEvalManyResult(
     DebuggerStateInfo State,

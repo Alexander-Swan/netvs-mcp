@@ -52,6 +52,6 @@ For many targeted values, prefer `debug_eval_many` or snapshot watches over pull
 
 Snapshot-style tools do not return locals by default. To see locals in `debug_snapshot` or `debug_wait_for_break`, pass `include: ["locals"]`; otherwise only the requested non-local categories, or the default call stack, are returned.
 
-NetVsMcp no longer exposes a module-list tool. Do not call `module_list` or request `modules` from `debug_snapshot`; use the current debugger state, call stack, threads, exceptions, and targeted evaluations instead.
+For loaded binaries and debugger symbol status, use `module_list` in break mode or include `modules` in `debug_snapshot` / `debug_wait_for_break`. Use `moduleOptions` for snapshot filters and diagnostics; see `modules-symbols.md` for symbol interpretation and Concord engine limits.
 
 The implementation uses [`Thread.StackFrames`](https://learn.microsoft.com/en-us/dotnet/api/envdte.thread.stackframes?view=visualstudiosdk-2022), [`StackFrame.Locals`](https://learn.microsoft.com/en-us/dotnet/api/envdte.stackframe.locals?view=visualstudiosdk-2022), and [`Debugger5.GetExpression3`](https://learn.microsoft.com/en-us/dotnet/api/envdte100.debugger5.getexpression3?view=visualstudiosdk-2022). The latter accepts a frame from any thread of a process in break mode. Engines that cannot expose a requested frame return an error; an available frame without an evaluation context returns an invalid expression result as described above. Inspection does not fall back to changing selection.

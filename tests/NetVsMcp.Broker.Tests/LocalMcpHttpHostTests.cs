@@ -399,7 +399,17 @@ public sealed class LocalMcpHttpHostTests
                 .GetProperty("expression");
             Assert.Contains("does not accept a watch id", expression.GetProperty("description").GetString());
 
-            Assert.DoesNotContain(tools.EnumerateArray(), tool => tool.GetProperty("name").GetString() == "module_list");
+            Assert.Contains(tools.EnumerateArray(), tool => tool.GetProperty("name").GetString() == "module_list");
+
+            foreach (var toolName in new[] { "debug_snapshot", "debug_wait_for_break" })
+            {
+                var tool = tools.EnumerateArray().Single(candidate => candidate.GetProperty("name").GetString() == toolName);
+                Assert.Contains("symbol status once paused", tool.GetProperty("description").GetString());
+                var schema = tool.GetProperty("inputSchema");
+                Assert.True(schema.GetProperty("properties").TryGetProperty("moduleOptions", out _));
+                Assert.Contains("\"processId\"", schema.GetRawText());
+                Assert.Contains("\"includeSymbolLoadInformation\"", schema.GetRawText());
+            }
         }
         finally
         {

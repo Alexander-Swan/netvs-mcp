@@ -19,7 +19,7 @@ internal enum DebugStepKind
     Out
 }
 
-internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
+internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilityService
 {
     private const int DefaultCallStackFrameLimit = 2;
     private readonly AsyncPackage package;

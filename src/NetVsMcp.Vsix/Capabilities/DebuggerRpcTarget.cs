@@ -136,6 +136,9 @@ internal sealed class DebuggerRpcTarget
         return debugger.GetThreadsAsync(cancellationToken);
     }
 
+    public Task<NetVsMcp.Contracts.ModuleListResult> ModuleListAsync(NetVsMcp.Contracts.ModuleListRequest request, CancellationToken cancellationToken) =>
+        debugger.ListModulesAsync(request, cancellationToken);
+
     public Task<DebuggedProcessListResult> ProcessListDebuggedAsync(CancellationToken cancellationToken)
     {
         return debugger.ListDebuggedProcessesAsync(cancellationToken);

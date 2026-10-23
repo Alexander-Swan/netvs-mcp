@@ -1,6 +1,6 @@
 ﻿# Debug Visual Studio With NetVsMcp
 
-Agent-neutral entrypoint for launching, attaching, pausing, stepping, inspecting, hot reload, breakpoints, tracepoints, watches, threads, processes, and test debugging through NetVsMcp.
+Agent-neutral entrypoint for launching, attaching, pausing, stepping, inspecting, hot reload, breakpoints, tracepoints, watches, threads, processes, modules, symbols, and test debugging through NetVsMcp.
 
 ## How To Read This Guide
 
@@ -21,7 +21,7 @@ Agent-neutral entrypoint for launching, attaching, pausing, stepping, inspecting
 - Call-stack tools default to two frames; pass `maxFrames` only when deeper callers are needed.
 - Frame-dependent tools accept optional `stackFrame` (1-based) and `threadId`. Omit both for the currently selected frame; explicit inspection leaves the selected thread and frame unchanged. See `inspection.md` for targeting and version requirements.
 - Use `debug_select_frame` when you deliberately want to change the selected frame for subsequent calls. Refresh indices after stepping or switching threads.
-- Do not use removed module inspection tooling; if module state matters, report that NetVsMcp no longer exposes a module-list tool.
+- Use `module_list` in break mode to verify loaded binaries and debugger symbol status; see `modules-symbols.md` for filters, diagnostics, and engine limits.
 
 ## Reference Files
 
@@ -31,6 +31,7 @@ Agent-neutral entrypoint for launching, attaching, pausing, stepping, inspecting
 | Debug a specific test | `debug-visual-studio/references/test-debugging.md` |
 | Apply hot reload | `debug-visual-studio/references/hot-reload.md` |
 | Set, disable, group, remove, or clean up breakpoints/tracepoints | `debug-visual-studio/references/breakpoints.md` |
+| Verify loaded modules, symbol status, or symbol-search diagnostics | `debug-visual-studio/references/modules-symbols.md` |
 | Inspect paused call stack, locals, variables, or expressions | `debug-visual-studio/references/inspection.md` |
 | Use `debug_snapshot` or `debug_wait_for_break` | `debug-visual-studio/references/snapshots-waits.md` |
 | Use watches or immediate execution | `debug-visual-studio/references/watches-immediate.md` |
@@ -39,4 +40,4 @@ Agent-neutral entrypoint for launching, attaching, pausing, stepping, inspecting
 
 ## Covered Tools
 
-`debug_*`, `breakpoint_*`, `watch_*`, `thread_*`, `process_*`, `exception_settings_*`, `parallel_*`, `immediate_execute`, and `test_debug`.
+`debug_*`, `breakpoint_*`, `watch_*`, `thread_*`, `process_*`, `exception_settings_*`, `parallel_*`, `module_list`, `immediate_execute`, and `test_debug`.

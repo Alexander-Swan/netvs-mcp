@@ -36,6 +36,7 @@ internal interface IDebuggerCapabilityService
     Task<WatchOperationResult> RemoveWatchAsync(WatchRemoveRequest request, CancellationToken cancellationToken);
     Task<WatchListResult> ListWatchesAsync(WatchListRequest request, CancellationToken cancellationToken);
     Task<DebugThreadListResult> GetThreadsAsync(CancellationToken cancellationToken);
+    Task<NetVsMcp.Contracts.ModuleListResult> ListModulesAsync(NetVsMcp.Contracts.ModuleListRequest request, CancellationToken cancellationToken);
     Task<DebuggedProcessListResult> ListDebuggedProcessesAsync(CancellationToken cancellationToken);
     Task<LocalProcessListResult> ListLocalProcessesAsync(CancellationToken cancellationToken);
     Task<DebugAttachResult> AttachAsync(DebugAttachRequest request, CancellationToken cancellationToken);

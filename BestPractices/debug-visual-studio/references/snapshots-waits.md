@@ -8,7 +8,7 @@ debug_snapshot({ "action": "stepOver", "include": ["watch"], "watchExpressions":
 debug_snapshot({ "include": ["locals"], "sessionId": "..." })
 ```
 
-`action` may be `stepInto`, `stepOver`, `stepOut`, `continue`, or `break`. Omit it for read-only inspection. Omit `include` to default to call stack only; pass `[]` to fetch no optional categories. Supported include values are `callStack`, `locals`, `breakpoints`, `watch`, `threads`, `parallelStacks`, and `parallelWatch`; do not request `modules`.
+`action` may be `stepInto`, `stepOver`, `stepOut`, `continue`, or `break`. Omit it for read-only inspection. Omit `include` to default to call stack only; pass `[]` to fetch no optional categories. Supported include values are `callStack`, `locals`, `breakpoints`, `watch`, `threads`, `parallelStacks`, `parallelWatch`, and `modules`. Modules are opt-in; use `moduleOptions` to filter the process or module name and optionally request symbol-search diagnostics. See `modules-symbols.md`.
 
 Call-stack responses include up to two frames by default. Pass `maxFrames` when deeper callers are needed. When `callStack.hasMore` is `true`, additional callers were omitted to keep the snapshot small.
 
@@ -26,3 +26,15 @@ debug_wait_for_break({ "timeoutSeconds": 30, "include": ["callStack"], "sessionI
 ```
 
 If it times out, the call succeeds with `timedOut: true`; call again when a longer wait is reasonable.
+
+## Verify Modules When A Breakpoint Is Reached
+
+After `debug_start` or `debug_attach`, include `modules` in the wait request when verifying the loaded application and its symbols:
+
+```json
+debug_wait_for_break({ "include": ["callStack", "modules"], "moduleOptions": { "name": "App.dll" }, "sessionId": "..." })
+```
+
+The module query runs once after the debugger reaches break mode, not on each status poll. Inspect `state.mode`, `state.breakReason`, and `timedOut` first. A timeout while running, an ended session, or a modal dialog returns no module section. A tracepoint that continues execution will not by itself produce a paused module snapshot. Set a stopping breakpoint when a paused inspection is needed.
+
+`debug_snapshot` supports the same opt-in section and `moduleOptions` (`processId`, `name`, `includeSymbolLoadInformation`). These options only apply when `modules` is included. Module scope is independent of `threadId` and `stackFrame`. Missing support in an older extension yields `modules.supported: false` with update guidance, preserving other requested sections. Unsupported Concord engines also return `supported: false`; do not interpret that as missing binaries or symbols. Use `module_list` for a separate follow-up query.

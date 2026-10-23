@@ -337,6 +337,8 @@ public interface IVisualStudioSessionRpc
         EvaluateExpressionRequest request,
         CancellationToken cancellationToken);
 
+    Task<ModuleListResult> ModuleListAsync(ModuleListRequest request, CancellationToken cancellationToken);
+
     Task<DebuggedProcessListResult> ProcessListDebuggedAsync(CancellationToken cancellationToken);
 
     Task<LocalProcessListResult> ProcessListLocalAsync(CancellationToken cancellationToken);
