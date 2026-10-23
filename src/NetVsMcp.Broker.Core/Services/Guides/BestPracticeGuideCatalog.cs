@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.IO;
+using System.Reflection;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using NetVsMcp.Contracts;
@@ -50,6 +51,12 @@ internal sealed class BestPracticeGuideCatalog
 
     private readonly string? bundledGuidesRoot;
     private readonly string? repositoryGuidesRoot;
+    private static readonly string BrokerVersion =
+        typeof(BestPracticeGuideCatalog).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion.Split('+')[0]
+        ?? typeof(BestPracticeGuideCatalog).Assembly.GetName().Version?.ToString()
+        ?? "0.0.0";
+
     public BestPracticeGuideCatalog()
     {
         bundledGuidesRoot = ResolveDirectory("BestPractices", null);
@@ -192,7 +199,7 @@ internal sealed class BestPracticeGuideCatalog
                 continue;
             }
 
-            content = File.ReadAllText(fullPath);
+            content = $"NetVsMcp version: {BrokerVersion}\n\n" + File.ReadAllText(fullPath);
             return true;
         }
 

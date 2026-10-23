@@ -41,11 +41,16 @@ public partial class App : System.Windows.Application
         if (!createdNew)
         {
             Trace.WriteLine("NetVsMcp broker: another instance is already running; exiting.");
-            System.Windows.MessageBox.Show(
-                $"{AppDisplayName} is already running. Check the system tray for its icon.",
-                AppDisplayName,
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+            // Visual Studio instances can race to start the bundled broker.
+            // Only standalone launches need a user-facing duplicate-instance notice.
+            if (!new BrokerUpdateAvailability().IsVsixBundled)
+            {
+                System.Windows.MessageBox.Show(
+                    $"{AppDisplayName} is already running. Check the system tray for its icon.",
+                    AppDisplayName,
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Information);
+            }
             _singleInstanceMutex.Dispose();
             _singleInstanceMutex = null;
             Shutdown();
