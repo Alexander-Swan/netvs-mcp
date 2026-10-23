@@ -267,6 +267,9 @@ public sealed class VsSessionDispatcherTests
 
     private sealed class FakeVisualStudioSessionRpc : IVisualStudioSessionRpc
     {
+        public Task<DebugFrameInspectionResult> DebugInspectThreadFrameAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken) =>
+            DebugInspectFrameAsync(request, cancellationToken);
+
         public Task<DebugFrameInspectionResult> DebugInspectFrameAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
         public Task<DebugSelectFrameResult> DebugSelectFrameAsync(DebugSelectFrameRequest request, CancellationToken cancellationToken) =>

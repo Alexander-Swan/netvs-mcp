@@ -5,32 +5,22 @@ namespace NetVsMcp.Vsix;
 
 internal static class DebuggerFrameSelector
 {
-    public static TResult Inspect<TFrame, TResult>(bool isPaused, int frameIndex, Func<TFrame> getCurrentFrame,
-        Func<int> getFrameCount, Func<int, TFrame> getFrame, Action<TFrame> selectFrame,
-        Func<TResult> inspect, CancellationToken cancellationToken) where TFrame : class
+    public static TThread ResolveThread<TThread>(bool isPaused, int? threadId,
+        Func<TThread?> getCurrentThread, Func<int, TThread?> findThread) where TThread : class
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (frameIndex < 1)
-            throw new ArgumentOutOfRangeException(nameof(frameIndex), "stackFrame must be 1 or greater.");
         if (!isPaused)
-            throw new InvalidOperationException("The debugger must be paused before inspecting a specific stack frame.");
-        var original = getCurrentFrame();
-        var selectionAttempted = false;
-        try
-        {
-            Select(isPaused, frameIndex, getFrameCount, getFrame, frame =>
-            {
-                selectionAttempted = true;
-                selectFrame(frame);
-            }, cancellationToken);
-            return inspect();
-        }
-        finally
-        {
-            // Restoration must also run when evaluation throws or the request is canceled.
-            if (selectionAttempted)
-                selectFrame(original);
-        }
+            throw new InvalidOperationException("The debugger must be paused before inspecting a specific thread or frame.");
+        if (threadId is <= 0)
+            throw new ArgumentOutOfRangeException(nameof(threadId), "threadId must be 1 or greater.");
+        return (threadId.HasValue ? findThread(threadId.Value) : getCurrentThread())
+            ?? throw new InvalidOperationException(threadId.HasValue ? "Thread was not found." : "No current debug thread is available.");
+    }
+
+    public static TFrame GetFrame<TFrame>(int frameIndex, Func<int> getFrameCount, Func<int, TFrame> getFrame)
+    {
+        if (frameIndex < 1 || frameIndex > getFrameCount())
+            throw new ArgumentOutOfRangeException(nameof(frameIndex), "stackFrame must identify an available frame in the requested thread.");
+        return getFrame(frameIndex);
     }
 
     public static T Select<T>(bool isPaused, int frameIndex, Func<int> getFrameCount,

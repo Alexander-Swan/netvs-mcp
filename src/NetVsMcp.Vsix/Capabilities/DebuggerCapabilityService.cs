@@ -416,80 +416,88 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
         var debugger = await GetDebuggerAsync();
         if (request.TimeoutMilliseconds <= 0)
             throw new ArgumentOutOfRangeException(nameof(request.TimeoutMilliseconds));
-        StackFrames? frames = null;
-        return DebuggerFrameSelector.Inspect(debugger.CurrentMode == dbgDebugMode.dbgBreakMode, request.StackFrame,
+        cancellationToken.ThrowIfCancellationRequested();
+        // Resolve objects directly: inspecting a frame never changes the IDE selection.
+        var thread = DebuggerFrameSelector.ResolveThread(debugger.CurrentMode == dbgDebugMode.dbgBreakMode,
+            request.ThreadId, () =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                return debugger.CurrentThread;
+            }, id => FindThread(debugger, id));
+        var frame = DebuggerFrameSelector.GetFrame(request.StackFrame,
             () =>
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
-                return debugger.CurrentStackFrame ?? throw new InvalidOperationException("No current stack frame is available.");
-            },
-            () =>
+                return thread.StackFrames.Count;
+            }, index =>
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
-                frames = debugger.CurrentThread?.StackFrames;
-                return frames?.Count ?? 0;
-            },
-            index =>
-            {
-                ThreadHelper.ThrowIfNotOnUIThread();
-                return frames!.Item(index);
-            },
-            frame =>
-            {
-                ThreadHelper.ThrowIfNotOnUIThread();
-                debugger.CurrentStackFrame = frame;
-            },
-            () =>
-            {
-                ThreadHelper.ThrowIfNotOnUIThread();
-                // Selection, collection, and restoration share one UI-thread RPC with no
-                // await, so a later request cannot inherit this temporary inspection frame.
-                var state = GetDebuggerState(debugger);
-                LocalsResult? locals = null;
-                if (request.IncludeLocals)
+                return thread.StackFrames.Item(index);
+            });
+        var state = GetDebuggerState(debugger);
+        LocalsResult? locals = null;
+        if (request.IncludeLocals)
+        {
+            var values = new List<DebugExpressionInfo>();
+            if (frame.Locals is Expressions expressions)
+                foreach (Expression expression in expressions)
                 {
-                    var values = new List<DebugExpressionInfo>();
-                    if (debugger.CurrentStackFrame?.Locals is Expressions expressions)
-                        foreach (Expression expression in expressions)
-                        {
-                            cancellationToken.ThrowIfCancellationRequested();
-                            values.Add(DebugExpressionInfo.FromExpression(expression));
-                        }
-                    locals = new LocalsResult(state, values);
-                }
-                EvaluateExpressionResult Evaluate(string text)
-                {
-                    ThreadHelper.ThrowIfNotOnUIThread();
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (string.IsNullOrWhiteSpace(text))
-                        throw new ArgumentException("Expression is required.");
-                    var value = debugger.GetExpression(text, UseAutoExpandRules: true, Timeout: request.TimeoutMilliseconds);
-                    return new EvaluateExpressionResult(GetDebuggerState(debugger), DebugExpressionInfo.FromExpression(value));
+                    values.Add(DebugExpressionInfo.FromExpression(expression));
                 }
-                var results = request.Expressions.Select(Evaluate).ToList();
-                if (request.AddWatchExpression is not null)
-                {
-                    var text = request.AddWatchExpression.Trim();
-                    if (string.IsNullOrWhiteSpace(text))
-                        throw new ArgumentException("Watch expression is required.");
-                    if (!watchExpressions.Contains(text, StringComparer.OrdinalIgnoreCase))
-                        watchExpressions.Add(text);
-                    results.Add(Evaluate(text));
-                }
-                WatchListResult? watch = null;
-                if (request.Watch is not null)
-                {
-                    var watched = new List<DebugExpressionInfo>();
-                    foreach (var text in NormalizeWatchExpressions(request.Watch.Expressions) ?? watchExpressions.ToArray())
-                    {
-                        try { watched.Add(Evaluate(text).Expression); }
-                        catch (OperationCanceledException) { throw; }
-                        catch (Exception ex) { watched.Add(new DebugExpressionInfo(text, ex.Message, null, false)); }
-                    }
-                    watch = new WatchListResult(true, null, watched);
-                }
-                return new DebugFrameInspectionResult(state, locals, results, watch);
-            }, cancellationToken);
+            locals = new LocalsResult(state, values);
+        }
+        EvaluateExpressionResult Evaluate(string text)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.IsNullOrWhiteSpace(text))
+                throw new ArgumentException("Expression is required.");
+            if (debugger is not EnvDTE100.Debugger5 debugger5)
+                throw new NotSupportedException("Frame-specific evaluation requires EnvDTE100.Debugger5.");
+            var value = debugger5.GetExpression3(text, frame, UseAutoExpandRules: true,
+                TreatAsStatement: false, AllowAutoFuncEval: true, Timeout: request.TimeoutMilliseconds);
+            return new EvaluateExpressionResult(GetDebuggerState(debugger), DebugExpressionInfo.FromExpression(value, text));
+        }
+        var results = request.Expressions.Select(Evaluate).ToList();
+        if (request.AddWatchExpression is not null)
+        {
+            var text = request.AddWatchExpression.Trim();
+            if (string.IsNullOrWhiteSpace(text))
+                throw new ArgumentException("Watch expression is required.");
+            if (!watchExpressions.Contains(text, StringComparer.OrdinalIgnoreCase))
+                watchExpressions.Add(text);
+            results.Add(Evaluate(text));
+        }
+        WatchListResult? watch = null;
+        if (request.Watch is not null)
+        {
+            var watched = new List<DebugExpressionInfo>();
+            foreach (var text in NormalizeWatchExpressions(request.Watch.Expressions) ?? watchExpressions.ToArray())
+            {
+                try { watched.Add(Evaluate(text).Expression); }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex) { watched.Add(new DebugExpressionInfo(text, ex.Message, null, false)); }
+            }
+            watch = new WatchListResult(true, null, watched);
+        }
+        CallStackResult? callStack = null;
+        if (request.CallStack is not null)
+        {
+            var limit = request.CallStack.MaxFrames ?? 2;
+            if (limit <= 0)
+                throw new ArgumentOutOfRangeException(nameof(request.CallStack.MaxFrames));
+            var frames = new List<CallStackFrameInfo>();
+            foreach (StackFrame stackFrame in thread.StackFrames)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (frames.Count == limit) break;
+                frames.Add(CallStackFrameInfo.FromStackFrame(stackFrame, frames.Count + 1,
+                    stackFrame == debugger.CurrentStackFrame));
+            }
+            callStack = new CallStackResult(state, frames, thread.StackFrames.Count > frames.Count);
+        }
+        return new DebugFrameInspectionResult(state, locals, results, watch, callStack);
     }
 
     public async Task<LocalsResult> GetLocalsAsync(CancellationToken cancellationToken)

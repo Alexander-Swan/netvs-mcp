@@ -18,6 +18,28 @@ namespace NetVsMcp.Vsix.Tests;
 public class DebuggerModelsTests
 {
     [Fact]
+    public void DebugExpressionInfo_NullEvaluationPreservesExpressionAndExplainsMissingContext()
+    {
+        var result = DebugExpressionInfo.FromExpression(null, "blockedLocal");
+
+        Assert.False(result.IsValidValue);
+        Assert.Equal("blockedLocal", result.Name);
+        Assert.Null(result.Type);
+        Assert.Contains("unavailable in this stack frame", result.Value);
+        Assert.Contains("stackFrame", result.Value);
+    }
+
+    [Fact]
+    public void DebugExpressionInfo_NullEvaluationWithoutRequestedTextStillReturnsInvalidValue()
+    {
+        var result = DebugExpressionInfo.FromExpression(null);
+
+        Assert.False(result.IsValidValue);
+        Assert.Null(result.Name);
+        Assert.False(string.IsNullOrWhiteSpace(result.Value));
+    }
+
+    [Fact]
     public void BreakpointMetadata_FromRequest_MapsAllFields()
     {
         var request = new BreakpointSetRequest

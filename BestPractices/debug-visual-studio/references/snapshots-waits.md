@@ -1,4 +1,4 @@
-﻿# Snapshots And Waiting
+# Snapshots And Waiting
 
 Prefer `debug_snapshot` over separate step/continue/break plus inspection calls when you need state afterward:
 
@@ -13,6 +13,8 @@ debug_snapshot({ "include": ["locals"], "sessionId": "..." })
 Call-stack responses include up to two frames by default. Pass `maxFrames` when deeper callers are needed. When `callStack.hasMore` is `true`, additional callers were omitted to keep the snapshot small.
 
 Locals are opt-in and can be large. Snapshot responses will not contain locals unless you pass `include: ["locals"]`. Prefer `include: ["watch"]` with `watchExpressions` for targeted values.
+
+Both snapshot tools accept optional `threadId` and `stackFrame`. With `threadId`, call stack, locals, and watches use that thread; `stackFrame` selects the frame for locals and watches and defaults to 1 on an explicit thread. Omit both to use the current selection. Other sections retain their usual scope. Inspection leaves thread/frame selection unchanged; an explicit `action` still advances execution. See `inspection.md` for discovery, version requirements, and invalid evaluation results.
 
 While paused, `state.breakReason` reports `breakpoint`, `stepCompleted`, `exception`, `manualPause`, `unknown`, or `other`. It is null outside break mode or when an older extension does not supply it.
 

@@ -302,8 +302,9 @@ public sealed class LocalMcpHttpHostTests
             {
                 var schema = tools.EnumerateArray().Single(tool => tool.GetProperty("name").GetString() == toolName).GetProperty("inputSchema");
                 Assert.True(schema.GetProperty("properties").TryGetProperty("stackFrame", out _), toolName);
+                Assert.True(schema.GetProperty("properties").TryGetProperty("threadId", out _), toolName);
                 if (schema.TryGetProperty("required", out var required))
-                    Assert.DoesNotContain(required.EnumerateArray(), item => item.GetString() == "stackFrame");
+                    Assert.DoesNotContain(required.EnumerateArray(), item => item.GetString() is "stackFrame" or "threadId");
             }
             var selection = tools.EnumerateArray().Single(tool => tool.GetProperty("name").GetString() == "debug_select_frame");
             Assert.Contains(selection.GetProperty("inputSchema").GetProperty("required").EnumerateArray(), item => item.GetString() == "frameIndex");
@@ -802,15 +803,20 @@ public sealed class LocalMcpHttpHostTests
             initialize.EnsureSuccessStatusCode();
 
             // Retry the unchanged legacy request after an unsupported explicit-frame request, too.
-            for (var attempt = 0; attempt < 4; attempt++)
+            for (var attempt = 0; attempt < 6; attempt++)
             {
                 var arguments = new Dictionary<string, object?> { ["sessionId"] = "vs-legacy" };
                 if (tool == "debug_evaluate")
                     arguments["expression"] = "currentLocal";
                 if (attempt == 1)
+                {
                     arguments["stackFrame"] = null;
+                    arguments["threadId"] = null;
+                }
                 if (attempt == 2)
                     arguments["stackFrame"] = 2;
+                if (attempt == 4)
+                    arguments["threadId"] = 42;
 
                 using var call = await PostMcpAsync(http, "/mcp", new
                 {
@@ -819,11 +825,11 @@ public sealed class LocalMcpHttpHostTests
                 });
                 call.EnsureSuccessStatusCode();
                 var response = await ReadMcpToolResponseAsync<JsonElement>(call);
-                if (attempt == 2)
+                if (attempt is 2 or 4)
                 {
                     Assert.False(response.Success);
                     Assert.Equal(ToolErrorCodes.UnsupportedByVsix, response.Metadata!["error_code"]);
-                    Assert.Contains("Omit stackFrame", response.Message);
+                    Assert.Contains(attempt == 4 ? "Omit threadId" : "Omit stackFrame", response.Message);
                     continue;
                 }
 

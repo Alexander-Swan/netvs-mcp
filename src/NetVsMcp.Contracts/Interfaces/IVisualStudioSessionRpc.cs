@@ -324,6 +324,11 @@ public interface IVisualStudioSessionRpc
         DebugSelectFrameRequest request,
         CancellationToken cancellationToken);
 
+    // Separate method name prevents older extensions from silently ignoring ThreadId.
+    Task<DebugFrameInspectionResult> DebugInspectThreadFrameAsync(
+        DebugFrameInspectionRequest request,
+        CancellationToken cancellationToken);
+
     Task<DebugFrameInspectionResult> DebugInspectFrameAsync(
         DebugFrameInspectionRequest request,
         CancellationToken cancellationToken);

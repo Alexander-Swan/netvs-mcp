@@ -14,7 +14,7 @@ No cloud services. No telemetry. No repo-local or per-project configuration file
 
 Approval checks that the full live document still matches the preview snapshot, including whether the target existed. Conflicts and failed approvals stay pending; reject a stale edit and create a fresh preview before applying it to changed text.
 
-**Full debugger control.** Start, stop, attach, and step through code. Set conditional breakpoints, read locals and the call stack, evaluate arbitrary expressions in the current frame, manage watch expressions, switch threads, and take structured snapshots of debugger state — all from MCP.
+**Full debugger control.** Start, stop, attach, and step through code. Set conditional breakpoints, read locals and the call stack, evaluate expressions in a chosen thread and frame without changing debugger selection, manage watch expressions, switch threads, and take structured snapshots of debugger state — all from MCP.
 
 **Audit log.** Every routed tool call is appended to a local JSONL audit log — tool name, target session, routing fields, success/failure, and failure reason. Enough to reconstruct what happened, without capturing full source text or secret values.
 
@@ -58,7 +58,20 @@ Document/editor tools such as `document_open` and `document_read` use the parame
 
 While paused, `debug_select_frame` selects a 1-based `frameIndex` from the current thread's call stack so subsequent locals, evaluations, and watches use that frame. It requires an updated VSIX. Refresh indices after stepping or changing threads.
 
-For operations without a persistent frame-selection change, pass optional `stackFrame` to `debug_get_locals`, `debug_evaluate`, `debug_eval_many`, `debug_snapshot`, `debug_wait_for_break`, `watch_add`, `watch_list`, `debug_set_variable`, or `immediate_execute`. Omit it to use the currently selected frame with existing behavior. When supplied, the requested 1-based frame is used and the previous selection is restored; snapshots apply it to locals and watches. Assignment and statement side effects persist. Saved watches remain expression-based rather than bound to frames. Older VSIX versions receive guidance to omit the argument or update.
+To inspect a chosen thread and frame without changing debugger selection, pass optional `threadId` and `stackFrame` to `debug_get_locals`, `debug_evaluate`, `debug_eval_many`, `debug_snapshot`, `debug_wait_for_break`, `watch_add`, `watch_list`, `debug_set_variable`, or `immediate_execute`. These targeted operations require a paused debugger and an updated VSIX:
+
+- Omit both arguments to use the currently selected frame.
+- Pass `stackFrame` alone to inspect that 1-based frame on the current thread.
+- Pass `threadId` alone to inspect frame 1 on that thread, or combine it with `stackFrame` to inspect a caller.
+
+Get thread IDs from `debug_get_threads` and frame indices from `thread_get_callstack`. For example, after discovering thread 42 and its frames:
+
+```javascript
+debug_get_locals({ sessionId: "...", threadId: 42, stackFrame: 2 })
+debug_eval_many({ sessionId: "...", threadId: 42, stackFrame: 2, expressions: ["queue.Count", "isCompleted"] })
+```
+
+The extension reads frame objects directly and evaluates expressions with `Debugger5.GetExpression3`, leaving the selected thread and frame unchanged. In snapshots, `threadId` targets the call stack, locals, and watches; `stackFrame` targets locals and watches. Other snapshot sections retain their normal scope. Assignment and statement side effects persist. Saved watches remain expression-based rather than bound to threads or frames. Invalid or unavailable targets fail explicitly; older VSIX versions receive guidance to omit the targeting argument or update. See the [paused-state inspection guide](BestPractices/debug-visual-studio/references/inspection.md) for details.
 
 While paused, debugger state includes `breakReason`: `breakpoint`, `stepCompleted`, `exception` (thrown or unhandled), `manualPause`, `unknown`, or `other`. This appears in `debug_status`, `debug_get_mode`, `debug_snapshot.state`, and `debug_wait_for_break.state`. It is null outside break mode, in broker-generated modal/stale state, or with older VSIX versions. Exception type/message are not yet included.
 

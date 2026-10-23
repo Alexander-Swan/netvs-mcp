@@ -406,6 +406,9 @@ public sealed record DebugSelectFrameResult(
 
 public sealed class DebugFrameInspectionRequest
 {
+    /// <summary>Optional debugger thread ID. Omit for the current thread.</summary>
+    public int? ThreadId { get; set; }
+    public CallStackRequest? CallStack { get; set; }
     public int StackFrame { get; set; }
     public bool IncludeLocals { get; set; }
     public string[] Expressions { get; set; } = [];
@@ -418,7 +421,8 @@ public sealed record DebugFrameInspectionResult(
     DebuggerStateInfo State,
     LocalsResult? Locals,
     IReadOnlyCollection<EvaluateExpressionResult> Results,
-    WatchListResult? Watch);
+    WatchListResult? Watch,
+    CallStackResult? CallStack = null);
 
 public sealed record LocalsResult(
     DebuggerStateInfo State,

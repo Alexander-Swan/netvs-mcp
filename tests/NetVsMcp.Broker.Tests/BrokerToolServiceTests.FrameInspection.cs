@@ -176,22 +176,118 @@ public sealed partial class BrokerToolServiceTests
         Assert.Contains("Continue inspecting the current frame", response.Message);
     }
 
+    [Theory]
+    [InlineData("locals", null)]
+    [InlineData("locals", 3)]
+    [InlineData("evaluate", null)]
+    [InlineData("evaluate", 3)]
+    [InlineData("many", null)]
+    [InlineData("many", 3)]
+    [InlineData("snapshot", null)]
+    [InlineData("snapshot", 3)]
+    [InlineData("wait", null)]
+    [InlineData("wait", 3)]
+    [InlineData("watch", null)]
+    [InlineData("watch", 3)]
+    [InlineData("watchAdd", null)]
+    [InlineData("watchAdd", 3)]
+    [InlineData("assignment", null)]
+    [InlineData("assignment", 3)]
+    [InlineData("immediate", null)]
+    [InlineData("immediate", 3)]
+    public async Task ThreadInspection_RoutesTargetAndDefaultsToTopFrame(string tool, int? frame)
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { DebugStatusMode = "dbgBreakMode" };
+        runtime.Connections.AddOrUpdate("vs-1", session);
+        var response = await InvokeFrameInspectionTool(runtime, tool, frame, 42);
+        Assert.True(response.Success, response.Message);
+        Assert.True(session.UsedThreadInspectionRpc);
+        Assert.Equal(42, session.LastFrameInspectionRequest!.ThreadId);
+        Assert.Equal(frame ?? 1, session.LastFrameInspectionRequest.StackFrame);
+        Assert.Null(session.LastDebugSelectFrameRequest);
+    }
+
+    [Theory]
+    [InlineData("locals")]
+    [InlineData("evaluate")]
+    [InlineData("many")]
+    [InlineData("snapshot")]
+    [InlineData("wait")]
+    [InlineData("watch")]
+    [InlineData("watchAdd")]
+    [InlineData("assignment")]
+    [InlineData("immediate")]
+    public async Task ThreadInspection_RejectsInvalidIdBeforeRouting(string tool)
+    {
+        foreach (var id in new[] { 0, -1 })
+        {
+            var response = await InvokeFrameInspectionTool(CreateRuntime(), tool, null, id);
+            Assert.False(response.Success);
+            Assert.Contains("threadId must be 1 or greater", response.Message);
+        }
+    }
+
+    [Theory]
+    [InlineData("locals")]
+    [InlineData("evaluate")]
+    [InlineData("many")]
+    [InlineData("snapshot")]
+    [InlineData("wait")]
+    [InlineData("watch")]
+    [InlineData("watchAdd")]
+    [InlineData("assignment")]
+    [InlineData("immediate")]
+    public async Task ThreadInspection_OldVsixDoesNotFallBackToCurrentThread(string tool)
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs")
+        {
+            DebugStatusMode = "dbgBreakMode",
+            FrameInspectionHandler = (_, _) => throw MissingFrameInspectionMethod()
+        });
+        var response = await InvokeFrameInspectionTool(runtime, tool, null, 42);
+        Assert.False(response.Success);
+        Assert.Equal(ToolErrorCodes.UnsupportedByVsix, response.Metadata!["error_code"]);
+        Assert.Contains("Omit threadId", response.Message);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ThreadInspection_SnapshotCallStackUsesTheTargetThread(bool wait)
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { DebugStatusMode = "dbgBreakMode" };
+        runtime.Connections.AddOrUpdate("vs-1", session);
+        var response = wait
+            ? await runtime.Tools.DebugWaitForBreak(include: ["callStack", "locals"], maxFrames: 5, sessionId: "vs-1", threadId: 42)
+            : await runtime.Tools.DebugSnapshot(include: ["callStack", "locals"], maxFrames: 5, sessionId: "vs-1", threadId: 42);
+        Assert.True(response.Success, response.Message);
+        Assert.Equal(5, session.LastFrameInspectionRequest!.CallStack!.MaxFrames);
+        Assert.Equal("Worker.Caller", Assert.Single(response.Value!.CallStack!.Frames).FunctionName);
+        Assert.True(response.Value.CallStack.HasMore);
+    }
+
     private static RemoteMethodNotFoundException MissingFrameInspectionMethod() =>
         (RemoteMethodNotFoundException)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(RemoteMethodNotFoundException));
 
-    private static async Task<ToolResponse<object>> InvokeFrameInspectionTool(BrokerRuntime runtime, string tool, int? stackFrame)
+    private static async Task<ToolResponse<object>> InvokeFrameInspectionTool(BrokerRuntime runtime, string tool, int? stackFrame, int? threadId = null)
     {
         return tool switch
         {
-            "locals" => BoxFrameResult(await runtime.Tools.DebugGetLocals(sessionId: "vs-1", stackFrame: stackFrame)),
-            "evaluate" => BoxFrameResult(await runtime.Tools.DebugEvaluate("count", sessionId: "vs-1", stackFrame: stackFrame)),
-            "many" => BoxFrameResult(await runtime.Tools.DebugEvalMany(["count", "count + 1"], sessionId: "vs-1", stackFrame: stackFrame)),
-            "snapshot" => BoxFrameResult(await runtime.Tools.DebugSnapshot(include: ["locals", "watch"], sessionId: "vs-1", stackFrame: stackFrame)),
-            "wait" => BoxFrameResult(await runtime.Tools.DebugWaitForBreak(include: ["locals", "watch"], sessionId: "vs-1", stackFrame: stackFrame)),
-            "watch" => BoxFrameResult(await runtime.Tools.WatchList(sessionId: "vs-1", stackFrame: stackFrame)),
-            "watchAdd" => BoxFrameResult(await runtime.Tools.WatchAdd("count", sessionId: "vs-1", stackFrame: stackFrame)),
-            "assignment" => BoxFrameResult(await runtime.Tools.DebugSetVariable("count", "7", sessionId: "vs-1", stackFrame: stackFrame)),
-            "immediate" => BoxFrameResult(await runtime.Tools.ImmediateExecute("count", sessionId: "vs-1", stackFrame: stackFrame)),
+            "locals" => BoxFrameResult(await runtime.Tools.DebugGetLocals(sessionId: "vs-1", stackFrame: stackFrame, threadId: threadId)),
+            "evaluate" => BoxFrameResult(await runtime.Tools.DebugEvaluate("count", sessionId: "vs-1", stackFrame: stackFrame, threadId: threadId)),
+            "many" => BoxFrameResult(await runtime.Tools.DebugEvalMany(["count", "count + 1"], sessionId: "vs-1", stackFrame: stackFrame, threadId: threadId)),
+            "snapshot" => BoxFrameResult(await runtime.Tools.DebugSnapshot(include: ["locals", "watch"], sessionId: "vs-1", stackFrame: stackFrame, threadId: threadId)),
+            "wait" => BoxFrameResult(await runtime.Tools.DebugWaitForBreak(include: ["locals", "watch"], sessionId: "vs-1", stackFrame: stackFrame, threadId: threadId)),
+            "watch" => BoxFrameResult(await runtime.Tools.WatchList(sessionId: "vs-1", stackFrame: stackFrame, threadId: threadId)),
+            "watchAdd" => BoxFrameResult(await runtime.Tools.WatchAdd("count", sessionId: "vs-1", stackFrame: stackFrame, threadId: threadId)),
+            "assignment" => BoxFrameResult(await runtime.Tools.DebugSetVariable("count", "7", sessionId: "vs-1", stackFrame: stackFrame, threadId: threadId)),
+            "immediate" => BoxFrameResult(await runtime.Tools.ImmediateExecute("count", sessionId: "vs-1", stackFrame: stackFrame, threadId: threadId)),
             _ => throw new ArgumentException(tool)
         };
     }

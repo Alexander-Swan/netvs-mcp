@@ -14,6 +14,12 @@ internal sealed partial class BrokerToolService
     private const int DefaultCallStackFrameLimit = 2;
     // TODO: Negotiate per-session frame-inspection capabilities during registration instead
     // of discovering older VSIX versions through a missing RPC method at call time.
+    private const string ThreadInspectionUnsupportedMessage = "This Visual Studio extension does not support thread-specific inspection yet. Omit threadId to inspect the current thread, or update the extension.";
+    private static Task<DebugFrameInspectionResult> InspectDebugFrameAsync(IVisualStudioSessionRpc connection,
+        DebugFrameInspectionRequest request, CancellationToken cancellationToken) =>
+        request.ThreadId.HasValue ? connection.DebugInspectThreadFrameAsync(request, cancellationToken)
+            : connection.DebugInspectFrameAsync(request, cancellationToken);
+
     private const string StackFrameUnsupportedMessage = "This Visual Studio extension does not support frame-specific operations yet. Omit stackFrame to use the current frame, or update the extension.";
 
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
@@ -531,31 +537,35 @@ internal sealed partial class BrokerToolService
 
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_get_locals", Title = "Debug Get Locals", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns locals from a routed Visual Studio session. Omit stackFrame to use the currently selected frame, preserving existing behavior. Optional stackFrame is a 1-based index from the current thread's call stack; inspection temporarily uses that frame and restores the original selection. Requires a paused debugger when stackFrame is specified.")]
+    [Description("Returns locals from a routed Visual Studio session. Omit both threadId and stackFrame to use the currently selected frame. Optional stackFrame is a 1-based index from the current thread's call stack; inspection uses that frame without changing the original selection. Requires a paused debugger when stackFrame is specified. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1.")]
     public Task<ToolResponse<LocalsResult>> DebugGetLocals(
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
         [Description("Optional 1-based call-stack frame index. Omit to inspect the current frame.")]
         int? stackFrame = null,
+        [Description("Optional debugger thread ID from debug_get_threads. Requires break mode. Defaults stackFrame to 1 on this thread; leaves the selected thread and frame unchanged.")]
+        int? threadId = null,
         CancellationToken cancellationToken = default)
     {
         if (stackFrame is <= 0)
             return Task.FromResult(ToolResponse<LocalsResult>.Fail("stackFrame must be 1 or greater."));
+        if (threadId is <= 0)
+            return Task.FromResult(ToolResponse<LocalsResult>.Fail("threadId must be 1 or greater."));
         return DispatchValueAsync(
             sessionId,
             solutionName,
             solutionPath,
-            async (connection, ct) => stackFrame is null
+            async (connection, ct) => stackFrame is null && threadId is null
                 ? await connection.DebugGetLocalsAsync(ct)
-                : (await connection.DebugInspectFrameAsync(new DebugFrameInspectionRequest { StackFrame = stackFrame.Value, IncludeLocals = true }, ct)).Locals
+                : (await InspectDebugFrameAsync(connection, new DebugFrameInspectionRequest { ThreadId = threadId, StackFrame = stackFrame ?? 1, IncludeLocals = true }, ct)).Locals
                     ?? throw new InvalidOperationException("Frame inspection did not return locals."),
             cancellationToken,
-            unsupportedByVsixMessage: stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
+            unsupportedByVsixMessage: threadId.HasValue ? ThreadInspectionUnsupportedMessage : stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_evaluate", Title = "Debug Evaluate", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Evaluates an expression in a routed Visual Studio session. Omit stackFrame for the current frame. Optional stackFrame is a 1-based index from the current thread's call stack; the original frame selection is restored after evaluation.")]
+    [Description("Evaluates an expression in a routed Visual Studio session. Omit both threadId and stackFrame for the current frame. Optional stackFrame is a 1-based index from the current thread's call stack; the original frame selection remains unchanged. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1.")]
     public Task<ToolResponse<EvaluateExpressionResult>> DebugEvaluate(
         string expression,
         int timeoutMilliseconds = 5000,
@@ -563,6 +573,8 @@ internal sealed partial class BrokerToolService
         string? solutionName = null,
         string? solutionPath = null,
         int? stackFrame = null,
+        [Description("Optional debugger thread ID from debug_get_threads. Requires break mode. Defaults stackFrame to 1 on this thread; leaves the selected thread and frame unchanged.")]
+        int? threadId = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(expression))
@@ -577,6 +589,8 @@ internal sealed partial class BrokerToolService
 
         if (stackFrame is <= 0)
             return Task.FromResult(ToolResponse<EvaluateExpressionResult>.Fail("stackFrame must be 1 or greater."));
+        if (threadId is <= 0)
+            return Task.FromResult(ToolResponse<EvaluateExpressionResult>.Fail("threadId must be 1 or greater."));
         var request = new EvaluateExpressionRequest
         {
             Expression = expression.Trim(),
@@ -587,14 +601,14 @@ internal sealed partial class BrokerToolService
             sessionId,
             solutionName,
             solutionPath,
-            async (connection, ct) => stackFrame is null
+            async (connection, ct) => stackFrame is null && threadId is null
                 ? await connection.DebugEvaluateAsync(request, ct)
-                : (await connection.DebugInspectFrameAsync(new DebugFrameInspectionRequest
+                : (await InspectDebugFrameAsync(connection, new DebugFrameInspectionRequest
                 {
-                    StackFrame = stackFrame.Value, Expressions = [request.Expression], TimeoutMilliseconds = timeoutMilliseconds
+                    ThreadId = threadId, StackFrame = stackFrame ?? 1, Expressions = [request.Expression], TimeoutMilliseconds = timeoutMilliseconds
                 }, ct)).Results.Single(),
             cancellationToken,
-            unsupportedByVsixMessage: stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
+            unsupportedByVsixMessage: threadId.HasValue ? ThreadInspectionUnsupportedMessage : stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
     }
     private const int DebugSnapshotPollIntervalMilliseconds = 50;
     private Task<ToolResponse<T>> DispatchDebugValueAsync<T>(string? sessionId, string? solutionName, string? solutionPath,
@@ -652,7 +666,7 @@ internal sealed partial class BrokerToolService
     ];
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_snapshot", Title = "Debug Snapshot", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Optionally advances the debugger (stepInto, stepOver, stepOut, continue, or break), waits for it to settle, and returns a debugger state snapshot with state.breakReason when paused (breakpoint, stepCompleted, exception, manualPause, unknown, or other). Use 'include' to fetch any of callStack, locals, breakpoints, watch, threads, parallelStacks, parallelWatch (omitting include fetches up to two callStack frames; pass an empty array to fetch none of them). maxFrames defaults to 2 and applies when callStack is included or include is omitted. callStack.hasMore is true when additional frames were omitted. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions. When 'action' is omitted this is a pure, non-mutating inspection of current state. Returns state.mode=dbgModalBlock with dialogs promptly when VS has a modal window; inspection sections are omitted. Respond with dialog_respond, then check debug_status with any returned state.operation.operationId instead of repeating an action.")]
+    [Description("Optionally advances the debugger (stepInto, stepOver, stepOut, continue, or break), waits for it to settle, and returns a debugger state snapshot with state.breakReason when paused (breakpoint, stepCompleted, exception, manualPause, unknown, or other). Use 'include' to fetch any of callStack, locals, breakpoints, watch, threads, parallelStacks, parallelWatch (omitting include fetches up to two callStack frames; pass an empty array to fetch none of them). maxFrames defaults to 2 and applies when callStack is included or include is omitted. callStack.hasMore is true when additional frames were omitted. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions. When 'action' is omitted this is a pure, non-mutating inspection of current state. Returns state.mode=dbgModalBlock with dialogs promptly when VS has a modal window; inspection sections are omitted. Respond with dialog_respond, then check debug_status with any returned state.operation.operationId instead of repeating an action. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugSnapshot(
         DebugAdvanceAction? action = null,
         string[]? include = null,
@@ -664,12 +678,16 @@ internal sealed partial class BrokerToolService
         string[]? watchExpressions = null,
         [Description("Maximum number of call-stack frames when include contains 'callStack' or is omitted. Defaults to 2. An empty include array does not fetch the call stack.")]
         int maxFrames = DefaultCallStackFrameLimit,
-        [Description("Optional 1-based frame for locals and watches. Omit for the current frame; original selection is restored after inspection.")]
+        [Description("Optional 1-based frame for locals and watches. Omit for the current frame; selection remains unchanged after inspection.")]
         int? stackFrame = null,
+        [Description("Optional debugger thread ID from debug_get_threads. Requires break mode. Defaults stackFrame to 1 on this thread; leaves the selected thread and frame unchanged.")]
+        int? threadId = null,
         CancellationToken cancellationToken = default)
     {
         if (stackFrame is <= 0)
             return Task.FromResult(ToolResponse<DebugSnapshotResult>.Fail("stackFrame must be 1 or greater."));
+        if (threadId is <= 0)
+            return Task.FromResult(ToolResponse<DebugSnapshotResult>.Fail("threadId must be 1 or greater."));
         if (settleTimeoutMilliseconds < 0)
         {
             return Task.FromResult(ToolResponse<DebugSnapshotResult>.Fail("settleTimeoutMilliseconds must be zero or greater."));
@@ -717,14 +735,14 @@ internal sealed partial class BrokerToolService
                     }
                 }
 
-                return await CollectDebugSnapshotAsync(connection, state, includeKeys, callStackRequest, watchRequest, unrecognizedInclude, ct, stackFrame: stackFrame);
+                return await CollectDebugSnapshotAsync(connection, state, includeKeys, callStackRequest, watchRequest, unrecognizedInclude, ct, stackFrame: stackFrame, threadId: threadId);
             },
             cancellationToken,
-            unsupportedByVsixMessage: stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
+            unsupportedByVsixMessage: threadId.HasValue ? ThreadInspectionUnsupportedMessage : stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_wait_for_break", Title = "Debug Wait For Break", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Waits for a routed Visual Studio session's debugger to leave dbgRunMode - typically because a breakpoint or tracepoint fired - then returns the requested snapshot categories in the same shape as debug_snapshot. maxFrames defaults to 2 and applies when callStack is included or include is omitted; an empty include array does not fetch the call stack. callStack.hasMore is true when additional frames were omitted. Also returns promptly with state.mode=dbgModalBlock and dialogs when VS is waiting for a modal response, even if Continue returned earlier; snapshot inspection is skipped. Respond with dialog_respond, then check debug_status. Does not itself advance the debugger; call debug_continue, debug_snapshot (with an action), or breakpoint_group_enable(..., continueExecution: true) first if the debuggee is not already running. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions.")]
+    [Description("Waits for a routed Visual Studio session's debugger to leave dbgRunMode - typically because a breakpoint or tracepoint fired - then returns the requested snapshot categories in the same shape as debug_snapshot. maxFrames defaults to 2 and applies when callStack is included or include is omitted; an empty include array does not fetch the call stack. callStack.hasMore is true when additional frames were omitted. Also returns promptly with state.mode=dbgModalBlock and dialogs when VS is waiting for a modal response, even if Continue returned earlier; snapshot inspection is skipped. Respond with dialog_respond, then check debug_status. Does not itself advance the debugger; call debug_continue, debug_snapshot (with an action), or breakpoint_group_enable(..., continueExecution: true) first if the debuggee is not already running. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugWaitForBreak(
         [Description("Maximum time in seconds to wait for the debugger to leave dbgRunMode before giving up and returning the still-running state.")]
         int timeoutSeconds = 30,
@@ -738,10 +756,14 @@ internal sealed partial class BrokerToolService
         int maxFrames = DefaultCallStackFrameLimit,
         [Description("Optional 1-based frame for locals and watches once paused. Omit for the current frame.")]
         int? stackFrame = null,
+        [Description("Optional debugger thread ID from debug_get_threads. Requires break mode. Defaults stackFrame to 1 on this thread; leaves the selected thread and frame unchanged.")]
+        int? threadId = null,
         CancellationToken cancellationToken = default)
     {
         if (stackFrame is <= 0)
             return Task.FromResult(ToolResponse<DebugSnapshotResult>.Fail("stackFrame must be 1 or greater."));
+        if (threadId is <= 0)
+            return Task.FromResult(ToolResponse<DebugSnapshotResult>.Fail("threadId must be 1 or greater."));
         if (timeoutSeconds <= 0)
         {
             return Task.FromResult(ToolResponse<DebugSnapshotResult>.Fail("timeoutSeconds must be greater than zero."));
@@ -773,10 +795,10 @@ internal sealed partial class BrokerToolService
                 }
 
                 var timedOut = state.Mode == "dbgRunMode" && stopwatch.ElapsedMilliseconds >= timeoutMilliseconds;
-                return await CollectDebugSnapshotAsync(connection, state, includeKeys, callStackRequest, watchRequest, unrecognizedInclude, ct, timedOut, stackFrame);
+                return await CollectDebugSnapshotAsync(connection, state, includeKeys, callStackRequest, watchRequest, unrecognizedInclude, ct, timedOut, stackFrame, threadId);
             },
             cancellationToken,
-            unsupportedByVsixMessage: stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
+            unsupportedByVsixMessage: threadId.HasValue ? ThreadInspectionUnsupportedMessage : stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
     }
     private static async Task<DebugSnapshotResult> CollectDebugSnapshotAsync(
         IVisualStudioSessionRpc connection,
@@ -787,7 +809,8 @@ internal sealed partial class BrokerToolService
         IReadOnlyCollection<string>? unrecognizedInclude,
         CancellationToken cancellationToken,
         bool timedOut = false,
-        int? stackFrame = null)
+        int? stackFrame = null,
+        int? threadId = null)
     {
         if (state.Mode != "dbgBreakMode")
         {
@@ -795,15 +818,20 @@ internal sealed partial class BrokerToolService
         }
 
         DebugFrameInspectionResult? frameInspection = null;
-        if (stackFrame.HasValue && (includeKeys.Contains("locals") || includeKeys.Contains("watch")))
-            frameInspection = await connection.DebugInspectFrameAsync(new DebugFrameInspectionRequest
+        if ((stackFrame.HasValue || threadId.HasValue) && (includeKeys.Contains("locals") || includeKeys.Contains("watch") || (threadId.HasValue && includeKeys.Contains("callStack"))))
+            frameInspection = await InspectDebugFrameAsync(connection, new DebugFrameInspectionRequest
             {
-                StackFrame = stackFrame.Value,
+                ThreadId = threadId, StackFrame = stackFrame ?? 1,
+                CallStack = threadId.HasValue && includeKeys.Contains("callStack") ? callStackRequest : null,
                 IncludeLocals = includeKeys.Contains("locals"),
                 Watch = includeKeys.Contains("watch") ? watchRequest : null
             }, cancellationToken);
         var locals = includeKeys.Contains("locals") ? frameInspection is not null ? frameInspection.Locals : await connection.DebugGetLocalsAsync(cancellationToken) : null;
-        var callStack = includeKeys.Contains("callStack") ? await GetCallStackAsync(connection, callStackRequest, cancellationToken) : null;
+        CallStackResult? callStack = null;
+        if (includeKeys.Contains("callStack"))
+            callStack = threadId.HasValue
+                ? frameInspection?.CallStack ?? throw new InvalidOperationException("Thread inspection did not return a call stack.")
+                : await GetCallStackAsync(connection, callStackRequest, cancellationToken);
         var breakpoints = includeKeys.Contains("breakpoints") ? await connection.BreakpointListAsync(cancellationToken) : null;
         var watch = includeKeys.Contains("watch") ? frameInspection is not null ? frameInspection.Watch : await connection.WatchListAsync(watchRequest, cancellationToken) : null;
         var threads = includeKeys.Contains("threads") ? await connection.DebugGetThreadsAsync(cancellationToken) : null;
@@ -884,7 +912,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_eval_many", Title = "Debug Eval Many", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Evaluates multiple debugger expressions through a routed Visual Studio session. Omit stackFrame for the current frame. Optional stackFrame is a 1-based index; all expressions use that frame in one request, then the original selection is restored.")]
+    [Description("Evaluates multiple debugger expressions through a routed Visual Studio session. Omit both threadId and stackFrame for the current frame. Optional stackFrame is a 1-based index; all expressions use that frame in one request, the original selection remains unchanged. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1.")]
     public Task<ToolResponse<DebugEvalManyResult>> DebugEvalMany(
         string[] expressions,
         int timeoutMilliseconds = 5000,
@@ -892,10 +920,14 @@ internal sealed partial class BrokerToolService
         string? solutionName = null,
         string? solutionPath = null,
         int? stackFrame = null,
+        [Description("Optional debugger thread ID from debug_get_threads. Requires break mode. Defaults stackFrame to 1 on this thread; leaves the selected thread and frame unchanged.")]
+        int? threadId = null,
         CancellationToken cancellationToken = default)
     {
         if (stackFrame is <= 0)
             return Task.FromResult(ToolResponse<DebugEvalManyResult>.Fail("stackFrame must be 1 or greater."));
+        if (threadId is <= 0)
+            return Task.FromResult(ToolResponse<DebugEvalManyResult>.Fail("threadId must be 1 or greater."));
         if (expressions is null || expressions.Length == 0)
         {
             return Task.FromResult(ToolResponse<DebugEvalManyResult>.Fail("At least one expression is required."));
@@ -922,11 +954,11 @@ internal sealed partial class BrokerToolService
             solutionPath,
             async (connection, ct) =>
             {
-                if (stackFrame.HasValue)
+                if ((stackFrame.HasValue || threadId.HasValue))
                 {
-                    var inspection = await connection.DebugInspectFrameAsync(new DebugFrameInspectionRequest
+                    var inspection = await InspectDebugFrameAsync(connection, new DebugFrameInspectionRequest
                     {
-                        StackFrame = stackFrame.Value, Expressions = normalizedExpressions, TimeoutMilliseconds = timeoutMilliseconds
+                        ThreadId = threadId, StackFrame = stackFrame ?? 1, Expressions = normalizedExpressions, TimeoutMilliseconds = timeoutMilliseconds
                     }, ct);
                     return new DebugEvalManyResult(inspection.State, inspection.Results);
                 }
@@ -944,7 +976,7 @@ internal sealed partial class BrokerToolService
                 return new DebugEvalManyResult(state, results);
             },
             cancellationToken,
-            unsupportedByVsixMessage: stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
+            unsupportedByVsixMessage: threadId.HasValue ? ThreadInspectionUnsupportedMessage : stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
     }
     private static IEnumerable<BreakpointInfo> BreakpointsInGroup(
         IEnumerable<BreakpointInfo> breakpoints,
@@ -1028,8 +1060,8 @@ internal sealed partial class BrokerToolService
         DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.DebugGetThreadsAsync(ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_set_variable", Title = "Debug Set Variable", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Sets a debugger variable by evaluating an assignment expression. Optional stackFrame is a 1-based frame index; omit for the current frame. The requested frame's variable is changed, then the original inspection frame is restored. Assignment side effects persist.")]
-    public Task<ToolResponse<DebugSetVariableResult>> DebugSetVariable(string name, string value, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, int? stackFrame = null, CancellationToken cancellationToken = default)
+    [Description("Sets a debugger variable by evaluating an assignment expression. Optional stackFrame is a 1-based frame index; omit for the current frame. The requested frame's variable is changed while the original inspection frame remains unchanged. Assignment side effects persist. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1.")]
+    public Task<ToolResponse<DebugSetVariableResult>> DebugSetVariable(string name, string value, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, int? stackFrame = null, int? threadId = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -1049,23 +1081,25 @@ internal sealed partial class BrokerToolService
         var request = new DebugSetVariableRequest { Name = name, Value = value, TimeoutMilliseconds = timeoutMilliseconds };
         if (stackFrame is <= 0)
             return Task.FromResult(FailWithCode<DebugSetVariableResult>("stackFrame must be 1 or greater.", ToolErrorCodes.InvalidRequest));
+        if (threadId is <= 0)
+            return Task.FromResult(FailWithCode<DebugSetVariableResult>("threadId must be 1 or greater.", ToolErrorCodes.InvalidRequest));
         return DispatchValueAsync(sessionId, solutionName, solutionPath, async (connection, ct) =>
         {
-            if (stackFrame is null)
+            if (stackFrame is null && threadId is null)
                 return await connection.DebugSetVariableAsync(request, ct);
-            var inspection = await connection.DebugInspectFrameAsync(new DebugFrameInspectionRequest
+            var inspection = await InspectDebugFrameAsync(connection, new DebugFrameInspectionRequest
             {
-                StackFrame = stackFrame.Value, Expressions = [$"{name} = {value}"], TimeoutMilliseconds = timeoutMilliseconds
+                ThreadId = threadId, StackFrame = stackFrame ?? 1, Expressions = [$"{name} = {value}"], TimeoutMilliseconds = timeoutMilliseconds
             }, ct);
             var evaluation = inspection.Results.Single();
             return new DebugSetVariableResult(evaluation.Expression.IsValidValue,
                 evaluation.Expression.IsValidValue ? null : "Debugger rejected the assignment expression.", evaluation);
-        }, cancellationToken, unsupportedByVsixMessage: stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
+        }, cancellationToken, unsupportedByVsixMessage: threadId.HasValue ? ThreadInspectionUnsupportedMessage : stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "watch_add", Title = "Watch Add", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Adds a debugger watch expression when supported by the VSIX debugger service. Optional stackFrame evaluates it in a 1-based frame for this call and restores the original selection; omit for the current frame. The saved expression is not bound to a frame. Later watch_list calls evaluate in their own requested or current frame.")]
-    public Task<ToolResponse<WatchOperationResult>> WatchAdd(string expression, string? sessionId = null, string? solutionName = null, string? solutionPath = null, int? stackFrame = null, CancellationToken cancellationToken = default)
+    [Description("Adds a debugger watch expression when supported by the VSIX debugger service. Optional stackFrame evaluates it in a 1-based frame for this call without changing the original selection; omit for the current frame. The saved expression is not bound to a frame. Later watch_list calls evaluate in their own requested or current frame. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1.")]
+    public Task<ToolResponse<WatchOperationResult>> WatchAdd(string expression, string? sessionId = null, string? solutionName = null, string? solutionPath = null, int? stackFrame = null, int? threadId = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(expression))
         {
@@ -1075,16 +1109,18 @@ internal sealed partial class BrokerToolService
         var request = new WatchAddRequest { Expression = expression };
         if (stackFrame is <= 0)
             return Task.FromResult(FailWithCode<WatchOperationResult>("stackFrame must be 1 or greater.", ToolErrorCodes.InvalidRequest));
+        if (threadId is <= 0)
+            return Task.FromResult(FailWithCode<WatchOperationResult>("threadId must be 1 or greater.", ToolErrorCodes.InvalidRequest));
         return DispatchValueAsync(sessionId, solutionName, solutionPath, async (connection, ct) =>
         {
-            if (stackFrame is null)
+            if (stackFrame is null && threadId is null)
                 return await connection.WatchAddAsync(request, ct);
-            var inspection = await connection.DebugInspectFrameAsync(new DebugFrameInspectionRequest
+            var inspection = await InspectDebugFrameAsync(connection, new DebugFrameInspectionRequest
             {
-                StackFrame = stackFrame.Value, AddWatchExpression = expression
+                ThreadId = threadId, StackFrame = stackFrame ?? 1, AddWatchExpression = expression
             }, ct);
             return new WatchOperationResult(true, true, null, inspection.Results.Single().Expression);
-        }, cancellationToken, unsupportedByVsixMessage: stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
+        }, cancellationToken, unsupportedByVsixMessage: threadId.HasValue ? ThreadInspectionUnsupportedMessage : stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "watch_remove", Title = "Watch Remove", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
@@ -1107,16 +1143,18 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "watch_list", Title = "Watch List", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists and evaluates debugger watch expressions. Optional stackFrame is a 1-based frame index; omit for the current frame. The original inspection frame is restored afterward; saved watch expressions are unchanged.")]
-    public Task<ToolResponse<WatchListResult>> WatchList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, int? stackFrame = null, CancellationToken cancellationToken = default)
+    [Description("Lists and evaluates debugger watch expressions. Optional stackFrame is a 1-based frame index; omit for the current frame. The original inspection frame remains unchanged; saved watch expressions are unchanged. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1.")]
+    public Task<ToolResponse<WatchListResult>> WatchList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, int? stackFrame = null, int? threadId = null, CancellationToken cancellationToken = default)
     {
         if (stackFrame is <= 0)
             return Task.FromResult(FailWithCode<WatchListResult>("stackFrame must be 1 or greater.", ToolErrorCodes.InvalidRequest));
-        return DispatchValueAsync(sessionId, solutionName, solutionPath, async (connection, ct) => stackFrame is null
+        if (threadId is <= 0)
+            return Task.FromResult(FailWithCode<WatchListResult>("threadId must be 1 or greater.", ToolErrorCodes.InvalidRequest));
+        return DispatchValueAsync(sessionId, solutionName, solutionPath, async (connection, ct) => stackFrame is null && threadId is null
             ? await connection.WatchListAsync(new WatchListRequest(), ct)
-            : (await connection.DebugInspectFrameAsync(new DebugFrameInspectionRequest { StackFrame = stackFrame.Value, Watch = new WatchListRequest() }, ct)).Watch
+            : (await InspectDebugFrameAsync(connection, new DebugFrameInspectionRequest { ThreadId = threadId, StackFrame = stackFrame ?? 1, Watch = new WatchListRequest() }, ct)).Watch
                 ?? throw new InvalidOperationException("Frame inspection did not return watches."),
-            cancellationToken, unsupportedByVsixMessage: stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
+            cancellationToken, unsupportedByVsixMessage: threadId.HasValue ? ThreadInspectionUnsupportedMessage : stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "thread_switch", Title = "Thread Switch", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
@@ -1213,7 +1251,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "immediate_execute", Title = "Immediate Execute", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Executes text in the immediate window when supported by the VSIX debugger service. Pass statement, not expression. Optional stackFrame is a 1-based frame index; omit for the current frame. The original inspection frame is restored afterward; any statement side effects persist.")]
+    [Description("Executes text in the immediate window when supported by the VSIX debugger service. Pass statement, not expression. Optional stackFrame is a 1-based frame index; omit for the current frame. The original inspection frame remains unchanged; any statement side effects persist. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1.")]
     public Task<ToolResponse<ImmediateExecuteResult>> ImmediateExecute(
         [Description("Immediate-window text to execute. Use the argument name statement, not expression.")]
         string? statement = null,
@@ -1221,6 +1259,8 @@ internal sealed partial class BrokerToolService
         string? solutionName = null,
         string? solutionPath = null,
         int? stackFrame = null,
+        [Description("Optional debugger thread ID from debug_get_threads. Requires break mode. Defaults stackFrame to 1 on this thread; leaves the selected thread and frame unchanged.")]
+        int? threadId = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(statement))
@@ -1231,19 +1271,21 @@ internal sealed partial class BrokerToolService
         var request = new ImmediateExecuteRequest { Statement = statement };
         if (stackFrame is <= 0)
             return Task.FromResult(FailWithCode<ImmediateExecuteResult>("stackFrame must be 1 or greater.", ToolErrorCodes.InvalidRequest));
+        if (threadId is <= 0)
+            return Task.FromResult(FailWithCode<ImmediateExecuteResult>("threadId must be 1 or greater.", ToolErrorCodes.InvalidRequest));
         return DispatchValueAsync(sessionId, solutionName, solutionPath, async (connection, ct) =>
         {
-            if (stackFrame is null)
+            if (stackFrame is null && threadId is null)
                 return await connection.ImmediateExecuteAsync(request, ct);
-            var inspection = await connection.DebugInspectFrameAsync(new DebugFrameInspectionRequest
+            var inspection = await InspectDebugFrameAsync(connection, new DebugFrameInspectionRequest
             {
-                StackFrame = stackFrame.Value, Expressions = [statement]
+                ThreadId = threadId, StackFrame = stackFrame ?? 1, Expressions = [statement]
             }, ct);
             var expression = inspection.Results.Single().Expression;
             var output = expression.IsValidValue && !string.IsNullOrEmpty(expression.Type)
                 ? $"{expression.Value} ({expression.Type})" : expression.Value;
             return new ImmediateExecuteResult(true, expression.IsValidValue, null, output);
-        }, cancellationToken, unsupportedByVsixMessage: stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
+        }, cancellationToken, unsupportedByVsixMessage: threadId.HasValue ? ThreadInspectionUnsupportedMessage : stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "exception_settings_get", Title = "Exception Settings Get", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]

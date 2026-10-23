@@ -5,48 +5,54 @@ namespace NetVsMcp.Vsix.Tests;
 
 public class DebuggerFrameSelectorTests
 {
-    [Fact]
-    public void Inspect_UsesRequestedFrameAndRestoresThePreviouslySelectedCaller()
+    [Theory]
+    [InlineData(null, "selected")]
+    [InlineData(42, "worker")]
+    public void ResolveThread_ReturnsRequestedObjectWithoutSelectingIt(int? threadId, string expected)
     {
-        var frames = new[] { "top", "caller", "previous selection" };
-        var current = frames[2];
-        var result = DebuggerFrameSelector.Inspect(true, 2, () => current, () => frames.Length,
-            index => frames[index - 1], frame => current = frame, () => current, CancellationToken.None);
-        Assert.Equal("caller", result);
-        Assert.Equal("previous selection", current);
+        var selected = "selected";
+        var target = DebuggerFrameSelector.ResolveThread(true, threadId, () => selected,
+            id => id == 42 ? "worker" : null);
+        Assert.Equal(expected, target);
+        Assert.Equal("selected", selected);
+    }
+
+    [Fact]
+    public void ResolveThread_RejectsRunningDebuggerBeforeAccessingThreads()
+    {
+        Assert.Throws<InvalidOperationException>(() => DebuggerFrameSelector.ResolveThread<string>(false, 42,
+            () => throw new Exception("Should not access current thread"),
+            _ => throw new Exception("Should not access threads")));
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void Inspect_RestoresSelectionAfterFailureOrCancellation(bool cancel)
-    {
-        var frames = new[] { "top", "caller" };
-        var current = frames[0];
-        using var cancellation = new CancellationTokenSource();
-        var failure = Assert.ThrowsAny<Exception>(() => DebuggerFrameSelector.Inspect<string, string>(true, 2,
-            () => current, () => frames.Length, index => frames[index - 1], frame => current = frame,
-            () =>
-            {
-                Assert.Equal("caller", current);
-                if (cancel) { cancellation.Cancel(); cancellation.Token.ThrowIfCancellationRequested(); }
-                throw new InvalidOperationException("Inspection failed.");
-            }, cancellation.Token));
-        if (cancel) Assert.IsType<OperationCanceledException>(failure);
-        else Assert.IsType<InvalidOperationException>(failure);
-        Assert.Equal("top", current);
-    }
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void ResolveThread_RejectsInvalidThreadId(int id) =>
+        Assert.Throws<ArgumentOutOfRangeException>(() => DebuggerFrameSelector.ResolveThread(true, id,
+            () => "selected", _ => "worker"));
 
     [Fact]
-    public void Inspect_OutOfRangeDoesNotAttemptSelectionOrInspection()
+    public void ResolveThread_MissingThreadNeverFallsBackToSelectedThread() =>
+        Assert.Throws<InvalidOperationException>(() => DebuggerFrameSelector.ResolveThread<string>(true, 42,
+            () => "selected", _ => null));
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(3)]
+    public void GetFrame_RejectsInvalidFrameBeforeReadingIt(int index) =>
+        Assert.Throws<ArgumentOutOfRangeException>(() => DebuggerFrameSelector.GetFrame<string>(index,
+            () => 2, _ => throw new Exception("Should not access frame")));
+
+    [Fact]
+    public void GetFrame_ResolvesCallerOnRequestedThread()
     {
-        var changed = false;
-        var inspected = false;
-        Assert.Throws<ArgumentOutOfRangeException>(() => DebuggerFrameSelector.Inspect(true, 3,
-            () => "current", () => 1, _ => "frame", _ => changed = true,
-            () => { inspected = true; return "value"; }, CancellationToken.None));
-        Assert.False(changed);
-        Assert.False(inspected);
+        var selected = new[] { "selected top", "selected caller" };
+        var worker = new[] { "worker top", "worker caller" };
+        var thread = DebuggerFrameSelector.ResolveThread(true, 42, () => selected, _ => worker);
+        var frame = DebuggerFrameSelector.GetFrame(2, () => thread.Length, index => thread[index - 1]);
+        Assert.Equal("worker caller", frame);
+        Assert.Equal("selected caller", selected[1]);
     }
 
     [Theory]

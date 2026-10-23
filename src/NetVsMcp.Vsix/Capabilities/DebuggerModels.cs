@@ -544,8 +544,9 @@ internal sealed class LocalsResult
 }
 
 internal sealed class DebugFrameInspectionResult(DebuggerStateInfo state, LocalsResult? locals,
-    IReadOnlyCollection<EvaluateExpressionResult> results, WatchListResult? watch)
+    IReadOnlyCollection<EvaluateExpressionResult> results, WatchListResult? watch, CallStackResult? callStack = null)
 {
+    public CallStackResult? CallStack { get; } = callStack;
     public DebuggerStateInfo State { get; } = state;
     public LocalsResult? Locals { get; } = locals;
     public IReadOnlyCollection<EvaluateExpressionResult> Results { get; } = results;
@@ -585,8 +586,14 @@ internal sealed class DebugExpressionInfo
     public string? Type { get; }
     public bool IsValidValue { get; }
 
-    public static DebugExpressionInfo FromExpression(Expression expression)
+    public static DebugExpressionInfo FromExpression(Expression? expression, string? requestedExpression = null)
     {
+        // Framework/native frames can have no evaluation context. DTE returns null
+        // instead of an invalid Expression in that case.
+        if (expression is null)
+            return new DebugExpressionInfo(requestedExpression,
+                "Expression evaluation is unavailable in this stack frame. Select a user-code frame from debug_get_callstack or thread_get_callstack and retry with its stackFrame index.",
+                null, false);
         ThreadHelper.ThrowIfNotOnUIThread();
 
         return new DebugExpressionInfo(

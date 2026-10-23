@@ -85,6 +85,13 @@ public sealed partial class BrokerToolServiceTests
         public DebugFrameInspectionRequest? LastFrameInspectionRequest { get; private set; }
         public Func<DebugFrameInspectionRequest, CancellationToken, Task<DebugFrameInspectionResult>>? FrameInspectionHandler { get; init; }
 
+        public bool UsedThreadInspectionRpc { get; private set; }
+        public Task<DebugFrameInspectionResult> DebugInspectThreadFrameAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken)
+        {
+            UsedThreadInspectionRpc = true;
+            return DebugInspectFrameAsync(request, cancellationToken);
+        }
+
         public Task<DebugFrameInspectionResult> DebugInspectFrameAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken)
         {
             LastFrameInspectionRequest = request;
@@ -96,7 +103,9 @@ public sealed partial class BrokerToolServiceTests
             return Task.FromResult(new DebugFrameInspectionResult(state,
                 request.IncludeLocals ? new LocalsResult(state, [new DebugExpressionInfo("callerLocal", "42", "int", true)]) : null,
                 expressions.Select(text => new EvaluateExpressionResult(state, new DebugExpressionInfo(text, "42", "int", true))).ToArray(),
-                request.Watch is not null ? new WatchListResult(true, null, [new DebugExpressionInfo("callerWatch", "42", "int", true)]) : null));
+                request.Watch is not null ? new WatchListResult(true, null, [new DebugExpressionInfo("callerWatch", "42", "int", true)]) : null,
+                request.CallStack is not null ? new CallStackResult(state,
+                    [new CallStackFrameInfo("Worker.Caller", null, 0, 0, 1, false)], true) : null));
         }
         public DebugSelectFrameRequest? LastDebugSelectFrameRequest { get; private set; }
         public Func<DebugSelectFrameRequest, CancellationToken, Task<DebugSelectFrameResult>>? DebugSelectFrameHandler { get; init; }

@@ -297,6 +297,9 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<DebugSelectFrameResult> DebugSelectFrameAsync(DebugSelectFrameRequest request, CancellationToken cancellationToken) =>
         InvokeAsync(() => debugger.DebugSelectFrameAsync(request, cancellationToken), nameof(DebugSelectFrameAsync));
 
+    public Task<DebugFrameInspectionResult> DebugInspectThreadFrameAsync(NetVsMcp.Contracts.DebugFrameInspectionRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => debugger.DebugInspectThreadFrameAsync(request, cancellationToken), nameof(DebugInspectThreadFrameAsync));
+
     public Task<DebugFrameInspectionResult> DebugInspectFrameAsync(NetVsMcp.Contracts.DebugFrameInspectionRequest request, CancellationToken cancellationToken) =>
         InvokeAsync(() => debugger.DebugInspectFrameAsync(request, cancellationToken), nameof(DebugInspectFrameAsync));
 
