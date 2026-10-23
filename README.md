@@ -87,20 +87,21 @@ The broker is the only MCP server. The VSIX includes the same WPF tray/status br
 
 ## Session routing
 
-Every routed tool accepts optional routing fields:
+Every routed tool accepts the same three optional routing fields. Normally, supply just one:
 
 ```json
 {
   "sessionId": null,
-  "processId": null,
   "solutionPath": null,
-  "workspacePath": null,
-  "rootPath": null,
   "solutionName": null
 }
 ```
 
-Resolution order: explicit session ID → process ID → normalized solution path → nearest solution found from `workspacePath`/`rootPath` → solution name → active Visual Studio window → only registered instance → fail with candidate metadata.
+If multiple fields are supplied, precedence remains `sessionId` → normalized `solutionPath` → `solutionName`. The first supplied selector is used; an unmatched or ambiguous selector returns a routing failure without trying the remaining fields.
+
+With no explicit routing, tools that accept document or search paths may infer the solution from an absolute path. Otherwise, the broker selects the only active Visual Studio window among connected sessions, then the only connected session, or returns a routing failure if neither is unique.
+
+Call `vs_list_sessions` with `{}` (no arguments) to discover all registered sessions, including their session IDs, solution paths, and solution names. Match the intended solution or worktree, then pass its `solutionPath` or `sessionId` on subsequent calls. If multiple sessions share a `solutionName`, routing by that name returns an ambiguous-target failure with the matching candidates; use the exact worktree solution path or session ID to distinguish them. Selecting a session with `vs_select_session` does not store a global selection.
 
 Routing failures return a structured error with `failureReason`, `candidateCount`, and `candidateSessionIds` so the client can recover without guessing.
 

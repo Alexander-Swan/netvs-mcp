@@ -12,7 +12,7 @@ vs_ping({ "solutionName": "App" })
 vs_get_session({ "sessionId": "..." })
 ```
 
-The broker resolves provided fields in this order: `sessionId`, `processId`, `solutionPath`, nearest `.sln` or `.slnx` from `workspacePath`/`rootPath`, `solutionName`, active Visual Studio window, then only registered session. Because `sessionId` is a runtime identity, prefer passing `solutionPath` or `solutionName` on normal follow-up calls. If no route is unique, retry with a more explicit solution field or the exact `sessionId` from `vs_list_sessions`.
+The explicit routing fields are resolved in this order: `sessionId`, `solutionPath`, then `solutionName`. The first supplied selector is used; a failed match does not fall through to the next selector. Without explicit routing, tools may infer the solution from an absolute document or search path, then use the active Visual Studio window or the only connected session. Because `sessionId` is a runtime identity, prefer passing `solutionPath` or `solutionName` on normal follow-up calls. If no route is unique, retry with a more explicit solution field or the exact `sessionId` from `vs_list_sessions`.
 
 `get_help` and `vs_get_capabilities` list tool metadata, including `McpEndpointPath`. Most tools are served from `/mcp`; `ui_*` and `web_*` tools are served only from `/mcp-wu`.
 

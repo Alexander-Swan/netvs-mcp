@@ -634,7 +634,7 @@ internal sealed partial class BrokerToolService
             ToolErrorCodes.SessionNotConnected =>
                 "Call `vs_list_sessions` to confirm the target session is connected, then retry with `sessionId` or reopen Visual Studio.",
             ToolErrorCodes.SessionRoutingFailed =>
-                "Call `vs_list_sessions`, then retry with `sessionId`, `solutionPath`, or `workspacePath`.",
+                "Call `vs_list_sessions`, then retry with `sessionId`, `solutionPath`, or `solutionName`.",
             ToolErrorCodes.RpcFailure or ToolErrorCodes.VisualStudioError =>
                 "Check Visual Studio for modal dialogs or extension errors; call `vs_get_logs` if the failure persists.",
             _ => null
@@ -648,17 +648,17 @@ internal sealed partial class BrokerToolService
             RouteFailureReason.NoRegisteredSessions =>
                 "Open Visual Studio with the NetVsMcp extension enabled, then call `vs_list_sessions` or `netvs_doctor`.",
             RouteFailureReason.Ambiguous =>
-                "Call `vs_list_sessions`, choose the intended session, then retry with `sessionId`, `solutionPath`, or `workspacePath`.",
+                "Call `vs_list_sessions`, choose the intended session, then retry with `sessionId`, `solutionPath`, or `solutionName`.",
             RouteFailureReason.SessionNotFound =>
                 "Call `vs_list_sessions` to get current session IDs, then retry with a valid `sessionId`.",
             RouteFailureReason.ProcessIdNotFound =>
-                "Call `vs_list_sessions` to get current process IDs, then retry with a valid `processId` or `sessionId`.",
+                "Call `vs_list_sessions` to get current process IDs, then retry with a valid `sessionId`.",
             RouteFailureReason.SolutionPathNotFound =>
-                "Call `vs_list_sessions` to inspect open solution paths, then retry with the exact `solutionPath` or a containing `workspacePath`.",
+                "Call `vs_list_sessions` to inspect open solution paths, then retry with the exact `solutionPath`.",
             RouteFailureReason.SolutionNameNotFound =>
                 "Call `vs_list_sessions` to inspect open solution names, then retry with the exact `solutionName` or `sessionId`.",
             RouteFailureReason.WorkspacePathNotFound =>
-                "Call `vs_list_sessions` to inspect open solutions, then retry with a `workspacePath` inside one of those solution folders.",
+                "Call `vs_list_sessions` to inspect open solutions, then retry with an explicit `solutionPath`, `sessionId`, or `solutionName`.",
             _ =>
                 "Call `vs_list_sessions`, then retry with explicit routing fields."
         };
@@ -673,11 +673,11 @@ internal sealed partial class BrokerToolService
             VsSessionDispatchFailureReason.NoRegisteredSessions =>
                 "Open Visual Studio with the NetVsMcp extension enabled, then call `vs_list_sessions` or `netvs_doctor`.",
             VsSessionDispatchFailureReason.AmbiguousTarget =>
-                "Call `vs_list_sessions`, choose the intended session, then retry with `sessionId`, `solutionPath`, or `workspacePath`.",
+                "Call `vs_list_sessions`, choose the intended session, then retry with `sessionId`, `solutionPath`, or `solutionName`.",
             VsSessionDispatchFailureReason.SessionNotFound =>
-                "Call `vs_list_sessions` to get current sessions, then retry with a valid `sessionId`, `solutionPath`, or `workspacePath`.",
+                "Call `vs_list_sessions` to get current sessions, then retry with a valid `sessionId`, `solutionPath`, or `solutionName`.",
             VsSessionDispatchFailureReason.SolutionPathNotFound =>
-                "Call `vs_list_sessions` to inspect open solution paths, then retry with the exact `solutionPath` or a containing `workspacePath`.",
+                "Call `vs_list_sessions` to inspect open solution paths, then retry with the exact `solutionPath`.",
             VsSessionDispatchFailureReason.SolutionNameNotFound =>
                 "Call `vs_list_sessions` to inspect open solution names, then retry with the exact `solutionName` or `sessionId`.",
             VsSessionDispatchFailureReason.StaleSession =>

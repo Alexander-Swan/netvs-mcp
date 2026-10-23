@@ -269,14 +269,29 @@ public sealed partial class BrokerToolServiceTests
         Assert.Equal("vs-1", response.Value!.Session.SessionId);
     }
 
+    [Theory]
+    [InlineData(nameof(BrokerToolService.VsGetSession))]
+    [InlineData(nameof(BrokerToolService.VsSelectSession))]
+    [InlineData(nameof(BrokerToolService.VsPing))]
+    [InlineData(nameof(BrokerToolService.SolutionInfo))]
+    public void SessionTools_ExposeCommonRoutingFields(string methodName)
+    {
+        var parameters = typeof(BrokerToolService).GetMethod(methodName)!.GetParameters()
+            .Where(parameter => parameter.ParameterType != typeof(CancellationToken))
+            .Select(parameter => parameter.Name)
+            .ToArray();
+
+        Assert.Equal(new[] { "sessionId", "solutionName", "solutionPath" }, parameters);
+    }
+
     [Fact]
-    public void VsGetSession_SelectsByProcessId()
+    public void VsGetSession_PrefersSessionIdOverSolutionPathAndName()
     {
         var runtime = CreateRuntime();
         runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp", processId: 1001));
         runtime.Sessions.Register(CreateRegistration("vs-2", "Other", processId: 1002));
 
-        var response = runtime.Tools.VsGetSession(processId: 1002);
+        var response = runtime.Tools.VsGetSession(sessionId: "vs-2", solutionPath: "C:/Code/NetVsMcp/NetVsMcp.slnx", solutionName: "NetVsMcp");
 
         Assert.True(response.Success);
         Assert.Equal("vs-2", response.Value!.Session.SessionId);
@@ -594,7 +609,7 @@ public sealed partial class BrokerToolServiceTests
     }
 
     [Fact]
-    public async Task SolutionInfo_RoutesByProcessId()
+    public async Task SolutionInfo_RoutesBySolutionName()
     {
         var runtime = CreateRuntime();
         runtime.Sessions.Register(CreateRegistration("vs-1", "RouteAlpha", processId: 1001));
@@ -602,14 +617,14 @@ public sealed partial class BrokerToolServiceTests
         runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs", "RouteAlpha", @"C:\Code\RouteAlpha\RouteAlpha.slnx"));
         runtime.Connections.AddOrUpdate("vs-2", new FakeVisualStudioSessionRpc("Editor.cs", "RouteBeta", @"C:\Code\RouteBeta\RouteBeta.slnx"));
 
-        var response = await runtime.Tools.SolutionInfo(processId: 1002);
+        var response = await runtime.Tools.SolutionInfo(solutionName: "RouteBeta");
 
         Assert.True(response.Success);
         Assert.Equal("RouteBeta", response.Value!.Name);
     }
 
     [Fact]
-    public async Task SolutionInfo_RoutesByWorkspacePath()
+    public async Task SolutionInfo_RoutesBySolutionPath()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"));
         var projectDirectory = Path.Combine(tempRoot, "src", "RouteAlpha.App");
@@ -623,7 +638,7 @@ public sealed partial class BrokerToolServiceTests
             runtime.Sessions.Register(CreateRegistration("vs-1", "RouteAlpha", solutionPath, isActive: false));
             runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs", "RouteAlpha", solutionPath));
 
-            var response = await runtime.Tools.SolutionInfo(workspacePath: projectDirectory);
+            var response = await runtime.Tools.SolutionInfo(solutionPath: solutionPath);
 
             Assert.True(response.Success);
             Assert.Equal("RouteAlpha", response.Value!.Name);

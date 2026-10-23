@@ -262,15 +262,12 @@ internal sealed partial class BrokerToolService
     public ToolResponse<VsSessionStatus> VsGetSession(
         string? sessionId = null,
         string? solutionName = null,
-        string? solutionPath = null,
-        int? processId = null,
-        string? workspacePath = null,
-        string? rootPath = null)
+        string? solutionPath = null)
     {
-        var request = new { sessionId, solutionName, solutionPath, processId, workspacePath, rootPath };
+        var request = new { sessionId, solutionName, solutionPath };
         try
         {
-            var target = CreateTarget(sessionId, solutionName, solutionPath, processId, workspacePath, rootPath);
+            var target = CreateTarget(sessionId, solutionName, solutionPath);
             var route = _runtime.Sessions.Resolve(target);
             if (!route.Success || route.Session is null)
             {
@@ -301,15 +298,12 @@ internal sealed partial class BrokerToolService
     public ToolResponse<VsSessionInfo> VsSelectSession(
         string? sessionId = null,
         string? solutionName = null,
-        string? solutionPath = null,
-        int? processId = null,
-        string? workspacePath = null,
-        string? rootPath = null)
+        string? solutionPath = null)
     {
-        var request = new { sessionId, solutionName, solutionPath, processId, workspacePath, rootPath };
+        var request = new { sessionId, solutionName, solutionPath };
         try
         {
-            var target = CreateTarget(sessionId, solutionName, solutionPath, processId, workspacePath, rootPath);
+            var target = CreateTarget(sessionId, solutionName, solutionPath);
             var route = _runtime.Sessions.Resolve(target);
             if (!route.Success || route.Session is null)
             {
@@ -337,22 +331,19 @@ internal sealed partial class BrokerToolService
     public ToolResponse<BrokerPing> VsPing(
         string? sessionId = null,
         string? solutionName = null,
-        string? solutionPath = null,
-        int? processId = null,
-        string? workspacePath = null,
-        string? rootPath = null)
+        string? solutionPath = null)
     {
-        var request = new { sessionId, solutionName, solutionPath, processId, workspacePath, rootPath };
+        var request = new { sessionId, solutionName, solutionPath };
         try
         {
-            if (!HasRoutingFields(sessionId, solutionName, solutionPath, processId, workspacePath, rootPath))
+            if (!HasRoutingFields(sessionId, solutionName, solutionPath))
             {
                 var brokerOnlyResponse = ToolResponse<BrokerPing>.Ok(CreatePing(null));
                 AuditToolResult(nameof(VsPing), null, brokerOnlyResponse.Success, null, brokerOnlyResponse.Message);
                 return brokerOnlyResponse;
             }
 
-            var target = CreateTarget(sessionId, solutionName, solutionPath, processId, workspacePath, rootPath);
+            var target = CreateTarget(sessionId, solutionName, solutionPath);
             var route = _runtime.Sessions.Resolve(target);
             if (!route.Success || route.Session is null)
             {
@@ -607,12 +598,9 @@ internal sealed partial class BrokerToolService
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
-        int? processId = null,
-        string? workspacePath = null,
-        string? rootPath = null,
         CancellationToken cancellationToken = default)
     {
-        var target = CreateTarget(sessionId, solutionName, solutionPath, processId, workspacePath, rootPath);
+        var target = CreateTarget(sessionId, solutionName, solutionPath);
         var dispatch = await _runtime.Dispatcher.DispatchAsync(
             target,
             static (connection, ct) => connection.SolutionInfoAsync(ct),

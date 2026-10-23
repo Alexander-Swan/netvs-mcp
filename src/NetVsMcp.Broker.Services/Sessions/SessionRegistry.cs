@@ -257,13 +257,13 @@ public sealed class SessionRegistry
         {
             return RouteResult.Failed(
                 RouteFailureReason.NoRegisteredSessions,
-                "No connected Visual Studio sessions are available (all registered sessions appear stale). Specify sessionId, processId, solutionPath, workspacePath, or solutionName, or check that Visual Studio is still running.",
+                "No connected Visual Studio sessions are available (all registered sessions appear stale). Specify sessionId, solutionPath, or solutionName, or check that Visual Studio is still running.",
                 sessions);
         }
 
         return RouteResult.Failed(
             RouteFailureReason.Ambiguous,
-            "Multiple Visual Studio sessions are available. Specify sessionId, processId, solutionPath, workspacePath, or solutionName.",
+            "Multiple Visual Studio sessions are available. Specify sessionId, solutionPath, or solutionName.",
             sessions);
     }
 
