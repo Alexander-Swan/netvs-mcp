@@ -14,6 +14,8 @@ Call-stack responses include up to two frames by default. Pass `maxFrames` when 
 
 Locals are opt-in and can be large. Snapshot responses will not contain locals unless you pass `include: ["locals"]`. Prefer `include: ["watch"]` with `watchExpressions` for targeted values.
 
+While paused, `state.breakReason` reports `breakpoint`, `stepCompleted`, `exception`, `manualPause`, `unknown`, or `other`. It is null outside break mode or when an older extension does not supply it.
+
 Wait for a breakpoint server-side instead of asking the user to tell you when it hits:
 
 ```json

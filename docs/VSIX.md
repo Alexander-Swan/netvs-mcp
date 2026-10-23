@@ -803,11 +803,14 @@ Debugger state response:
 
 ```json
 {
-  "mode": "dbgBreakMode"
+  "mode": "dbgBreakMode",
+  "breakReason": "exception"
 }
 ```
 
 `debug_status` and `debug_get_mode` are no-op status tools. They return the same state payload without changing debugger execution.
+
+Debugger state includes `breakReason` while in `dbgBreakMode`, including `debug_snapshot.state` and `debug_wait_for_break.state`. Values are `breakpoint`, `stepCompleted`, `exception` (thrown or unhandled), `manualPause`, `unknown` (no reason available), or `other` (another native reason). The VSIX reads the debugger's current `LastBreakReason`; the field is null outside break mode. Older VSIX payloads also leave it null. Broker-generated modal or stale state does not attach a break reason. Exception type and message are not included.
 
 `debug_step` request:
 

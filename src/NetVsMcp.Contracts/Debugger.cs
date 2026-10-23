@@ -35,7 +35,9 @@ public sealed record DebuggerStateInfo(
     bool UnderlyingModeIsStale = false,
     IReadOnlyList<DialogInfo>? Dialogs = null,
     string? SessionId = null,
-    DebugOperationInfo? Operation = null);
+    DebugOperationInfo? Operation = null,
+    /// <summary>Reason for the current pause: breakpoint, stepCompleted, exception, manualPause, unknown, or other. Null outside break mode or with an older VSIX.</summary>
+    string? BreakReason = null);
 
 /// <summary>An original IDE command retained while the client answers a modal dialog.</summary>
 public sealed record DebugOperationInfo(

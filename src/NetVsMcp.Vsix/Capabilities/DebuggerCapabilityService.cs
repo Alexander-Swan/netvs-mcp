@@ -1131,7 +1131,12 @@ internal sealed class DebuggerCapabilityService : IDebuggerCapabilityService
     private static DebuggerStateInfo GetDebuggerState(Debugger debugger)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
-        return new DebuggerStateInfo(debugger.CurrentMode.ToString());
+        var mode = debugger.CurrentMode;
+        return new DebuggerStateInfo(mode.ToString(), DebuggerBreakReason.Read(mode, () =>
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            return debugger.LastBreakReason;
+        }));
     }
 
     // Breakpoint CRUD and call-stack/locals access (DBG-2) return plain data DTOs with no

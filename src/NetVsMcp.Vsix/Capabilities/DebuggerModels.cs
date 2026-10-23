@@ -9,12 +9,47 @@ namespace NetVsMcp.Vsix;
 
 internal sealed class DebuggerStateInfo
 {
-    public DebuggerStateInfo(string mode)
+    public DebuggerStateInfo(string mode, string? breakReason = null)
     {
         Mode = mode;
+        BreakReason = breakReason;
     }
 
     public string Mode { get; }
+    public string? BreakReason { get; }
+}
+
+internal static class DebuggerBreakReason
+{
+    // Read only for the current pause; LastBreakReason must not leak into running/design states.
+    public static string? Read(dbgDebugMode mode, Func<dbgEventReason> readReason)
+    {
+        if (mode != dbgDebugMode.dbgBreakMode)
+            return null;
+
+        try
+        {
+            return readReason() switch
+            {
+                dbgEventReason.dbgEventReasonBreakpoint => "breakpoint",
+                dbgEventReason.dbgEventReasonStep => "stepCompleted",
+                dbgEventReason.dbgEventReasonExceptionThrown => "exception",
+                dbgEventReason.dbgEventReasonExceptionNotHandled => "exception",
+                dbgEventReason.dbgEventReasonUserBreak => "manualPause",
+                dbgEventReason.dbgEventReasonNone => "unknown",
+                _ => "other"
+            };
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            // Some engines cannot provide a reason. Status inspection should still succeed.
+            return "unknown";
+        }
+        catch (NotImplementedException)
+        {
+            return "unknown";
+        }
+    }
 }
 
 internal sealed class HotReloadApplyResult

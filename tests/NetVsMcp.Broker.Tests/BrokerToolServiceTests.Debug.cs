@@ -5,6 +5,36 @@ namespace NetVsMcp.Broker.Tests;
 
 public sealed partial class BrokerToolServiceTests
 {
+    [Theory]
+    [InlineData("breakpoint")]
+    [InlineData("stepCompleted")]
+    [InlineData("exception")]
+    [InlineData("manualPause")]
+    [InlineData("unknown")]
+    [InlineData("other")]
+    [InlineData(null)]
+    public async Task DebugInspection_PreservesBreakReason(string? reason)
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs")
+        {
+            DebugStatusHandler = _ => Task.FromResult(new DebuggerStateInfo("dbgBreakMode", BreakReason: reason))
+        };
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var status = await runtime.Tools.DebugStatus(sessionId: "vs-1");
+        var snapshot = await runtime.Tools.DebugSnapshot(include: [], sessionId: "vs-1");
+        var waited = await runtime.Tools.DebugWaitForBreak(include: [], sessionId: "vs-1");
+
+        Assert.True(status.Success);
+        Assert.True(snapshot.Success);
+        Assert.True(waited.Success);
+        Assert.Equal(reason, status.Value!.BreakReason);
+        Assert.Equal(reason, snapshot.Value!.State.BreakReason);
+        Assert.Equal(reason, waited.Value!.State.BreakReason);
+    }
+
     [Fact]
     public async Task DebugStatus_RoutesToConnectedSession()
     {
