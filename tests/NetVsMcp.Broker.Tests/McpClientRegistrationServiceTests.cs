@@ -266,6 +266,63 @@ public sealed class McpClientRegistrationServiceTests
         Assert.False(service.IsRegistered(client, _options));
     }
 
+    [Theory]
+    [InlineData(McpConfigFormat.Json, false)]
+    [InlineData(McpConfigFormat.Json, true)]
+    [InlineData(McpConfigFormat.Toml, false)]
+    [InlineData(McpConfigFormat.Toml, true)]
+    public void Register_PreservesOtherBuildRegistrations(McpConfigFormat format, bool matchingUrl)
+    {
+        var service = new McpClientRegistrationService();
+        var otherName = BrokerOptions.DefaultMcpServerName == "netvs-debug" ? "netvs" : "netvs-debug";
+        var otherAutomationName = otherName + "-web-automation";
+        var otherEndpoint = matchingUrl ? _options.McpEndpoint : "http://127.0.0.1:5099/mcp";
+        var otherAutomationEndpoint = otherEndpoint + "-wu";
+        var path = CreateTempFilePath(format == McpConfigFormat.Toml ? "toml" : "json");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var client = format == McpConfigFormat.Toml ? TomlClientFor(path) : ClientFor(path);
+        File.WriteAllText(path, format == McpConfigFormat.Toml
+            ? $$"""
+                [mcp_servers.{{otherName}}]
+                url = "{{otherEndpoint}}"
+                [mcp_servers.{{otherAutomationName}}]
+                url = "{{otherAutomationEndpoint}}"
+                """
+            : $$"""
+                { "mcpServers": {
+                  "{{otherName}}": { "type": "http", "url": "{{otherEndpoint}}" },
+                  "{{otherAutomationName}}": { "type": "http", "url": "{{otherAutomationEndpoint}}" }
+                } }
+                """);
+
+        Assert.False(service.IsRegistered(client, _options));
+        service.Register(client, _options);
+        var registered = File.ReadAllText(path);
+        service.Register(client, _options);
+
+        Assert.Equal(registered, File.ReadAllText(path));
+        Assert.True(service.IsRegistered(client, _options));
+        if (format == McpConfigFormat.Toml)
+        {
+            var servers = Tomlyn.TomlSerializer.Deserialize<Tomlyn.Model.TomlTable>(registered)!["mcp_servers"] as Tomlyn.Model.TomlTable;
+            Assert.Equal(4, servers!.Count);
+            Assert.Equal(otherEndpoint, ((Tomlyn.Model.TomlTable)servers[otherName])["url"]);
+            Assert.Equal(otherAutomationEndpoint, ((Tomlyn.Model.TomlTable)servers[otherAutomationName])["url"]);
+            Assert.Equal(_options.McpEndpoint, ((Tomlyn.Model.TomlTable)servers[BrokerOptions.DefaultMcpServerName])["url"]);
+            Assert.Equal(_options.McpWebAutomationEndpoint, ((Tomlyn.Model.TomlTable)servers[BrokerOptions.DefaultMcpWebAutomationServerName])["url"]);
+        }
+        else
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(registered);
+            var servers = document.RootElement.GetProperty("mcpServers");
+            Assert.Equal(4, servers.EnumerateObject().Count());
+            Assert.Equal(otherEndpoint, servers.GetProperty(otherName).GetProperty("url").GetString());
+            Assert.Equal(otherAutomationEndpoint, servers.GetProperty(otherAutomationName).GetProperty("url").GetString());
+            Assert.Equal(_options.McpEndpoint, servers.GetProperty(BrokerOptions.DefaultMcpServerName).GetProperty("url").GetString());
+            Assert.Equal(_options.McpWebAutomationEndpoint, servers.GetProperty(BrokerOptions.DefaultMcpWebAutomationServerName).GetProperty("url").GetString());
+        }
+    }
+
     private static McpClientDefinition TomlClientFor(string path) =>
         new("test-toml-client", "Test TOML Client", path, "mcp_servers", McpConfigFormat.Toml);
 

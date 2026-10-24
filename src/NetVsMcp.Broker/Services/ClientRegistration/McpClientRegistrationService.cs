@@ -116,7 +116,8 @@ public sealed class McpClientRegistrationService
     {
         foreach (var (key, value) in servers)
         {
-            if (value is JsonObject entry && string.Equals((string?)entry["url"], url, StringComparison.OrdinalIgnoreCase))
+            if (!IsOtherBuildRegistration(key)
+                && value is JsonObject entry && string.Equals((string?)entry["url"], url, StringComparison.OrdinalIgnoreCase))
                 return key;
         }
 
@@ -127,7 +128,8 @@ public sealed class McpClientRegistrationService
     {
         foreach (var (key, value) in servers)
         {
-            if (value is TomlTable entry
+            if (!IsOtherBuildRegistration(key)
+                && value is TomlTable entry
                 && entry.TryGetValue("url", out var urlObj)
                 && urlObj is string existingUrl
                 && string.Equals(existingUrl, url, StringComparison.OrdinalIgnoreCase))
@@ -137,6 +139,15 @@ public sealed class McpClientRegistrationService
         }
 
         return null;
+    }
+
+    // Older registrations may have used a stable name for a Debug URL (or vice versa).
+    // Keep those names owned by their respective builds even when the URL matches.
+    private static bool IsOtherBuildRegistration(string key)
+    {
+        var otherName = BrokerOptions.DefaultMcpServerName == "netvs-debug" ? "netvs" : "netvs-debug";
+        return string.Equals(key, otherName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, otherName + "-web-automation", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string BuildJsonPreview(McpClientDefinition client, BrokerOptions options)
