@@ -426,6 +426,7 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var debugger = await GetDebuggerAsync();
         execution.Validate(debugger.CurrentMode.ToString(), request.ExpectedStopId, request.ExpectedGeneration);
+        request.Expansion?.Validate();
         if (request.TimeoutMilliseconds <= 0)
             throw new ArgumentOutOfRangeException(nameof(request.TimeoutMilliseconds));
         cancellationToken.ThrowIfCancellationRequested();
@@ -433,7 +434,7 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
         // pauses with no inspectable current frame. Do not touch DTE's thread/frame objects.
         if ((request.ExpectedStopId is not null || request.ExpectedGeneration.HasValue) &&
             !request.IncludeLocals && request.CallStack is null && request.Watch is null &&
-            request.AddWatchExpression is null && request.Expressions.Length == 0)
+            request.AddWatchExpression is null && request.Expressions.Length == 0 && request.Expansion is null)
             return new DebugFrameInspectionResult(GetDebuggerState(debugger), null, [], null);
         // Resolve objects directly: inspecting a frame never changes the IDE selection.
         var thread = DebuggerFrameSelector.ResolveThread(debugger.CurrentMode == dbgDebugMode.dbgBreakMode,
@@ -455,6 +456,28 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
                 return thread.StackFrames.Item(index);
             });
         var state = GetDebuggerState(debugger);
+        DebugExpansionResult? expansion = null;
+        if (request.Expansion is { } expand)
+        {
+            if (!expand.AllowFunctionEvaluation && !InspectionExpressionPolicy.IsInspectionOnly(expand.Expression))
+                throw new ArgumentException("With function evaluation disabled, use a simple identifier, member path, or literal numeric index. Explicit calls, assignments, and complex expressions require allowFunctionEvaluation=true.");
+            if (debugger is not EnvDTE100.Debugger5 evaluator)
+                throw new NotSupportedException("Bounded expansion requires frame-specific Debugger5 evaluation.");
+            var elapsed = System.Diagnostics.Stopwatch.StartNew();
+            var expression = evaluator.GetExpression3(expand.Expression, frame, UseAutoExpandRules: false,
+                TreatAsStatement: false, AllowAutoFuncEval: expand.AllowFunctionEvaluation, Timeout: expand.BudgetMilliseconds);
+            IDebugValue value = new DteDebugValue(expression);
+            foreach (var index in expand.MemberPath)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (elapsed.ElapsedMilliseconds >= expand.BudgetMilliseconds)
+                    throw new TimeoutException("Cooperative expansion budget expired while resolving memberPath. Retry a narrower request.");
+                if (index > value.ChildCount) throw new ArgumentException("memberPath no longer resolves in this pause.");
+                value = value.Child(index);
+            }
+            expansion = BoundedDebugExpansion.Expand(value, expand, cancellationToken, elapsed);
+            execution.Validate(debugger.CurrentMode.ToString(), request.ExpectedStopId, request.ExpectedGeneration);
+        }
         LocalsResult? locals = null;
         if (request.IncludeLocals)
         {
@@ -519,7 +542,17 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
             }
             callStack = new CallStackResult(state, frames, thread.StackFrames.Count > frames.Count);
         }
-        return new DebugFrameInspectionResult(state, locals, results, watch, callStack);
+        return new DebugFrameInspectionResult(state, locals, results, watch, callStack, expansion);
+    }
+
+    private sealed class DteDebugValue(Expression expression) : IDebugValue
+    {
+        public string? Name { get { ThreadHelper.ThrowIfNotOnUIThread(); return expression.Name; } }
+        public string? Type { get { ThreadHelper.ThrowIfNotOnUIThread(); return expression.Type; } }
+        public string? Value { get { ThreadHelper.ThrowIfNotOnUIThread(); return expression.Value; } }
+        public bool IsValid { get { ThreadHelper.ThrowIfNotOnUIThread(); return expression.IsValidValue; } }
+        public int ChildCount { get { ThreadHelper.ThrowIfNotOnUIThread(); return expression.DataMembers?.Count ?? 0; } }
+        public IDebugValue Child(int index) { ThreadHelper.ThrowIfNotOnUIThread(); return new DteDebugValue(expression.DataMembers.Item(index)); }
     }
 
     public async Task<LocalsResult> GetLocalsAsync(CancellationToken cancellationToken)

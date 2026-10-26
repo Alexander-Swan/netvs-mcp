@@ -71,6 +71,8 @@ internal sealed class VisualStudioCapabilityRpcTarget
         {
             new("sessionEvents", "supported", "Ordered events with bounded replay and explicit reconciliation gaps."),
             new("guardedInspection", "supported", "Atomic stop/generation validation is available through the stopped-frame RPC."),
+            new("boundedExpansion", "supported", "debug_expand supports pause identity, member paging, cooperative budgets, and explicit function-evaluation opt-in."),
+            new("guardedCodeActions", "supported", "Opaque action IDs and exact source-text previews reject stale workspace snapshots; custom and structural operations are unsupported."),
             new("targetedEvaluation", dte?.Debugger is EnvDTE100.Debugger5 ? "supported" : "unsupported",
                 "Frame-specific evaluation requires Debugger5; inspect the selected frame when unavailable."),
             new("semanticNavigation", workspace is null ? "unavailable" : "supported",
@@ -333,6 +335,13 @@ internal sealed class VisualStudioCapabilityRpcTarget
 
     public Task<DebugSelectFrameResult> DebugSelectFrameAsync(DebugSelectFrameRequest request, CancellationToken cancellationToken) =>
         InvokeAsync(() => debugger.DebugSelectFrameAsync(request, cancellationToken), nameof(DebugSelectFrameAsync));
+
+    public Task<DebugFrameInspectionResult> DebugExpandAsync(NetVsMcp.Contracts.DebugFrameInspectionRequest request, CancellationToken cancellationToken)
+    {
+        if (request.Expansion is null || string.IsNullOrWhiteSpace(request.ExpectedStopId) || !request.ExpectedGeneration.HasValue)
+            throw new ArgumentException("Expansion requires a stopId and generation from the current pause.");
+        return InvokeAsync(() => debugger.DebugInspectStoppedFrameAsync(request, cancellationToken), nameof(DebugExpandAsync));
+    }
 
     public Task<DebugFrameInspectionResult> DebugInspectStoppedFrameAsync(NetVsMcp.Contracts.DebugFrameInspectionRequest request, CancellationToken cancellationToken) =>
         InvokeAsync(() => debugger.DebugInspectStoppedFrameAsync(request, cancellationToken), nameof(DebugInspectStoppedFrameAsync));

@@ -555,8 +555,10 @@ internal sealed class LocalsResult
 }
 
 internal sealed class DebugFrameInspectionResult(DebuggerStateInfo state, LocalsResult? locals,
-    IReadOnlyCollection<EvaluateExpressionResult> results, WatchListResult? watch, CallStackResult? callStack = null)
+    IReadOnlyCollection<EvaluateExpressionResult> results, WatchListResult? watch, CallStackResult? callStack = null,
+    NetVsMcp.Contracts.DebugExpansionResult? expansion = null)
 {
+    public NetVsMcp.Contracts.DebugExpansionResult? Expansion { get; } = expansion;
     public CallStackResult? CallStack { get; } = callStack;
     public DebuggerStateInfo State { get; } = state;
     public LocalsResult? Locals { get; } = locals;

@@ -417,6 +417,7 @@ public sealed record DebugSelectFrameResult(
 
 public sealed class DebugFrameInspectionRequest
 {
+    public DebugExpansionRequest? Expansion { get; set; }
     public string? ExpectedStopId { get; set; }
     public long? ExpectedGeneration { get; set; }
     /// <summary>Optional debugger thread ID. Omit for the current thread.</summary>
@@ -435,7 +436,8 @@ public sealed record DebugFrameInspectionResult(
     LocalsResult? Locals,
     IReadOnlyCollection<EvaluateExpressionResult> Results,
     WatchListResult? Watch,
-    CallStackResult? CallStack = null);
+    CallStackResult? CallStack = null,
+    DebugExpansionResult? Expansion = null);
 
 public sealed record LocalsResult(
     DebuggerStateInfo State,

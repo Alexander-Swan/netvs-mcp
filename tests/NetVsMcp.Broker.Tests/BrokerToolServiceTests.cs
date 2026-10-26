@@ -329,12 +329,13 @@ public sealed partial class BrokerToolServiceTests
             Task.FromResult(CreateNugetMutation(request, "Uninstalled."));
 
         public SessionCapabilityReport? CapabilityReport { get; set; }
-        public Task<SessionCapabilityReport> SessionCapabilitiesAsync(CancellationToken cancellationToken) =>
-            Task.FromResult(CapabilityReport ?? throw MissingFrameInspectionMethod());
-
+        public Task<DebugFrameInspectionResult> DebugExpandAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken) => DebugInspectStoppedFrameAsync(request, cancellationToken);
         public Func<Task<VsSessionEventSnapshot>>? SessionSnapshotHandler { get; set; }
         public Task<VsSessionEventSnapshot> SessionSnapshotAsync(CancellationToken cancellationToken) =>
             SessionSnapshotHandler?.Invoke() ?? throw new NotSupportedException();
+        public Task<SessionCapabilityReport> SessionCapabilitiesAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(CapabilityReport ?? throw MissingFrameInspectionMethod());
+
         public Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult(ToolResponse<VsSessionInfo>.Ok(new VsSessionInfo(
