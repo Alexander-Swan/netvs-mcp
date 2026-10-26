@@ -12,7 +12,13 @@ debug_snapshot({ "include": ["locals"], "sessionId": "..." })
 
 Call-stack responses include up to two frames by default. Pass `maxFrames` when deeper callers are needed. When `callStack.hasMore` is `true`, additional callers were omitted to keep the snapshot small.
 
+For event observation, call `debug_snapshot` with `include: []`. On updated extensions, `state.eventCursor` contains the session ID, epoch, and watermark captured coherently with that state. Pass its epoch and watermark to `vs_events` to read subsequent events. If replay reports a gap or changed epoch, obtain a new snapshot and resume from its cursor; never repeat an execution action to reconcile events. `debug_status` uses the same coherent capture, and debugger waits consume session events. Legacy extensions and modal or stale observations omit the cursor; do not infer one from a separate event read.
+
+The event call's argument is `afterSequence`: pass the cursor's `watermark` there. Follow [session events](../../manage-visual-studio/references/events-control.md) for paging and timeout rules. Frame-readiness retries and independent modal-window detection can still use bounded probes; an event indicating break mode does not guarantee usable frames.
+
 Locals are opt-in and can be large. Snapshot responses will not contain locals unless you pass `include: ["locals"]`. Prefer `include: ["watch"]` with `watchExpressions` for targeted values.
+
+Default MCP responses preserve nested debugger states for existing clients. When the broker advertises `compact`, pass `compact: true` on `debug_snapshot`, `debug_wait_for_break`, or `debug_eval_many` to omit child states identical to the enclosing state. Read an omitted child state from its nearest enclosing state. Different child states are preserved in full. Compact snapshots also use solution-relative stack files. Stack files within the routed solution directory become solution-relative paths; external files remain absolute, and unknown files stay unknown. Pause guards, failure evidence, frame locations, values, and pagination remain available. Request `includeContext` only when process/thread/frame identity is needed.
 
 Both snapshot tools accept optional `threadId` and `stackFrame`. With `threadId`, call stack, locals, and watches use that thread; `stackFrame` selects the frame for locals and watches and defaults to 1 on an explicit thread. Omit both to use the current selection. Other sections retain their usual scope. Inspection leaves thread/frame selection unchanged; an explicit `action` still advances execution. See `inspection.md` for discovery, version requirements, and invalid evaluation results.
 

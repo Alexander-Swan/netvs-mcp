@@ -5,7 +5,7 @@ namespace NetVsMcp.Broker.Services;
 internal sealed partial class BrokerToolService
 {
     // Keep identity once per public response, and only when explicitly requested.
-    private static ToolResponse<T> ShapeInspectionOutput<T>(ToolResponse<T> response, bool includeContext)
+    internal static ToolResponse<T> ShapeInspectionOutput<T>(ToolResponse<T> response, bool includeContext, bool compact = false, string? solutionPath = null)
     {
         if (response.Value is null) return response;
         object value = response.Value switch
@@ -30,6 +30,31 @@ internal sealed partial class BrokerToolService
                 Watch = r.Watch is null ? null : r.Watch with { Context = null } },
             _ => response.Value
         };
+        if (compact) value = value switch
+        {
+            DebugSnapshotResult r => r with
+            {
+                CallStack = r.CallStack is null ? null : r.CallStack with
+                {
+                    Frames = r.CallStack.Frames.Select(frame => frame with { File = CompactSourcePath(frame.File, solutionPath) }).ToArray()
+                }
+            },
+            _ => value
+        };
         return response with { Value = (T)value };
+    }
+
+    private static string? CompactSourcePath(string? file, string? solutionPath)
+    {
+        if (file is null || solutionPath is null || !Path.IsPathRooted(file) || !Path.IsPathRooted(solutionPath)) return file;
+        try
+        {
+            var directory = Path.GetDirectoryName(Path.GetFullPath(solutionPath));
+            if (directory is null) return file;
+            var relative = Path.GetRelativePath(directory, Path.GetFullPath(file));
+            return Path.IsPathRooted(relative) || relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+                ? file : relative.Replace('\\', '/');
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException) { return file; }
     }
 }

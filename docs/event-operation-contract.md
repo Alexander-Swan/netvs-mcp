@@ -19,3 +19,5 @@ The internal VS-to-broker channel is independent of whether an external MCP clie
 ## Compatibility
 
 New wire members are additive. Features requiring correctness-critical guards or event delivery are negotiated explicitly. Missing support must produce a structured unsupported result instead of silently ignoring a guard. Legacy clients keep existing request/response behavior while newer clients can opt into stronger contracts.
+
+Default debugger MCP responses retain nested state fields. Only `compact: true` opts into inherited-state deduplication.

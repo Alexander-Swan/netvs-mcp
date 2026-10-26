@@ -114,6 +114,15 @@ public sealed class LocalMcpHttpHostTests
             Assert.Contains("netvs_get_best_practices", body);
             Assert.Contains("Solution-relative or absolute path; prefer forward slashes.", body);
             Assert.DoesNotContain("Document/editor tools name this parameter", body);
+            using var catalog = JsonDocument.Parse(body[body.IndexOf('{')..]);
+            foreach (var name in new[] { "debug_snapshot", "debug_wait_for_break", "debug_eval_many" })
+            {
+                var schema = catalog.RootElement.GetProperty("result").GetProperty("tools").EnumerateArray()
+                    .Single(tool => tool.GetProperty("name").GetString() == name).GetProperty("inputSchema");
+                Assert.False(schema.GetProperty("properties").GetProperty("compact").GetProperty("default").GetBoolean());
+                if (schema.TryGetProperty("required", out var required))
+                    Assert.DoesNotContain(required.EnumerateArray(), item => item.GetString() == "compact");
+            }
 
             using var listResources = await PostMcpAsync(http, new
             {
@@ -804,6 +813,31 @@ public sealed class LocalMcpHttpHostTests
             var toolResponse = await ReadMcpToolResponseAsync<string?>(toolCall);
             Assert.True(toolResponse.Success);
             Assert.Equal(@"C:\Code\NetVsMcp\Program.cs", toolResponse.Value);
+
+            foreach (var mode in new[] { "omitted", "false", "true" })
+            {
+                var compact = mode == "true";
+                var arguments = new Dictionary<string, object?>
+                    { ["sessionId"] = "vs-e2e", ["expressions"] = new[] { "first", "second" } };
+                if (mode != "omitted") arguments["compact"] = compact;
+                using var batch = await PostMcpAsync(http, new
+                {
+                    jsonrpc = "2.0", id = compact ? 4 : 3, method = "tools/call",
+                    @params = new { name = "debug_eval_many", arguments }
+                });
+                batch.EnsureSuccessStatusCode();
+                var response = await ReadMcpToolResponseAsync<JsonElement>(batch);
+                Assert.True(response.Success, response.Message);
+                Assert.Equal("dbgBreakMode", response.Value.GetProperty("state").GetProperty("mode").GetString());
+                var rows = response.Value.GetProperty("results");
+                Assert.Equal(2, rows.GetArrayLength());
+                Assert.All(rows.EnumerateArray(), row =>
+                {
+                    Assert.Equal(!compact, row.TryGetProperty("state", out var state));
+                    if (!compact) Assert.Equal("dbgBreakMode", state.GetProperty("mode").GetString());
+                });
+                Assert.Equal("selected-frame-3", rows[0].GetProperty("expression").GetProperty("value").GetString());
+            }
         }
         finally
         {
@@ -1075,6 +1109,9 @@ public sealed class LocalMcpHttpHostTests
         public Task<LocalsResult> DebugGetLocalsAsync(CancellationToken cancellationToken) =>
             Task.FromResult(new LocalsResult(new DebuggerStateInfo("dbgBreakMode"),
                 [new DebugExpressionInfo("currentLocal", "selected-frame-3", "string", true)]));
+
+        public Task<DebuggerStateInfo> DebugStatusAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(new DebuggerStateInfo("dbgBreakMode"));
 
         public Task<EvaluateExpressionResult> DebugEvaluateAsync(EvaluateExpressionRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(new EvaluateExpressionResult(new DebuggerStateInfo("dbgBreakMode"),
