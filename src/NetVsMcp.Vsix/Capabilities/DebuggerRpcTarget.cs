@@ -7,6 +7,8 @@ internal sealed class DebuggerRpcTarget
 {
     public Task<NetVsMcp.Contracts.DebugExceptionResult> DebugExceptionAsync(NetVsMcp.Contracts.DebugExceptionRequest request, CancellationToken cancellationToken) =>
         debugger.GetExceptionAsync(request, cancellationToken);
+    public Task<NetVsMcp.Contracts.DebugRunToResult> DebugRunToAsync(NetVsMcp.Contracts.DebugRunToRequest request, CancellationToken cancellationToken) =>
+        debugger.RunToAsync(request, cancellationToken);
     private readonly IDebuggerCapabilityService debugger;
 
     public DebuggerRpcTarget(IDebuggerCapabilityService debugger)

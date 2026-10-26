@@ -120,6 +120,7 @@ public static class ToolErrorCodes
     public const string FeatureUnavailable = "feature_unavailable";
     public const string HistoryUnavailable = "history_unavailable";
     public const string InspectionUnavailable = "inspection_unavailable";
+    public const string OutcomeUnknown = "outcome_unknown";
 }
 
 /// <summary>

@@ -28,6 +28,7 @@ Agent-neutral entrypoint for launching, attaching, pausing, stepping, inspecting
 | Task | Read |
 | --- | --- |
 | Start, stop, continue, break, step, wait, or understand debugger states | `debug-visual-studio/references/session-control.md` |
+| Run to a source location with owned temporary breakpoint cleanup | `debug-visual-studio/references/run-to-location.md` |
 | Debug a specific test | `debug-visual-studio/references/test-debugging.md` |
 | Apply hot reload | `debug-visual-studio/references/hot-reload.md` |
 | Set, disable, group, remove, or clean up breakpoints/tracepoints | `debug-visual-studio/references/breakpoints.md` |

@@ -35,7 +35,7 @@ internal sealed partial class BrokerToolService
         {
             "unsupported" => ToolErrorCodes.FeatureUnavailable,
             "failedWithChanges" => "partial_application",
-            "unknown" => "outcome_unknown",
+            "unknown" => ToolErrorCodes.OutcomeUnknown,
             _ => "action_rejected"
         };
         return response with { Success = false, Message = value.Message,

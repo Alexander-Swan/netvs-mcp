@@ -44,13 +44,8 @@ internal sealed partial class DebuggerCapabilityService
     private static DebugExceptionLocation? ReadExceptionLocation(DebugExceptionEvidence exception)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
-        if (exception.ProcessId is null || exception.ThreadId is null) return null;
-        var process = DkmProcess.GetProcesses().SingleOrDefault(p => !p.IsUnloaded && p.LivePart?.Id == exception.ProcessId);
-        var thread = process?.GetThreads().SingleOrDefault(t => t.SystemPart?.Id == exception.ThreadId);
-        var frame = thread?.GetTopStackFrame();
-        var source = frame?.GetInstructionSymbol()?.GetSourcePosition(DkmSourcePositionFlags.None, null, out _);
-        return source is null || string.IsNullOrWhiteSpace(source.DocumentName) ? null :
-            new(source.DocumentName, checked((int)source.TextSpan.StartLine), checked((int)source.TextSpan.StartColumn));
+        var source = ReadThreadSourcePosition(exception.ProcessId, exception.ThreadId);
+        return source.HasValue ? new(source.Value.File, source.Value.Line, source.Value.Column) : null;
     }
 
 }

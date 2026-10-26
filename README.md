@@ -31,7 +31,7 @@ See [setup](docs/SETUP.md) for installation, client registration, and troublesho
 
 - **Live editing and navigation:** read unsaved buffers, inspect symbols, find references, and apply edits. Safe-edit previews support developer approval; code actions support snapshot-bound preview, application, and verified recovery.
 - **Builds and diagnostics:** build solutions or projects, read output panes and errors, cancel builds, and query compiler diagnostics for an exact document version.
-- **Debugger control:** launch, attach, step, inspect chosen threads and frames, manage breakpoints and watches, capture exception evidence. Pause identities protect against stale inspection requests.
+- **Debugger control:** launch, attach, step, inspect chosen threads and frames, manage breakpoints and watches, capture exception evidence, and run to a guarded source location. Pause identities protect against stale inspection requests.
 - **Tests:** discover and run tests with the CLI backend. Retrieve results using their exact run identity.
 - **Multiple sessions:** discover open instances and route explicitly. Pause new automation mutations when needed. Follow session events and reconcile observed state.
 - **Local records:** inspect tool-call audit metadata and optional aggregate usage analytics without recording full source or debugger values in those stores.
@@ -52,7 +52,7 @@ Use `get_help` for current tool descriptions. `netvs_doctor` checks broker healt
 | Build | `build_solution`, `build_project`, `build_and_get_errors`, `build_status`, `build_cancel`, `build_configuration_get`, `build_configuration_set`, `rebuild_solution`, `clean_solution`, `package_restore` |
 | Diagnostics | `document_diagnostics`, `errors_list`, `output_read`, `output_write`, `output_clear`, `output_list_panes`, `diagnostics_for_document`, `diagnostics_binding_errors` |
 | Task List | `task_list_get`, `task_list_add`, `task_list_remove`, `task_list_set_checked` |
-| Debugger | `debug_start`, `debug_start_without_debugging`, `debug_stop`, `debug_restart`, `debug_continue`, `debug_break`, `debug_step`, `debug_attach`, `debug_status`, `debug_exception`, `debug_get_mode`, `debug_get_callstack`, `debug_select_frame`, `debug_get_locals`, `debug_evaluate`, `debug_expand`, `debug_eval_many`, `debug_set_variable`, `debug_snapshot`, `debug_wait_for_break`, `debug_hot_reload_apply`, `module_list` |
+| Debugger | `debug_start`, `debug_start_without_debugging`, `debug_stop`, `debug_restart`, `debug_continue`, `debug_break`, `debug_step`, `debug_run_to`, `debug_attach`, `debug_status`, `debug_exception`, `debug_get_mode`, `debug_get_callstack`, `debug_select_frame`, `debug_get_locals`, `debug_evaluate`, `debug_expand`, `debug_eval_many`, `debug_set_variable`, `debug_snapshot`, `debug_wait_for_break`, `debug_hot_reload_apply`, `module_list` |
 | Breakpoints | `breakpoint_set`, `breakpoint_list`, `breakpoint_remove`, `breakpoint_enable`, `breakpoint_group_list`, `breakpoint_group_enable`, `breakpoint_group_remove` |
 | Threads & processes | `debug_get_threads`, `thread_switch`, `thread_get_callstack`, `thread_set_frozen`, `parallel_stacks`, `parallel_watch`, `process_list_debugged`, `process_list_local`, `process_detach`, `process_terminate` |
 | Watches & immediate | `watch_add`, `watch_list`, `watch_remove`, `immediate_execute` |

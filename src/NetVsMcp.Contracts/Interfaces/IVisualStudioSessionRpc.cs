@@ -163,6 +163,8 @@ public interface IVisualStudioSessionRpc
 
     Task<DebugExceptionResult> DebugExceptionAsync(DebugExceptionRequest request, CancellationToken cancellationToken);
 
+    Task<DebugRunToResult> DebugRunToAsync(DebugRunToRequest request, CancellationToken cancellationToken);
+
     Task<TestOperationResult> TestResultsAsync(
         TestResultsRequest request,
         CancellationToken cancellationToken);
