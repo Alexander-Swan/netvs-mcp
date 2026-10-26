@@ -479,7 +479,9 @@ public sealed record DebugSnapshotResult(
     /// <summary>True if snapshot collection was cut short by an internal time budget.</summary>
     bool TimedOut = false,
     /// <summary>Loaded module and symbol state when modules was requested and the debugger is paused.</summary>
-    ModuleListResult? Modules = null);
+    ModuleListResult? Modules = null,
+    string? InspectionStatus = null,
+    string? InspectionMessage = null);
 
 public sealed record DebugEvalManyResult(
     DebuggerStateInfo State,

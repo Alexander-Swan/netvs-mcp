@@ -812,6 +812,7 @@ public sealed partial class BrokerToolServiceTests
         Assert.Equal(1234, response.Value.TestHostProcessId);
         Assert.Equal(5678, response.Value.TestRunnerProcessId);
         Assert.Equal("dotnet test project --filter test", response.Value.CommandLine);
+        Assert.Contains("WaitForDebugger", response.Metadata!["nextActions"]);
     }
 
     [Fact]

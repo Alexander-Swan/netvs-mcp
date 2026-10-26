@@ -426,6 +426,9 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var debugger = await GetDebuggerAsync();
         execution.Validate(debugger.CurrentMode.ToString(), request.ExpectedStopId, request.ExpectedGeneration);
+        var observedState = GetDebuggerState(debugger);
+        var pinnedStopId = request.ExpectedStopId ?? observedState.StopId;
+        var pinnedGeneration = request.ExpectedGeneration ?? observedState.Generation;
         request.Expansion?.Validate();
         if (request.TimeoutMilliseconds <= 0)
             throw new ArgumentOutOfRangeException(nameof(request.TimeoutMilliseconds));
@@ -443,17 +446,18 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
                 ThreadHelper.ThrowIfNotOnUIThread();
                 return debugger.CurrentThread;
             }, id => FindThread(debugger, id));
+        var availableFrames = DebuggerFrameSelector.RequireAvailable(thread.StackFrames, "stack-frame collection");
         var frame = request.StackFrame == 0 && request.ThreadId is null
-            ? debugger.CurrentStackFrame ?? throw new InvalidOperationException("No selected debugger frame is available.")
+            ? DebuggerFrameSelector.RequireAvailable(debugger.CurrentStackFrame, "selected stack frame")
             : DebuggerFrameSelector.GetFrame(request.StackFrame == 0 ? 1 : request.StackFrame,
             () =>
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
-                return thread.StackFrames.Count;
+                return availableFrames.Count;
             }, index =>
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
-                return thread.StackFrames.Item(index);
+                return availableFrames.Item(index);
             });
         var state = GetDebuggerState(debugger);
         DebugExpansionResult? expansion = null;
@@ -476,7 +480,7 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
                 value = value.Child(index);
             }
             expansion = BoundedDebugExpansion.Expand(value, expand, cancellationToken, elapsed);
-            execution.Validate(debugger.CurrentMode.ToString(), request.ExpectedStopId, request.ExpectedGeneration);
+            execution.Validate(debugger.CurrentMode.ToString(), pinnedStopId, pinnedGeneration);
         }
         LocalsResult? locals = null;
         if (request.IncludeLocals)
@@ -533,15 +537,16 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
             var frames = new List<CallStackFrameInfo>();
             var currentFrame = debugger.CurrentStackFrame;
             var isCurrentThread = debugger.CurrentThread is { } currentThread && thread.ID == currentThread.ID;
-            foreach (StackFrame stackFrame in thread.StackFrames)
+            foreach (StackFrame stackFrame in availableFrames)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (frames.Count == limit) break;
-                frames.Add(CallStackFrameInfo.FromStackFrame(stackFrame, frames.Count + 1,
+                frames.Add(CallStackFrameInfo.FromStackFrame(DebuggerFrameSelector.RequireAvailable(stackFrame, "enumerated stack frame"), frames.Count + 1,
                     DebuggerFrameSelector.IsCurrentFrame(stackFrame, currentFrame, isCurrentThread, GetFrameDepth)));
             }
-            callStack = new CallStackResult(state, frames, thread.StackFrames.Count > frames.Count);
+            callStack = new CallStackResult(state, frames, availableFrames.Count > frames.Count);
         }
+        execution.Validate(debugger.CurrentMode.ToString(), pinnedStopId, pinnedGeneration);
         return new DebugFrameInspectionResult(state, locals, results, watch, callStack, expansion);
     }
 

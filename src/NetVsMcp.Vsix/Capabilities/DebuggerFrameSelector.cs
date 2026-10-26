@@ -25,15 +25,22 @@ internal static class DebuggerFrameSelector
             throw new InvalidOperationException("The debugger must be paused before inspecting a specific thread or frame.");
         if (threadId is <= 0)
             throw new ArgumentOutOfRangeException(nameof(threadId), "threadId must be 1 or greater.");
-        return (threadId.HasValue ? findThread(threadId.Value) : getCurrentThread())
-            ?? throw new InvalidOperationException(threadId.HasValue ? "Thread was not found." : "No current debug thread is available.");
+        if (threadId.HasValue) return findThread(threadId.Value) ?? throw new InvalidOperationException("Thread was not found.");
+        return RequireAvailable(getCurrentThread(), "current debug thread");
     }
 
-    public static TFrame GetFrame<TFrame>(int frameIndex, Func<int> getFrameCount, Func<int, TFrame> getFrame)
+    public static T RequireAvailable<T>(T? value, string description) where T : class => value ??
+        throw new InspectionUnavailableException($"Visual Studio reports a pause but its {description} is unavailable. Inspect current state and wait for debugger frame readiness; do not repeat an execution command.");
+
+    public static TFrame GetFrame<TFrame>(int frameIndex, Func<int> getFrameCount, Func<int, TFrame> getFrame) where TFrame : class
     {
-        if (frameIndex < 1 || frameIndex > getFrameCount())
+        if (frameIndex < 1)
             throw new ArgumentOutOfRangeException(nameof(frameIndex), "stackFrame must identify an available frame in the requested thread.");
-        return getFrame(frameIndex);
+        var count = getFrameCount();
+        if (count == 0) throw new InspectionUnavailableException("The paused debugger has not exposed stack frames. Wait for frame readiness without repeating execution.");
+        if (frameIndex > count)
+            throw new ArgumentOutOfRangeException(nameof(frameIndex), "stackFrame must identify an available frame in the requested thread.");
+        return RequireAvailable(getFrame(frameIndex), "requested stack frame");
     }
 
     public static T Select<T>(bool isPaused, int frameIndex, Func<int> getFrameCount,

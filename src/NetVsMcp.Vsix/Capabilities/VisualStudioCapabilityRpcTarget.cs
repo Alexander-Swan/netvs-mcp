@@ -648,6 +648,8 @@ internal sealed class VisualStudioCapabilityRpcTarget
         { throw new LocalRpcException(ex.Message) { ErrorCode = NetVsMcp.Contracts.VsRpcErrorCodes.StaleAction }; }
         catch (HistoryUnavailableException ex)
         { throw new LocalRpcException(ex.Message) { ErrorCode = NetVsMcp.Contracts.VsRpcErrorCodes.HistoryUnavailable }; }
+        catch (InspectionUnavailableException ex)
+        { throw new LocalRpcException(ex.Message) { ErrorCode = NetVsMcp.Contracts.VsRpcErrorCodes.InspectionUnavailable }; }
         catch (ArgumentException ex)
         { throw new LocalRpcException(ex.Message) { ErrorCode = NetVsMcp.Contracts.VsRpcErrorCodes.InvalidRequest }; }
         catch (NotSupportedException ex)

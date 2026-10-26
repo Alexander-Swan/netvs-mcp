@@ -98,6 +98,17 @@ public class DebuggerFrameSelectorTests
         Assert.Equal("selected caller", selected[1]);
     }
 
+    [Fact]
+    public void MissingEngineFrameObjectsReportReadinessWithoutSelectingAnotherFrame()
+    {
+        Assert.Throws<InspectionUnavailableException>(() => DebuggerFrameSelector.ResolveThread<string>(true, null,
+            () => null, _ => throw new Exception("Must not substitute a thread")));
+        Assert.Throws<InspectionUnavailableException>(() => DebuggerFrameSelector.RequireAvailable<object>(null, "frame collection"));
+        Assert.Throws<InspectionUnavailableException>(() => DebuggerFrameSelector.GetFrame<string>(1, () => 0,
+            _ => throw new Exception("Must not read an unavailable frame")));
+        Assert.Throws<InspectionUnavailableException>(() => DebuggerFrameSelector.GetFrame<string>(1, () => 1, _ => null!));
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(2)]

@@ -782,9 +782,9 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_wait_for_break", Title = "Debug Wait For Break", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Waits for a routed Visual Studio session's debugger to leave dbgRunMode - typically because a breakpoint or tracepoint fired - then returns the requested snapshot categories in the same shape as debug_snapshot. maxFrames defaults to 2 and applies when callStack is included or include is omitted; an empty include array does not fetch the call stack. callStack.hasMore is true when additional frames were omitted. Also returns promptly with state.mode=dbgModalBlock and dialogs when VS is waiting for a modal response, even if Continue returned earlier; snapshot inspection is skipped. Respond with dialog_respond, then check debug_status. Does not itself advance the debugger; call debug_continue, debug_snapshot (with an action), or breakpoint_group_enable(..., continueExecution: true) first if the debuggee is not already running. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1. Include modules to read loaded binaries and symbol status once paused; moduleOptions controls process/name filters and optional symbol-search diagnostics. Modules use session/process scope independently of threadId and stackFrame.")]
+    [Description("Waits for a routed Visual Studio session's debugger to leave dbgRunMode - typically because a breakpoint or tracepoint fired - then returns the requested snapshot categories in the same shape as debug_snapshot. maxFrames defaults to 2 and applies when callStack is included or include is omitted; an empty include array does not fetch the call stack. callStack.hasMore is true when additional frames were omitted. Also returns promptly with state.mode=dbgModalBlock and dialogs when VS is waiting for a modal response, even if Continue returned earlier; snapshot inspection is skipped. Respond with dialog_respond, then check debug_status. When paused frames are not ready, retries read-only inspection within the original deadline; a readiness timeout preserves paused state with inspectionStatus/inspectionMessage and null inspection sections. An explicit caller pause guard is never refreshed. Does not itself advance the debugger; call debug_continue, debug_snapshot (with an action), or breakpoint_group_enable(..., continueExecution: true) first if the debuggee is not already running. Locals are omitted unless you pass include: [\"locals\"]. For specific variables or expressions, use include: [\"watch\"] with watchExpressions. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1. Include modules to read loaded binaries and symbol status once paused; moduleOptions controls process/name filters and optional symbol-search diagnostics. Modules use session/process scope independently of threadId and stackFrame.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugWaitForBreak(
-        [Description("Maximum time in seconds to wait for the debugger to leave dbgRunMode before giving up and returning the still-running state.")]
+        [Description("Maximum time in seconds to wait for a stop and requested frame readiness. A timeout preserves current debugger state and reports unavailable inspection explicitly.")]
         int timeoutSeconds = 30,
         string[]? include = null,
         string? sessionId = null,
@@ -841,14 +841,33 @@ internal sealed partial class BrokerToolService
                 var state = await _runtime.DialogOperations.ReadDebugStateAsync(session, connection, ct);
 
                 var stopwatch = Stopwatch.StartNew();
-                while ((state.Mode == "dbgRunMode" || state.Outcome == "pending") && stopwatch.ElapsedMilliseconds < timeoutMilliseconds)
+                while (true)
                 {
-                    state = await _runtime.DialogOperations.WaitForDebugStateAsync(session, connection, state, eventCursor, ct);
-                }
+                    while ((state.Mode == "dbgRunMode" || state.Outcome == "pending") && stopwatch.ElapsedMilliseconds < timeoutMilliseconds)
+                        state = await _runtime.DialogOperations.WaitForDebugStateAsync(session, connection, state, eventCursor, ct);
 
-                var timedOut = (state.Mode == "dbgRunMode" || state.Outcome == "pending") && stopwatch.ElapsedMilliseconds >= timeoutMilliseconds;
-                if (timedOut) state = state with { Outcome = "timedOut" };
-                return await CollectDebugSnapshotAsync(connection, state, includeKeys, callStackRequest, watchRequest, unrecognizedInclude, ct, timedOut, stackFrame, threadId, moduleOptions, expectedStopId, expectedGeneration);
+                    var timedOut = (state.Mode == "dbgRunMode" || state.Outcome == "pending") && stopwatch.ElapsedMilliseconds >= timeoutMilliseconds;
+                    if (timedOut) state = state with { Outcome = "timedOut" };
+                    try
+                    {
+                        return await CollectDebugSnapshotAsync(connection, state, includeKeys, callStackRequest, watchRequest, unrecognizedInclude, ct, timedOut, stackFrame, threadId, moduleOptions, expectedStopId, expectedGeneration);
+                    }
+                    catch (StreamJsonRpc.RemoteRpcException ex) when ((int?)ex.ErrorCode == VsRpcErrorCodes.InspectionUnavailable ||
+                        ((int?)ex.ErrorCode == VsRpcErrorCodes.StaleDebuggerContext && expectedStopId is null && expectedGeneration is null))
+                    {
+                        var remaining = timeoutMilliseconds - stopwatch.ElapsedMilliseconds;
+                        if (remaining <= 0)
+                        {
+                            state = await _runtime.DialogOperations.ReadDebugStateAsync(session, connection, ct);
+                            return new DebugSnapshotResult(state, null, null, null, UnrecognizedInclude: unrecognizedInclude,
+                                TimedOut: true, InspectionStatus: (int?)ex.ErrorCode == VsRpcErrorCodes.InspectionUnavailable ? "unavailable" : "contextChanged", InspectionMessage: ex.Message);
+                        }
+                        // A mode event can precede frame availability. Retry reads only, within the
+                        // original deadline; never replay Continue/Step or substitute another thread.
+                        await Task.Delay((int)Math.Min(50, remaining), ct);
+                        state = await _runtime.DialogOperations.ReadDebugStateAsync(session, connection, ct);
+                    }
+                }
             },
             cancellationToken,
             unsupportedByVsixMessage: expectedStopId is not null || expectedGeneration.HasValue ? StopGuardUnsupportedMessage : threadId.HasValue ? ThreadInspectionUnsupportedMessage : stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
@@ -1423,7 +1442,7 @@ internal sealed partial class BrokerToolService
         DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.ParallelWatchAsync(ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "test_debug", Title = "Test Debug", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Starts CLI test debugging for an explicit projectName, framework, and nonempty filter. A filter may match multiple cases; case fingerprints are not execution selectors. Requires an idle VS debugger. Attaches only to a unique verified descendant testhost of this runner; unrelated dotnet processes are never candidates. Windows process ownership evidence must be available. Failed/canceled setup cleans up verified owned hosts and its runner. Successful attachment returns process IDs; do not blindly retry a timed-out mutation.")]
+    [Description("Starts CLI test debugging for an explicit projectName, framework, and nonempty filter. A filter may match multiple cases; case fingerprints are not execution selectors. Requires an idle VS debugger. Attaches only to a unique verified descendant testhost of this runner; unrelated dotnet processes are never candidates. Windows process ownership evidence must be available. Failed/canceled setup cleans up verified owned hosts and its runner. VSTest can first pause in its DebuggerBreakpoint.WaitForDebugger/Break entry shim; inspect the stack, continue once only from that recognized shim, then wait for the intended test-method breakpoint. Successful attachment returns process IDs; do not blindly retry a timed-out mutation.")]
     public Task<ToolResponse<TestDebugResult>> TestDebug(
         string? projectName = null,
         string? filter = null,
@@ -1459,12 +1478,21 @@ internal sealed partial class BrokerToolService
             Framework = NormalizeOptional(framework)
         };
 
-        return DispatchValueAsync(
+        return AddTestDebugHandoffAsync(DispatchValueAsync(
             sessionId,
             solutionName,
             solutionPath,
             (connection, ct) => connection.TestDebugOwnedAsync(request, ct),
-            cancellationToken);
+            cancellationToken));
+    }
+
+    private static async Task<ToolResponse<TestDebugResult>> AddTestDebugHandoffAsync(Task<ToolResponse<TestDebugResult>> operation)
+    {
+        var response = await operation;
+        if (!response.Success || response.Value?.Supported != true) return response;
+        var metadata = response.Metadata is null ? new Dictionary<string, string>() : new Dictionary<string, string>(response.Metadata);
+        metadata["nextActions"] = "Read debug_wait_for_break with callStack. VSTest can first pause in Microsoft.VisualStudio.TestPlatform.Execution.DebuggerBreakpoint.WaitForDebugger/Break; continue once only when that entry shim is confirmed, then wait for the intended test-method breakpoint. Inspect unexpected exceptions or other stops instead of continuing blindly.";
+        return response with { Metadata = metadata };
     }
 }
 

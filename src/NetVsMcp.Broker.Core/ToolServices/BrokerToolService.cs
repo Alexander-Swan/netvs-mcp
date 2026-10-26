@@ -618,6 +618,7 @@ internal sealed partial class BrokerToolService
             VsSessionDispatchFailureReason.StaleAction => ToolErrorCodes.StaleAction,
             VsSessionDispatchFailureReason.FeatureUnavailable => ToolErrorCodes.FeatureUnavailable,
             VsSessionDispatchFailureReason.HistoryUnavailable => ToolErrorCodes.HistoryUnavailable,
+            VsSessionDispatchFailureReason.InspectionUnavailable => ToolErrorCodes.InspectionUnavailable,
             _ => ToolErrorCodes.SessionRoutingFailed
         };
     }
@@ -676,13 +677,15 @@ internal sealed partial class BrokerToolService
         return reason switch
         {
             VsSessionDispatchFailureReason.StaleDebuggerContext =>
-                "Read debug_status or session_snapshot for the current generation and stopId, then repeat only the inspection against that context. Do not replay an execution command.",
+                "Read debug_status or debug_snapshot for the current generation and stopId, then repeat only the inspection against that context. Do not replay an execution command.",
             VsSessionDispatchFailureReason.StaleAction =>
                 "List code actions again for the current source, review a fresh preview, and use its new actionId. Do not replay an expired or previously applied action.",
             VsSessionDispatchFailureReason.FeatureUnavailable =>
-                "Inspect session_capabilities and the returned reason; choose a supported engine/backend alternative rather than retrying the same unsupported query.",
+                "Inspect the returned unsupported reason; choose a supported engine/backend alternative rather than retrying the same unsupported query.",
             VsSessionDispatchFailureReason.HistoryUnavailable =>
                 "The requested result is unknown, expired, evicted, or lost after restart. Reconcile current IDE/test state; do not replay a mutation merely to recover its output.",
+            VsSessionDispatchFailureReason.InspectionUnavailable =>
+                "Read debug_status or use debug_wait_for_break for bounded read-only frame readiness. Use include: [] for state-only inspection. The engine may not expose frames for this pause; do not replay Continue, Step, launch, or attach.",
             VsSessionDispatchFailureReason.InvalidRequest =>
                 "Correct the invalid arguments described in the message and retry using the tool schema.",
             VsSessionDispatchFailureReason.MutationConflict =>

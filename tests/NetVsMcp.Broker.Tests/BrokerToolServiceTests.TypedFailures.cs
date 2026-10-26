@@ -32,6 +32,7 @@ public sealed partial class BrokerToolServiceTests
     [InlineData(VsRpcErrorCodes.FeatureUnavailable, ToolErrorCodes.FeatureUnavailable)]
     [InlineData(VsRpcErrorCodes.InvalidRequest, ToolErrorCodes.InvalidRequest)]
     [InlineData(VsRpcErrorCodes.HistoryUnavailable, ToolErrorCodes.HistoryUnavailable)]
+    [InlineData(VsRpcErrorCodes.InspectionUnavailable, ToolErrorCodes.InspectionUnavailable)]
     public async Task TypedRpcFailuresPreserveTheirRecoveryContract(int rpcCode, string errorCode)
     {
         var runtime = CreateRuntime();

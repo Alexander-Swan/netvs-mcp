@@ -27,6 +27,10 @@ debug_wait_for_break({ "timeoutSeconds": 30, "include": ["callStack"], "sessionI
 
 If it times out, the call succeeds with `timedOut: true`; call again when a longer wait is reasonable.
 
+Break mode can precede usable thread/frame objects during attachment or an engine transition. Updated extensions report `inspection_unavailable` for missing frame objects instead of a null-reference failure. `debug_wait_for_break` retries only read-only inspection within its original deadline. At the deadline, it preserves current state and returns `timedOut: true`, null inspection sections, and an explicit `inspectionStatus`/`inspectionMessage`. This does not prove the target is running or that frames will become available for this engine. Use `include: []` for state-only observation. Never repeat Continue, Step, launch, or attach merely to obtain a frame.
+
+Without a caller-supplied pause guard, a wait can reconcile a newer pause if the observed context changes during collection. An explicit `expectedStopId` or `expectedGeneration` is preserved: a changed pause fails with `stale_debugger_context`, rather than silently refreshing the caller's guard.
+
 ## Verify Modules When A Breakpoint Is Reached
 
 After `debug_start` or `debug_attach`, include `modules` in the wait request when verifying the loaded application and its symbols:

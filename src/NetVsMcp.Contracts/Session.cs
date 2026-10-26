@@ -119,6 +119,7 @@ public static class ToolErrorCodes
     public const string StaleDocument = "stale_document";
     public const string FeatureUnavailable = "feature_unavailable";
     public const string HistoryUnavailable = "history_unavailable";
+    public const string InspectionUnavailable = "inspection_unavailable";
 }
 
 /// <summary>
