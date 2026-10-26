@@ -333,6 +333,13 @@ public sealed partial class BrokerToolServiceTests
         public Func<Task<VsSessionEventSnapshot>>? SessionSnapshotHandler { get; set; }
         public Task<VsSessionEventSnapshot> SessionSnapshotAsync(CancellationToken cancellationToken) =>
             SessionSnapshotHandler?.Invoke() ?? throw new NotSupportedException();
+        public DocumentDiagnosticsRequest? LastDocumentDiagnosticsRequest { get; private set; }
+        public Func<DocumentDiagnosticsRequest, DocumentDiagnosticsResult>? DocumentDiagnosticsHandler { get; set; }
+        public Task<DocumentDiagnosticsResult> DocumentDiagnosticsAsync(DocumentDiagnosticsRequest request, CancellationToken cancellationToken)
+        {
+            LastDocumentDiagnosticsRequest = request;
+            return Task.FromResult(DocumentDiagnosticsHandler?.Invoke(request) ?? throw new NotSupportedException());
+        }
         public Task<SessionCapabilityReport> SessionCapabilitiesAsync(CancellationToken cancellationToken) =>
             Task.FromResult(CapabilityReport ?? throw MissingFrameInspectionMethod());
 

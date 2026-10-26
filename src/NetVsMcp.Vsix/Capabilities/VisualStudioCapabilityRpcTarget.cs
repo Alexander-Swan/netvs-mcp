@@ -73,6 +73,7 @@ internal sealed class VisualStudioCapabilityRpcTarget
             new("guardedInspection", "supported", "Atomic stop/generation validation is available through the stopped-frame RPC."),
             new("boundedExpansion", "supported", "debug_expand supports pause identity, member paging, cooperative budgets, and explicit function-evaluation opt-in."),
             new("guardedCodeActions", "supported", "Opaque action IDs and exact source-text previews reject stale workspace snapshots; custom and structural operations are unsupported."),
+            new("versionedCompilerDiagnostics", "supported", "document_diagnostics pages compiler diagnostics for exact unsaved Roslyn text; build and analyzer diagnostics are separate."),
             new("targetedEvaluation", dte?.Debugger is EnvDTE100.Debugger5 ? "supported" : "unsupported",
                 "Frame-specific evaluation requires Debugger5; inspect the selected frame when unavailable."),
             new("semanticNavigation", workspace is null ? "unavailable" : "supported",
@@ -95,6 +96,9 @@ internal sealed class VisualStudioCapabilityRpcTarget
             throw new NotSupportedException("The selected debugger service does not expose event snapshots.");
         return source.CaptureEventSnapshot();
     }
+
+    public Task<NetVsMcp.Contracts.DocumentDiagnosticsResult> DocumentDiagnosticsAsync(NetVsMcp.Contracts.DocumentDiagnosticsRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => DocumentDiagnosticReader.ReadAsync(request, cancellationToken), nameof(DocumentDiagnosticsAsync));
 
     public async Task<NetVsMcp.Contracts.ToolResponse<string?>> GetActiveDocumentAsync(CancellationToken cancellationToken)
     {

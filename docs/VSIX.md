@@ -33,7 +33,7 @@ Contracts target both `net10.0` and `netstandard2.0`. The extension also uses lo
 
 ## Capability behavior
 
-- **Documents and navigation:** operations use live IDE buffers and workspace state. Relative paths resolve against the routed solution.
+- **Documents and navigation:** operations use live IDE buffers and workspace state. Relative paths resolve against the routed solution. Compiler diagnostics bind to document versions; concurrent edits can invalidate a request.
 - **Builds:** solution and project builds expose status and diagnostics. A nonwaiting response does not establish completion.
 - **Debugger:** execution generations and pause IDs reject stale requests. Thread/frame inspection preserves selection where supported. Snapshot sections are optional and bounded.
 - **Watches:** the extension retains its own expression list and evaluates it in debugger context. These tools do not edit Visual Studio's Watch window.

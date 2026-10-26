@@ -36,6 +36,7 @@ internal static class DocumentReadRange
         return document with
         {
             Text = selectedText,
+            TextVersion = TextContentVersion.Create(text),
             StartLine = startLine,
             LineCount = returnedLines,
             TotalLines = totalLines,

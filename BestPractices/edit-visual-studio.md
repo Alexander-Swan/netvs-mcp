@@ -25,6 +25,7 @@ Agent-neutral entrypoint for opening, reading, editing, formatting, selecting, s
 | Format, cleanup, or organize imports | `edit-visual-studio/references/formatting.md` |
 | Preview, approve, reject, or build-verify pending edits | `edit-visual-studio/references/safe-edit.md` |
 | Search text through the editor or Visual Studio Find in Files | `edit-visual-studio/references/search.md` |
+| Read compiler diagnostics tied to the live document version | Guide `navigate-visual-studio`, file `references/search-diagnostics.md` |
 
 ## Covered Tools
 

@@ -441,7 +441,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "document_read", Title = "Document Read", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Reads a document through a routed Visual Studio session, including unsaved buffers. Pass path, not documentPath. Optional startLine (1-based) and lineCount select a range; omit them to read the full document. Returns startLine, returned lineCount, totalLines, and truncated. Line endings are preserved; an empty document has one line, and a trailing newline starts an empty final line. A startLine beyond EOF returns empty text and lineCount=0.")]
+    [Description("Reads a document through a routed Visual Studio session, including unsaved buffers. Pass path, not documentPath. Optional startLine (1-based) and lineCount select a range; omit them to read the full document. Returns startLine, returned lineCount, totalLines, truncated, and a textVersion identifying the ENTIRE original document, including line endings. Pass that version to document_diagnostics for consistent pages. An empty document has one line; a trailing newline starts an empty final line. A startLine beyond EOF returns empty text and lineCount=0.")]
     public Task<ToolResponse<DocumentReadResult>> DocumentRead(
         [Description(PathParameterDescription)]
         string? path = null,

@@ -10,7 +10,7 @@ Agent-neutral entrypoint for definitions, references, symbols, diagnostics, code
 ## First Rules
 
 - Use explicit solution routing (`solutionPath`, then `solutionName`) when more than one Visual Studio window may match; use `sessionId` only to target a specific running instance.
-- Navigation, diagnostics, and breakpoint tools use `documentPath`; document/editor tools use `path`.
+- Navigation, `diagnostics_*`, and breakpoint tools use `documentPath`; document/editor tools, including `document_diagnostics`, use `path`.
 - `line` and `column` are 1-based.
 - Prefer agent-native filesystem search for ordinary repo text search; use Visual Studio search when its loaded-solution behavior matters.
 - Prefer preview tools before broad renames or code-action applies.

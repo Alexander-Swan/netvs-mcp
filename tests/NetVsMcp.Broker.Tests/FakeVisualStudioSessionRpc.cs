@@ -27,6 +27,7 @@ internal sealed class FakeVisualStudioSessionRpc : IVisualStudioSessionRpc
 
     public Task<DebugFrameInspectionResult> DebugExpandAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken) => DebugInspectStoppedFrameAsync(request, cancellationToken);
         public Task<VsSessionEventSnapshot> SessionSnapshotAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<DocumentDiagnosticsResult> DocumentDiagnosticsAsync(DocumentDiagnosticsRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<SessionCapabilityReport> SessionCapabilitiesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
     public Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken)

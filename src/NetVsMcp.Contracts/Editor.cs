@@ -90,7 +90,8 @@ public sealed record DocumentReadResult(
     int? StartLine = null,
     int? LineCount = null,
     int? TotalLines = null,
-    bool? Truncated = null);
+    bool? Truncated = null,
+    string? TextVersion = null);
 
 public sealed class DocumentOpenRequest
 {
