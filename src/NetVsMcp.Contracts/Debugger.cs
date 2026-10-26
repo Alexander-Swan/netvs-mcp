@@ -163,12 +163,14 @@ public sealed record WatchOperationResult(
     bool Supported,
     bool Success,
     string? Message,
-    DebugExpressionInfo? Watch);
+    DebugExpressionInfo? Watch,
+    DebugInspectionContext? Context = null);
 
 public sealed record WatchListResult(
     bool Supported,
     string? Message,
-    IReadOnlyCollection<DebugExpressionInfo> Watches);
+    IReadOnlyCollection<DebugExpressionInfo> Watches,
+    DebugInspectionContext? Context = null);
 
 public sealed record DebugThreadInfo(
     int Id,
@@ -384,7 +386,8 @@ public sealed record CallStackResult(
     DebuggerStateInfo State,
     IReadOnlyCollection<CallStackFrameInfo> Frames,
     /// <summary>True when additional frames were omitted from the response.</summary>
-    bool HasMore = false);
+    bool HasMore = false,
+    DebugInspectionContext? Context = null);
 
 /// <summary>Controls the number of call-stack frames returned by a debugger query.</summary>
 public sealed class CallStackRequest
@@ -437,11 +440,13 @@ public sealed record DebugFrameInspectionResult(
     IReadOnlyCollection<EvaluateExpressionResult> Results,
     WatchListResult? Watch,
     CallStackResult? CallStack = null,
-    DebugExpansionResult? Expansion = null);
+    DebugExpansionResult? Expansion = null,
+    DebugInspectionContext? Context = null);
 
 public sealed record LocalsResult(
     DebuggerStateInfo State,
-    IReadOnlyCollection<DebugExpressionInfo> Locals);
+    IReadOnlyCollection<DebugExpressionInfo> Locals,
+    DebugInspectionContext? Context = null);
 
 public sealed class EvaluateExpressionRequest
 {
@@ -452,7 +457,8 @@ public sealed class EvaluateExpressionRequest
 
 public sealed record EvaluateExpressionResult(
     DebuggerStateInfo State,
-    DebugExpressionInfo Expression);
+    DebugExpressionInfo Expression,
+    DebugInspectionContext? Context = null);
 
 public sealed record DebugExpressionInfo(
     string? Name,
@@ -481,8 +487,10 @@ public sealed record DebugSnapshotResult(
     /// <summary>Loaded module and symbol state when modules was requested and the debugger is paused.</summary>
     ModuleListResult? Modules = null,
     string? InspectionStatus = null,
-    string? InspectionMessage = null);
+    string? InspectionMessage = null,
+    DebugInspectionContext? Context = null);
 
 public sealed record DebugEvalManyResult(
     DebuggerStateInfo State,
-    IReadOnlyCollection<EvaluateExpressionResult> Results);
+    IReadOnlyCollection<EvaluateExpressionResult> Results,
+    DebugInspectionContext? Context = null);

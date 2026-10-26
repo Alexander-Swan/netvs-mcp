@@ -26,4 +26,4 @@ public sealed record DebugValueNode(string? Name, string? Type, string? Value, b
     int? NextOffset, string? TruncationReason);
 
 public sealed record DebugExpansionResult(DebugValueNode Root, int VisitedNodes, long ElapsedMilliseconds,
-    bool AllowFunctionEvaluation, string BudgetSemantics = "Cooperative: a synchronous debugger-engine call may exceed the budget.");
+    bool AllowFunctionEvaluation, string BudgetSemantics = "Cooperative: a synchronous debugger-engine call may exceed the budget.", DebugInspectionContext? Context = null);

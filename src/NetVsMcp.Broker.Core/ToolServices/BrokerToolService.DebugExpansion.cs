@@ -13,7 +13,7 @@ internal sealed partial class BrokerToolService
         int[]? memberPath = null, int childOffset = 0, int maxChildren = 20, int maxDepth = 1, int maxNodes = 100,
         int maxValueCharacters = 1024, int budgetMilliseconds = 1000, bool allowFunctionEvaluation = false,
         int stackFrame = 0, int? threadId = null, string? sessionId = null, string? solutionName = null,
-        string? solutionPath = null, CancellationToken cancellationToken = default)
+        string? solutionPath = null, CancellationToken cancellationToken = default, bool includeContext = false)
     {
         var expand = new DebugExpansionRequest
         {
@@ -35,6 +35,6 @@ internal sealed partial class BrokerToolService
         };
         return DispatchValueAsync(sessionId, solutionName, solutionPath,
             (connection, ct) => connection.DebugExpandAsync(request, ct), cancellationToken,
-            unsupportedByVsixMessage: "Bounded expansion and function-evaluation policy require an updated VSIX; no unguarded fallback is used.");
+            unsupportedByVsixMessage: "Bounded expansion and function-evaluation policy require an updated VSIX; no unguarded fallback is used.", includeContext: includeContext);
     }
 }

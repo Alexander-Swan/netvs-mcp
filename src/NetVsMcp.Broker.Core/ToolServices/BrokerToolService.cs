@@ -285,7 +285,8 @@ internal sealed partial class BrokerToolService
         string? rootPath = null,
         object? requestPayload = null,
         [CallerMemberName] string toolName = "",
-        string? unsupportedByVsixMessage = null)
+        string? unsupportedByVsixMessage = null,
+        bool includeContext = false)
     {
         var stopwatch = Stopwatch.StartNew();
         var target = CreateTarget(
@@ -300,6 +301,7 @@ internal sealed partial class BrokerToolService
             cancellationToken);
 
         var response = ToValueToolResponse(dispatch);
+        response = ShapeInspectionOutput(response, includeContext);
         if (unsupportedByVsixMessage is not null && dispatch.FailureReason == VsSessionDispatchFailureReason.UnsupportedByVsix)
         {
             var metadata = response.Metadata?.ToDictionary(pair => pair.Key, pair => pair.Value) ?? new Dictionary<string, string>();

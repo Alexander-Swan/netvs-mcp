@@ -335,43 +335,10 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
 
     public async Task<CallStackResult> GetCallStackAsync(CallStackRequest request, CancellationToken cancellationToken)
     {
-        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-        var debugger = await GetDebuggerAsync();
-        var maxFrames = request.MaxFrames ?? DefaultCallStackFrameLimit;
-        if (maxFrames <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(request.MaxFrames), "maxFrames must be greater than zero when specified.");
-        }
-
-        var frames = new List<CallStackFrameInfo>(maxFrames);
-        var hasMore = false;
-
-        try
-        {
-            if (debugger.CurrentThread?.StackFrames is StackFrames stackFrames)
-            {
-                var currentFrame = debugger.CurrentStackFrame;
-                foreach (StackFrame frame in stackFrames)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    if (frames.Count == maxFrames)
-                    {
-                        hasMore = true;
-                        break;
-                    }
-
-                    frames.Add(CallStackFrameInfo.FromStackFrame(frame, frames.Count + 1,
-                        DebuggerFrameSelector.IsCurrentFrame(frame, currentFrame, true, GetFrameDepth)));
-                }
-            }
-        }
-        catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
-        {
-            throw WrapComFailure("reading the call stack", ex);
-        }
-
-        return new CallStackResult(GetDebuggerState(debugger), frames, hasMore);
+        var maximum = request.MaxFrames ?? DefaultCallStackFrameLimit;
+        if (maximum <= 0) throw new ArgumentOutOfRangeException(nameof(request.MaxFrames));
+        return (await InspectFrameAsync(new NetVsMcp.Contracts.DebugFrameInspectionRequest
+        { CallStack = new NetVsMcp.Contracts.CallStackRequest { MaxFrames = maximum } }, cancellationToken)).CallStack!;
     }
 
     private static uint? GetFrameDepth(StackFrame frame)
@@ -381,7 +348,7 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
         {
             return (frame as EnvDTE90a.StackFrame2)?.Depth;
         }
-        catch (System.Runtime.InteropServices.COMException)
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or NotSupportedException or NotImplementedException)
         {
             // Optional metadata must not prevent reading a debugger's call stack.
             return null;
@@ -460,6 +427,8 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
                 return availableFrames.Item(index);
             });
         var state = GetDebuggerState(debugger);
+        var context = CaptureInspectionContext(state, thread, frame, availableFrames,
+            request.StackFrame > 0 ? request.StackFrame : request.ThreadId.HasValue ? 1 : 0);
         DebugExpansionResult? expansion = null;
         if (request.Expansion is { } expand)
         {
@@ -479,7 +448,7 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
                 if (index > value.ChildCount) throw new ArgumentException("memberPath no longer resolves in this pause.");
                 value = value.Child(index);
             }
-            expansion = BoundedDebugExpansion.Expand(value, expand, cancellationToken, elapsed);
+            expansion = BoundedDebugExpansion.Expand(value, expand, cancellationToken, elapsed) with { Context = context };
             execution.Validate(debugger.CurrentMode.ToString(), pinnedStopId, pinnedGeneration);
         }
         LocalsResult? locals = null;
@@ -492,7 +461,7 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
                     cancellationToken.ThrowIfCancellationRequested();
                     values.Add(DebugExpressionInfo.FromExpression(expression));
                 }
-            locals = new LocalsResult(state, values);
+            locals = new LocalsResult(state, values, context);
         }
         EvaluateExpressionResult Evaluate(string text)
         {
@@ -504,29 +473,30 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
                 throw new NotSupportedException("Frame-specific evaluation requires EnvDTE100.Debugger5.");
             var value = debugger5.GetExpression3(text, frame, UseAutoExpandRules: true,
                 TreatAsStatement: false, AllowAutoFuncEval: true, Timeout: request.TimeoutMilliseconds);
-            return new EvaluateExpressionResult(GetDebuggerState(debugger), DebugExpressionInfo.FromExpression(value, text));
+            return new EvaluateExpressionResult(GetDebuggerState(debugger), DebugExpressionInfo.FromExpression(value, text), context);
         }
         var results = request.Expressions.Select(Evaluate).ToList();
+        string? watchToAdd = null;
         if (request.AddWatchExpression is not null)
         {
             var text = request.AddWatchExpression.Trim();
             if (string.IsNullOrWhiteSpace(text))
                 throw new ArgumentException("Watch expression is required.");
-            if (!watchExpressions.Contains(text, StringComparer.OrdinalIgnoreCase))
-                watchExpressions.Add(text);
             results.Add(Evaluate(text));
+            if (!watchExpressions.Contains(text, StringComparer.OrdinalIgnoreCase)) watchToAdd = text;
         }
         WatchListResult? watch = null;
         if (request.Watch is not null)
         {
             var watched = new List<DebugExpressionInfo>();
-            foreach (var text in NormalizeWatchExpressions(request.Watch.Expressions) ?? watchExpressions.ToArray())
+            var configured = watchToAdd is null ? watchExpressions.ToArray() : watchExpressions.Concat(new[] { watchToAdd }).ToArray();
+            foreach (var text in NormalizeWatchExpressions(request.Watch.Expressions) ?? configured)
             {
                 try { watched.Add(Evaluate(text).Expression); }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex) { watched.Add(new DebugExpressionInfo(text, ex.Message, null, false)); }
             }
-            watch = new WatchListResult(true, null, watched);
+            watch = new WatchListResult(true, null, watched, context);
         }
         CallStackResult? callStack = null;
         if (request.CallStack is not null)
@@ -544,10 +514,14 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
                 frames.Add(CallStackFrameInfo.FromStackFrame(DebuggerFrameSelector.RequireAvailable(stackFrame, "enumerated stack frame"), frames.Count + 1,
                     DebuggerFrameSelector.IsCurrentFrame(stackFrame, currentFrame, isCurrentThread, GetFrameDepth)));
             }
-            callStack = new CallStackResult(state, frames, availableFrames.Count > frames.Count);
+            if (frames.Count == 0)
+                throw new InspectionUnavailableException("Visual Studio reports a pause but stack enumeration is not ready. Wait for frame readiness without repeating execution.");
+            callStack = new CallStackResult(state, frames, availableFrames.Count > frames.Count, context);
         }
         execution.Validate(debugger.CurrentMode.ToString(), pinnedStopId, pinnedGeneration);
-        return new DebugFrameInspectionResult(state, locals, results, watch, callStack, expansion);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (watchToAdd is not null) watchExpressions.Add(watchToAdd);
+        return new DebugFrameInspectionResult(state, locals, results, watch, callStack, expansion, context);
     }
 
     private sealed class DteDebugValue(Expression expression) : IDebugValue
@@ -560,31 +534,8 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
         public IDebugValue Child(int index) { ThreadHelper.ThrowIfNotOnUIThread(); return new DteDebugValue(expression.DataMembers.Item(index)); }
     }
 
-    public async Task<LocalsResult> GetLocalsAsync(CancellationToken cancellationToken)
-    {
-        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-        var debugger = await GetDebuggerAsync();
-        execution.Validate(debugger.CurrentMode.ToString(), null, null);
-        var locals = new List<DebugExpressionInfo>();
-
-        try
-        {
-            if (debugger.CurrentStackFrame?.Locals is Expressions expressions)
-            {
-                foreach (Expression expression in expressions)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    locals.Add(DebugExpressionInfo.FromExpression(expression));
-                }
-            }
-        }
-        catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
-        {
-            throw WrapComFailure("reading local variables", ex);
-        }
-
-        return new LocalsResult(GetDebuggerState(debugger), locals);
-    }
+    public async Task<LocalsResult> GetLocalsAsync(CancellationToken cancellationToken) =>
+        (await InspectFrameAsync(new NetVsMcp.Contracts.DebugFrameInspectionRequest { IncludeLocals = true }, cancellationToken)).Locals!;
 
     public async Task<EvaluateExpressionResult> EvaluateAsync(EvaluateExpressionRequest request, CancellationToken cancellationToken)
     {
@@ -610,9 +561,8 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
         }
 
         var timeout = request.TimeoutMilliseconds <= 0 ? 5000 : request.TimeoutMilliseconds;
-        execution.Validate(debugger.CurrentMode.ToString(), null, null);
-        var expression = debugger.GetExpression(request.Expression, UseAutoExpandRules: true, Timeout: timeout);
-        return new EvaluateExpressionResult(GetDebuggerState(debugger), DebugExpressionInfo.FromExpression(expression));
+        return (await InspectFrameAsync(new NetVsMcp.Contracts.DebugFrameInspectionRequest
+        { Expressions = new[] { request.Expression }, TimeoutMilliseconds = timeout }, cancellationToken)).Results.Single();
     }
 
     public async Task<DebugSetVariableResult> SetVariableAsync(DebugSetVariableRequest request, CancellationToken cancellationToken)
@@ -649,15 +599,20 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
         }
 
         var expressionText = request.Expression.Trim();
+        var debugger = await GetDebuggerAsync();
+        if (debugger.CurrentMode == dbgDebugMode.dbgBreakMode)
+        {
+            var inspection = await InspectFrameAsync(new NetVsMcp.Contracts.DebugFrameInspectionRequest
+            { AddWatchExpression = expressionText }, cancellationToken);
+            return new WatchOperationResult(true, true, null, inspection.Results.Single().Expression, inspection.Context);
+        }
         if (!watchExpressions.Contains(expressionText, StringComparer.OrdinalIgnoreCase))
         {
             watchExpressions.Add(expressionText);
         }
 
-        var evaluation = await EvaluateAsync(
-            new EvaluateExpressionRequest { Expression = expressionText },
-            cancellationToken);
-        return new WatchOperationResult(true, true, null, evaluation.Expression);
+        return new WatchOperationResult(true, true, "Watch saved; pause the debugger before evaluating it.",
+            new DebugExpressionInfo(expressionText, null, null, false));
     }
 
     public async Task<WatchOperationResult> RemoveWatchAsync(WatchRemoveRequest request, CancellationToken cancellationToken)
@@ -684,26 +639,11 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
     public async Task<WatchListResult> ListWatchesAsync(WatchListRequest request, CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-        var watches = new List<DebugExpressionInfo>();
-        var expressions = NormalizeWatchExpressions(request.Expressions) ?? watchExpressions.ToArray();
-
-        foreach (var expressionText in expressions)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            try
-            {
-                var evaluation = await EvaluateAsync(
-                    new EvaluateExpressionRequest { Expression = expressionText },
-                    cancellationToken);
-                watches.Add(evaluation.Expression);
-            }
-            catch (Exception ex)
-            {
-                watches.Add(new DebugExpressionInfo(expressionText, ex.Message, null, false));
-            }
-        }
-
-        return new WatchListResult(true, null, watches);
+        var debugger = await GetDebuggerAsync();
+        if (debugger.CurrentMode != dbgDebugMode.dbgBreakMode)
+            return new WatchListResult(false, "Pause the debugger before evaluating watches.", Array.Empty<DebugExpressionInfo>());
+        return (await InspectFrameAsync(new NetVsMcp.Contracts.DebugFrameInspectionRequest
+        { Watch = new NetVsMcp.Contracts.WatchListRequest { Expressions = request.Expressions } }, cancellationToken)).Watch!;
     }
 
     private static string[]? NormalizeWatchExpressions(string[]? expressions)

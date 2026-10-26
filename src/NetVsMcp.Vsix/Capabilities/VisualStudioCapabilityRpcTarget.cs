@@ -71,6 +71,7 @@ internal sealed class VisualStudioCapabilityRpcTarget
         {
             new("sessionEvents", "supported", "Ordered events with bounded replay and explicit reconciliation gaps."),
             new("guardedInspection", "supported", "Atomic stop/generation validation is available through the stopped-frame RPC."),
+            new("inspectionContext", "supported", "Stack, locals, evaluation, watches, and bounded expansion expose pause/process/thread/frame identity and available source positions. Default expression/watch batches pin one frame; optional stack/watch stop guards use the stopped-frame RPC."),
             new("boundedExpansion", "supported", "debug_expand supports pause identity, member paging, cooperative budgets, and explicit function-evaluation opt-in."),
             new("pauseExceptionEvidence", "supported", "debug_exception reads bounded debugger event type/message/code/handling evidence against an exact pause, with optional throwing-thread source location. Missing engine notifications and unsupported fields remain explicit unknowns."),
             new("ownedRunToLocation", paused ? "requiresSingleProcessAndFilterSupport" : "requiresPause", "debug_run_to uses exact pause/process guards and request-owned temporary breakpoint cleanup. Engine relocation and incomplete cleanup are explicit; source checksum matching is not verified."),

@@ -479,16 +479,18 @@ internal sealed class BreakpointMetadata
 
 internal sealed class CallStackResult
 {
-    public CallStackResult(DebuggerStateInfo state, IReadOnlyCollection<CallStackFrameInfo> frames, bool hasMore = false)
+    public CallStackResult(DebuggerStateInfo state, IReadOnlyCollection<CallStackFrameInfo> frames, bool hasMore = false, NetVsMcp.Contracts.DebugInspectionContext? context = null)
     {
         State = state;
         Frames = frames;
         HasMore = hasMore;
+        Context = context;
     }
 
     public DebuggerStateInfo State { get; }
     public IReadOnlyCollection<CallStackFrameInfo> Frames { get; }
     public bool HasMore { get; }
+    public NetVsMcp.Contracts.DebugInspectionContext? Context { get; }
 }
 
 internal sealed class CallStackRequest
@@ -520,10 +522,19 @@ internal sealed class CallStackFrameInfo
     {
         ThreadHelper.ThrowIfNotOnUIThread();
 
+        string? file = null;
+        var line = 0;
+        if (frame is EnvDTE90a.StackFrame2 modern)
+        {
+            try { file = modern.FileName; }
+            catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or NotSupportedException or NotImplementedException) { }
+            try { var sourceLine = modern.LineNumber; if (sourceLine <= int.MaxValue) line = (int)sourceLine; }
+            catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or NotSupportedException or NotImplementedException) { }
+        }
         return new CallStackFrameInfo(
             frame.FunctionName,
-            null,
-            0,
+            string.IsNullOrWhiteSpace(file) ? null : file,
+            line,
             0,
             frameIndex,
             isCurrent);
@@ -544,19 +555,21 @@ internal sealed class DebugSelectFrameResult(DebuggerStateInfo state, int frameI
 
 internal sealed class LocalsResult
 {
-    public LocalsResult(DebuggerStateInfo state, IReadOnlyCollection<DebugExpressionInfo> locals)
+    public LocalsResult(DebuggerStateInfo state, IReadOnlyCollection<DebugExpressionInfo> locals, NetVsMcp.Contracts.DebugInspectionContext? context = null)
     {
         State = state;
         Locals = locals;
+        Context = context;
     }
 
     public DebuggerStateInfo State { get; }
     public IReadOnlyCollection<DebugExpressionInfo> Locals { get; }
+    public NetVsMcp.Contracts.DebugInspectionContext? Context { get; }
 }
 
 internal sealed class DebugFrameInspectionResult(DebuggerStateInfo state, LocalsResult? locals,
     IReadOnlyCollection<EvaluateExpressionResult> results, WatchListResult? watch, CallStackResult? callStack = null,
-    NetVsMcp.Contracts.DebugExpansionResult? expansion = null)
+    NetVsMcp.Contracts.DebugExpansionResult? expansion = null, NetVsMcp.Contracts.DebugInspectionContext? context = null)
 {
     public NetVsMcp.Contracts.DebugExpansionResult? Expansion { get; } = expansion;
     public CallStackResult? CallStack { get; } = callStack;
@@ -564,6 +577,7 @@ internal sealed class DebugFrameInspectionResult(DebuggerStateInfo state, Locals
     public LocalsResult? Locals { get; } = locals;
     public IReadOnlyCollection<EvaluateExpressionResult> Results { get; } = results;
     public WatchListResult? Watch { get; } = watch;
+    public NetVsMcp.Contracts.DebugInspectionContext? Context { get; } = context;
 }
 
 internal sealed class EvaluateExpressionRequest
@@ -574,14 +588,16 @@ internal sealed class EvaluateExpressionRequest
 
 internal sealed class EvaluateExpressionResult
 {
-    public EvaluateExpressionResult(DebuggerStateInfo state, DebugExpressionInfo expression)
+    public EvaluateExpressionResult(DebuggerStateInfo state, DebugExpressionInfo expression, NetVsMcp.Contracts.DebugInspectionContext? context = null)
     {
         State = state;
         Expression = expression;
+        Context = context;
     }
 
     public DebuggerStateInfo State { get; }
     public DebugExpressionInfo Expression { get; }
+    public NetVsMcp.Contracts.DebugInspectionContext? Context { get; }
 }
 
 internal sealed class DebugExpressionInfo
@@ -634,32 +650,36 @@ internal sealed class WatchListRequest
 
 internal sealed class WatchOperationResult
 {
-    public WatchOperationResult(bool supported, bool success, string? message, DebugExpressionInfo? watch)
+    public WatchOperationResult(bool supported, bool success, string? message, DebugExpressionInfo? watch, NetVsMcp.Contracts.DebugInspectionContext? context = null)
     {
         Supported = supported;
         Success = success;
         Message = message;
         Watch = watch;
+        Context = context;
     }
 
     public bool Supported { get; }
     public bool Success { get; }
     public string? Message { get; }
     public DebugExpressionInfo? Watch { get; }
+    public NetVsMcp.Contracts.DebugInspectionContext? Context { get; }
 }
 
 internal sealed class WatchListResult
 {
-    public WatchListResult(bool supported, string? message, IReadOnlyCollection<DebugExpressionInfo> watches)
+    public WatchListResult(bool supported, string? message, IReadOnlyCollection<DebugExpressionInfo> watches, NetVsMcp.Contracts.DebugInspectionContext? context = null)
     {
         Supported = supported;
         Message = message;
         Watches = watches;
+        Context = context;
     }
 
     public bool Supported { get; }
     public string? Message { get; }
     public IReadOnlyCollection<DebugExpressionInfo> Watches { get; }
+    public NetVsMcp.Contracts.DebugInspectionContext? Context { get; }
 }
 
 internal sealed class DebugThreadInfo

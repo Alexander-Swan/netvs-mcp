@@ -11,6 +11,32 @@ public class DebuggerFrameSelectorTests
     }
 
     [Fact]
+    public void FindIndexDistinguishesRecursiveFramesWithoutMatchingFunctionNames()
+    {
+        Assert.Equal(3, DebuggerFrameSelector.FindIndex(new Frame(2), () => 4, i => new Frame((uint)i - 1), frame => frame.Depth));
+        Assert.Null(DebuggerFrameSelector.FindIndex(new Frame(null), () => 4, _ => new Frame(null), frame => frame.Depth));
+    }
+
+    [Fact]
+    public void FindIndexLimitsOptionalMetadataReadsAndDoesNotInventAnIndexBeyondTheBudget()
+    {
+        var reads = 0;
+        Assert.Null(DebuggerFrameSelector.FindIndex(new Frame(2000), () => 10000,
+            i => { reads++; return new Frame((uint)i - 1); }, frame => frame.Depth));
+        Assert.Equal(1024, reads);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MissingOptionalIndexMetadataDoesNotBlockOtherInspection(bool com)
+    {
+        Assert.Null(DebuggerFrameSelector.FindIndex(new Frame(1), () => com
+            ? throw new System.Runtime.InteropServices.COMException("unsupported") : throw new NotSupportedException(),
+            _ => throw new Exception("Must not read frames after unavailable count"), frame => frame.Depth));
+    }
+
+    [Fact]
     public void IsCurrentFrame_MatchesDistinctAutomationObjectsByDepth()
     {
         var enumerated = new Frame(2);

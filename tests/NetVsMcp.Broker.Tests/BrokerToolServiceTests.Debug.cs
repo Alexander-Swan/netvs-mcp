@@ -653,7 +653,8 @@ public sealed partial class BrokerToolServiceTests
 
         Assert.True(response.Success);
         Assert.Single(response.Value!.Results);
-        Assert.Equal("count", session.LastEvaluateExpressionRequest!.Expression);
+        Assert.Equal("count", Assert.Single(session.LastFrameInspectionRequest!.Expressions));
+        Assert.Null(session.LastEvaluateExpressionRequest);
     }
 
     [Fact]

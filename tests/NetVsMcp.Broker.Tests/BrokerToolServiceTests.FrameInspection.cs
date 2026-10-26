@@ -9,7 +9,6 @@ public sealed partial class BrokerToolServiceTests
     [Theory]
     [InlineData("locals")]
     [InlineData("evaluate")]
-    [InlineData("many")]
     [InlineData("snapshot")]
     [InlineData("wait")]
     [InlineData("watch")]

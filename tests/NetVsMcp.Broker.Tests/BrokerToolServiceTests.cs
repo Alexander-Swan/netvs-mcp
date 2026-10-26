@@ -86,7 +86,12 @@ public sealed partial class BrokerToolServiceTests
         public Func<DebugFrameInspectionRequest, CancellationToken, Task<DebugFrameInspectionResult>>? FrameInspectionHandler { get; init; }
 
         public bool UsedThreadInspectionRpc { get; private set; }
-        public Task<DebugFrameInspectionResult> DebugInspectStoppedFrameAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken) => DebugInspectFrameAsync(request, cancellationToken);
+        public bool UsedStoppedInspectionRpc { get; private set; }
+        public Task<DebugFrameInspectionResult> DebugInspectStoppedFrameAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken)
+        {
+            UsedStoppedInspectionRpc = true;
+            return DebugInspectFrameAsync(request, cancellationToken);
+        }
 
         public Task<DebugFrameInspectionResult> DebugInspectThreadFrameAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken)
         {

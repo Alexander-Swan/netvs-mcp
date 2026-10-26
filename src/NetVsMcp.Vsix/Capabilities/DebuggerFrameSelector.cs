@@ -5,6 +5,19 @@ namespace NetVsMcp.Vsix;
 
 internal static class DebuggerFrameSelector
 {
+    public static int? FindIndex<TFrame>(TFrame selected, Func<int> getCount, Func<int, TFrame> getFrame,
+        Func<TFrame, uint?> getDepth) where TFrame : class
+    {
+        try
+        {
+            var count = Math.Min(getCount(), 1024);
+            for (var i = 1; i <= count; i++)
+                if (IsCurrentFrame(getFrame(i), selected, true, getDepth)) return i;
+        }
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or NotSupportedException or NotImplementedException) { }
+        return null;
+    }
+
     public static bool IsCurrentFrame<TFrame>(TFrame frame, TFrame? currentFrame,
         bool isCurrentThread, Func<TFrame, uint?> getDepth) where TFrame : class
     {

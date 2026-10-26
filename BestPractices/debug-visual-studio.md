@@ -36,8 +36,10 @@ Agent-neutral entrypoint for launching, attaching, pausing, stepping, inspecting
 | Verify loaded modules, symbol status, or symbol-search diagnostics | `debug-visual-studio/references/modules-symbols.md` |
 | Compare loaded source checksums with disk and unsaved editor text | `debug-visual-studio/references/source-evidence.md` |
 | Inspect paused call stack, locals, variables, or expressions | `debug-visual-studio/references/inspection.md` |
+| Keep stack, locals, evaluations, and watches on one pause/thread/frame | `debug-visual-studio/references/inspection-context.md` |
 | Read exception details tied to the current pause | `debug-visual-studio/references/exception-evidence.md` |
 | Use `debug_snapshot` or `debug_wait_for_break` | `debug-visual-studio/references/snapshots-waits.md` |
+| Read or wait for session events and reconcile a cursor | Guide `manage-visual-studio`, file `references/events-control.md` |
 | Use watches or immediate execution | `debug-visual-studio/references/watches-immediate.md` |
 | Attach, detach, list, or terminate processes, including remote transports | `debug-visual-studio/references/processes-attach.md` |
 | Threads, parallel stacks, or exception settings | `debug-visual-studio/references/advanced-state.md` |
