@@ -13,6 +13,7 @@ namespace NetVsMcp.Vsix.Capabilities.Interfaces;
 
 internal interface IDebuggerCapabilityService
 {
+    Task<NetVsMcp.Contracts.BreakpointGroupOperationResult> MutateBreakpointGroupAsync(NetVsMcp.Contracts.BreakpointGroupMutationRequest request, CancellationToken cancellationToken);
     Task<NetVsMcp.Contracts.DebugExceptionResult> GetExceptionAsync(NetVsMcp.Contracts.DebugExceptionRequest request, CancellationToken cancellationToken);
     Task<NetVsMcp.Contracts.DebugRunToResult> RunToAsync(NetVsMcp.Contracts.DebugRunToRequest request, CancellationToken cancellationToken);
     Task<NetVsMcp.Contracts.DebugSourceEvidenceResult> GetSourceEvidenceAsync(NetVsMcp.Contracts.DebugSourceEvidenceRequest request, CancellationToken cancellationToken);

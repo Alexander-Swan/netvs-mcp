@@ -6,6 +6,7 @@ namespace NetVsMcp.Contracts.Interfaces;
 /// </summary>
 public interface IVisualStudioSessionRpc
 {
+    Task<BreakpointGroupOperationResult> BreakpointGroupMutateAsync(BreakpointGroupMutationRequest request, CancellationToken cancellationToken);
     Task<TestOperationResult> TestExplorerDiscoverAsync(TestExplorerRequest request, CancellationToken cancellationToken);
     Task<TestOperationResult> TestExplorerRunAsync(TestExplorerRequest request, CancellationToken cancellationToken);
     Task<bool> TestExplorerCancelAsync(TestExplorerRequest request, CancellationToken cancellationToken);

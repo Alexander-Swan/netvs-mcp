@@ -599,6 +599,11 @@ public sealed class BrokerRegistrationRpcServiceTests
             throw new NotSupportedException();
         }
 
+        public Task<BreakpointGroupOperationResult> BreakpointGroupMutateAsync(BreakpointGroupMutationRequest request, CancellationToken cancellationToken)
+        {
+            throw (StreamJsonRpc.RemoteMethodNotFoundException)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(StreamJsonRpc.RemoteMethodNotFoundException));
+        }
+
         public Task<BreakpointRemoveResult> BreakpointRemoveAsync(
             BreakpointRemoveRequest request,
             CancellationToken cancellationToken)

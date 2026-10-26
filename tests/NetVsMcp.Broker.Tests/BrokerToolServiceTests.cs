@@ -1137,6 +1137,20 @@ public sealed partial class BrokerToolServiceTests
             return Task.FromResult(new BreakpointListResult(breakpoints));
         }
 
+        public bool GroupMutationUnsupported { get; set; }
+        public BreakpointGroupMutationRequest? LastGroupMutationRequest { get; set; }
+
+        public Task<BreakpointGroupOperationResult> BreakpointGroupMutateAsync(BreakpointGroupMutationRequest request, CancellationToken cancellationToken)
+        {
+            if (GroupMutationUnsupported) throw (StreamJsonRpc.RemoteMethodNotFoundException)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(StreamJsonRpc.RemoteMethodNotFoundException));
+            LastGroupMutationRequest = request;
+            if (request.Enabled is { } enabled)
+                LastBreakpointEnableRequest = new() { Name = "bp-1", Enabled = enabled };
+            else LastBreakpointRemoveRequest = new() { Name = "bp-1" };
+            return Task.FromResult(new BreakpointGroupOperationResult(request.GroupName, 1, 1,
+                request.Enabled is { } value ? [CreateBreakpoint(null) with { Enabled = value }] : []));
+        }
+
         public Task<BreakpointRemoveResult> BreakpointRemoveAsync(
             BreakpointRemoveRequest request,
             CancellationToken cancellationToken)

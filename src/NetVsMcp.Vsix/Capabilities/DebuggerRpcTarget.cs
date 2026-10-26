@@ -5,6 +5,8 @@ namespace NetVsMcp.Vsix;
 
 internal sealed class DebuggerRpcTarget
 {
+    public Task<NetVsMcp.Contracts.BreakpointGroupOperationResult> BreakpointGroupMutateAsync(NetVsMcp.Contracts.BreakpointGroupMutationRequest request, CancellationToken cancellationToken) =>
+        debugger.MutateBreakpointGroupAsync(request, cancellationToken);
     public Task<NetVsMcp.Contracts.DebugExceptionResult> DebugExceptionAsync(NetVsMcp.Contracts.DebugExceptionRequest request, CancellationToken cancellationToken) =>
         debugger.GetExceptionAsync(request, cancellationToken);
     public Task<NetVsMcp.Contracts.DebugRunToResult> DebugRunToAsync(NetVsMcp.Contracts.DebugRunToRequest request, CancellationToken cancellationToken) =>

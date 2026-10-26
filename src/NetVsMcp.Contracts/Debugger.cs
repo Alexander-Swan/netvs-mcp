@@ -334,6 +334,9 @@ public sealed class BreakpointRemoveRequest
 
 public sealed record BreakpointRemoveResult(int Removed);
 
+/// <summary>Group membership is checked inside the IDE immediately before mutation.</summary>
+public sealed record BreakpointGroupMutationRequest(string GroupName, bool? Enabled = null);
+
 public sealed class BreakpointEnableRequest
 {
     public string? Name { get; set; }

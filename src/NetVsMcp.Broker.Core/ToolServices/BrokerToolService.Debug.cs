@@ -441,23 +441,7 @@ internal sealed partial class BrokerToolService
             solutionPath,
             async (connection, session, ct) =>
             {
-                var list = await connection.BreakpointListAsync(ct);
-                var matches = BreakpointsInGroup(list.Breakpoints, normalizedGroupName).ToArray();
-                var updated = 0;
-                var updatedBreakpoints = new List<BreakpointInfo>();
-                foreach (var breakpoint in matches)
-                {
-                    var request = new BreakpointEnableRequest
-                    {
-                        Name = breakpoint.Name,
-                        DocumentPath = breakpoint.File,
-                        Line = breakpoint.Line,
-                        Enabled = enabled
-                    };
-                    var result = await connection.BreakpointEnableAsync(request, ct);
-                    updated += result.Updated;
-                    updatedBreakpoints.AddRange(result.Breakpoints);
-                }
+                var result = await connection.BreakpointGroupMutateAsync(new(normalizedGroupName, enabled), ct);
 
                 DebuggerStateInfo? state = null;
                 if (!enabled)
@@ -465,9 +449,9 @@ internal sealed partial class BrokerToolService
                     state = await SettleDebuggerStateAsync(connection, session, continueExecution, settleTimeoutMilliseconds, ct);
                 }
 
-                return new BreakpointGroupOperationResult(normalizedGroupName, matches.Length, updated, updatedBreakpoints, state);
+                return result with { State = state };
             },
-            cancellationToken);
+            cancellationToken, unsupportedByVsixMessage: "Breakpoint group mutations require an updated VSIX to validate ownership inside the IDE. No location-based fallback was attempted.");
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "breakpoint_group_remove", Title = "Breakpoint Group Remove", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
@@ -491,27 +475,13 @@ internal sealed partial class BrokerToolService
             solutionPath,
             async (connection, ct) =>
             {
-                var list = await connection.BreakpointListAsync(ct);
-                var matches = BreakpointsInGroup(list.Breakpoints, normalizedGroupName).ToArray();
-                var removed = 0;
-                foreach (var breakpoint in matches)
-                {
-                    var request = new BreakpointRemoveRequest
-                    {
-                        Name = breakpoint.Name,
-                        DocumentPath = breakpoint.File,
-                        Line = breakpoint.Line
-                    };
-                    removed += (await connection.BreakpointRemoveAsync(request, ct)).Removed;
-                }
-
-                return new BreakpointGroupOperationResult(normalizedGroupName, matches.Length, removed, []);
+                return await connection.BreakpointGroupMutateAsync(new(normalizedGroupName), ct);
             },
-            cancellationToken);
+            cancellationToken, unsupportedByVsixMessage: "Breakpoint group mutations require an updated VSIX to validate ownership inside the IDE. No location-based fallback was attempted.");
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_get_callstack", Title = "Debug Get Callstack", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists call-stack frames. maxFrames defaults to 2. hasMore is true when additional frames were omitted. Updated VSIX versions return 1-based frameIndex and isCurrent for each frame; use debug_select_frame to inspect a caller's locals while paused. expectedStopId/expectedGeneration atomically guard the pause; require an updated VSIX and never fall back. includeContext adds identity.")]
+    [Description("Lists the paused debugger's call stack and caller frames. maxFrames defaults to 2; hasMore signals omitted frames. Updated VSIX versions return 1-based frameIndex and isCurrent. Use a returned frameIndex with debug_get_locals or debug_evaluate to inspect a caller without changing selection, or debug_select_frame to change selection. Optional threadId targets that debugger thread. expectedStopId/expectedGeneration reject a changed pause atomically; guards require an updated VSIX and never fall back. includeContext=true adds stop, process, thread, frame, and source identity.")]
     public Task<ToolResponse<CallStackResult>> DebugGetCallstack(
         string? sessionId = null,
         string? solutionName = null,

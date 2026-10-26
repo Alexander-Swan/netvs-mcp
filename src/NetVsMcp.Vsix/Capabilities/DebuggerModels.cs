@@ -366,6 +366,7 @@ internal sealed class BreakpointInfo
 
 internal sealed class BreakpointMetadata
 {
+    internal static string? ReadOwnershipTag(Breakpoint breakpoint) => TryGetProperty(breakpoint, "Tag")?.ToString();
     private const string TagPrefix = "NetVsMcp:";
 
     public string? Action { get; set; }

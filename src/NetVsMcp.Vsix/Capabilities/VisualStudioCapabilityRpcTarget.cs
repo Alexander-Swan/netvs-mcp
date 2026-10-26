@@ -17,6 +17,8 @@ internal static class VsCapabilityRpcErrorCodes
 
 internal sealed class VisualStudioCapabilityRpcTarget
 {
+    public Task<NetVsMcp.Contracts.BreakpointGroupOperationResult> BreakpointGroupMutateAsync(NetVsMcp.Contracts.BreakpointGroupMutationRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => debugger.BreakpointGroupMutateAsync(request, cancellationToken), nameof(BreakpointGroupMutateAsync));
     private SolutionCapabilityService ExplorerSolution => capabilities.Solution as SolutionCapabilityService
         ?? throw new NotSupportedException("The solution service does not provide Test Explorer.");
     public Task<TestOperationResult> TestExplorerDiscoverAsync(NetVsMcp.Contracts.TestExplorerRequest request, CancellationToken ct) =>
@@ -81,6 +83,7 @@ internal sealed class VisualStudioCapabilityRpcTarget
         {
             new("sessionEvents", "supported", "Ordered events with bounded replay and explicit reconciliation gaps."),
             new("guardedInspection", "supported", "Atomic stop/generation validation is available through the stopped-frame RPC."),
+            new("breakpointGroupMutation", "supported", "Group enable/remove validates membership and mutates exact handles inside the IDE; colocated caller breakpoints are preserved. Older extensions must not use a name/location fallback."),
             new("inspectionContext", "supported", "Stack, locals, evaluation, watches, and bounded expansion expose pause/process/thread/frame identity and available source positions. Default expression/watch batches pin one frame; optional stack/watch stop guards use the stopped-frame RPC."),
             new("boundedExpansion", "supported", "debug_expand supports pause identity, member paging, cooperative budgets, and explicit function-evaluation opt-in."),
             new("pauseExceptionEvidence", "supported", "debug_exception reads bounded debugger event type/message/code/handling evidence against an exact pause, with optional throwing-thread source location. Missing engine notifications and unsupported fields remain explicit unknowns."),
