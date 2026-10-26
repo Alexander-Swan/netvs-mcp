@@ -13,6 +13,10 @@ namespace NetVsMcp.Broker.Tests;
 
 public sealed class LocalMcpHttpHostTests
 {
+    private readonly Xunit.Abstractions.ITestOutputHelper _output;
+
+    public LocalMcpHttpHostTests(Xunit.Abstractions.ITestOutputHelper output) => _output = output;
+
     [Fact]
     public async Task DiscoveryProfilesFilterToolsAndRejectHiddenCalls()
     {
@@ -133,10 +137,62 @@ public sealed class LocalMcpHttpHostTests
             Assert.Contains("vs_get_status", body);
             Assert.Contains("get_help", body);
             Assert.DoesNotContain("vs_get_capabilities", body);
+            Assert.DoesNotContain("session_capabilities", body);
+            Assert.DoesNotContain("\"name\":\"session_snapshot\"", body.Replace(" ", string.Empty));
+            Assert.DoesNotContain("vs_owned_instances", body);
+            foreach (var removed in new[] { "operation_start", "operation_status", "operation_result", "operation_cancel", "operation_list" })
+                Assert.DoesNotContain($"\"name\":\"{removed}\"", body.Replace(" ", string.Empty));
             Assert.Contains("netvs_get_best_practices", body);
             Assert.Contains("Solution-relative or absolute path; prefer forward slashes.", body);
             Assert.DoesNotContain("Document/editor tools name this parameter", body);
+            // Report catalog growth without forcing essential guidance under a byte ceiling.
+            // Verify discovery completeness and parameter guidance instead.
             using var catalog = JsonDocument.Parse(body[body.IndexOf('{')..]);
+            var catalogBytes = JsonSerializer.SerializeToUtf8Bytes(catalog.RootElement.GetProperty("result").GetProperty("tools"),
+                new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+            _output.WriteLine($"Default tool catalog: {catalogBytes.Length:N0} UTF-8 bytes.");
+            var catalogTools = catalog.RootElement.GetProperty("result").GetProperty("tools").EnumerateArray()
+                .ToDictionary(tool => tool.GetProperty("name").GetString()!);
+            Assert.Equal(BrokerToolService.DiscoveryDescriptors
+                .Where(tool => tool.McpEndpointPath == McpEndpointRouting.DefaultEndpointPath).Select(tool => tool.Name).Order(),
+                catalogTools.Keys.Order());
+            Assert.All(catalogTools.Values, tool => Assert.False(string.IsNullOrWhiteSpace(tool.GetProperty("description").GetString())));
+            foreach (var name in new[] { "debug_snapshot", "debug_wait_for_break" })
+            {
+                var properties = catalogTools[name].GetProperty("inputSchema").GetProperty("properties");
+                var includeDescription = properties.GetProperty("include").GetProperty("description").GetString();
+                Assert.Contains("callStack", includeDescription);
+                Assert.Contains("locals", includeDescription);
+                Assert.Contains("[]", includeDescription);
+                Assert.Contains("1-based", properties.GetProperty("stackFrame").GetProperty("description").GetString());
+                Assert.Contains("hasMore", catalogTools[name].GetProperty("description").GetString());
+            }
+            Assert.Contains("tracepoint", catalogTools["breakpoint_set"].GetProperty("description").GetString());
+            var breakpointProperties = catalogTools["breakpoint_set"].GetProperty("inputSchema").GetProperty("properties");
+            Assert.Contains("greaterThanOrEqual", breakpointProperties.GetProperty("hitCountType").GetProperty("description").GetString());
+            Assert.Contains("Does not", breakpointProperties.GetProperty("dependsOnBreakpointName").GetProperty("description").GetString());
+            var editProperties = catalogTools["edit_preview"].GetProperty("inputSchema").GetProperty("properties");
+            foreach (var operation in new[] { "write", "insert", "replace" })
+                Assert.Contains(operation, editProperties.GetProperty("operation").GetProperty("description").GetString());
+            Assert.Contains("Required", editProperties.GetProperty("text").GetProperty("description").GetString());
+            foreach (var name in new[] { "test_discover", "test_run", "test_run_and_get_results", "test_debug" })
+            {
+                var properties = catalogTools[name].GetProperty("inputSchema").GetProperty("properties");
+                var backendDescription = properties.GetProperty("backend").GetProperty("description").GetString();
+                Assert.Contains("cli (default", backendDescription);
+                Assert.Contains("test-explorer", backendDescription);
+                Assert.Contains("never falls back", backendDescription);
+                Assert.Contains("Required", properties.GetProperty("projectName").GetProperty("description").GetString());
+                if (name == "test_discover") Assert.False(properties.TryGetProperty("filter", out _));
+                else
+                {
+                    var filterDescription = properties.GetProperty("filter").GetProperty("description").GetString();
+                    Assert.Contains("--filter", filterDescription);
+                    Assert.Contains("id:<testId>", filterDescription);
+                    Assert.Contains("exact", filterDescription);
+                    Assert.Contains("fullyQualifiedName", filterDescription);
+                }
+            }
             foreach (var name in new[] { "debug_snapshot", "debug_wait_for_break", "debug_eval_many" })
             {
                 var schema = catalog.RootElement.GetProperty("result").GetProperty("tools").EnumerateArray()
