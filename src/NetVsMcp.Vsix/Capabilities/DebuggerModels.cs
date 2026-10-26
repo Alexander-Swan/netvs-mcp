@@ -9,14 +9,23 @@ namespace NetVsMcp.Vsix;
 
 internal sealed class DebuggerStateInfo
 {
-    public DebuggerStateInfo(string mode, string? breakReason = null)
+    public DebuggerStateInfo(string mode, string? breakReason = null, string? outcome = null,
+        long? generation = null, string? stopId = null, long? executionSequence = null)
     {
         Mode = mode;
         BreakReason = breakReason;
+        Outcome = outcome;
+        Generation = generation;
+        StopId = stopId;
+        ExecutionSequence = executionSequence;
     }
 
     public string Mode { get; }
     public string? BreakReason { get; }
+    public string? Outcome { get; }
+    public long? Generation { get; }
+    public string? StopId { get; }
+    public long? ExecutionSequence { get; }
 }
 
 internal static class DebuggerBreakReason
@@ -163,16 +172,18 @@ internal sealed class DebugAttachRequest
 
 internal sealed class DebugAttachResult
 {
-    public DebugAttachResult(bool success, string? message, DebuggedProcessInfo? process)
+    public DebugAttachResult(bool success, string? message, DebuggedProcessInfo? process, DebuggerStateInfo? state = null)
     {
         Success = success;
         Message = message;
         Process = process;
+        State = state;
     }
 
     public bool Success { get; }
     public string? Message { get; }
     public DebuggedProcessInfo? Process { get; }
+    public DebuggerStateInfo? State { get; }
 }
 
 internal sealed class ProcessDetachRequest

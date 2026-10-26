@@ -331,6 +331,8 @@ public sealed class BrokerRegistrationRpcServiceTests
 
     private sealed class FakeVisualStudioSessionRpc : IVisualStudioSessionRpc
     {
+        public Task<DebugFrameInspectionResult> DebugInspectStoppedFrameAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken) => DebugInspectFrameAsync(request, cancellationToken);
+
         public Task<DebugFrameInspectionResult> DebugInspectThreadFrameAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken) =>
             DebugInspectFrameAsync(request, cancellationToken);
 

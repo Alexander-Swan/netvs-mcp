@@ -90,7 +90,7 @@ internal sealed class DialogAwareSessionDispatcher(
 
     public DebuggerStateInfo ModalState(VsSessionInfo session, IReadOnlyList<DialogInfo> found, string? operationId = null) =>
         new("dbgModalBlock", KnownMode(session), true, found, session.SessionId,
-            operationId is null ? null : new DebugOperationInfo(operationId, "running"));
+            operationId is null ? null : new DebugOperationInfo(operationId, "running"), Outcome: "dialogBlocked");
 
     // Used inside debug wait/settle loops. Probe independently of DTE before each status read,
     // but throttle accessibility traversal so a 50ms debugger poll doesn't scan at 20Hz.

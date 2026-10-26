@@ -37,7 +37,15 @@ public sealed record DebuggerStateInfo(
     string? SessionId = null,
     DebugOperationInfo? Operation = null,
     /// <summary>Reason for the current pause: breakpoint, stepCompleted, exception, manualPause, unknown, or other. Null outside break mode or with an older VSIX.</summary>
-    string? BreakReason = null);
+    string? BreakReason = null,
+    /// <summary>Observed execution outcome: pending, running, stopped, exited, idle, timedOut, dialogBlocked, or unknown. Null with older VSIX versions.</summary>
+    string? Outcome = null,
+    /// <summary>Monotonically increasing debug-session generation within this VSIX lifetime.</summary>
+    long? Generation = null,
+    /// <summary>Opaque identity of the current pause. Invalidated before resuming; unique across VSIX lifetimes.</summary>
+    string? StopId = null,
+    /// <summary>Sequence of execution commands issued through this VSIX.</summary>
+    long? ExecutionSequence = null);
 
 /// <summary>An original IDE command retained while the client answers a modal dialog.</summary>
 public sealed record DebugOperationInfo(
@@ -102,7 +110,8 @@ public sealed class DebugAttachRequest
 public sealed record DebugAttachResult(
     bool Success,
     string? Message,
-    DebuggedProcessInfo? Process);
+    DebuggedProcessInfo? Process,
+    DebuggerStateInfo? State = null);
 
 public sealed class ProcessDetachRequest
 {
@@ -406,6 +415,8 @@ public sealed record DebugSelectFrameResult(
 
 public sealed class DebugFrameInspectionRequest
 {
+    public string? ExpectedStopId { get; set; }
+    public long? ExpectedGeneration { get; set; }
     /// <summary>Optional debugger thread ID. Omit for the current thread.</summary>
     public int? ThreadId { get; set; }
     public CallStackRequest? CallStack { get; set; }

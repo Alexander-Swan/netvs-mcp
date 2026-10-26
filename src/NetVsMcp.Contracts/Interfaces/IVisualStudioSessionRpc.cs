@@ -329,6 +329,9 @@ public interface IVisualStudioSessionRpc
         DebugFrameInspectionRequest request,
         CancellationToken cancellationToken);
 
+    /// <summary>Checks expected stop/generation atomically before evaluating expressions. Separate RPC prevents older VSIX versions silently ignoring the guard.</summary>
+    Task<DebugFrameInspectionResult> DebugInspectStoppedFrameAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken);
+
     Task<DebugFrameInspectionResult> DebugInspectFrameAsync(
         DebugFrameInspectionRequest request,
         CancellationToken cancellationToken);

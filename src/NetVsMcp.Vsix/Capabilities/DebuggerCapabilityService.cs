@@ -19,29 +19,39 @@ internal enum DebugStepKind
     Out
 }
 
-internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilityService
+internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilityService, IDisposable
 {
     private const int DefaultCallStackFrameLimit = 2;
     private readonly AsyncPackage package;
     private readonly List<string> watchExpressions = new();
+    private readonly DebugExecutionTracker execution = new();
+    private DebuggerEvents? executionEvents;
+    private Debugger? eventDebugger;
 
     public DebuggerCapabilityService(AsyncPackage package)
     {
         this.package = package;
     }
 
+    public async Task InitializeAsync(CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        await GetDebuggerAsync();
+    }
+
     public async Task<DebuggerStateInfo> StartAsync(CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var debugger = await GetDebuggerAsync();
-        debugger.Go(WaitForBreakOrEnd: false);
-        return GetDebuggerState(debugger);
+        return await ExecuteAsync(debugger, () => { ThreadHelper.ThrowIfNotOnUIThread(); debugger.Go(WaitForBreakOrEnd: false); },
+            waitForStop: false, newSession: debugger.CurrentMode == dbgDebugMode.dbgDesignMode, cancellationToken);
     }
 
     public async Task<DebuggerStateInfo> StartWithoutDebuggingAsync(CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var dte = await GetDteAsync();
+        await GetDebuggerAsync();
         var solutionBuild = dte.Solution?.SolutionBuild
             ?? throw new InvalidOperationException("Visual Studio solution build service is unavailable.");
         solutionBuild.Run();
@@ -58,57 +68,41 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
             debugger.Stop(WaitForDesignMode: true);
         }
 
-        debugger.Go(WaitForBreakOrEnd: false);
-        return GetDebuggerState(debugger);
+        return await ExecuteAsync(debugger, () => { ThreadHelper.ThrowIfNotOnUIThread(); debugger.Go(WaitForBreakOrEnd: false); },
+            waitForStop: false, newSession: true, cancellationToken);
     }
 
     public async Task<DebuggerStateInfo> StopAsync(CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var debugger = await GetDebuggerAsync();
-        debugger.Stop(WaitForDesignMode: false);
-        return GetDebuggerState(debugger);
+        if (debugger.CurrentMode == dbgDebugMode.dbgDesignMode)
+            throw new InvalidOperationException("The debugger is not running.");
+        return await ExecuteAsync(debugger, () => { ThreadHelper.ThrowIfNotOnUIThread(); debugger.Stop(WaitForDesignMode: false); },
+            waitForStop: true, newSession: false, cancellationToken);
     }
 
     public async Task<DebuggerStateInfo> ContinueAsync(CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var debugger = await GetDebuggerAsync();
-        await ContinueWhenPausedAsync(debugger, cancellationToken);
-        return GetDebuggerState(debugger);
+        if (debugger.CurrentMode != dbgDebugMode.dbgBreakMode)
+            throw new InvalidOperationException("The debugger must be paused before continuing.");
+        return await ExecuteAsync(debugger, () => { ThreadHelper.ThrowIfNotOnUIThread(); debugger.Go(WaitForBreakOrEnd: false); },
+            waitForStop: false, newSession: false, cancellationToken);
     }
 
     private async Task ContinueWhenPausedAsync(Debugger debugger, CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-
         if (debugger.CurrentMode != dbgDebugMode.dbgBreakMode)
+            throw new InvalidOperationException("The debugger must be paused before continuing.");
+        await ExecuteAsync(debugger, () =>
         {
-            throw new InvalidOperationException($"The debugger must be paused before continuing; current mode is {debugger.CurrentMode}.");
-        }
-
-        try
-        {
+            ThreadHelper.ThrowIfNotOnUIThread();
             debugger.Go(WaitForBreakOrEnd: false);
-        }
-        catch (Exception ex) when (
-            !cancellationToken.IsCancellationRequested &&
-            ex is System.Runtime.InteropServices.COMException or InvalidOperationException)
-        {
-            // DTE can briefly report break mode while it is completing a step transition. Yield
-            // once, confirm that it is still paused, and retry the idempotent continuation.
-            await Task.Delay(50, cancellationToken);
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-
-            if (debugger.CurrentMode != dbgDebugMode.dbgBreakMode)
-            {
-                throw new InvalidOperationException($"The debugger left break mode before it could continue; current mode is {debugger.CurrentMode}.");
-            }
-
-            debugger.Go(WaitForBreakOrEnd: false);
-        }
+        }, waitForStop: false, newSession: false, cancellationToken);
     }
-
     public async Task<HotReloadApplyResult> ApplyHotReloadAsync(CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
@@ -177,8 +171,10 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var debugger = await GetDebuggerAsync();
-        debugger.Break(WaitForBreakMode: false);
-        return GetDebuggerState(debugger);
+        if (debugger.CurrentMode != dbgDebugMode.dbgRunMode)
+            throw new InvalidOperationException("The debugger must be running before pausing.");
+        return await ExecuteAsync(debugger, () => { ThreadHelper.ThrowIfNotOnUIThread(); debugger.Break(WaitForBreakMode: false); },
+            waitForStop: true, newSession: false, cancellationToken);
     }
 
     public async Task<DebuggerStateInfo> StepAsync(DebugStepKind stepKind, CancellationToken cancellationToken)
@@ -186,28 +182,26 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var debugger = await GetDebuggerAsync();
 
-        switch (stepKind)
+        if (debugger.CurrentMode != dbgDebugMode.dbgBreakMode)
+            throw new InvalidOperationException("The debugger must be paused before stepping.");
+        if (!Enum.IsDefined(typeof(DebugStepKind), stepKind))
+            throw new ArgumentOutOfRangeException(nameof(stepKind));
+        return await ExecuteAsync(debugger, () =>
         {
-            case DebugStepKind.Into:
-                debugger.StepInto(WaitForBreakOrEnd: false);
-                break;
-            case DebugStepKind.Over:
-                debugger.StepOver(WaitForBreakOrEnd: false);
-                break;
-            case DebugStepKind.Out:
-                debugger.StepOut(WaitForBreakOrEnd: false);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(stepKind), stepKind, "Unknown debugger step kind.");
-        }
-
-        return GetDebuggerState(debugger);
+            ThreadHelper.ThrowIfNotOnUIThread();
+            switch (stepKind)
+            {
+                case DebugStepKind.Into: debugger.StepInto(WaitForBreakOrEnd: false); break;
+                case DebugStepKind.Over: debugger.StepOver(WaitForBreakOrEnd: false); break;
+                case DebugStepKind.Out: debugger.StepOut(WaitForBreakOrEnd: false); break;
+            }
+        }, waitForStop: true, newSession: false, cancellationToken);
     }
 
     public async Task<DebuggerStateInfo> GetStatusAsync(CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-        return GetDebuggerState(await GetDebuggerAsync());
+        return GetDebuggerState(await GetDebuggerAsync(), refresh: true);
     }
 
     public async Task<BreakpointInfo> SetBreakpointAsync(BreakpointSetRequest request, CancellationToken cancellationToken)
@@ -430,9 +424,16 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var debugger = await GetDebuggerAsync();
+        execution.Validate(debugger.CurrentMode.ToString(), request.ExpectedStopId, request.ExpectedGeneration);
         if (request.TimeoutMilliseconds <= 0)
             throw new ArgumentOutOfRangeException(nameof(request.TimeoutMilliseconds));
         cancellationToken.ThrowIfCancellationRequested();
+        // State-only guards (including snapshot action preconditions) must work in native
+        // pauses with no inspectable current frame. Do not touch DTE's thread/frame objects.
+        if ((request.ExpectedStopId is not null || request.ExpectedGeneration.HasValue) &&
+            !request.IncludeLocals && request.CallStack is null && request.Watch is null &&
+            request.AddWatchExpression is null && request.Expressions.Length == 0)
+            return new DebugFrameInspectionResult(GetDebuggerState(debugger), null, [], null);
         // Resolve objects directly: inspecting a frame never changes the IDE selection.
         var thread = DebuggerFrameSelector.ResolveThread(debugger.CurrentMode == dbgDebugMode.dbgBreakMode,
             request.ThreadId, () =>
@@ -440,7 +441,9 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
                 ThreadHelper.ThrowIfNotOnUIThread();
                 return debugger.CurrentThread;
             }, id => FindThread(debugger, id));
-        var frame = DebuggerFrameSelector.GetFrame(request.StackFrame,
+        var frame = request.StackFrame == 0 && request.ThreadId is null
+            ? debugger.CurrentStackFrame ?? throw new InvalidOperationException("No selected debugger frame is available.")
+            : DebuggerFrameSelector.GetFrame(request.StackFrame == 0 ? 1 : request.StackFrame,
             () =>
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
@@ -522,6 +525,7 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var debugger = await GetDebuggerAsync();
+        execution.Validate(debugger.CurrentMode.ToString(), null, null);
         var locals = new List<DebugExpressionInfo>();
 
         try
@@ -567,6 +571,7 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
         }
 
         var timeout = request.TimeoutMilliseconds <= 0 ? 5000 : request.TimeoutMilliseconds;
+        execution.Validate(debugger.CurrentMode.ToString(), null, null);
         var expression = debugger.GetExpression(request.Expression, UseAutoExpandRules: true, Timeout: timeout);
         return new EvaluateExpressionResult(GetDebuggerState(debugger), DebugExpressionInfo.FromExpression(expression));
     }
@@ -737,7 +742,7 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
 
         if (!string.IsNullOrWhiteSpace(request.Transport))
         {
-            return AttachRemote(debugger, request);
+            return await AttachRemoteAsync(debugger, request, cancellationToken);
         }
 
         var matches = FindProcesses(debugger.LocalProcesses, request.ProcessId, request.ProcessName);
@@ -755,7 +760,9 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
         var process = matches[0];
         try
         {
-            process.Attach();
+            var state = await ExecuteAsync(debugger, () => { ThreadHelper.ThrowIfNotOnUIThread(); process.Attach(); },
+                waitForStop: false, newSession: true, cancellationToken);
+            return new DebugAttachResult(true, null, DebuggedProcessInfo.FromProcess(process), state);
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
         {
@@ -766,15 +773,14 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
             return new DebugAttachResult(false, $"Failed to attach to process '{process.Name}' (id {process.ProcessID}): {ex.Message}", null);
         }
 
-        return new DebugAttachResult(true, null, DebuggedProcessInfo.FromProcess(process));
     }
 
     // Handles attaching over a non-local debugger transport (SSH/WSL/Docker/etc.), which Visual
     // Studio exposes via Debugger3.Transports rather than debugger.LocalProcesses. Support for a
     // given transport depends on which VS workloads (Linux, Container Tools, ...) are installed.
-    private static DebugAttachResult AttachRemote(Debugger debugger, DebugAttachRequest request)
+    private async Task<DebugAttachResult> AttachRemoteAsync(Debugger debugger, DebugAttachRequest request, CancellationToken cancellationToken)
     {
-        ThreadHelper.ThrowIfNotOnUIThread();
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
         if (debugger is not EnvDTE90.Debugger3 debugger3)
         {
@@ -832,16 +838,14 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
         }
 
         var process = matches[0];
-        if (!string.IsNullOrWhiteSpace(request.Engine))
+        var state = await ExecuteAsync(debugger, () =>
         {
-            process.Attach2(request.Engine);
-        }
-        else
-        {
-            process.Attach2(Type.Missing);
-        }
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (!string.IsNullOrWhiteSpace(request.Engine)) process.Attach2(request.Engine);
+            else process.Attach2(Type.Missing);
+        }, waitForStop: false, newSession: true, cancellationToken);
 
-        return new DebugAttachResult(true, null, DebuggedProcessInfo.FromProcess(process, transport.Name));
+        return new DebugAttachResult(true, null, DebuggedProcessInfo.FromProcess(process, transport.Name), state);
     }
 
     public async Task<ProcessDetachResult> DetachAsync(ProcessDetachRequest request, CancellationToken cancellationToken)
@@ -1150,19 +1154,86 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
     private async Task<Debugger> GetDebuggerAsync()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-        return (await GetDteAsync()).Debugger
+        var dte = await GetDteAsync();
+        var debugger = dte.Debugger
             ?? throw new InvalidOperationException("Visual Studio debugger service is unavailable.");
+        if (executionEvents is null)
+        {
+            execution.Initialize(debugger.CurrentMode.ToString());
+            eventDebugger = debugger;
+            executionEvents = dte.Events.DebuggerEvents;
+            executionEvents.OnEnterBreakMode += OnExecutionBreak;
+            executionEvents.OnEnterRunMode += OnExecutionRun;
+            executionEvents.OnEnterDesignMode += OnExecutionEnd;
+        }
+        return debugger;
     }
 
-    private static DebuggerStateInfo GetDebuggerState(Debugger debugger)
+    private void OnExecutionBreak(dbgEventReason reason, ref dbgExecutionAction action)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        RecordExecutionEvent("dbgBreakMode", DebuggerBreakReason.Read(dbgDebugMode.dbgBreakMode, () => reason));
+    }
+
+    private void OnExecutionRun(dbgEventReason reason)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        RecordExecutionEvent("dbgRunMode");
+    }
+    private void OnExecutionEnd(dbgEventReason reason)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        RecordExecutionEvent("dbgDesignMode");
+    }
+
+    private void RecordExecutionEvent(string mode, string? reason = null)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        try { execution.Record(mode, reason, eventDebugger?.CurrentMode.ToString()); }
+        catch (System.Runtime.InteropServices.COMException) { /* Next status can still describe the live mode. */ }
+    }
+
+    public void Dispose()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        if (executionEvents is null) return;
+        try
+        {
+            executionEvents.OnEnterBreakMode -= OnExecutionBreak;
+            executionEvents.OnEnterRunMode -= OnExecutionRun;
+            executionEvents.OnEnterDesignMode -= OnExecutionEnd;
+        }
+        catch (System.Runtime.InteropServices.COMException) { /* VS may already have disconnected the event source. */ }
+        finally { executionEvents = null; eventDebugger = null; }
+    }
+
+    private async Task<DebuggerStateInfo> ExecuteAsync(Debugger debugger, Action issue,
+        bool waitForStop, bool newSession, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        var before = execution.Begin(newSession);
+        try { issue(); }
+        catch
+        {
+            execution.RejectCommand(debugger.CurrentMode.ToString());
+            throw;
+        }
+        var observed = await execution.WaitAsync(before, waitForStop, TimeSpan.FromSeconds(10), cancellationToken);
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var state = GetDebuggerState(debugger);
+        return observed ? state : execution.State(debugger.CurrentMode.ToString(), outcome: "timedOut");
+    }
+
+    private DebuggerStateInfo GetDebuggerState(Debugger debugger, bool refresh = false)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         var mode = debugger.CurrentMode;
-        return new DebuggerStateInfo(mode.ToString(), DebuggerBreakReason.Read(mode, () =>
+        return execution.State(mode.ToString(), DebuggerBreakReason.Read(mode, () =>
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             return debugger.LastBreakReason;
-        }));
+        }), refresh: refresh);
     }
 
     // Breakpoint CRUD and call-stack/locals access (DBG-2) return plain data DTOs with no

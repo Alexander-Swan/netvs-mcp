@@ -33,7 +33,7 @@ Contracts target both `net10.0` and `netstandard2.0`. The extension also uses lo
 
 - **Documents and navigation:** operations use live IDE buffers and workspace state. Relative paths resolve against the routed solution.
 - **Builds:** solution and project builds expose status and diagnostics. A nonwaiting response does not establish completion.
-- **Debugger:** Thread/frame inspection preserves selection where supported. Snapshot sections are optional and bounded.
+- **Debugger:** execution generations and pause IDs reject stale requests. Thread/frame inspection preserves selection where supported. Snapshot sections are optional and bounded.
 - **Watches:** the extension retains its own expression list and evaluates it in debugger context. These tools do not edit Visual Studio's Watch window.
 - **Immediate evaluation:** `immediate_execute` evaluates the supplied expression through the debugger API; it does not send keystrokes to the Immediate window. Evaluation can execute debuggee code and requires a paused session.
 - **Exception settings:** the extension reads and updates settings through `EnvDTE90.Debugger3` when available. Unsupported debugger APIs return explicit evidence.

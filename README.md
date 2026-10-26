@@ -31,7 +31,7 @@ See [setup](docs/SETUP.md) for installation, client registration, and troublesho
 
 - **Live editing and navigation:** read unsaved buffers, inspect symbols, find references, and apply edits. Safe-edit previews support developer approval.
 - **Builds and diagnostics:** build solutions or projects, read output panes and errors, cancel builds.
-- **Debugger control:** launch, attach, step, inspect chosen threads and frames, manage breakpoints and watches.
+- **Debugger control:** launch, attach, step, inspect chosen threads and frames, manage breakpoints and watches. Pause identities protect against stale inspection requests.
 - **Tests:** discover and run tests with the CLI backend.
 - **Multiple sessions:** discover open instances and route explicitly.
 - **Local records:** inspect tool-call audit metadata and optional aggregate usage analytics without recording full source or debugger values in those stores.

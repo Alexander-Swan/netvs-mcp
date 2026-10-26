@@ -86,6 +86,8 @@ public sealed partial class BrokerToolServiceTests
         public Func<DebugFrameInspectionRequest, CancellationToken, Task<DebugFrameInspectionResult>>? FrameInspectionHandler { get; init; }
 
         public bool UsedThreadInspectionRpc { get; private set; }
+        public Task<DebugFrameInspectionResult> DebugInspectStoppedFrameAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken) => DebugInspectFrameAsync(request, cancellationToken);
+
         public Task<DebugFrameInspectionResult> DebugInspectThreadFrameAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken)
         {
             UsedThreadInspectionRpc = true;
@@ -993,6 +995,7 @@ public sealed partial class BrokerToolServiceTests
         }
 
         public string DebugStatusMode { get; set; } = "Break";
+        public int DebugExecutionCommands { get; private set; }
 
         public Func<CancellationToken, Task<DebuggerStateInfo>>? DebugStatusHandler { get; init; }
 
@@ -1015,6 +1018,7 @@ public sealed partial class BrokerToolServiceTests
 
         public Task<DebuggerStateInfo> DebugStartAsync(CancellationToken cancellationToken)
         {
+            DebugExecutionCommands++;
             return DebugStartHandler?.Invoke(cancellationToken) ?? Task.FromResult(new DebuggerStateInfo("Run"));
         }
 
@@ -1025,6 +1029,7 @@ public sealed partial class BrokerToolServiceTests
 
         public Task<DebuggerStateInfo> DebugRestartAsync(CancellationToken cancellationToken)
         {
+            DebugExecutionCommands++;
             return Task.FromResult(new DebuggerStateInfo("Run"));
         }
 
@@ -1035,6 +1040,7 @@ public sealed partial class BrokerToolServiceTests
 
         public Task<DebuggerStateInfo> DebugContinueAsync(CancellationToken cancellationToken)
         {
+            DebugExecutionCommands++;
             return Task.FromResult(new DebuggerStateInfo("Run"));
         }
 
