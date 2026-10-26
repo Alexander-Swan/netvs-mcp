@@ -5,6 +5,8 @@ namespace NetVsMcp.Vsix;
 
 internal sealed class CodeActionsRpcTarget
 {
+    public Task<CodeActionsApplyResult> CodeActionsRevertAsync(NetVsMcp.Contracts.CodeActionRecoveryRequest request, CancellationToken cancellationToken) =>
+        codeActions.RevertCodeActionAsync(request, cancellationToken);
     private readonly ICodeActionsCapabilityService codeActions;
 
     public CodeActionsRpcTarget(ICodeActionsCapabilityService codeActions)

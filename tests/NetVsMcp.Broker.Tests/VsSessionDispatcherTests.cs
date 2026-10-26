@@ -395,6 +395,11 @@ public sealed class VsSessionDispatcherTests
 
         public Task<CodeActionsListResult> CodeActionsListAsync(CodeActionsListRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<CodeActionsApplyResult> CodeActionsRevertAsync(CodeActionRecoveryRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<CodeActionsApplyResult> CodeActionsPreviewAsync(CodeActionsApplyRequest request, CancellationToken cancellationToken) => CodeActionsApplyVerifiedAsync(request, cancellationToken);
+
+        public Task<CodeActionsApplyResult> CodeActionsApplyVerifiedAsync(CodeActionsApplyRequest request, CancellationToken cancellationToken) => CodeActionsApplyAsync(request, cancellationToken);
+
         public Task<CodeActionsApplyResult> CodeActionsApplyAsync(CodeActionsApplyRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<HotReloadApplyResult> DebugHotReloadApplyAsync(CancellationToken cancellationToken) => throw new NotSupportedException();

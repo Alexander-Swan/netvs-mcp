@@ -98,6 +98,8 @@ public sealed class CodeActionsListRequest
 
 public sealed class CodeActionsApplyRequest
 {
+    public string? ActionId { get; set; }
+    public bool PreviewOnly { get; set; }
     public string DocumentPath { get; set; } = string.Empty;
     public int Line { get; set; }
     public int Column { get; set; }
@@ -113,18 +115,36 @@ public sealed record CodeActionInfo(
     /// <summary>Roslyn code-action kind/tag, e.g. "quickfix", "refactor".</summary>
     string Kind,
     string? DiagnosticId,
-    string? EquivalenceKey);
+    string? EquivalenceKey,
+    string? ActionId = null);
 
 public sealed record CodeActionsListResult(
     CodePositionRequest Position,
-    IReadOnlyCollection<CodeActionInfo> Actions);
+    IReadOnlyCollection<CodeActionInfo> Actions,
+    CodeActionDiscoveryInfo? Discovery = null);
+
+public sealed record CodeActionDiscoveryInfo(int DiagnosticCount, int FixProviderCount, int RefactoringProviderCount,
+    IReadOnlyCollection<string> ProviderErrors, bool Truncated);
 
 public sealed record CodeActionsApplyResult(
     bool Success,
     string Message,
     string? AppliedTitle,
     /// <summary>Text edits applied across all affected files, not just the requested document; this bypasses the preview/approve queue.</summary>
-    IReadOnlyCollection<RenameSymbolChangeInfo> Changes);
+    IReadOnlyCollection<RenameSymbolChangeInfo> Changes,
+    string? Outcome = null,
+    bool HasObservedChanges = false,
+    string? RecoveryId = null,
+    IReadOnlyCollection<CodeActionDocumentVersion>? DocumentVersions = null,
+    bool ChangesTruncated = false);
+
+public sealed record CodeActionDocumentVersion(string? File, string BeforeTextVersion,
+    string ExpectedAfterTextVersion, string? ObservedAfterTextVersion = null);
+
+public sealed class CodeActionRecoveryRequest
+{
+    public string RecoveryId { get; set; } = string.Empty;
+}
 
 public sealed class RenameSymbolRequest
 {
@@ -143,7 +163,8 @@ public sealed record RenameSymbolChangeInfo(
     int StartColumn,
     int EndLine,
     int EndColumn,
-    string NewText);
+    string NewText,
+    string? OldText = null);
 
 public sealed record RenameSymbolPreviewResult(
     bool Supported,

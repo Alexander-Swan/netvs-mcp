@@ -243,7 +243,7 @@ internal sealed class RenameSymbolChangeInfo
         int startColumn,
         int endLine,
         int endColumn,
-        string newText)
+        string newText, string? oldText = null)
     {
         File = file;
         StartLine = startLine;
@@ -251,6 +251,7 @@ internal sealed class RenameSymbolChangeInfo
         EndLine = endLine;
         EndColumn = endColumn;
         NewText = newText;
+        OldText = oldText;
     }
 
     public string? File { get; }
@@ -259,6 +260,7 @@ internal sealed class RenameSymbolChangeInfo
     public int EndLine { get; }
     public int EndColumn { get; }
     public string NewText { get; }
+    public string? OldText { get; }
 }
 
 internal sealed class RenameSymbolPreviewResult

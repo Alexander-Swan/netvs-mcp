@@ -28,6 +28,13 @@ namespace NetVsMcp.Vsix;
 internal sealed class CodeActionsCapabilityService : ICodeActionsCapabilityService
 {
     private readonly AsyncPackage package;
+    private sealed class Selection(CodeAction action)
+    {
+        public CodeAction Action { get; } = action;
+        public Microsoft.CodeAnalysis.Solution? Prepared { get; set; }
+    }
+    private readonly SnapshotActionStore<Selection> selections = new();
+    private readonly SnapshotActionStore<Microsoft.CodeAnalysis.Solution> recoveries = new(capacity: 32, retention: TimeSpan.FromMinutes(15));
 
     public CodeActionsCapabilityService(AsyncPackage package)
     {
@@ -57,12 +64,15 @@ internal sealed class CodeActionsCapabilityService : ICodeActionsCapabilityServi
 
         var (document, span, codePosition) = resolved;
 
-        var actions = await ComputeActionsAsync(document, span, cancellationToken);
+        var computed = await ComputeActionsAsync(document, span, cancellationToken);
+        var actions = computed.Actions;
+        var boundSnapshot = await WorkspaceActionSnapshot.CaptureAsync(document.Project.Solution, cancellationToken);
         var infos = actions
-            .Select((entry, index) => new CodeActionInfo(index, entry.Action.Title, entry.Kind, entry.DiagnosticId, entry.Action.EquivalenceKey))
+            .Select((entry, index) => new CodeActionInfo(index, entry.Action.Title, entry.Kind, entry.DiagnosticId, entry.Action.EquivalenceKey,
+                selections.Add(boundSnapshot, Target(document.Id, span), new Selection(entry.Action))))
             .ToArray();
 
-        return new CodeActionsListResult(codePosition, infos);
+        return new CodeActionsListResult(codePosition, infos, computed.Discovery);
     }
 
     public async Task<CodeActionsApplyResult> ApplyCodeActionAsync(CodeActionsApplyRequest request, CancellationToken cancellationToken)
@@ -86,9 +96,53 @@ internal sealed class CodeActionsCapabilityService : ICodeActionsCapabilityServi
 
         var (document, span, _) = resolved;
 
+        if (!string.IsNullOrWhiteSpace(request.ActionId))
+        {
+            var oldSnapshot = document.Project.Solution;
+            var workspaceForAction = oldSnapshot.Workspace;
+            var currentSnapshot = await WorkspaceActionSnapshot.CaptureAsync(oldSnapshot, cancellationToken);
+            var selection = selections.Get(request.ActionId!, currentSnapshot, Target(document.Id, span), consume: !request.PreviewOnly);
+            var selected = selection.Action;
+            if (selection.Prepared is null)
+            {
+                var selectedOperations = await selected.GetOperationsAsync(cancellationToken);
+                // Reject custom operations: they may launch dialogs or mutate outside the solution.
+                if (selectedOperations.Length != 1 || selectedOperations[0] is not ApplyChangesOperation textOperation)
+                    return new(false, "This action requires custom operations; guarded application supports one workspace change only.", null, Array.Empty<RenameSymbolChangeInfo>());
+                if (!SourceOnlyChangePolicy.Accepts(oldSnapshot, textOperation.ChangedSolution))
+                    return new(false, "Guarded previews currently support edits to existing source documents only; structural changes require a different workflow.", null, Array.Empty<RenameSymbolChangeInfo>());
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+                // If two previews raced, retain the first prepared transformation for both callers.
+                selection.Prepared ??= textOperation.ChangedSolution;
+            }
+            var guardedChanges = await CreateChangesAsync(oldSnapshot, selection.Prepared, cancellationToken);
+            if (selection.Prepared.GetChanges(oldSnapshot).GetProjectChanges().Sum(p => p.GetChangedDocuments().Count()) > 50 ||
+                ExceedsEvidenceBudget(guardedChanges))
+                return new(false, "Action exceeds the guarded preview budget (50 documents, 1000 edits, or 262144 changed characters). Choose a narrower action.", null, Array.Empty<RenameSymbolChangeInfo>(), "unsupported");
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+            await WorkspaceActionSnapshot.CaptureAsync(workspaceForAction.CurrentSolution, cancellationToken);
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+            if (!currentSnapshot.MatchesCurrent(workspaceForAction.CurrentSolution))
+                throw new StaleActionException("Workspace changed while preparing the action. List actions again.");
+            if (request.PreviewOnly)
+            {
+                var preview = await CodeActionRecoveryPlan.CreateAsync(oldSnapshot, selection.Prepared, null, cancellationToken);
+                return new(true, "Preview only; no buffers changed. Apply the same actionId to use this exact transformation.", selected.Title, guardedChanges,
+                    "preview", documentVersions: preview.Versions);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            bool accepted;
+            string? applicationFailure = null;
+            try { accepted = workspaceForAction.TryApplyChanges(selection.Prepared); }
+            catch (Exception ex) { accepted = false; applicationFailure = ex.Message; }
+            // Capture immediately, before any async work can observe later developer edits.
+            var observed = workspaceForAction.CurrentSolution;
+            return await VerifyApplicationAsync(oldSnapshot, selection.Prepared, observed, selected.Title, accepted, applicationFailure);
+        }
+
         // Recompute rather than cache CodeAction objects across calls - the workspace
         // snapshot backing a cached action can go stale between list and apply.
-        var actions = await ComputeActionsAsync(document, span, cancellationToken);
+        var actions = (await ComputeActionsAsync(document, span, cancellationToken)).Actions;
         if (request.Index < 0 || request.Index >= actions.Count)
         {
             return new CodeActionsApplyResult(
@@ -112,23 +166,86 @@ internal sealed class CodeActionsCapabilityService : ICodeActionsCapabilityServi
         return new CodeActionsApplyResult(true, $"Applied '{chosen.Action.Title}'.", chosen.Action.Title, changes);
     }
 
-    private async Task<IReadOnlyList<(CodeAction Action, string Kind, string? DiagnosticId)>> ComputeActionsAsync(
+    private static string Target(DocumentId document, TextSpan span) => document + ":" + span.Start + ":" + span.Length;
+
+    private async Task<CodeActionsApplyResult> VerifyApplicationAsync(Microsoft.CodeAnalysis.Solution before,
+        Microsoft.CodeAnalysis.Solution expected, Microsoft.CodeAnalysis.Solution observed, string? title, bool accepted, string? failure)
+    {
+        // Verification continues after a caller cancels its wait. Do not lose partial-change evidence.
+        var plan = await CodeActionRecoveryPlan.CreateAsync(before, expected, observed, CancellationToken.None);
+        var actualChanges = await CreateChangesAsync(before, observed, CancellationToken.None, plan.OwnedDocuments);
+        var changesTruncated = ExceedsEvidenceBudget(actualChanges);
+        if (changesTruncated) actualChanges = Array.Empty<RenameSymbolChangeInfo>();
+        string? recoveryId = null;
+        if (plan.UndoSolution is { } undo)
+        {
+            var key = await WorkspaceActionSnapshot.CaptureAsync(observed, CancellationToken.None);
+            recoveryId = recoveries.Add(key, "code-action-recovery", undo);
+        }
+        var success = accepted && plan.MatchesPreview;
+        var outcome = success ? "applied" : plan.Ambiguous ? "unknown" : plan.HasObservedChanges ? "failedWithChanges" : "notApplied";
+        var message = success ? $"Applied '{title}' and verified source text." :
+            "Workspace application was not fully verified. Inspect returned versions/changes before retrying. " + failure;
+        if (changesTruncated) message += " Observed differences exceed the evidence budget; inspect current documents with ranged reads.";
+        return new(success, message, title, actualChanges, outcome, plan.HasObservedChanges, recoveryId, plan.Versions, changesTruncated);
+    }
+
+    private static bool ExceedsEvidenceBudget(IReadOnlyCollection<RenameSymbolChangeInfo> changes) =>
+        changes.Count > 1000 || changes.Sum(c => (long)c.NewText.Length + (c.OldText?.Length ?? 0)) > 262144;
+
+    public async Task<CodeActionsApplyResult> RevertCodeActionAsync(NetVsMcp.Contracts.CodeActionRecoveryRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.RecoveryId)) throw new ArgumentException("recoveryId is required.");
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var workspace = await GetVisualStudioWorkspaceAsync(cancellationToken)
+            ?? throw new InvalidOperationException("Visual Studio workspace is unavailable.");
+        var before = workspace.CurrentSolution;
+        var key = await WorkspaceActionSnapshot.CaptureAsync(before, cancellationToken);
+        Microsoft.CodeAnalysis.Solution recovery;
+        try { recovery = recoveries.Take(request.RecoveryId, key, "code-action-recovery"); }
+        catch (StaleActionException)
+        { throw new StaleActionException("Recovery receipt is expired, already used, or conflicts with current workspace versions. Inspect current buffers; no recovery was applied."); }
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        if (!key.MatchesCurrent(workspace.CurrentSolution)) throw new StaleActionException("Workspace changed while preparing recovery. Inspect current buffers; no recovery was applied.");
+        cancellationToken.ThrowIfCancellationRequested();
+        bool accepted;
+        string? failure = null;
+        try { accepted = workspace.TryApplyChanges(recovery); }
+        catch (Exception ex) { accepted = false; failure = ex.Message; }
+        var observed = workspace.CurrentSolution;
+        return await VerifyApplicationAsync(before, recovery, observed, "Revert code action", accepted, failure);
+    }
+
+    private async Task<(IReadOnlyList<(CodeAction Action, string Kind, string? DiagnosticId)> Actions, NetVsMcp.Contracts.CodeActionDiscoveryInfo Discovery)> ComputeActionsAsync(
         Microsoft.CodeAnalysis.Document document,
         TextSpan span,
         CancellationToken cancellationToken)
     {
         var results = new List<(CodeAction, string, string?)>();
+        var errors = new List<string>();
+        int diagnosticCount = 0, fixProviderCount = 0;
+        void Failure(object provider, Exception ex)
+        {
+            if (errors.Count < 5)
+            {
+                var message = provider.GetType().Name + ": " + ex.GetType().Name + ": " + ex.Message;
+                errors.Add(message.Length > 300 ? message.Substring(0, 300) : message);
+            }
+        }
 
         var semanticModel = await document.GetSemanticModelAsync(cancellationToken);
         if (semanticModel is not null)
         {
-            var diagnostics = semanticModel.GetDiagnostics(span, cancellationToken)
+            var diagnostics = semanticModel.GetDiagnostics(cancellationToken: cancellationToken)
+                .Where(diagnostic => diagnostic.Location.IsInSource && CodeActionDiscovery.Intersects(diagnostic.Location.SourceSpan, span))
                 .Where(diagnostic => diagnostic.Severity != DiagnosticSeverity.Hidden)
                 .ToArray();
+            diagnosticCount = diagnostics.Length;
 
             if (diagnostics.Length > 0)
             {
                 var fixProviders = await GetCodeFixProvidersAsync(cancellationToken);
+                fixProviderCount = fixProviders.Count;
                 foreach (var diagnostic in diagnostics)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -149,9 +266,9 @@ internal sealed class CodeActionsCapabilityService : ICodeActionsCapabilityServi
                                 cancellationToken);
                             await provider.RegisterCodeFixesAsync(context);
                         }
-                        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+                        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
                         {
-                            // A misbehaving fixer shouldn't break the whole listing.
+                            Failure(provider, ex);
                         }
                     }
                 }
@@ -172,15 +289,25 @@ internal sealed class CodeActionsCapabilityService : ICodeActionsCapabilityServi
                     cancellationToken);
                 await provider.ComputeRefactoringsAsync(context);
             }
-            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
-                // A misbehaving refactoring provider shouldn't break the whole listing.
+                Failure(provider, ex);
             }
         }
 
-        return results
-            .Where(entry => entry.Item1.NestedActions.IsDefaultOrEmpty)
-            .ToArray();
+        var flattened = new List<(CodeAction, string, string?)>();
+        var truncated = false;
+        foreach (var entry in results)
+        {
+            var leaves = CodeActionDiscovery.Flatten(new[] { entry.Item1 }, out var limited);
+            foreach (var leaf in leaves)
+            {
+                if (flattened.Count == 100) { truncated = true; break; }
+                flattened.Add((leaf, entry.Item2, entry.Item3));
+            }
+            truncated |= limited;
+        }
+        return (flattened, new(diagnosticCount, fixProviderCount, refactoringProviders.Count, errors, truncated));
     }
 
     private async Task<IReadOnlyList<CodeFixProvider>> GetCodeFixProvidersAsync(CancellationToken cancellationToken)
@@ -324,7 +451,7 @@ internal sealed class CodeActionsCapabilityService : ICodeActionsCapabilityServi
     private static async Task<IReadOnlyCollection<RenameSymbolChangeInfo>> CreateChangesAsync(
         Microsoft.CodeAnalysis.Solution oldSolution,
         Microsoft.CodeAnalysis.Solution newSolution,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, IReadOnlyCollection<DocumentId>? ownedDocuments = null)
     {
         var changes = new List<RenameSymbolChangeInfo>();
         foreach (var newProject in newSolution.Projects)
@@ -339,6 +466,7 @@ internal sealed class CodeActionsCapabilityService : ICodeActionsCapabilityServi
 
             foreach (var newDocument in newProject.Documents)
             {
+                if (ownedDocuments is not null && !ownedDocuments.Contains(newDocument.Id)) continue;
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var oldDocument = oldProject.GetDocument(newDocument.Id);
@@ -359,7 +487,7 @@ internal sealed class CodeActionsCapabilityService : ICodeActionsCapabilityServi
                         start.Character + 1,
                         end.Line + 1,
                         end.Character + 1,
-                        change.NewText ?? string.Empty));
+                        change.NewText ?? string.Empty, oldText.ToString(change.Span)));
                 }
             }
         }

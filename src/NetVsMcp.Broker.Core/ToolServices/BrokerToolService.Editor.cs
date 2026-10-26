@@ -29,10 +29,11 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "document_write", Title = "Document Write", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Replaces a document buffer through a routed Visual Studio session.")]
+    [Description("Replaces the entire source document buffer with text; use editor_insert/editor_replace for a targeted change. path and text are required even though the compatibility schema permits omission. Changes stay unsaved unless saveAfterWrite=true. createIfMissing allows creating a missing file.")]
     public Task<ToolResponse<DocumentMutationResult>> DocumentWrite(
-        [Description(DocumentPathParameterDescription)]
+        [Description("Required path argument; solution-relative or absolute file path. Prefer forward slashes.")]
         string? path = null,
+        [Description("Required replacement or inserted text. Empty text is valid; omission is rejected.")]
         string? text = null,
         bool createIfMissing = false,
         bool saveAfterWrite = false,
@@ -87,14 +88,15 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "editor_insert", Title = "Editor Insert", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Inserts text through a routed Visual Studio session.")]
+    [Description("Inserts text at a 1-based line and column in a source document buffer. path, line, column, and text are required. Changes stay unsaved unless saveAfterEdit=true.")]
     public Task<ToolResponse<DocumentMutationResult>> EditorInsert(
-        [Description(DocumentPathParameterDescription)]
+        [Description("Required path argument; solution-relative or absolute file path. Prefer forward slashes.")]
         string? path = null,
         [Description(LineParameterDescription)]
         int? line = null,
         [Description(ColumnParameterDescription)]
         int? column = null,
+        [Description("Required replacement or inserted text. Empty text is valid; omission is rejected.")]
         string? text = null,
         bool saveAfterEdit = false,
         string? sessionId = null,
@@ -135,9 +137,9 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "editor_replace", Title = "Editor Replace", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Replaces a text range through a routed Visual Studio session.")]
+    [Description("Replaces the source range from startLine/startColumn up to endLine/endColumn (exclusive) with text. path, all four 1-based coordinates, and text are required. Empty text deletes the range. Changes stay unsaved unless saveAfterEdit=true.")]
     public Task<ToolResponse<DocumentMutationResult>> EditorReplace(
-        [Description(DocumentPathParameterDescription)]
+        [Description("Required path argument; solution-relative or absolute file path. Prefer forward slashes.")]
         string? path = null,
         [Description(LineParameterDescription)]
         int? startLine = null,
@@ -147,6 +149,7 @@ internal sealed partial class BrokerToolService
         int? endLine = null,
         [Description(ColumnParameterDescription)]
         int? endColumn = null,
+        [Description("Required replacement or inserted text. Empty text is valid; omission is rejected.")]
         string? text = null,
         bool saveAfterEdit = false,
         string? sessionId = null,
@@ -358,11 +361,13 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.EditPreview, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "edit_preview", Title = "Edit Preview", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Creates a pending safe-edit preview through a routed Visual Studio session. Pass value.pendingEdit.editId to edit_approve, edit_reject, or apply_safe_edit_and_build.")]
+    [Description("Prepares a safe-edit preview without applying it. Required operation is write (whole buffer), insert (line/column), or replace (start/end coordinates); path and text are required for all three. Pass value.pendingEdit.editId to edit_approve, edit_reject, or apply_safe_edit_and_build using the same VS session route.")]
     public Task<ToolResponse<EditPreviewResult>> EditPreview(
+        [Description("Required operation: write (whole buffer), insert (line/column), or replace (start/end coordinates).")]
         string? operation = null,
-        [Description(DocumentPathParameterDescription)]
+        [Description("Required path argument; solution-relative or absolute file path. Prefer forward slashes.")]
         string? path = null,
+        [Description("Required replacement or inserted text. Empty text is valid; omission is rejected.")]
         string? text = null,
         bool createIfMissing = false,
         bool saveAfterEdit = false,
@@ -416,9 +421,11 @@ internal sealed partial class BrokerToolService
     [McpServerTool(Name = "prepare_safe_edit", Title = "Prepare Safe Edit", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
     [Description("Reads a document and creates a safe-edit preview through a routed Visual Studio session. Pass value.preview.pendingEdit.editId to edit_approve, edit_reject, or apply_safe_edit_and_build.")]
     public Task<ToolResponse<PrepareSafeEditResult>> PrepareSafeEdit(
+        [Description("Required operation: write (whole buffer), insert (line/column), or replace (start/end coordinates).")]
         string? operation = null,
-        [Description(DocumentPathParameterDescription)]
+        [Description("Required path argument; solution-relative or absolute file path. Prefer forward slashes.")]
         string? path = null,
+        [Description("Required replacement or inserted text. Empty text is valid; omission is rejected.")]
         string? text = null,
         bool createIfMissing = false,
         bool saveAfterEdit = false,

@@ -20,6 +20,7 @@ namespace NetVsMcp.Vsix.Capabilities.Interfaces;
 
 internal interface ICodeActionsCapabilityService
 {
+    Task<CodeActionsApplyResult> RevertCodeActionAsync(NetVsMcp.Contracts.CodeActionRecoveryRequest request, CancellationToken cancellationToken);
     Task<CodeActionsListResult> ListCodeActionsAsync(CodeActionsListRequest request, CancellationToken cancellationToken);
     Task<CodeActionsApplyResult> ApplyCodeActionAsync(CodeActionsApplyRequest request, CancellationToken cancellationToken);
 }

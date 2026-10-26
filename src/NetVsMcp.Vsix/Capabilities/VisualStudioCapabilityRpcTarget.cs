@@ -232,6 +232,21 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<CodeActionsListResult> CodeActionsListAsync(CodeActionsListRequest request, CancellationToken cancellationToken) =>
         InvokeAsync(() => codeActions.CodeActionsListAsync(request, cancellationToken), nameof(CodeActionsListAsync));
 
+    public Task<CodeActionsApplyResult> CodeActionsApplyVerifiedAsync(CodeActionsApplyRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.ActionId)) throw new ArgumentException("actionId is required for guarded application.");
+        return InvokeAsync(() => codeActions.CodeActionsApplyAsync(request, cancellationToken), nameof(CodeActionsApplyVerifiedAsync));
+    }
+
+    public Task<CodeActionsApplyResult> CodeActionsPreviewAsync(CodeActionsApplyRequest request, CancellationToken cancellationToken)
+    {
+        request.PreviewOnly = true;
+        return CodeActionsApplyVerifiedAsync(request, cancellationToken);
+    }
+
+    public Task<CodeActionsApplyResult> CodeActionsRevertAsync(NetVsMcp.Contracts.CodeActionRecoveryRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => codeActions.CodeActionsRevertAsync(request, cancellationToken), nameof(CodeActionsRevertAsync));
+
     public Task<CodeActionsApplyResult> CodeActionsApplyAsync(CodeActionsApplyRequest request, CancellationToken cancellationToken) =>
         InvokeAsync(() => codeActions.CodeActionsApplyAsync(request, cancellationToken), nameof(CodeActionsApplyAsync));
 

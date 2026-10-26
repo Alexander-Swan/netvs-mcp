@@ -194,6 +194,10 @@ public interface IVisualStudioSessionRpc
         CodeActionsListRequest request,
         CancellationToken cancellationToken);
 
+    Task<CodeActionsApplyResult> CodeActionsApplyVerifiedAsync(CodeActionsApplyRequest request, CancellationToken cancellationToken);
+    Task<CodeActionsApplyResult> CodeActionsPreviewAsync(CodeActionsApplyRequest request, CancellationToken cancellationToken);
+    Task<CodeActionsApplyResult> CodeActionsRevertAsync(CodeActionRecoveryRequest request, CancellationToken cancellationToken);
+
     Task<CodeActionsApplyResult> CodeActionsApplyAsync(
         CodeActionsApplyRequest request,
         CancellationToken cancellationToken);

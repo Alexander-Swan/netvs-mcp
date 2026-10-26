@@ -29,7 +29,7 @@ See [setup](docs/SETUP.md) for installation, client registration, and troublesho
 
 ## Capabilities
 
-- **Live editing and navigation:** read unsaved buffers, inspect symbols, find references, and apply edits. Safe-edit previews support developer approval.
+- **Live editing and navigation:** read unsaved buffers, inspect symbols, find references, and apply edits. Safe-edit previews support developer approval; code actions support snapshot-bound preview, application, and verified recovery.
 - **Builds and diagnostics:** build solutions or projects, read output panes and errors, cancel builds, and query compiler diagnostics for an exact document version.
 - **Debugger control:** launch, attach, step, inspect chosen threads and frames, manage breakpoints and watches. Pause identities protect against stale inspection requests.
 - **Tests:** discover and run tests with the CLI backend.
@@ -47,7 +47,7 @@ Use `get_help` for current tool descriptions. `netvs_doctor` checks broker healt
 | Editor mutations | `editor_insert`, `editor_replace`, `editor_goto_line`, `selection_get`, `selection_set` |
 | Safe-edit workflow | `edit_preview`, `edit_approve`, `edit_reject`, `edit_list_pending`, `prepare_safe_edit`, `apply_safe_edit_and_build` |
 | Code navigation | `code_document_symbols`, `code_workspace_symbols`, `code_go_to_definition`, `code_go_to_implementation`, `code_find_references`, `find_implementations`, `rename_symbol_preview`, `rename_symbol_apply`, `call_hierarchy_get` |
-| Code fixes & refactorings | `code_actions_list`, `code_actions_apply`,  |
+| Code fixes & refactorings | `code_actions_list`, `code_actions_preview`, `code_actions_apply`, `code_actions_revert` |
 | Search | `editor_find`, `find_in_files`, `open_relevant_files` |
 | Build | `build_solution`, `build_project`, `build_and_get_errors`, `build_status`, `build_cancel`, `build_configuration_get`, `build_configuration_set`, `rebuild_solution`, `clean_solution`, `package_restore` |
 | Diagnostics | `document_diagnostics`, `errors_list`, `output_read`, `output_write`, `output_clear`, `output_list_panes`, `diagnostics_for_document`, `diagnostics_binding_errors` |

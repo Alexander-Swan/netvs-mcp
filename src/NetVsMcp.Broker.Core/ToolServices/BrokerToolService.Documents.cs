@@ -397,7 +397,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "code_actions_apply", Title = "Code Actions Apply", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Applies a code fix or refactoring by index (as returned by code_actions_list) through a routed Visual Studio session. Recomputes the action list before applying.")]
+    [Description("Applies a code fix or refactoring. Prefer actionId returned by code_actions_list: it binds the original action to the workspace snapshot and rejects stale or reused selections. IDs expire after two minutes and require an updated extension. Legacy index-only calls recompute actions and do not provide stale-selection protection.")]
     public Task<ToolResponse<CodeActionsApplyResult>> CodeActionsApply(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
@@ -405,8 +405,8 @@ internal sealed partial class BrokerToolService
         int line,
         [Description(ColumnParameterDescription)]
         int column,
-        [Description("The action index, as returned by code_actions_list.")]
-        int index,
+        [Description("Legacy action index. Omit when supplying actionId; index-only calls have no stale-source protection.")]
+        int? index = null,
         [Description("Optional selection end line (1-based). Must match the code_actions_list call that produced the index.")]
         int? endLine = null,
         [Description("Optional selection end column (1-based). Must match the code_actions_list call that produced the index.")]
@@ -414,12 +414,15 @@ internal sealed partial class BrokerToolService
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? actionId = null)
     {
         if (ValidateCodePosition(documentPath, line, column) is { } validation)
         {
             return Task.FromResult(ToolResponse<CodeActionsApplyResult>.Fail(validation));
         }
+        if (string.IsNullOrWhiteSpace(actionId) && (index is null or < 0))
+            return Task.FromResult(FailWithCode<CodeActionsApplyResult>("Supply actionId from code_actions_list, or an explicit nonnegative legacy index.", ToolErrorCodes.InvalidRequest));
 
         var request = new CodeActionsApplyRequest
         {
@@ -428,14 +431,17 @@ internal sealed partial class BrokerToolService
             Column = column,
             EndLine = endLine,
             EndColumn = endColumn,
-            Index = index
+            Index = index.GetValueOrDefault(),
+            ActionId = actionId
         };
 
         return DispatchValueAsync(
             sessionId,
             solutionName,
             solutionPath,
-            (connection, ct) => connection.CodeActionsApplyAsync(request, ct),
+            (connection, ct) => string.IsNullOrWhiteSpace(actionId)
+                ? connection.CodeActionsApplyAsync(request, ct)
+                : connection.CodeActionsApplyVerifiedAsync(request, ct),
             cancellationToken,
             workspacePath: GetRoutableWorkspacePath(request.DocumentPath));
     }

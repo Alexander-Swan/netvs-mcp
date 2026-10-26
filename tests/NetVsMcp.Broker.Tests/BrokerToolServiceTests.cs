@@ -567,6 +567,18 @@ public sealed partial class BrokerToolServiceTests
             return Task.FromResult(new CodeActionsListResult(position, actions));
         }
 
+        public CodeActionRecoveryRequest? LastCodeActionRecoveryRequest { get; private set; }
+        public Func<CodeActionRecoveryRequest, Task<CodeActionsApplyResult>>? ActionRecoveryHandler { get; set; }
+        public Task<CodeActionsApplyResult> CodeActionsRevertAsync(CodeActionRecoveryRequest request, CancellationToken cancellationToken)
+        {
+            LastCodeActionRecoveryRequest = request;
+            return ActionRecoveryHandler?.Invoke(request) ?? throw new NotSupportedException();
+        }
+        public Task<CodeActionsApplyResult> CodeActionsPreviewAsync(CodeActionsApplyRequest request, CancellationToken cancellationToken) => CodeActionsApplyVerifiedAsync(request, cancellationToken);
+
+        public Task<CodeActionsApplyResult> CodeActionsApplyVerifiedAsync(CodeActionsApplyRequest request, CancellationToken cancellationToken) => CodeActionsApplyAsync(request, cancellationToken);
+
+        public CodeActionsApplyResult? ActionApplicationReport { get; set; }
         public Task<CodeActionsApplyResult> CodeActionsApplyAsync(
             CodeActionsApplyRequest request,
             CancellationToken cancellationToken)
@@ -577,7 +589,7 @@ public sealed partial class BrokerToolServiceTests
                 new(request.DocumentPath, request.Line, request.Column, request.Line, request.Column + 3, string.Empty)
             ];
 
-            return Task.FromResult(new CodeActionsApplyResult(true, "Applied 'Remove unnecessary usings'.", "Remove unnecessary usings", changes));
+            return Task.FromResult(ActionApplicationReport ?? new CodeActionsApplyResult(true, "Applied 'Remove unnecessary usings'.", "Remove unnecessary usings", changes));
         }
 
         public Task<DocumentReadResult> DocumentReadAsync(

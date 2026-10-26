@@ -306,6 +306,7 @@ internal sealed partial class BrokerToolService
             metadata["nextActions"] = unsupportedByVsixMessage;
             response = response with { Message = unsupportedByVsixMessage, Metadata = metadata };
         }
+        response = NormalizeActionResponse(response, dispatch.Session?.SessionId, toolName == nameof(CodeActionsRevert));
         stopwatch.Stop();
         AuditToolResult(
             toolName,
