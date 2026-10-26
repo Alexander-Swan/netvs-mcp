@@ -55,7 +55,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_hot_reload_apply", Title = "Debug Hot Reload Apply", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Applies pending code changes via Hot Reload (Debug.ApplyCodeChanges) to the running debuggee in a routed Visual Studio session. Requires an active debug session.")]
+    [Description("Requests pending code changes via Hot Reload (Debug.ApplyCodeChanges) in a routed Visual Studio session. Requires an active debug session. Success means the command returned without throwing and no compile errors were reported; it does not verify runtime behavior. If paused, step or continue to a fresh stop before checking updated values.")]
     public Task<ToolResponse<HotReloadApplyResult>> DebugHotReloadApply(
         string? sessionId = null,
         string? solutionName = null,

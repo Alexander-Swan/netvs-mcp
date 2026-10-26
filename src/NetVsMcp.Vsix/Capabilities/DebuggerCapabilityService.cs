@@ -22,7 +22,9 @@ internal enum DebugStepKind
 internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilityService, IDisposable
 {
     private const int DefaultCallStackFrameLimit = 2;
-    private readonly AsyncPackage package;
+    private readonly Func<Task<DTE?>> getDte;
+    private readonly Func<CancellationToken, Task<IHotReloadInitializationNotification?>> subscribeHotReload;
+    private long? unconfirmedHotReloadGeneration;
     private readonly List<string> watchExpressions = new();
     private readonly DebugExecutionTracker execution = new();
     internal NetVsMcp.Contracts.SessionEventBuffer Events { get; } = new(SessionIdentity.CurrentProcessSessionId());
@@ -30,8 +32,21 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
     private Debugger? eventDebugger;
 
     public DebuggerCapabilityService(AsyncPackage package)
+        : this(async () =>
+        {
+            var service = await package.GetServiceAsync(typeof(DTE));
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            return service as DTE;
+        })
     {
-        this.package = package;
+    }
+
+    internal DebuggerCapabilityService(Func<Task<DTE?>> getDte,
+        Func<CancellationToken, Task<IHotReloadInitializationNotification?>>? subscribeHotReload = null)
+    {
+        this.getDte = getDte;
+        this.subscribeHotReload = subscribeHotReload ?? (ct => HotReloadInitializationNotification.TrySubscribeAsync(ct,
+            reason => Events.Publish("hotReload.notificationUnavailable." + reason)));
     }
 
     public async Task InitializeAsync(CancellationToken cancellationToken)
@@ -44,8 +59,71 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var debugger = await GetDebuggerAsync();
-        return await ExecuteAsync(debugger, () => { ThreadHelper.ThrowIfNotOnUIThread(); debugger.Go(WaitForBreakOrEnd: false); },
-            waitForStop: false, newSession: debugger.CurrentMode == dbgDebugMode.dbgDesignMode, cancellationToken);
+        var newSession = debugger.CurrentMode == dbgDebugMode.dbgDesignMode;
+        var startupDte = await GetDteAsync();
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var initialGeneration = execution.ObservedState().Generation;
+        var initialSolution = startupDte.Solution?.FullName;
+        using var preparedNotification = newSession ? await subscribeHotReload(cancellationToken) : null;
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        if (newSession && (debugger.CurrentMode != dbgDebugMode.dbgDesignMode ||
+            execution.ObservedState().Generation != initialGeneration ||
+            !string.Equals(initialSolution, startupDte.Solution?.FullName, StringComparison.OrdinalIgnoreCase)))
+            throw new StaleDebugContextException("The selected debugger or solution changed during startup preparation; no command was issued.");
+        var state = await ExecuteAsync(debugger, () => { ThreadHelper.ThrowIfNotOnUIThread(); debugger.Go(WaitForBreakOrEnd: false); },
+            waitForStop: false, newSession: newSession, cancellationToken);
+        if (newSession) unconfirmedHotReloadGeneration = state.Generation;
+        using var activeNotification = newSession && preparedNotification is null ? await subscribeHotReload(cancellationToken) : null;
+        var notification = preparedNotification ?? activeNotification;
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        if (newSession && debugger.CurrentMode != dbgDebugMode.dbgDesignMode)
+        {
+            await InitializeHotReloadBaselineAsync(cancellationToken, () => notification?.Arm());
+            if (notification is null) unconfirmedHotReloadGeneration = null;
+            if (notification is not null)
+            {
+                var generation = state.Generation;
+                var dte = await GetDteAsync();
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+                var solution = dte.Solution?.FullName;
+                var processId = debugger.CurrentProcess?.ProcessID;
+                unconfirmedHotReloadGeneration = generation;
+                var started = await HotReloadBaseline.WaitForInitializationAsync(notification.Completed, TimeSpan.FromSeconds(10), cancellationToken);
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+                var sameSession = execution.ObservedState().Generation == generation && debugger.CurrentMode != dbgDebugMode.dbgDesignMode &&
+                    string.Equals(solution, dte.Solution?.FullName, StringComparison.OrdinalIgnoreCase) &&
+                    (!processId.HasValue || debugger.CurrentProcess?.ProcessID == processId);
+                unconfirmedHotReloadGeneration = started && sameSession ? null : generation;
+                Events.Publish(started && sameSession ? "hotReload.initialized" : "hotReload.unconfirmed");
+            }
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+            return GetDebuggerState(debugger);
+        }
+        return state;
+    }
+
+    private async Task InitializeHotReloadBaselineAsync(CancellationToken cancellationToken, Action? beforeIssue = null)
+    {
+        // VS can initialize its Hot Reload baseline lazily on the first apply request.
+        // Request it before returning a new session to the caller: if the first request
+        // happens after an edit, it can accept that edit as the baseline and emit no delta.
+        // Unsupported engines must still be able to start normally.
+        var dte = await GetDteAsync();
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var generation = execution.ObservedState().Generation;
+        var solution = dte.Solution?.FullName;
+        var processId = dte.Debugger.CurrentProcess?.ProcessID;
+        await HotReloadBaseline.InitializeAsync(async ct =>
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(ct);
+            return HotReloadBaseline.Attempt(
+                () => { ThreadHelper.ThrowIfNotOnUIThread(); return dte.Debugger.CurrentMode != dbgDebugMode.dbgDesignMode &&
+                    execution.ObservedState().Generation == generation &&
+                    (!processId.HasValue || dte.Debugger.CurrentProcess?.ProcessID == processId) &&
+                    string.Equals(dte.Solution?.FullName, solution, StringComparison.OrdinalIgnoreCase); },
+                () => { ThreadHelper.ThrowIfNotOnUIThread(); return dte.Commands.Item("Debug.ApplyCodeChanges", 0).IsAvailable; },
+                () => { ThreadHelper.ThrowIfNotOnUIThread(); beforeIssue?.Invoke(); dte.ExecuteCommand("Debug.ApplyCodeChanges"); });
+        }, cancellationToken);
     }
 
     public async Task<DebuggerStateInfo> StartWithoutDebuggingAsync(CancellationToken cancellationToken)
@@ -69,8 +147,7 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
             debugger.Stop(WaitForDesignMode: true);
         }
 
-        return await ExecuteAsync(debugger, () => { ThreadHelper.ThrowIfNotOnUIThread(); debugger.Go(WaitForBreakOrEnd: false); },
-            waitForStop: false, newSession: true, cancellationToken);
+        return await StartAsync(cancellationToken);
     }
 
     public async Task<DebuggerStateInfo> StopAsync(CancellationToken cancellationToken)
@@ -120,6 +197,11 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
                 Array.Empty<ErrorListItemInfo>());
         }
 
+        if (unconfirmedHotReloadGeneration == execution.ObservedState().Generation)
+            return new HotReloadApplyResult(false,
+                "Hot Reload session initialization was not confirmed before editing was allowed. Restart debugging before editing source and applying changes.",
+                Array.Empty<ErrorListItemInfo>());
+
         try
         {
             // Debug.ApplyCodeChanges is the underlying command for both classic Edit and
@@ -138,8 +220,8 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
         var errors = ReadCompileErrors(dte as DTE2);
         var success = errors.Count == 0;
         var message = success
-            ? "Applied code changes."
-            : $"Applied code changes, but {errors.Count} compile error(s) were reported.";
+            ? "Requested code changes; no compile errors were reported. Runtime behavior has not been verified. If paused, step or continue to a fresh stop before checking updated values."
+            : $"Requested code changes, but {errors.Count} compile error(s) were reported.";
         return new HotReloadApplyResult(success, message, errors);
     }
 
@@ -1126,7 +1208,7 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
     private async Task<DTE> GetDteAsync()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-        return await package.GetServiceAsync(typeof(DTE)) as DTE
+        return await getDte()
             ?? throw new InvalidOperationException("Visual Studio DTE service is unavailable.");
     }
 
