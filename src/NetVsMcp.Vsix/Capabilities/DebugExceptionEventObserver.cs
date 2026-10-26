@@ -7,11 +7,46 @@ using Microsoft.VisualStudio.Debugger.Interop;
 namespace NetVsMcp.Vsix;
 
 [ComVisible(true)]
-internal sealed class DebugExceptionEventObserver(DebugExecutionTracker execution, DebugExceptionTracker exceptions) : IDebugEventCallback2
+internal sealed class DebugExceptionEventObserver(DebugExecutionTracker execution, DebugExceptionTracker exceptions, BreakpointErrorTracker? breakpointErrors = null) : IDebugEventCallback2
 {
     public int Event(IDebugEngine2 engine, IDebugProcess2 process, IDebugProgram2 program, IDebugThread2 thread,
         IDebugEvent2 debugEvent, ref Guid eventId, uint attributes)
     {
+        if (eventId == typeof(IDebugBreakpointErrorEvent2).GUID)
+        {
+            try
+            {
+                var notification = (IDebugBreakpointErrorEvent2)debugEvent;
+                ErrorHandler.ThrowOnFailure(notification.GetErrorBreakpoint(out var error));
+                ErrorHandler.ThrowOnFailure(error.GetBreakpointResolution(out var resolution));
+                var info = new BP_ERROR_RESOLUTION_INFO[1];
+                ErrorHandler.ThrowOnFailure(resolution.GetResolutionInfo(enum_BPERESI_FIELDS.BPERESI_MESSAGE | enum_BPERESI_FIELDS.BPERESI_TYPE, info));
+                int? pid = null;
+                try
+                {
+                    if (process is null && program is not null) program.GetProcess(out process);
+                    var identity = new AD_PROCESS_ID[1];
+                    if (process is not null && ErrorHandler.Succeeded(process.GetPhysicalProcessId(identity)) && identity[0].ProcessIdType == (uint)enum_AD_PROCESS_ID.AD_PROCESS_ID_SYSTEM)
+                        pid = checked((int)identity[0].dwProcessId);
+                }
+                catch (Exception ex) when (ex is COMException or NotSupportedException or NotImplementedException) { }
+                string? engineId = null;
+                try { if (engine is not null && ErrorHandler.Succeeded(engine.GetEngineId(out var id))) engineId = id.ToString("D"); }
+                catch (Exception ex) when (ex is COMException or NotSupportedException or NotImplementedException) { }
+                var hasType = (info[0].dwFields & enum_BPERESI_FIELDS.BPERESI_TYPE) != 0;
+                var errorType = !hasType ? "unknown" : (info[0].dwType & enum_BP_ERROR_TYPE.BPET_TYPE_MASK) switch
+                {
+                    enum_BP_ERROR_TYPE.BPET_TYPE_WARNING => "warning",
+                    enum_BP_ERROR_TYPE.BPET_TYPE_ERROR => "error",
+                    _ => "unknown"
+                };
+                breakpointErrors?.Capture(execution.ObservedState().Generation, pid, engineId, errorType,
+                    (info[0].dwFields & enum_BPERESI_FIELDS.BPERESI_MESSAGE) != 0 ? info[0].bstrMessage : null,
+                    hasType ? unchecked((uint)info[0].dwType) : (uint?)null);
+            }
+            catch (Exception ex) { Trace.WriteLine("NetVsMcp: breakpoint error notification unavailable: " + ex.Message); }
+            return VSConstants.S_OK;
+        }
         if (eventId != typeof(IDebugExceptionEvent2).GUID && eventId != typeof(IDebugExceptionEvent150).GUID) return VSConstants.S_OK;
         try
         {

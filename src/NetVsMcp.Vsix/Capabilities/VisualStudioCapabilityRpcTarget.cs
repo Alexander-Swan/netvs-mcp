@@ -75,6 +75,7 @@ internal sealed class VisualStudioCapabilityRpcTarget
             new("pauseExceptionEvidence", "supported", "debug_exception reads bounded debugger event type/message/code/handling evidence against an exact pause, with optional throwing-thread source location. Missing engine notifications and unsupported fields remain explicit unknowns."),
             new("ownedRunToLocation", paused ? "requiresSingleProcessAndFilterSupport" : "requiresPause", "debug_run_to uses exact pause/process guards and request-owned temporary breakpoint cleanup. Engine relocation and incomplete cleanup are explicit; source checksum matching is not verified."),
             new("sourceChecksumEvidence", paused ? "availableWhenEngineSupports" : "requiresPause", "debug_source_evidence compares engine-supplied SHA-256 document checksums with bounded disk bytes and immutable Roslyn text. Legacy/missing checksums, ambiguous workspace documents, and stale snapshots remain explicit."),
+            new("breakpointBindingEvidence", "availableWhenEngineSupports", "breakpoint_diagnostics pages DTE binding/child locations and separately exposes bounded historical engine warning/error notifications. Notifications are not attributed to individual current roots."),
             new("guardedCodeActions", "supported", "Opaque action IDs and exact source-text previews reject stale workspace snapshots; custom and structural operations are unsupported."),
             new("versionedCompilerDiagnostics", "supported", "document_diagnostics pages compiler diagnostics for exact unsaved Roslyn text; build and analyzer diagnostics are separate."),
             new("targetedEvaluation", dte?.Debugger is EnvDTE100.Debugger5 ? "supported" : "unsupported",
@@ -314,6 +315,8 @@ internal sealed class VisualStudioCapabilityRpcTarget
         InvokeAsync(() => debugger.DebugRunToAsync(request, cancellationToken), nameof(DebugRunToAsync));
     public Task<NetVsMcp.Contracts.DebugSourceEvidenceResult> DebugSourceEvidenceAsync(NetVsMcp.Contracts.DebugSourceEvidenceRequest request, CancellationToken cancellationToken) =>
         InvokeAsync(() => debugger.DebugSourceEvidenceAsync(request, cancellationToken), nameof(DebugSourceEvidenceAsync));
+    public Task<NetVsMcp.Contracts.BreakpointDiagnosticsResult> BreakpointDiagnosticsAsync(NetVsMcp.Contracts.BreakpointDiagnosticsRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => debugger.BreakpointDiagnosticsAsync(request, cancellationToken), nameof(BreakpointDiagnosticsAsync));
 
     public Task<HotReloadApplyResult> DebugHotReloadApplyAsync(CancellationToken cancellationToken) =>
         InvokeAsync(() => debugger.DebugHotReloadApplyAsync(cancellationToken), nameof(DebugHotReloadApplyAsync));

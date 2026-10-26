@@ -845,6 +845,9 @@ public sealed partial class BrokerToolServiceTests
         }
 
         public Func<DebugSourceEvidenceRequest, CancellationToken, Task<DebugSourceEvidenceResult>>? SourceEvidenceHandler { get; set; }
+        public Func<BreakpointDiagnosticsRequest, CancellationToken, Task<BreakpointDiagnosticsResult>>? BreakpointDiagnosticsHandler { get; set; }
+        public Task<BreakpointDiagnosticsResult> BreakpointDiagnosticsAsync(BreakpointDiagnosticsRequest request, CancellationToken cancellationToken) =>
+            BreakpointDiagnosticsHandler?.Invoke(request, cancellationToken) ?? throw new NotSupportedException();
         public Task<DebugSourceEvidenceResult> DebugSourceEvidenceAsync(DebugSourceEvidenceRequest request, CancellationToken cancellationToken) =>
             SourceEvidenceHandler?.Invoke(request, cancellationToken) ?? throw new NotSupportedException();
         public Task<DebugRunToResult> DebugRunToAsync(DebugRunToRequest request, CancellationToken cancellationToken) =>

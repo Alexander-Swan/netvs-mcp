@@ -118,6 +118,7 @@ internal sealed class FakeVisualStudioSessionRpc : IVisualStudioSessionRpc
 
     public Task<TestOperationResult> TestRunAsync(TestRunRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+    public Task<BreakpointDiagnosticsResult> BreakpointDiagnosticsAsync(BreakpointDiagnosticsRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
     public Task<DebugSourceEvidenceResult> DebugSourceEvidenceAsync(DebugSourceEvidenceRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
     public Task<DebugRunToResult> DebugRunToAsync(DebugRunToRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 

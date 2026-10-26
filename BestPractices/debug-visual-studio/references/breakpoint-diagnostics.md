@@ -1,0 +1,11 @@
+# Diagnose A Breakpoint That Does Not Hit
+
+Call `breakpoint_diagnostics` with the explicit session route. It works before launch, while running, and while paused, without enabling, binding, or removing breakpoints. Follow `nextOffset` for another page; refresh from offset zero after edits because pages describe a volatile IDE collection.
+
+`bindingState` separates `notDebugging`, `disabled`, `pending`, `bound`, and `unknown`. Enabled does not mean bound. `automationType` preserves the DTE root type: a pending parent can have bound children. Each row includes available bound source/process locations, the total count, and explicit location truncation (20 per root, 200 per response). An unavailable COM property stays unknown; no filename or on-disk PDB is substituted as proof of binding. A bound breakpoint can still have a condition, filter, hit count, or unreachable code; binding does not guarantee a future hit.
+
+`errorNotifications` contains up to 32 recent engine breakpoint warnings/errors observed in the returned debugger generation, with timestamps, process/engine identity when available, normalized `errorType` (`warning`, `error`, or `unknown`), original `rawFlags` when supported, and text capped at 2,048 characters. They are **historical notifications**, not the current error state of an individual row. They are not automatically correlated to roots by name or file/line. A breakpoint may have been fixed or removed after a notification. An empty list does not prove successful binding: observation may have started later, or the engine may not publish the event. Check `errorObservationAvailable` and truncation.
+
+For a pending breakpoint, inspect the engine messages, then pause and use `module_list` to verify the intended process/module/symbols and `debug_source_evidence` to compare loaded source identities with disk/editor text. Verify project/configuration and conditional/filter settings before changing execution. Native engines remain unqualified.
+
+The evidence follows the SDK distinction between [pending/bound children](https://learn.microsoft.com/en-us/dotnet/api/envdte.breakpoint.children) and [breakpoint error notifications](https://learn.microsoft.com/en-us/visualstudio/extensibility/debugger/binding-breakpoints).

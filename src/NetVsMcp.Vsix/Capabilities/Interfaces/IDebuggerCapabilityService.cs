@@ -16,6 +16,7 @@ internal interface IDebuggerCapabilityService
     Task<NetVsMcp.Contracts.DebugExceptionResult> GetExceptionAsync(NetVsMcp.Contracts.DebugExceptionRequest request, CancellationToken cancellationToken);
     Task<NetVsMcp.Contracts.DebugRunToResult> RunToAsync(NetVsMcp.Contracts.DebugRunToRequest request, CancellationToken cancellationToken);
     Task<NetVsMcp.Contracts.DebugSourceEvidenceResult> GetSourceEvidenceAsync(NetVsMcp.Contracts.DebugSourceEvidenceRequest request, CancellationToken cancellationToken);
+    Task<NetVsMcp.Contracts.BreakpointDiagnosticsResult> GetBreakpointDiagnosticsAsync(NetVsMcp.Contracts.BreakpointDiagnosticsRequest request, CancellationToken cancellationToken);
     Task<DebuggerStateInfo> StartAsync(CancellationToken cancellationToken);
     Task<DebuggerStateInfo> StartWithoutDebuggingAsync(CancellationToken cancellationToken);
     Task<DebuggerStateInfo> RestartAsync(CancellationToken cancellationToken);

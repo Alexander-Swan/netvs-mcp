@@ -1207,7 +1207,7 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
             exceptionDebugger = Package.GetGlobalService(typeof(Microsoft.VisualStudio.Shell.Interop.SVsShellDebugger)) as Microsoft.VisualStudio.Shell.Interop.IVsDebugger;
             if (exceptionDebugger is not null)
             {
-                exceptionObserver = new DebugExceptionEventObserver(execution, exceptions);
+                exceptionObserver = new DebugExceptionEventObserver(execution, exceptions, breakpointErrors);
                 try { Microsoft.VisualStudio.ErrorHandler.ThrowOnFailure(exceptionDebugger.AdviseDebugEventCallback(exceptionObserver)); }
                 catch (System.Runtime.InteropServices.COMException ex)
                 {

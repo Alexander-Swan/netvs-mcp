@@ -32,6 +32,7 @@ Agent-neutral entrypoint for launching, attaching, pausing, stepping, inspecting
 | Debug a specific test | `debug-visual-studio/references/test-debugging.md` |
 | Apply hot reload | `debug-visual-studio/references/hot-reload.md` |
 | Set, disable, group, remove, or clean up breakpoints/tracepoints | `debug-visual-studio/references/breakpoints.md` |
+| Inspect breakpoint binding, bound locations, and engine warning history | `debug-visual-studio/references/breakpoint-diagnostics.md` |
 | Verify loaded modules, symbol status, or symbol-search diagnostics | `debug-visual-studio/references/modules-symbols.md` |
 | Compare loaded source checksums with disk and unsaved editor text | `debug-visual-studio/references/source-evidence.md` |
 | Inspect paused call stack, locals, variables, or expressions | `debug-visual-studio/references/inspection.md` |

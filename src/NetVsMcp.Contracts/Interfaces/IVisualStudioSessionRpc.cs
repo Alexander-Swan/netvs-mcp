@@ -165,6 +165,7 @@ public interface IVisualStudioSessionRpc
 
     Task<DebugRunToResult> DebugRunToAsync(DebugRunToRequest request, CancellationToken cancellationToken);
     Task<DebugSourceEvidenceResult> DebugSourceEvidenceAsync(DebugSourceEvidenceRequest request, CancellationToken cancellationToken);
+    Task<BreakpointDiagnosticsResult> BreakpointDiagnosticsAsync(BreakpointDiagnosticsRequest request, CancellationToken cancellationToken);
 
     Task<TestOperationResult> TestResultsAsync(
         TestResultsRequest request,

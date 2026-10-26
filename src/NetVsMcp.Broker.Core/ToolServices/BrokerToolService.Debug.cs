@@ -177,7 +177,7 @@ internal sealed partial class BrokerToolService
         !string.IsNullOrWhiteSpace(request.DependsOnBreakpointName);
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "breakpoint_set", Title = "Breakpoint Set", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Sets a breakpoint in a routed Visual Studio session.")]
+    [Description("Sets a source breakpoint, conditional breakpoint, hit-count breakpoint, or tracepoint in Visual Studio. Use actionMessage with continueAfterAction=true to log without stopping. dependsOnBreakpointName is informational metadata only and does not enforce a breakpoint dependency. A created breakpoint can remain unbound; inspect breakpoint_diagnostics when binding matters.")]
     public async Task<ToolResponse<BreakpointInfo>> BreakpointSet(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
@@ -185,13 +185,21 @@ internal sealed partial class BrokerToolService
         int line,
         [Description(ColumnParameterDescription)]
         int column = 1,
+        [Description("Optional debugger boolean expression; the breakpoint stops when it evaluates true.")]
         string? condition = null,
+        [Description("Optional informational action label; use actionMessage and continueAfterAction to configure tracepoint behavior.")]
         string? action = null,
+        [Description("Optional tracepoint message; {expression} placeholders interpolate debugger values when hit.")]
         string? actionMessage = null,
+        [Description("Resume automatically after logging actionMessage when true; false retains normal breakpoint stopping behavior.")]
         bool continueAfterAction = false,
+        [Description("Optional hit count. Zero or omission disables hit-count filtering; positive values use hitCountType.")]
         int? hitCount = null,
+        [Description("Hit-count comparison: equals (default), multiple, or greaterThanOrEqual.")]
         string? hitCountType = null,
+        [Description("Informational metadata only. Does not make this breakpoint wait for another breakpoint.")]
         string? dependsOnBreakpointName = null,
+        [Description("Optional group label for breakpoint_group_list, breakpoint_group_enable, and breakpoint_group_remove.")]
         string? groupName = null,
         string? sessionId = null,
         string? solutionName = null,
