@@ -26,7 +26,7 @@ public class DebugExecutionTrackerTests
         Assert.Equal("pending", pending.Outcome);
         Assert.Null(pending.StopId);
         Assert.Null(pending.BreakReason);
-        Assert.Throws<InvalidOperationException>(() => tracker.Validate("dbgBreakMode", old.StopId, old.Generation));
+        Assert.Throws<StaleDebugContextException>(() => tracker.Validate("dbgBreakMode", old.StopId, old.Generation));
         tracker.Record("dbgBreakMode", "stepCompleted"); // Fast step: no sampled run mode.
         Assert.True(await waiting);
         var landed = tracker.State("dbgBreakMode");
@@ -94,7 +94,7 @@ public class DebugExecutionTrackerTests
         var old = tracker.State("dbgBreakMode");
         tracker.Record("dbgRunMode");
         tracker.Record("dbgBreakMode", "manualPause");
-        Assert.Throws<InvalidOperationException>(() => tracker.Validate("dbgBreakMode", old.StopId, old.Generation));
+        Assert.Throws<StaleDebugContextException>(() => tracker.Validate("dbgBreakMode", old.StopId, old.Generation));
         var current = tracker.State("dbgBreakMode");
         tracker.Validate("dbgBreakMode", current.StopId, current.Generation);
         Assert.NotEqual(old.StopId, current.StopId);
@@ -112,7 +112,7 @@ public class DebugExecutionTrackerTests
         tracker.Record("dbgBreakMode", "breakpoint");
         var current = tracker.State("dbgBreakMode");
         Assert.True(current.Generation > old.Generation);
-        Assert.Throws<InvalidOperationException>(() => tracker.Validate("dbgBreakMode", null, old.Generation));
+        Assert.Throws<StaleDebugContextException>(() => tracker.Validate("dbgBreakMode", null, old.Generation));
         Assert.NotEqual(old.StopId, current.StopId);
     }
 
@@ -134,7 +134,7 @@ public class DebugExecutionTrackerTests
         tracker.Record("dbgBreakMode", "stepCompleted");
         var current = tracker.State("dbgBreakMode");
         tracker.Record("dbgRunMode", liveMode: "dbgBreakMode");
-        Assert.Throws<InvalidOperationException>(() => tracker.Validate("dbgBreakMode", current.StopId, current.Generation));
+        Assert.Throws<StaleDebugContextException>(() => tracker.Validate("dbgBreakMode", current.StopId, current.Generation));
         Assert.Equal("unknown", tracker.State("dbgBreakMode").Outcome);
         var refreshed = tracker.State("dbgBreakMode", refresh: true);
         Assert.Equal("stopped", refreshed.Outcome);
@@ -151,7 +151,7 @@ public class DebugExecutionTrackerTests
         tracker.Record("dbgRunMode", liveMode: "dbgBreakMode");
         tracker.Record("dbgBreakMode", "breakpoint", liveMode: "dbgBreakMode");
         Assert.NotEqual(old.StopId, tracker.State("dbgBreakMode").StopId);
-        Assert.Throws<InvalidOperationException>(() => tracker.Validate("dbgBreakMode", old.StopId, old.Generation));
+        Assert.Throws<StaleDebugContextException>(() => tracker.Validate("dbgBreakMode", old.StopId, old.Generation));
     }
 
     [Fact]
@@ -164,7 +164,7 @@ public class DebugExecutionTrackerTests
         var current = tracker.State("dbgBreakMode");
         Assert.Equal("unknown", current.Outcome);
         Assert.Null(current.StopId);
-        Assert.Throws<InvalidOperationException>(() => tracker.Validate("dbgBreakMode", old.StopId, old.Generation));
+        Assert.Throws<StaleDebugContextException>(() => tracker.Validate("dbgBreakMode", old.StopId, old.Generation));
     }
 
     [Fact]
@@ -172,6 +172,6 @@ public class DebugExecutionTrackerTests
     {
         var first = Paused().State("dbgBreakMode");
         var second = Paused();
-        Assert.Throws<InvalidOperationException>(() => second.Validate("dbgBreakMode", first.StopId, first.Generation));
+        Assert.Throws<StaleDebugContextException>(() => second.Validate("dbgBreakMode", first.StopId, first.Generation));
     }
 }

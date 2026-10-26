@@ -120,7 +120,7 @@ internal sealed class DebugExecutionTracker
             if (pending || liveMode != "dbgBreakMode" || stopId == null ||
                 (expectedStopId != null && !string.Equals(stopId, expectedStopId, StringComparison.Ordinal)) ||
                 (expectedGeneration.HasValue && generation != expectedGeneration))
-                throw new InvalidOperationException("Stale debugger context. Read debug_status or debug_snapshot for the current generation and stopId before inspecting again.");
+                throw new StaleDebugContextException("Stale debugger context. Read debug_status or debug_snapshot for the current generation and stopId before inspecting again.");
         }
     }
 

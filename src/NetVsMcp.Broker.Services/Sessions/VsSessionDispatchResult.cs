@@ -16,7 +16,11 @@ public enum VsSessionDispatchFailureReason
     UnsupportedByVsix,
     OperationTimedOut,
     DialogBlocked,
-    MutationConflict
+    MutationConflict,
+    InvalidRequest,
+    StaleDebuggerContext,
+    StaleAction,
+    FeatureUnavailable
 }
 
 public sealed record VsSessionDispatchResult<T>(

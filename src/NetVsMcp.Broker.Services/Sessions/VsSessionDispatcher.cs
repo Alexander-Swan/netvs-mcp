@@ -111,6 +111,18 @@ internal sealed class VsSessionDispatcher : IVsSessionDispatcher
         {
             return VsSessionDispatchResult<T>.Failed(VsSessionDispatchFailureReason.MutationConflict, ex.Message, route.Session);
         }
+        catch (RemoteRpcException ex) when ((int?)ex.ErrorCode is VsRpcErrorCodes.StaleDebuggerContext or VsRpcErrorCodes.StaleAction or
+            VsRpcErrorCodes.FeatureUnavailable or VsRpcErrorCodes.InvalidRequest)
+        {
+            var reason = (int?)ex.ErrorCode switch
+            {
+                VsRpcErrorCodes.StaleDebuggerContext => VsSessionDispatchFailureReason.StaleDebuggerContext,
+                VsRpcErrorCodes.StaleAction => VsSessionDispatchFailureReason.StaleAction,
+                VsRpcErrorCodes.FeatureUnavailable => VsSessionDispatchFailureReason.FeatureUnavailable,
+                _ => VsSessionDispatchFailureReason.InvalidRequest
+            };
+            return VsSessionDispatchResult<T>.Failed(reason, ex.Message, route.Session);
+        }
         catch (RemoteMethodNotFoundException)
         {
             return VsSessionDispatchResult<T>.Failed(

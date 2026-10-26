@@ -114,6 +114,10 @@ public static class ToolErrorCodes
     public const string OperationTimedOut = "operation_timed_out";
     public const string DialogBlocked = "dialog_blocked";
     public const string MutationConflict = "mutation_conflict";
+    public const string StaleDebuggerContext = "stale_debugger_context";
+    public const string StaleAction = "stale_action";
+    public const string StaleDocument = "stale_document";
+    public const string FeatureUnavailable = "feature_unavailable";
 }
 
 /// <summary>

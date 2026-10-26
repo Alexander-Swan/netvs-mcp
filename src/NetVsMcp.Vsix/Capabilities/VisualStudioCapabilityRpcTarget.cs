@@ -12,7 +12,7 @@ namespace NetVsMcp.Vsix;
 // server errors per the JSON-RPC 2.0 spec; StreamJsonRpc's own reserved codes stay outside it.
 internal static class VsCapabilityRpcErrorCodes
 {
-    public const int UnhandledCapabilityException = -32050;
+    public const int UnhandledCapabilityException = NetVsMcp.Contracts.VsRpcErrorCodes.UnhandledCapability;
 }
 
 internal sealed class VisualStudioCapabilityRpcTarget
@@ -613,6 +613,14 @@ internal sealed class VisualStudioCapabilityRpcTarget
         {
             throw;
         }
+        catch (StaleDebugContextException ex)
+        { throw new LocalRpcException(ex.Message) { ErrorCode = NetVsMcp.Contracts.VsRpcErrorCodes.StaleDebuggerContext }; }
+        catch (StaleActionException ex)
+        { throw new LocalRpcException(ex.Message) { ErrorCode = NetVsMcp.Contracts.VsRpcErrorCodes.StaleAction }; }
+        catch (ArgumentException ex)
+        { throw new LocalRpcException(ex.Message) { ErrorCode = NetVsMcp.Contracts.VsRpcErrorCodes.InvalidRequest }; }
+        catch (NotSupportedException ex)
+        { throw new LocalRpcException(ex.Message) { ErrorCode = NetVsMcp.Contracts.VsRpcErrorCodes.FeatureUnavailable }; }
         catch (Exception ex)
         {
             Trace.WriteLine($"NetVsMcp: RPC method '{rpcMethodName}' threw {ex.GetType().Name}: {ex.Message}");
