@@ -13,6 +13,7 @@ namespace NetVsMcp.Vsix.Capabilities.Interfaces;
 
 internal interface IDebuggerCapabilityService
 {
+    Task<NetVsMcp.Contracts.DebugExceptionResult> GetExceptionAsync(NetVsMcp.Contracts.DebugExceptionRequest request, CancellationToken cancellationToken);
     Task<DebuggerStateInfo> StartAsync(CancellationToken cancellationToken);
     Task<DebuggerStateInfo> StartWithoutDebuggingAsync(CancellationToken cancellationToken);
     Task<DebuggerStateInfo> RestartAsync(CancellationToken cancellationToken);

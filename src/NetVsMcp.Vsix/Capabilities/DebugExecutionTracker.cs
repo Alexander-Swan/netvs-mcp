@@ -124,6 +124,11 @@ internal sealed class DebugExecutionTracker
         }
     }
 
+    internal DebuggerStateInfo ObservedState()
+    {
+        lock (gate) return State(mode);
+    }
+
     public async Task<bool> WaitAsync(long afterVersion, bool waitForStop, TimeSpan timeout, CancellationToken ct)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);

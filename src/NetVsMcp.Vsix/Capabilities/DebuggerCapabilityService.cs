@@ -1199,6 +1199,17 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
             executionEvents.OnEnterBreakMode += OnExecutionBreak;
             executionEvents.OnEnterRunMode += OnExecutionRun;
             executionEvents.OnEnterDesignMode += OnExecutionEnd;
+            exceptionDebugger = Package.GetGlobalService(typeof(Microsoft.VisualStudio.Shell.Interop.SVsShellDebugger)) as Microsoft.VisualStudio.Shell.Interop.IVsDebugger;
+            if (exceptionDebugger is not null)
+            {
+                exceptionObserver = new DebugExceptionEventObserver(execution, exceptions);
+                try { Microsoft.VisualStudio.ErrorHandler.ThrowOnFailure(exceptionDebugger.AdviseDebugEventCallback(exceptionObserver)); }
+                catch (System.Runtime.InteropServices.COMException ex)
+                {
+                    System.Diagnostics.Trace.WriteLine("NetVsMcp: exception observation unavailable: " + ex.Message);
+                    exceptionObserver = null;
+                }
+            }
             PublishExecutionState(debugger.CurrentMode.ToString());
         }
         return debugger;
@@ -1208,16 +1219,19 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         RecordExecutionEvent("dbgBreakMode", DebuggerBreakReason.Read(dbgDebugMode.dbgBreakMode, () => reason));
+        exceptions.Bind(execution.State(eventDebugger?.CurrentMode.ToString() ?? "dbgBreakMode"));
     }
 
     private void OnExecutionRun(dbgEventReason reason)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
+        exceptions.Clear();
         RecordExecutionEvent("dbgRunMode");
     }
     private void OnExecutionEnd(dbgEventReason reason)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
+        exceptions.Clear();
         RecordExecutionEvent("dbgDesignMode");
     }
 
@@ -1266,7 +1280,16 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
             executionEvents.OnEnterDesignMode -= OnExecutionEnd;
         }
         catch (System.Runtime.InteropServices.COMException) { /* VS may already have disconnected the event source. */ }
-        finally { executionEvents = null; eventDebugger = null; }
+        finally
+        {
+            try { if (exceptionObserver is not null) exceptionDebugger?.UnadviseDebugEventCallback(exceptionObserver); }
+            catch (System.Runtime.InteropServices.COMException) { /* The debugger service may already be disconnected. */ }
+            exceptions.Clear();
+            exceptionObserver = null;
+            exceptionDebugger = null;
+            executionEvents = null;
+            eventDebugger = null;
+        }
     }
 
     private async Task<DebuggerStateInfo> ExecuteAsync(Debugger debugger, Action issue,

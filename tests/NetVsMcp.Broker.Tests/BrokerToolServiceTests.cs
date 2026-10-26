@@ -203,6 +203,7 @@ public sealed partial class BrokerToolServiceTests
 
         public TestDebugRequest? LastTestDebugRequest { get; private set; }
         public Func<TestDebugRequest, CancellationToken, Task<TestDebugResult>>? TestDebugOwnedHandler { get; set; }
+        public Func<DebugExceptionRequest, CancellationToken, Task<DebugExceptionResult>>? ExceptionHandler { get; set; }
 
         public TestResultsRequest? LastTestResultsRequest { get; private set; }
 
@@ -841,6 +842,9 @@ public sealed partial class BrokerToolServiceTests
             LastTestRunRequest = request;
             return Task.FromResult(TestRunReport ?? new TestOperationResult(true, "Ran tests.", [], CreateTestResults()));
         }
+
+        public Task<DebugExceptionResult> DebugExceptionAsync(DebugExceptionRequest request, CancellationToken cancellationToken) =>
+            ExceptionHandler?.Invoke(request, cancellationToken) ?? throw new NotSupportedException();
 
         public Task<TestDebugResult> TestDebugOwnedAsync(TestDebugRequest request, CancellationToken cancellationToken) =>
             TestDebugOwnedHandler?.Invoke(request, cancellationToken) ?? TestDebugAsync(request, cancellationToken);

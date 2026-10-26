@@ -46,7 +46,7 @@ public class CoordinatedSessionRpc : DispatchProxy
 {
     private static readonly HashSet<string> Reads = new(StringComparer.Ordinal)
     {
-        "GetStatusAsync", "SessionCapabilitiesAsync", "SessionSnapshotAsync", "DebugStatusAsync", "DebugGetModeAsync", "BuildStatusAsync",
+        "GetStatusAsync", "SessionCapabilitiesAsync", "SessionSnapshotAsync", "DebugStatusAsync", "DebugExceptionAsync", "DebugGetModeAsync", "BuildStatusAsync",
         "GetActiveDocumentAsync", "ListDocumentSymbolsAsync", "DocumentReadAsync", "DocumentDiagnosticsAsync", "DocumentListAsync", "SelectionGetAsync",
         "WindowListAsync", "EditListPendingAsync", "SolutionInfoAsync", "ProjectListAsync", "ProjectInfoAsync",
         "StartupProjectGetAsync", "TestResultsAsync", "TestResultsPageAsync", "CodeFindReferencesAsync", "CodeFindImplementationsAsync",

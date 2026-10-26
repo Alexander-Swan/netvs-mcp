@@ -5,6 +5,8 @@ namespace NetVsMcp.Vsix;
 
 internal sealed class DebuggerRpcTarget
 {
+    public Task<NetVsMcp.Contracts.DebugExceptionResult> DebugExceptionAsync(NetVsMcp.Contracts.DebugExceptionRequest request, CancellationToken cancellationToken) =>
+        debugger.GetExceptionAsync(request, cancellationToken);
     private readonly IDebuggerCapabilityService debugger;
 
     public DebuggerRpcTarget(IDebuggerCapabilityService debugger)
