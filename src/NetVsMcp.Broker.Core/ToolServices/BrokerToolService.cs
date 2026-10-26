@@ -24,6 +24,7 @@ internal sealed partial class BrokerToolService
     private const string ColumnParameterDescription = "1-based column number.";
 
     private static readonly BrokerToolDescriptor[] ToolDescriptors = CreateToolDescriptors();
+    internal static IReadOnlyList<BrokerToolDescriptor> DiscoveryDescriptors => ToolDescriptors;
     private static readonly JsonSerializerOptions UsageSerializerOptions = new(JsonSerializerDefaults.Web)
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,

@@ -13,6 +13,28 @@ namespace NetVsMcp.Broker.Tests;
 
 public sealed class LocalMcpHttpHostTests
 {
+    [Fact]
+    public async Task DiscoveryProfilesFilterToolsAndRejectHiddenCalls()
+    {
+        var port = GetAvailablePort();
+        var runtime = CreateRuntime($"http://127.0.0.1:{port}");
+        await runtime.StartAsync(CancellationToken.None);
+        try
+        {
+            using var http = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+            var all = await ListToolNamesAsync(http, "/mcp");
+            var debug = await ListToolNamesAsync(http, "/mcp?profile=debug");
+            Assert.True(debug.Count < all.Count);
+            Assert.Contains("debug_snapshot", debug);
+            Assert.Contains("debug_status", debug);
+            Assert.DoesNotContain("document_write", debug);
+            using var response = await PostMcpAsync(http, "/mcp?profile=debug", new { jsonrpc = "2.0", id = 3, method = "tools/call",
+                @params = new { name = "document_write", arguments = new { path = "never.cs", text = "never" } } });
+            Assert.Contains("error", await response.Content.ReadAsStringAsync());
+        }
+        finally { await runtime.StopAsync(); }
+    }
+
     [Theory]
     [InlineData(null, 1)]
     [InlineData("references/documents.md", 2)]

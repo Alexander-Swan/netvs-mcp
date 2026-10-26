@@ -176,11 +176,16 @@ internal sealed partial class BrokerToolService
 
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "get_help", Title = "List Broker Tools", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists NetVsMcp broker tools, categories, and endpoint metadata.")]
-    public ToolResponse<BrokerCapabilities> GetHelp(bool? requiresVisualStudioSession = null)
+    [Description("Lists tool/category/endpoint metadata. Filter by profile (all/manage/read/edit/build/debug/test) or query; compact omits descriptions. To reduce tools/list, configure the server URL with ?profile=debug or another profile.")]
+    public ToolResponse<BrokerCapabilities> GetHelp(bool? requiresVisualStudioSession = null, string? profile = null, string? query = null, bool compact = false)
     {
+        if (profile is not null && !ToolDiscoveryProfile.Names.Contains(profile.ToLowerInvariant()))
+            return ToolResponse<BrokerCapabilities>.Fail("Unknown profile. Use all, manage, read, edit, build, debug, or test.");
         var tools = ToolDescriptors
             .Where(tool => requiresVisualStudioSession is null || tool.RequiresVisualStudioSession == requiresVisualStudioSession.Value)
+            .Where(tool => ToolDiscoveryProfile.Includes(profile, tool))
+            .Where(tool => string.IsNullOrWhiteSpace(query) || tool.Name.Contains(query, StringComparison.OrdinalIgnoreCase) || tool.Description.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Select(tool => compact ? tool with { Description = string.Empty, Title = null } : tool)
             .ToArray();
         var capabilities = new BrokerCapabilities(
             _runtime.Options.McpEndpoint,

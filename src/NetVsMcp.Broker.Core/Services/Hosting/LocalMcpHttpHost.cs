@@ -159,11 +159,16 @@ internal sealed class LocalMcpHttpHost : IAsyncDisposable
         // "/mcp-wu" is the opt-in endpoint for the rarely used web/UI automation
         // tools; "/mcp" excludes them to keep the default tool list smaller.
         var isWebAutomationEndpoint = httpContext.Request.Path.StartsWithSegments("/mcp-wu");
+        var profile = httpContext.Request.Query["profile"].ToString();
+        if (!string.IsNullOrWhiteSpace(profile) && !ToolDiscoveryProfile.Names.Contains(profile.ToLowerInvariant()))
+            throw new Microsoft.AspNetCore.Http.BadHttpRequestException("Unknown tool profile.");
+        var descriptors = BrokerToolService.DiscoveryDescriptors.ToDictionary(t => t.Name, StringComparer.Ordinal);
 
         foreach (var tool in toolCollection.ToArray())
         {
             var isWebAutomationTool = McpEndpointRouting.IsWebAutomationTool(tool.ProtocolTool.Name);
-            if (isWebAutomationTool != isWebAutomationEndpoint)
+            if (isWebAutomationTool != isWebAutomationEndpoint ||
+                (!isWebAutomationEndpoint && descriptors.TryGetValue(tool.ProtocolTool.Name, out var descriptor) && !ToolDiscoveryProfile.Includes(profile, descriptor)))
             {
                 toolCollection.Remove(tool);
             }
