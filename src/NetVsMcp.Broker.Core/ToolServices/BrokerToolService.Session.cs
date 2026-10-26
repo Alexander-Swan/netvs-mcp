@@ -46,13 +46,22 @@ internal sealed partial class BrokerToolService
     [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "netvs_doctor", Title = "Run NetVsMcp Doctor", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Diagnoses local broker endpoint, registration pipe, registered sessions, and tool endpoint health.")]
-    public ToolResponse<BrokerDoctorResult> NetVsDoctor()
+    public ToolResponse<BrokerDoctorResult> NetVsDoctor(string? sessionId = null)
     {
         try
         {
             var status = _runtime.GetStatus();
             var capabilities = CreateCapabilities();
-            var checks = CreateDoctorChecks(status, capabilities).ToArray();
+            var checks = CreateDoctorChecks(status, capabilities).ToList();
+            if (sessionId is not null)
+            {
+                var selected = status.Sessions.SingleOrDefault(s => s.Session.SessionId == sessionId);
+                checks.Add(new("selected_session", BrokerDoctorSeverity.Error, selected?.Health == SessionHealth.Connected,
+                    selected is null ? "Selected session is not registered; call vs_list_sessions."
+                        : $"Selected session health: {selected.Health}. Feature availability is reported by each tool for the selected engine/backend."));
+                checks.Add(new("selected_session_events", BrokerDoctorSeverity.Warning, _runtime.Sessions.Events.Find(sessionId) != null,
+                    "An event stream is required for broker event waits; otherwise legacy status polling is used. Update the selected VSIX when unavailable."));
+            }
             var errorCount = checks.Count(check => check.Severity == BrokerDoctorSeverity.Error && !check.Passed);
             var warningCount = checks.Count(check => check.Severity == BrokerDoctorSeverity.Warning && !check.Passed);
             var healthy = errorCount == 0;
@@ -66,7 +75,7 @@ internal sealed partial class BrokerToolService
                 healthy,
                 summary,
                 status,
-                checks));
+                checks.ToArray()));
             AuditToolResult(nameof(NetVsDoctor), null, response.Success, null, response.Message);
             return response;
         }
@@ -411,11 +420,11 @@ internal sealed partial class BrokerToolService
         string? solutionPath = null,
         CancellationToken cancellationToken = default)
     {
-        return DispatchValueAsync(
+        return DispatchDebugValueAsync(
             sessionId,
             solutionName,
             solutionPath,
-            async (connection, ct) =>
+            async (connection, session, ct) =>
             {
                 var status = await connection.GetStatusAsync(ct);
                 var activeDocument = await connection.GetActiveDocumentAsync(ct);
@@ -424,7 +433,7 @@ internal sealed partial class BrokerToolService
                     await connection.SolutionInfoAsync(ct),
                     activeDocument.Value,
                     await connection.SelectionGetAsync(ct),
-                    await connection.DebugStatusAsync(ct),
+                    await _runtime.DialogOperations.ReadDebugStateAsync(session, connection, ct),
                     await TryGetSnapshotValueAsync(() => connection.BuildStatusAsync(ct)),
                     await connection.ErrorsListAsync(new ErrorListRequest { IncludeWarnings = true, MaxItems = 50 }, ct),
                     await connection.EditListPendingAsync(ct));

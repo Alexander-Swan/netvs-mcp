@@ -341,6 +341,7 @@ public sealed class BrokerRegistrationRpcServiceTests
         public Task<DebugSelectFrameResult> DebugSelectFrameAsync(DebugSelectFrameRequest request, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
         public Task<VsSessionEventSnapshot> SessionSnapshotAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<SessionCapabilityReport> SessionCapabilitiesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken)
         {
             throw new NotSupportedException();

@@ -57,6 +57,35 @@ internal sealed class VisualStudioCapabilityRpcTarget
         }
     }
 
+    public async Task<NetVsMcp.Contracts.SessionCapabilityReport> SessionCapabilitiesAsync(CancellationToken cancellationToken)
+    {
+        var snapshot = await snapshotProvider.CaptureAsync(cancellationToken);
+        await Microsoft.VisualStudio.Shell.ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var componentModel = Microsoft.VisualStudio.Shell.Package.GetGlobalService(typeof(Microsoft.VisualStudio.ComponentModelHost.SComponentModel))
+            as Microsoft.VisualStudio.ComponentModelHost.IComponentModel;
+        var workspace = componentModel?.GetService<Microsoft.VisualStudio.LanguageServices.VisualStudioWorkspace>();
+        var languages = workspace?.CurrentSolution.Projects.Select(p => p.Language).Distinct().OrderBy(p => p).ToArray() ?? Array.Empty<string>();
+        var dte = Microsoft.VisualStudio.Shell.Package.GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+        var paused = dte?.Debugger?.CurrentMode == EnvDTE.dbgDebugMode.dbgBreakMode;
+        var features = new List<NetVsMcp.Contracts.SessionFeature>
+        {
+            new("sessionEvents", "supported", "Ordered events with bounded replay and explicit reconciliation gaps."),
+            new("guardedInspection", "supported", "Atomic stop/generation validation is available through the stopped-frame RPC."),
+            new("targetedEvaluation", dte?.Debugger is EnvDTE100.Debugger5 ? "supported" : "unsupported",
+                "Frame-specific evaluation requires Debugger5; inspect the selected frame when unavailable."),
+            new("semanticNavigation", workspace is null ? "unavailable" : "supported",
+                "Roslyn workspace navigation supports documents present in its C#/VB workspace; other language services are not claimed.", "Use find_in_files for text search when no semantic document exists."),
+            new("moduleInspection", paused ? "availableWhenEngineSupports" : "requiresPause",
+                "Concord modules are probed by module_list; support cannot be inferred from the VS edition.", "Pause the target and call module_list."),
+            new("testExplorer", "unsupported", "Tests currently use dotnet test and TRX; direct Test Explorer integration is not implemented.", "Use test_discover/test_run/test_debug with the CLI backend."),
+            new("coverage", "unsupported", "Structured coverage collection is not implemented."),
+            new("nativeDataBreakpoints", "unsupported", "Data breakpoint automation is not implemented."),
+            new("desktopAutomation", "requiresTarget", "UI Automation requires a compatible Windows debuggee; tools are on /mcp-wu."),
+            new("browserAutomation", "requiresBackend", "Browser capabilities depend on the connected CDP/RDP backend; tools are on /mcp-wu.")
+        };
+        return new(VsContractMapping.ToSessionInfo(snapshot, capabilities), NetVsMcp.Contracts.VsRpcProtocol.CurrentVersion, languages, features);
+    }
+
     public async Task<NetVsMcp.Contracts.VsSessionEventSnapshot> SessionSnapshotAsync(CancellationToken cancellationToken)
     {
         await Microsoft.VisualStudio.Shell.ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);

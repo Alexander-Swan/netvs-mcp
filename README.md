@@ -36,7 +36,7 @@ See [setup](docs/SETUP.md) for installation, client registration, and troublesho
 - **Multiple sessions:** discover open instances and route explicitly. Pause new automation mutations when needed. Follow session events and reconcile observed state.
 - **Local records:** inspect tool-call audit metadata and optional aggregate usage analytics without recording full source or debugger values in those stores.
 
-Use `get_help` for current tool descriptions.
+Use `get_help` for current tool descriptions. `netvs_doctor` checks broker health and, with routing, the selected session.
 
 ## Tool coverage
 

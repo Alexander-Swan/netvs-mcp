@@ -6,6 +6,7 @@ namespace NetVsMcp.Contracts.Interfaces;
 /// </summary>
 public interface IVisualStudioSessionRpc
 {
+    Task<SessionCapabilityReport> SessionCapabilitiesAsync(CancellationToken cancellationToken);
     Task<VsSessionEventSnapshot> SessionSnapshotAsync(CancellationToken cancellationToken);
     Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken);
 
