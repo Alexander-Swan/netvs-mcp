@@ -39,5 +39,6 @@ internal interface ISolutionCapabilityService
     Task<TestOperationResult> RunTestsAsync(TestRunRequest request, CancellationToken cancellationToken);
     Task<TestDebugResult> DebugTestAsync(TestDebugRequest request, CancellationToken cancellationToken);
     Task<TestOperationResult> GetTestResultsAsync(TestResultsRequest request, CancellationToken cancellationToken);
+    Task<NetVsMcp.Contracts.TestResultPage> GetTestResultPageAsync(NetVsMcp.Contracts.TestResultsPageRequest request, CancellationToken cancellationToken);
     Task<PackageRestoreResult> RestorePackagesAsync(PackageRestoreRequest request, CancellationToken cancellationToken);
 }

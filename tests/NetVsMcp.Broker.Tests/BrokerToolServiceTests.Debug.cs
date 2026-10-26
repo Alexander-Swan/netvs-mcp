@@ -824,4 +824,16 @@ public sealed partial class BrokerToolServiceTests
         Assert.False(response.Success);
         Assert.Equal("Filter is required so test_debug does not start every test under the debugger.", response.Message);
     }
+
+    [Theory]
+    [InlineData(null, "net10.0")]
+    [InlineData("Tests", null)]
+    [InlineData(" ", "net10.0")]
+    public async Task TestDebug_RequiresOneProjectAndFrameworkBeforeDispatch(string? project, string? framework)
+    {
+        var runtime = CreateRuntime();
+        var response = await runtime.Tools.TestDebug(projectName: project, framework: framework, filter: "PassingCase");
+        Assert.False(response.Success);
+        Assert.Equal(ToolErrorCodes.InvalidRequest, response.Metadata!["error_code"]);
+    }
 }

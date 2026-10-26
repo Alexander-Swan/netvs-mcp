@@ -248,18 +248,30 @@ internal sealed class NugetMutationResult
 
 internal sealed class TestOperationResult
 {
-    public TestOperationResult(bool supported, string message, IReadOnlyCollection<TestCaseInfo> tests, IReadOnlyCollection<TestResultInfo> results)
+    public TestOperationResult(bool supported, string message, IReadOnlyCollection<TestCaseInfo> tests, IReadOnlyCollection<TestResultInfo> results,
+        string backend = "dotnet-cli", string? runId = null, string? outcome = null, int? runnerExitCode = null,
+        int? totalResults = null, int? retainedResults = null, bool resultsTruncated = false, int? nextOffset = null)
     {
         Supported = supported;
         Message = message;
         Tests = tests;
         Results = results;
+        Backend = backend; RunId = runId; Outcome = outcome; RunnerExitCode = runnerExitCode;
+        TotalResults = totalResults; RetainedResults = retainedResults; ResultsTruncated = resultsTruncated; NextOffset = nextOffset;
     }
 
     public bool Supported { get; }
     public string Message { get; }
     public IReadOnlyCollection<TestCaseInfo> Tests { get; }
     public IReadOnlyCollection<TestResultInfo> Results { get; }
+    public string Backend { get; }
+    public string? RunId { get; }
+    public string? Outcome { get; }
+    public int? RunnerExitCode { get; }
+    public int? TotalResults { get; }
+    public int? RetainedResults { get; }
+    public bool ResultsTruncated { get; }
+    public int? NextOffset { get; }
 
     public static TestOperationResult Unsupported(string message) =>
         new(false, message, [], []);
@@ -281,18 +293,26 @@ internal sealed class TestCaseInfo
 
 internal sealed class TestResultInfo
 {
-    public TestResultInfo(string name, string outcome, string? duration, string? message)
+    public TestResultInfo(string name, string outcome, string? duration, string? message,
+        string? testId = null, string? executionId = null, string? stackTrace = null, string? caseId = null, bool evidenceTruncated = false)
     {
         Name = name;
         Outcome = outcome;
         Duration = duration;
         Message = message;
+        TestId = testId; ExecutionId = executionId; StackTrace = stackTrace;
+        CaseId = caseId; EvidenceTruncated = evidenceTruncated;
     }
 
     public string Name { get; }
     public string Outcome { get; }
     public string? Duration { get; }
     public string? Message { get; }
+    public string? TestId { get; }
+    public string? ExecutionId { get; }
+    public string? StackTrace { get; }
+    public string? CaseId { get; }
+    public bool EvidenceTruncated { get; }
 }
 
 internal sealed class TestDebugResult

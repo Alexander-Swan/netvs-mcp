@@ -49,7 +49,7 @@ public class CoordinatedSessionRpc : DispatchProxy
         "GetStatusAsync", "SessionCapabilitiesAsync", "SessionSnapshotAsync", "DebugStatusAsync", "DebugGetModeAsync", "BuildStatusAsync",
         "GetActiveDocumentAsync", "ListDocumentSymbolsAsync", "DocumentReadAsync", "DocumentDiagnosticsAsync", "DocumentListAsync", "SelectionGetAsync",
         "WindowListAsync", "EditListPendingAsync", "SolutionInfoAsync", "ProjectListAsync", "ProjectInfoAsync",
-        "StartupProjectGetAsync", "TestResultsAsync", "CodeFindReferencesAsync", "CodeFindImplementationsAsync",
+        "StartupProjectGetAsync", "TestResultsAsync", "TestResultsPageAsync", "CodeFindReferencesAsync", "CodeFindImplementationsAsync",
         "CodeWorkspaceSymbolsAsync", "CallHierarchyGetAsync", "CodeActionsListAsync", "CodeActionsPreviewAsync",
         "CodeRenameSymbolPreviewAsync", "NugetListAsync", "NugetSearchAsync", "BuildConfigurationGetAsync",
         "ErrorsListAsync", "TaskListGetAsync", "OutputReadAsync", "OutputListPanesAsync", "BreakpointListAsync",

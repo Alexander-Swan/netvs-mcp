@@ -898,7 +898,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "test_run", Title = "Test Run", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Runs tests through a routed Visual Studio session.")]
+    [Description("Runs tests with the dotnet CLI/TRX fallback through a routed Visual Studio session, not Test Explorer. Updated extensions return backend, runId, runnerExitCode and outcome (completed/testsFailed/runnerFailed/noTests/incomplete); supported does not mean all tests passed. Results are a bounded first page: follow nextOffset with test_results_page and the exact runId.")]
     public Task<ToolResponse<TestOperationResult>> TestRun(
         string? projectName = null,
         string? filter = null,
@@ -922,7 +922,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "test_results", Title = "Get Test Results", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns test results through a routed Visual Studio session.")]
+    [Description("Returns retained CLI/TRX or Test Explorer results through a routed Visual Studio session; backend selection is determined by the runId, not a backend argument. Supply runId to avoid accidentally reading a different run. Updated extensions preserve adapter testId, executionId, failure message and stack trace. This legacy call returns the retained collection; prefer test_results_page for bounded output. Test ID stability is adapter-dependent; executionId is specific to one execution.")]
     public Task<ToolResponse<TestOperationResult>> TestResults(
         string? runId = null,
         string? sessionId = null,
@@ -940,7 +940,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "test_run_and_get_results", Title = "Test Run And Get Results", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Runs tests and then returns captured test results through a routed Visual Studio session.")]
+    [Description("Runs tests with the CLI fallback, then retrieves the exact returned runId when supported by the extension. Returns bounded run/result summaries on updated extensions; follow nextOffset using test_results_page. Distinguishes test failure, runner failure, no matching tests, incomplete results, and completed runs through structured outcome metadata.")]
     public Task<ToolResponse<TestRunAndGetResultsResult>> TestRunAndGetResults(
         string? projectName = null,
         string? filter = null,
@@ -964,6 +964,11 @@ internal sealed partial class BrokerToolService
             async (connection, ct) =>
             {
                 var run = await connection.TestRunAsync(runRequest, ct);
+                // Updated extensions return a bounded first page. Avoid fetching the legacy
+                // monolithic result; the run identity and nextOffset describe how to continue.
+                if (run.NextOffset.HasValue) return new TestRunAndGetResultsResult(run, run);
+                // Bind retrieval to this run; another caller must not substitute newer results.
+                if (!string.IsNullOrWhiteSpace(run.RunId)) resultsRequest.RunId = run.RunId;
                 var results = await connection.TestResultsAsync(resultsRequest, ct);
                 return new TestRunAndGetResultsResult(run, results);
             },

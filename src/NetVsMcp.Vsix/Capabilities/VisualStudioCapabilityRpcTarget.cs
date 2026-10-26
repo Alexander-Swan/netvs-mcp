@@ -81,6 +81,7 @@ internal sealed class VisualStudioCapabilityRpcTarget
             new("moduleInspection", paused ? "availableWhenEngineSupports" : "requiresPause",
                 "Concord modules are probed by module_list; support cannot be inferred from the VS edition.", "Pause the target and call module_list."),
             new("testExplorer", "unsupported", "Tests currently use dotnet test and TRX; direct Test Explorer integration is not implemented.", "Use test_discover/test_run/test_debug with the CLI backend."),
+            new("retainedTestResults", "supported", "CLI/TRX runs retain bounded, immutable result pages for 15 minutes (up to eight runs), including failure stacks and target-scoped parameterized-case fingerprints. Fingerprints are not execution selectors.", "Use test_results_page with the exact runId and follow nextOffset; missing history must not trigger automatic reruns."),
             new("coverage", "unsupported", "Structured coverage collection is not implemented."),
             new("nativeDataBreakpoints", "unsupported", "Data breakpoint automation is not implemented."),
             new("desktopAutomation", "requiresTarget", "UI Automation requires a compatible Windows debuggee; tools are on /mcp-wu."),
@@ -593,8 +594,13 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<TestDebugResult> TestDebugAsync(TestDebugRequest request, CancellationToken cancellationToken) =>
         solution.TestDebugAsync(request, cancellationToken);
 
+    public Task<TestDebugResult> TestDebugOwnedAsync(TestDebugRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => solution.TestDebugAsync(request, cancellationToken), nameof(TestDebugOwnedAsync));
+
     public Task<TestOperationResult> TestResultsAsync(TestResultsRequest request, CancellationToken cancellationToken) =>
         InvokeAsync(() => solution.TestResultsAsync(request, cancellationToken), nameof(TestResultsAsync));
+    public Task<NetVsMcp.Contracts.TestResultPage> TestResultsPageAsync(NetVsMcp.Contracts.TestResultsPageRequest request, CancellationToken cancellationToken) =>
+        InvokeAsync(() => solution.TestResultsPageAsync(request, cancellationToken), nameof(TestResultsPageAsync));
 
     public Task<PackageRestoreResult> PackageRestoreAsync(PackageRestoreRequest request, CancellationToken cancellationToken) =>
         InvokeAsync(() => solution.PackageRestoreAsync(request, cancellationToken), nameof(PackageRestoreAsync));
@@ -636,6 +642,8 @@ internal sealed class VisualStudioCapabilityRpcTarget
         { throw new LocalRpcException(ex.Message) { ErrorCode = NetVsMcp.Contracts.VsRpcErrorCodes.StaleDebuggerContext }; }
         catch (StaleActionException ex)
         { throw new LocalRpcException(ex.Message) { ErrorCode = NetVsMcp.Contracts.VsRpcErrorCodes.StaleAction }; }
+        catch (HistoryUnavailableException ex)
+        { throw new LocalRpcException(ex.Message) { ErrorCode = NetVsMcp.Contracts.VsRpcErrorCodes.HistoryUnavailable }; }
         catch (ArgumentException ex)
         { throw new LocalRpcException(ex.Message) { ErrorCode = NetVsMcp.Contracts.VsRpcErrorCodes.InvalidRequest }; }
         catch (NotSupportedException ex)

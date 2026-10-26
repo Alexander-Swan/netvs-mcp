@@ -16,6 +16,7 @@ public class RpcFailureTranslationTests
     [InlineData("action", VsRpcErrorCodes.StaleAction)]
     [InlineData("arguments", VsRpcErrorCodes.InvalidRequest)]
     [InlineData("unsupported", VsRpcErrorCodes.FeatureUnavailable)]
+    [InlineData("history", VsRpcErrorCodes.HistoryUnavailable)]
     public async Task RpcBoundaryPreservesKnownFailureKinds(string kind, int expected)
     {
         Exception exception = kind switch
@@ -23,6 +24,7 @@ public class RpcFailureTranslationTests
             "debugger" => new StaleDebugContextException("stale pause"),
             "action" => new StaleActionException("stale action"),
             "arguments" => new ArgumentException("invalid arguments"),
+            "history" => new HistoryUnavailableException("expired history"),
             _ => new NotSupportedException("unsupported engine")
         };
         Func<Task<string>> operation = () => Task.FromException<string>(exception);

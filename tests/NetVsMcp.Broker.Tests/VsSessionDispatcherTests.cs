@@ -286,6 +286,7 @@ public sealed class VsSessionDispatcherTests
         public Task<DebugFrameInspectionResult> DebugExpandAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken) => DebugInspectStoppedFrameAsync(request, cancellationToken);
         public Task<VsSessionEventSnapshot> SessionSnapshotAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<DocumentDiagnosticsResult> DocumentDiagnosticsAsync(DocumentDiagnosticsRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<TestResultPage> TestResultsPageAsync(TestResultsPageRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<SessionCapabilityReport> SessionCapabilitiesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken)
@@ -374,6 +375,8 @@ public sealed class VsSessionDispatcherTests
         public Task<TestOperationResult> TestDiscoverAsync(TestDiscoverRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<TestOperationResult> TestRunAsync(TestRunRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<TestDebugResult> TestDebugOwnedAsync(TestDebugRequest request, CancellationToken cancellationToken) => TestDebugAsync(request, cancellationToken);
 
         public Task<TestDebugResult> TestDebugAsync(TestDebugRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 

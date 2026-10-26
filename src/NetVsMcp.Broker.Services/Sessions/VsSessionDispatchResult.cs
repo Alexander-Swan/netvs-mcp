@@ -20,7 +20,8 @@ public enum VsSessionDispatchFailureReason
     InvalidRequest,
     StaleDebuggerContext,
     StaleAction,
-    FeatureUnavailable
+    FeatureUnavailable,
+    HistoryUnavailable
 }
 
 public sealed record VsSessionDispatchResult<T>(

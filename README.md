@@ -32,7 +32,7 @@ See [setup](docs/SETUP.md) for installation, client registration, and troublesho
 - **Live editing and navigation:** read unsaved buffers, inspect symbols, find references, and apply edits. Safe-edit previews support developer approval; code actions support snapshot-bound preview, application, and verified recovery.
 - **Builds and diagnostics:** build solutions or projects, read output panes and errors, cancel builds, and query compiler diagnostics for an exact document version.
 - **Debugger control:** launch, attach, step, inspect chosen threads and frames, manage breakpoints and watches. Pause identities protect against stale inspection requests.
-- **Tests:** discover and run tests with the CLI backend.
+- **Tests:** discover and run tests with the CLI backend. Retrieve results using their exact run identity.
 - **Multiple sessions:** discover open instances and route explicitly. Pause new automation mutations when needed. Follow session events and reconcile observed state.
 - **Local records:** inspect tool-call audit metadata and optional aggregate usage analytics without recording full source or debugger values in those stores.
 
@@ -59,7 +59,7 @@ Use `get_help` for current tool descriptions. `netvs_doctor` checks broker healt
 | Exceptions | `exception_settings_get`, `exception_settings_set` |
 | Solution & projects | `solution_info`, `solution_overview`, `solution_open`, `solution_close`, `solution_add_project`, `solution_remove_project`, `project_list`, `project_info`, `project_dependencies`, `project_add_file`, `project_remove_file`, `project_add_reference`, `project_remove_reference`, `startup_project_get`, `startup_project_set` |
 | NuGet | `nuget_list`, `nuget_search`, `nuget_install`, `nuget_update`, `nuget_uninstall` |
-| Tests | `test_discover`, `test_run`, `test_debug`, `test_run_and_get_results`, `test_results`,  |
+| Tests | `test_discover`, `test_run`, `test_debug`, `test_run_and_get_results`, `test_results`, `test_results_page`,  |
 | Git context | `git_context` |
 | Snapshots | `vs_context_snapshot`, `symbol_context`, `debug_snapshot` |
 | Console | `console_get_info`, `console_read`, `console_send` |

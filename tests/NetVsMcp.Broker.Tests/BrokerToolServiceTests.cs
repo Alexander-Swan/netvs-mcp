@@ -202,6 +202,7 @@ public sealed partial class BrokerToolServiceTests
         public TestRunRequest? LastTestRunRequest { get; private set; }
 
         public TestDebugRequest? LastTestDebugRequest { get; private set; }
+        public Func<TestDebugRequest, CancellationToken, Task<TestDebugResult>>? TestDebugOwnedHandler { get; set; }
 
         public TestResultsRequest? LastTestResultsRequest { get; private set; }
 
@@ -339,6 +340,13 @@ public sealed partial class BrokerToolServiceTests
         {
             LastDocumentDiagnosticsRequest = request;
             return Task.FromResult(DocumentDiagnosticsHandler?.Invoke(request) ?? throw new NotSupportedException());
+        }
+        public TestResultsPageRequest? LastTestResultsPageRequest { get; private set; }
+        public Func<TestResultsPageRequest, TestResultPage>? TestResultsPageHandler { get; set; }
+        public Task<TestResultPage> TestResultsPageAsync(TestResultsPageRequest request, CancellationToken cancellationToken)
+        {
+            LastTestResultsPageRequest = request;
+            return Task.FromResult(TestResultsPageHandler?.Invoke(request) ?? throw new NotSupportedException());
         }
         public Task<SessionCapabilityReport> SessionCapabilitiesAsync(CancellationToken cancellationToken) =>
             Task.FromResult(CapabilityReport ?? throw MissingFrameInspectionMethod());
@@ -825,13 +833,17 @@ public sealed partial class BrokerToolServiceTests
             return Task.FromResult(new TestOperationResult(true, "Discovered tests.", tests, []));
         }
 
+        public TestOperationResult? TestRunReport { get; set; }
         public Task<TestOperationResult> TestRunAsync(
             TestRunRequest request,
             CancellationToken cancellationToken)
         {
             LastTestRunRequest = request;
-            return Task.FromResult(new TestOperationResult(true, "Ran tests.", [], CreateTestResults()));
+            return Task.FromResult(TestRunReport ?? new TestOperationResult(true, "Ran tests.", [], CreateTestResults()));
         }
+
+        public Task<TestDebugResult> TestDebugOwnedAsync(TestDebugRequest request, CancellationToken cancellationToken) =>
+            TestDebugOwnedHandler?.Invoke(request, cancellationToken) ?? TestDebugAsync(request, cancellationToken);
 
         public Task<TestDebugResult> TestDebugAsync(
             TestDebugRequest request,

@@ -154,7 +154,15 @@ public sealed record TestOperationResult(
     bool Supported,
     string Message,
     IReadOnlyCollection<TestCaseInfo> Tests,
-    IReadOnlyCollection<TestResultInfo> Results);
+    IReadOnlyCollection<TestResultInfo> Results,
+    string Backend = "unknown",
+    string? RunId = null,
+    string? Outcome = null,
+    int? RunnerExitCode = null,
+    int? TotalResults = null,
+    int? RetainedResults = null,
+    bool ResultsTruncated = false,
+    int? NextOffset = null);
 
 public sealed record TestCaseInfo(
     string Name,
@@ -166,7 +174,12 @@ public sealed record TestResultInfo(
     /// <summary>e.g. "Passed", "Failed", "Skipped" — from the TRX outcome value.</summary>
     string Outcome,
     string? Duration,
-    string? Message);
+    string? Message,
+    string? TestId = null,
+    string? ExecutionId = null,
+    string? StackTrace = null,
+    string? CaseId = null,
+    bool EvidenceTruncated = false);
 
 public sealed record TestDebugResult(
     bool Supported,

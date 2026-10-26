@@ -1422,8 +1422,8 @@ internal sealed partial class BrokerToolService
     public Task<ToolResponse<ParallelWatchResult>> ParallelWatch(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.ParallelWatchAsync(ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
-    [McpServerTool(Name = "test_debug", Title = "Test Debug", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Runs one filtered test under the Visual Studio debugger and attaches to the test host.")]
+    [McpServerTool(Name = "test_debug", Title = "Test Debug", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
+    [Description("Starts CLI test debugging for an explicit projectName, framework, and nonempty filter. A filter may match multiple cases; case fingerprints are not execution selectors. Requires an idle VS debugger. Attaches only to a unique verified descendant testhost of this runner; unrelated dotnet processes are never candidates. Windows process ownership evidence must be available. Failed/canceled setup cleans up verified owned hosts and its runner. Successful attachment returns process IDs; do not blindly retry a timed-out mutation.")]
     public Task<ToolResponse<TestDebugResult>> TestDebug(
         string? projectName = null,
         string? filter = null,
@@ -1446,6 +1446,9 @@ internal sealed partial class BrokerToolService
             return Task.FromResult(ToolResponse<TestDebugResult>.Fail("Attach timeout seconds must be between 1 and 120."));
         }
 
+        if (string.IsNullOrWhiteSpace(projectName) || string.IsNullOrWhiteSpace(framework))
+            return Task.FromResult(FailWithCode<TestDebugResult>("projectName and framework are required to identify one test project and target framework.", ToolErrorCodes.InvalidRequest));
+
         var request = new TestDebugRequest
         {
             ProjectName = NormalizeOptional(projectName),
@@ -1460,7 +1463,7 @@ internal sealed partial class BrokerToolService
             sessionId,
             solutionName,
             solutionPath,
-            (connection, ct) => connection.TestDebugAsync(request, ct),
+            (connection, ct) => connection.TestDebugOwnedAsync(request, ct),
             cancellationToken);
     }
 }

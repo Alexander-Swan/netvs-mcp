@@ -13,4 +13,4 @@ test_run_and_get_results({ "projectName": "App.Tests", "filter": null, "runId": 
 
 Use `test_debug` only for a specific test or subset. `filter` is required so the whole suite is not launched under the debugger by accident. After attach succeeds, use normal debug tools. When finished, prefer detaching from the returned test host process if you only need cleanup.
 
-Every test tool returns a `supported` flag. If it is `false`, report that and use build/output evidence or ask how the user prefers to run tests.
+CLI/IDE test operation results include a `supported` flag; it does not mean tests passed. Inspect `outcome` and the runner exit code, then page retained cases using the exact `runId`. Never rerun a test solely to recover expired output.

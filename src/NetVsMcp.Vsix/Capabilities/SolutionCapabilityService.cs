@@ -21,12 +21,13 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
     private const string DotnetExecutable = "dotnet";
 
     private readonly AsyncPackage package;
-    private TestOperationResult? lastTestResult;
-    private string? lastTestRunId;
+    private readonly TestResultStore testResults = new();
+    private readonly NetVsMcp.Contracts.SessionEventBuffer? events;
 
-    public SolutionCapabilityService(AsyncPackage package)
+    public SolutionCapabilityService(AsyncPackage package, NetVsMcp.Contracts.SessionEventBuffer? events = null)
     {
         this.package = package;
+        this.events = events;
     }
 
     public async Task<SolutionInfoResult> GetSolutionInfoAsync(CancellationToken cancellationToken)
@@ -419,10 +420,10 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
         return new TestOperationResult(
             supported: process.ExitCode == 0,
             message: process.ExitCode == 0
-                ? $"Discovered {tests.Count} test(s) from {target.DisplayName}."
+                ? $"CLI discovery found {tests.Count} test(s) from {target.DisplayName}. This does not query Test Explorer."
                 : CreateProcessFailureMessage("Test discovery failed", process),
             tests: tests,
-            results: []);
+            results: [], outcome: process.ExitCode == 0 ? "completed" : "runnerFailed", runnerExitCode: process.ExitCode);
     }
 
     public async Task<TestOperationResult> RunTestsAsync(TestRunRequest request, CancellationToken cancellationToken)
@@ -453,31 +454,37 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
 
         try
         {
+            events?.Publish("test.accepted", operationId: runId);
             var process = await RunProcessAsync(
                 DotnetExecutable,
                 arguments.ToString(),
                 target.WorkingDirectory,
-                cancellationToken);
+                cancellationToken).ConfigureAwait(false);
             var resultPath = Path.Combine(resultsDirectory, $"{runId}.trx");
             var results = File.Exists(resultPath)
                 ? ParseTrxResults(resultPath)
                 : Array.Empty<TestResultInfo>();
 
             var result = new TestOperationResult(
-                supported: process.ExitCode == 0,
+                supported: process.ExitCode == 0 || results.Count > 0,
                 message: process.ExitCode == 0
-                    ? $"Ran {results.Count} test result(s) from {target.DisplayName}. RunId: {runId}."
+                    ? $"CLI run produced {results.Count} test result(s) from {target.DisplayName}. RunId: {runId}."
                     : CreateProcessFailureMessage($"Test run failed for {target.DisplayName}. RunId: {runId}", process),
                 tests: [],
-                results: results);
+                results: results, runId: runId, outcome: TrxResultReader.Classify(process.ExitCode, results), runnerExitCode: process.ExitCode);
 
-            lastTestRunId = runId;
-            lastTestResult = result;
-            return result;
+            var retained = await Task.Run(() => testResults.Add(result, target.Path), CancellationToken.None).ConfigureAwait(false);
+            events?.Publish("test.completed", operationId: runId);
+            return retained;
+        }
+        catch
+        {
+            events?.Publish("test.outcomeUnknown", operationId: runId);
+            throw;
         }
         finally
         {
-            // GetTestResultsAsync serves results from the in-memory lastTestResult cache above,
+            // GetTestResultsAsync serves results from the bounded in-memory run history,
             // never re-reads from disk, so it's safe to clean this run's directory up right
             // away rather than letting %TEMP%\NetVsMcp\TestResults accumulate one directory per
             // test_run call for the lifetime of the VS process. Best-effort: a locked/in-use
@@ -505,6 +512,9 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
+        if (string.IsNullOrWhiteSpace(request.ProjectName) || string.IsNullOrWhiteSpace(request.Framework))
+            throw new ArgumentException("test_debug requires projectName and framework to identify one project/target framework before starting a runner.");
+
         var filter = EmptyToNull(request.Filter);
         if (filter is null)
         {
@@ -519,6 +529,8 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
         }
 
         var dte = await GetDteAsync();
+        if (dte.Debugger.CurrentMode != dbgDebugMode.dbgDesignMode)
+            throw new InvalidOperationException("test_debug requires a Visual Studio session in design mode. Select an idle session; the existing debug target will not be stopped or replaced.");
         var target = ResolveTestTarget(dte, request.ProjectName);
         var timeoutSeconds = Math.Max(1, Math.Min(request.AttachTimeoutSeconds, 120));
         var timeout = TimeSpan.FromSeconds(timeoutSeconds);
@@ -527,15 +539,15 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
 
         var process = StartDebugTestProcess(DotnetExecutable, arguments.ToString(), target.WorkingDirectory);
         System.Diagnostics.Process? testHost = null;
+        var attached = false;
         try
         {
-            testHost = await FindDebugTestHostAsync(process.Id, process.StartTime.ToUniversalTime(), timeout, cancellationToken);
+            testHost = await Task.Run(() => FindDebugTestHostAsync(process, timeout, cancellationToken), cancellationToken).ConfigureAwait(false);
             if (testHost is null)
             {
-                TryKill(process);
                 return new TestDebugResult(
                     false,
-                    $"Timed out after {timeout.TotalSeconds:0} second(s) waiting for a testhost process to attach.",
+                    $"No unique, verified descendant testhost was available within {timeout.TotalSeconds:0} second(s). Select one test project/framework; unrelated processes are never attach candidates.",
                     target.ProjectName,
                     filter,
                     null,
@@ -549,10 +561,11 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
             }
 
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+            if (dte.Debugger.CurrentMode != dbgDebugMode.dbgDesignMode || process.HasExited || testHost.HasExited)
+                throw new InvalidOperationException("The selected Visual Studio session or owned test process changed before attach. Reconcile session state before retrying.");
             var localProcess = FindLocalDebuggerProcess(dte, testHost.Id);
             if (localProcess is null)
             {
-                TryKill(process);
                 return new TestDebugResult(
                     false,
                     $"Visual Studio did not expose testhost process '{testHost.Id}' for debugger attach.",
@@ -569,6 +582,7 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
             }
 
             AttachDebugger(localProcess);
+            attached = true;
             return new TestDebugResult(
                 true,
                 $"Started '{target.DisplayName}' with VSTEST_HOST_DEBUG=1 and attached to testhost process '{testHost.Id}'.",
@@ -583,9 +597,8 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
                 target.Path,
                 timeoutSeconds);
         }
-        catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
+        catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException or System.Management.ManagementException or System.ComponentModel.Win32Exception or UnauthorizedAccessException or System.Security.SecurityException)
         {
-            TryKill(process);
             return new TestDebugResult(
                 false,
                 $"Unable to attach Visual Studio to the testhost process: {ex.Message}",
@@ -600,23 +613,37 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
                 target.Path,
                 timeoutSeconds);
         }
+        finally
+        {
+            // Cancellation and failed attaches must not leave an owned host waiting forever.
+            if (!attached) await Task.Run(() =>
+            {
+                if (testHost is not null) TryKill(testHost);
+                CleanupDebugTestProcesses(process);
+            }).ConfigureAwait(false);
+            testHost?.Dispose();
+            process.Dispose();
+        }
     }
 
-    public async Task<TestOperationResult> GetTestResultsAsync(TestResultsRequest request, CancellationToken cancellationToken)
+    public Task<TestOperationResult> GetTestResultsAsync(TestResultsRequest request, CancellationToken cancellationToken)
     {
-        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-
+        cancellationToken.ThrowIfCancellationRequested();
         var runId = EmptyToNull(request.RunId);
-        if (lastTestResult is not null &&
-            (runId is null || string.Equals(runId, lastTestRunId, StringComparison.OrdinalIgnoreCase)))
+        if (testResults.Get(runId) is { } captured)
         {
-            return lastTestResult;
+            return Task.FromResult(captured);
         }
-
-        return TestOperationResult.Unsupported(
+        return Task.FromResult(TestOperationResult.Unsupported(
             runId is null
                 ? "No test results have been captured by this VSIX session yet."
-                : $"No captured test results were found for runId '{runId}'.");
+                : $"No retained test results were found for runId '{runId}'. Reconcile state rather than rerunning tests merely to recover output."));
+    }
+
+    public Task<NetVsMcp.Contracts.TestResultPage> GetTestResultPageAsync(NetVsMcp.Contracts.TestResultsPageRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(testResults.Page(request));
     }
 
     public async Task<PackageRestoreResult> RestorePackagesAsync(PackageRestoreRequest request, CancellationToken cancellationToken)
@@ -1189,10 +1216,20 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
             EnableRaisingEvents = true
         };
         process.StartInfo.EnvironmentVariables["VSTEST_HOST_DEBUG"] = "1";
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-        return process;
+        try
+        {
+            process.Start();
+            _ = process.Handle;
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+            return process;
+        }
+        catch
+        {
+            TryKill(process);
+            process.Dispose();
+            throw;
+        }
     }
 
     private static string? SafeProcessName(System.Diagnostics.Process process)
@@ -1208,8 +1245,7 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
     }
 
     private static async Task<System.Diagnostics.Process?> FindDebugTestHostAsync(
-        int runnerProcessId,
-        DateTime startedAfterUtc,
+        System.Diagnostics.Process runner,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
@@ -1217,37 +1253,39 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
         while (DateTime.UtcNow < deadline)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var match = System.Diagnostics.Process.GetProcesses()
-                .Where(process => process.Id != runnerProcessId &&
-                    (process.ProcessName.StartsWith("testhost", StringComparison.OrdinalIgnoreCase) ||
-                     string.Equals(process.ProcessName, "dotnet", StringComparison.OrdinalIgnoreCase)))
-                .Select(process => new { Process = process, StartTimeUtc = TryGetStartTimeUtc(process) })
-                .Where(candidate => candidate.StartTimeUtc is not null && candidate.StartTimeUtc >= startedAfterUtc)
-                .OrderByDescending(candidate => candidate.StartTimeUtc)
-                .Select(candidate => candidate.Process)
-                .FirstOrDefault();
-            if (match is not null)
+            if (runner.HasExited) return null;
+            var matches = TestHostOwnership.FindOwnedHosts(TestHostOwnership.Capture(), runner.Id, runner.StartTime.ToUniversalTime());
+            if (matches.Count > 1)
+                throw new InvalidOperationException("Multiple owned testhosts are waiting. Specify one project and framework; automatic attach is ambiguous.");
+            if (matches.Count == 1)
             {
-                return match;
+                return TestHostOwnership.OpenVerified(matches[0]);
             }
 
-            await Task.Delay(500, cancellationToken);
+            await Task.Delay(500, cancellationToken).ConfigureAwait(false);
         }
 
         return null;
     }
 
-    private static DateTime? TryGetStartTimeUtc(System.Diagnostics.Process process)
+    private static void CleanupDebugTestProcesses(System.Diagnostics.Process runner)
     {
         try
         {
-            return process.StartTime.ToUniversalTime();
+            if (runner.HasExited) return;
+            var hosts = TestHostOwnership.FindOwnedHosts(TestHostOwnership.Capture(), runner.Id, runner.StartTime.ToUniversalTime());
+            foreach (var host in hosts)
+            {
+                try { using var process = TestHostOwnership.OpenVerified(host); TryKill(process); }
+                catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or ArgumentException)
+                { Trace.TraceInformation("NetVsMcp: owned testhost cleanup was unavailable: {0}", ex.Message); }
+            }
         }
-        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        catch (Exception ex) when (ex is InvalidOperationException or System.Management.ManagementException or System.Runtime.InteropServices.COMException or System.ComponentModel.Win32Exception or UnauthorizedAccessException or System.Security.SecurityException)
         {
-            process.Dispose();
-            return null;
+            Trace.TraceInformation("NetVsMcp: testhost ownership could not be verified during cleanup: {0}", ex.Message);
         }
+        finally { TryKill(runner); }
     }
 
     private static void TryKill(System.Diagnostics.Process process)
@@ -1298,16 +1336,7 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
 
     private static IReadOnlyCollection<TestResultInfo> ParseTrxResults(string resultPath)
     {
-        var document = XDocument.Load(resultPath);
-        return document
-            .Descendants()
-            .Where(element => element.Name.LocalName == "UnitTestResult")
-            .Select(element => new TestResultInfo(
-                element.Attribute("testName")?.Value ?? element.Attribute("testId")?.Value ?? "Unknown",
-                element.Attribute("outcome")?.Value ?? "Unknown",
-                element.Attribute("duration")?.Value,
-                element.Descendants().FirstOrDefault(child => child.Name.LocalName == "Message")?.Value))
-            .ToArray();
+        return TrxResultReader.Read(XDocument.Load(resultPath));
     }
 
     private static string CreateProcessFailureMessage(string prefix, ProcessResult process)

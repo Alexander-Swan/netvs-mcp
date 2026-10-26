@@ -38,7 +38,7 @@ public sealed class NetVsMcpPackage : AsyncPackage
             new BuildCapabilityService(this),
             debuggerService,
             new AutomationCapabilityService(this),
-            new SolutionCapabilityService(this));
+            new SolutionCapabilityService(this, debuggerService.Events));
         var capabilityRpcTarget = new VisualStudioCapabilityRpcTarget(capabilities, snapshotProvider);
         brokerNotificationService = new BrokerStatusInfoBarService(this);
         var brokerLauncher = new BundledBrokerProcessLauncher();

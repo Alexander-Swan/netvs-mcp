@@ -5,6 +5,8 @@ namespace NetVsMcp.Vsix;
 
 internal sealed class SolutionRpcTarget
 {
+    public Task<NetVsMcp.Contracts.TestResultPage> TestResultsPageAsync(NetVsMcp.Contracts.TestResultsPageRequest request, CancellationToken cancellationToken) =>
+        solution.GetTestResultPageAsync(request, cancellationToken);
     private readonly ISolutionCapabilityService solution;
 
     public SolutionRpcTarget(ISolutionCapabilityService solution)

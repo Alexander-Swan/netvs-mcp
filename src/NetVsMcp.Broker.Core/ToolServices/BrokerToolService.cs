@@ -617,6 +617,7 @@ internal sealed partial class BrokerToolService
             VsSessionDispatchFailureReason.StaleDebuggerContext => ToolErrorCodes.StaleDebuggerContext,
             VsSessionDispatchFailureReason.StaleAction => ToolErrorCodes.StaleAction,
             VsSessionDispatchFailureReason.FeatureUnavailable => ToolErrorCodes.FeatureUnavailable,
+            VsSessionDispatchFailureReason.HistoryUnavailable => ToolErrorCodes.HistoryUnavailable,
             _ => ToolErrorCodes.SessionRoutingFailed
         };
     }
@@ -680,6 +681,8 @@ internal sealed partial class BrokerToolService
                 "List code actions again for the current source, review a fresh preview, and use its new actionId. Do not replay an expired or previously applied action.",
             VsSessionDispatchFailureReason.FeatureUnavailable =>
                 "Inspect session_capabilities and the returned reason; choose a supported engine/backend alternative rather than retrying the same unsupported query.",
+            VsSessionDispatchFailureReason.HistoryUnavailable =>
+                "The requested result is unknown, expired, evicted, or lost after restart. Reconcile current IDE/test state; do not replay a mutation merely to recover its output.",
             VsSessionDispatchFailureReason.InvalidRequest =>
                 "Correct the invalid arguments described in the message and retry using the tool schema.",
             VsSessionDispatchFailureReason.MutationConflict =>

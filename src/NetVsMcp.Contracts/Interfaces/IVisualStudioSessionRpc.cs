@@ -9,6 +9,7 @@ public interface IVisualStudioSessionRpc
     Task<SessionCapabilityReport> SessionCapabilitiesAsync(CancellationToken cancellationToken);
     Task<VsSessionEventSnapshot> SessionSnapshotAsync(CancellationToken cancellationToken);
     Task<DocumentDiagnosticsResult> DocumentDiagnosticsAsync(DocumentDiagnosticsRequest request, CancellationToken cancellationToken);
+    Task<TestResultPage> TestResultsPageAsync(TestResultsPageRequest request, CancellationToken cancellationToken);
     Task<DebugFrameInspectionResult> DebugExpandAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken);
     Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken);
 
@@ -157,6 +158,8 @@ public interface IVisualStudioSessionRpc
     Task<TestDebugResult> TestDebugAsync(
         TestDebugRequest request,
         CancellationToken cancellationToken);
+
+    Task<TestDebugResult> TestDebugOwnedAsync(TestDebugRequest request, CancellationToken cancellationToken);
 
     Task<TestOperationResult> TestResultsAsync(
         TestResultsRequest request,
