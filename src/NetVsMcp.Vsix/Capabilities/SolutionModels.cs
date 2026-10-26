@@ -147,6 +147,7 @@ internal sealed class TestDiscoverRequest
 
 internal sealed class TestRunRequest
 {
+    public bool CollectCoverage { get; set; }
     public string? ProjectName { get; set; }
     public string? Filter { get; set; }
 }
@@ -250,7 +251,8 @@ internal sealed class TestOperationResult
 {
     public TestOperationResult(bool supported, string message, IReadOnlyCollection<TestCaseInfo> tests, IReadOnlyCollection<TestResultInfo> results,
         string backend = "dotnet-cli", string? runId = null, string? outcome = null, int? runnerExitCode = null,
-        int? totalResults = null, int? retainedResults = null, bool resultsTruncated = false, int? nextOffset = null)
+        int? totalResults = null, int? retainedResults = null, bool resultsTruncated = false, int? nextOffset = null,
+        NetVsMcp.Contracts.CoverageReport? coverage = null)
     {
         Supported = supported;
         Message = message;
@@ -258,6 +260,7 @@ internal sealed class TestOperationResult
         Results = results;
         Backend = backend; RunId = runId; Outcome = outcome; RunnerExitCode = runnerExitCode;
         TotalResults = totalResults; RetainedResults = retainedResults; ResultsTruncated = resultsTruncated; NextOffset = nextOffset;
+        Coverage = coverage;
     }
 
     public bool Supported { get; }
@@ -272,6 +275,7 @@ internal sealed class TestOperationResult
     public int? RetainedResults { get; }
     public bool ResultsTruncated { get; }
     public int? NextOffset { get; }
+    public NetVsMcp.Contracts.CoverageReport? Coverage { get; }
 
     public static TestOperationResult Unsupported(string message) =>
         new(false, message, [], []);

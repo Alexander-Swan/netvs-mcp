@@ -123,6 +123,7 @@ public sealed class TestDiscoverRequest
 public sealed class TestRunRequest
 {
     public string? ProjectName { get; set; }
+    public bool CollectCoverage { get; set; }
 
     /// <summary>An MSTest/xUnit/NUnit-style test filter expression passed through to the underlying test runner.</summary>
     public string? Filter { get; set; }
@@ -162,7 +163,8 @@ public sealed record TestOperationResult(
     int? TotalResults = null,
     int? RetainedResults = null,
     bool ResultsTruncated = false,
-    int? NextOffset = null);
+    int? NextOffset = null,
+    CoverageReport? Coverage = null);
 
 public sealed record TestCaseInfo(
     string Name,

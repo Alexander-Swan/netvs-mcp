@@ -434,6 +434,8 @@ internal sealed partial class SolutionCapabilityService : ISolutionCapabilitySer
         var dte = await GetDteAsync();
         var target = ResolveTestTarget(dte, request.ProjectName);
         var runId = Guid.NewGuid().ToString("N");
+        if (request.CollectCoverage && string.IsNullOrWhiteSpace(request.ProjectName))
+            throw new ArgumentException("Coverage requires an explicit projectName.");
         var filter = EmptyToNull(request.Filter);
         var resultsDirectory = Path.Combine(Path.GetTempPath(), "NetVsMcp", "TestResults", runId);
         Directory.CreateDirectory(resultsDirectory);
@@ -445,6 +447,7 @@ internal sealed partial class SolutionCapabilityService : ISolutionCapabilitySer
             .Append(QuoteArgument($"trx;LogFileName={runId}.trx"))
             .Append(" --results-directory ")
             .Append(QuoteArgument(resultsDirectory));
+        if (request.CollectCoverage) arguments.Append(" --collect ").Append(QuoteArgument("XPlat Code Coverage"));
 
         if (filter is not null)
         {
@@ -472,9 +475,12 @@ internal sealed partial class SolutionCapabilityService : ISolutionCapabilitySer
                     ? $"CLI run produced {results.Count} test result(s) from {target.DisplayName}. RunId: {runId}."
                     : CreateProcessFailureMessage($"Test run failed for {target.DisplayName}. RunId: {runId}", process),
                 tests: [],
-                results: results, runId: runId, outcome: TrxResultReader.Classify(process.ExitCode, results), runnerExitCode: process.ExitCode);
+                results: results, runId: runId, outcome: TrxResultReader.Classify(process.ExitCode, results), runnerExitCode: process.ExitCode,
+                coverage: request.CollectCoverage ? CoberturaCoverageReader.Read(runId, resultsDirectory) : null);
 
             var retained = await Task.Run(() => testResults.Add(result, target.Path), CancellationToken.None).ConfigureAwait(false);
+            if (request.CollectCoverage && retained.Coverage is null)
+                throw new InvalidOperationException("Requested coverage was lost while retaining test results.");
             events?.Publish("test.completed", operationId: runId);
             return retained;
         }

@@ -55,7 +55,8 @@ internal sealed class TestResultStore
         }
         var result = new TestOperationResult(original.Supported, original.Message.Length > 4096 ? original.Message.Substring(0, 4080) + " [truncated]" : original.Message,
             original.Tests, retained, original.Backend, original.RunId, original.Outcome, original.RunnerExitCode,
-            original.TotalResults ?? original.Results.Count, retained.Count, retained.Count < original.Results.Count || original.ResultsTruncated);
+            original.TotalResults ?? original.Results.Count, retained.Count, retained.Count < original.Results.Count || original.ResultsTruncated,
+            coverage: original.Coverage);
         lock (gate)
         {
             Prune();
@@ -66,7 +67,8 @@ internal sealed class TestResultStore
             latest = original.RunId;
             var page = Slice(entry, 0, 25);
             return new(result.Supported, result.Message, result.Tests, page, result.Backend, result.RunId, result.Outcome, result.RunnerExitCode,
-                result.TotalResults, result.RetainedResults, result.ResultsTruncated, page.Count < result.Results.Count ? page.Count : null);
+                result.TotalResults, result.RetainedResults, result.ResultsTruncated, page.Count < result.Results.Count ? page.Count : null,
+                coverage: result.Coverage);
         }
     }
 

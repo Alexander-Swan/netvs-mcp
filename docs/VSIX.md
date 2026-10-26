@@ -40,6 +40,7 @@ Contracts target both `net10.0` and `netstandard2.0`. The extension also uses lo
 - **Immediate evaluation:** `immediate_execute` evaluates the supplied expression through the debugger API; it does not send keystrokes to the Immediate window. Evaluation can execute debuggee code and requires a paused session.
 - **Exception settings:** the extension reads and updates settings through `EnvDTE90.Debugger3` when available. Unsupported debugger APIs return explicit evidence.
 - **Tests:** CLI is the default backend. Explicit Test Explorer requests use the optional IDE adapter and never silently fall back to CLI. Native test IDs are selection evidence for the current discovery context; CLI results retain their own run identity.
+- **Coverage:** structured line coverage is attached to a specific CLI test run and requires a compatible Coverlet setup. Results are paged and disclose missing or truncated evidence.
 - **Modal dialogs:** the broker inspects dialogs through Windows UI Automation so it can recover while the extension's UI thread is blocked. A modal response does not establish command completion.
 
 Engine/backend prerequisites and older-extension compatibility are reported explicitly. Missing correctness-critical guards must not fall back to unguarded execution. Consult the focused [product guides](../README.md#best-practices-guides) before choosing a workflow.

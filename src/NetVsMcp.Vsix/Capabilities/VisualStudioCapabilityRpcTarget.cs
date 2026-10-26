@@ -98,7 +98,7 @@ internal sealed class VisualStudioCapabilityRpcTarget
             new("testExplorer", (capabilities.Solution as SolutionCapabilityService)?.ExplorerStatus ?? "unsupported",
                 "Optional version-probed IDE backend; build the test project and initialize Test Explorer. CLI remains the default.", "Use backend=test-explorer; selectors are exact native IDs or fully qualified names."),
             new("retainedTestResults", "supported", "CLI/TRX runs retain bounded, immutable result pages for 15 minutes (up to eight runs), including failure stacks and target-scoped parameterized-case fingerprints. Fingerprints are not execution selectors.", "Use test_results_page with the exact runId and follow nextOffset; missing history must not trigger automatic reruns."),
-            new("coverage", "unsupported", "Structured coverage collection is not implemented."),
+            new("coverage", "requiresCollector", "Run-bound line coverage uses the selected VSTest project's installed coverlet.collector. Collection availability is verified from actual Cobertura output; Test Explorer and branch coverage are not implemented.", "Use test_coverage_run with an explicit projectName, then page results with the returned runId."),
             new("nativeDataBreakpoints", "unsupported", "Data breakpoint automation is not implemented."),
             new("desktopAutomation", "requiresTarget", "UI Automation requires a compatible Windows debuggee; tools are on /mcp-wu."),
             new("browserAutomation", "requiresBackend", "Browser capabilities depend on the connected CDP/RDP backend; tools are on /mcp-wu.")
