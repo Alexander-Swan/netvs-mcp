@@ -16,6 +16,18 @@ The internal VS-to-broker channel is independent of whether an external MCP clie
 
 `debug_snapshot(include: [])` exposes the authoritative debugger state with `state.eventCursor` (session ID, epoch, watermark). `debug_status` and the debugger section of `vs_context_snapshot` use the same capture. Follow that cursor with `vs_events`; reconcile gaps with a fresh read-only snapshot. Legacy extensions and modal or stale observations omit the cursor rather than combining independently read state and events.
 
+## Domain-specific operations
+
+Builds expose their own start/status/cancel controls. Tests expose run IDs and bounded retained
+results. Debugger commands keep execution identity, pause guards, bounded waits, and modal
+recovery through `debug_status(operationId: ...)`. There is no generic background-job API,
+request-ID deduplication service, or durable operation-history file.
+
+Canceling a wait or reaching a timeout does not prove the IDE command stopped. Preserve the
+original modal-command ID when one is returned; inspect its outcome rather than replaying it.
+These command records belong to the current broker lifetime. After restart, reconcile current
+IDE state; a missing record does not establish whether work executed.
+
 ## Compatibility
 
 New wire members are additive. Features requiring correctness-critical guards or event delivery are negotiated explicitly. Missing support must produce a structured unsupported result instead of silently ignoring a guard. Legacy clients keep existing request/response behavior while newer clients can opt into stronger contracts.

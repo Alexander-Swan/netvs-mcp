@@ -37,26 +37,18 @@ Expected routing behavior:
 
 This is especially important for debugger and editing tools because routing a request to the wrong Visual Studio instance can modify the wrong codebase or control the wrong debuggee.
 
-## Broker Token And Audit Expectations
+## Authentication boundary
 
-Current broker hardening includes a local JSONL audit log for tool calls. Each entry records time, tool name, success/failure, selected session when known, routing fields, failure reason, and a short message. The audit log intentionally does not dump full source code, full locals, full expression results, or large output panes by default.
+The loopback HTTP endpoint does not require a broker authentication token. Loopback binding limits network exposure; it does not authenticate callers. Trust local processes and MCP clients that can reach the endpoint. Do not forward the port or expose it through a proxy.
 
-Usage analytics are separate from audit logging and are disabled by default. When enabled, analytics are stored locally in SQLite as aggregate counters only: daily buckets by broker version, tool, category, endpoint, and success/failure, plus size, token-estimate, and duration totals. Analytics do not store tool arguments, responses, source text, debugger values, output panes, or messages.
+The per-user named pipe connects the broker and extension within the same Windows user context. It is not a boundary between mutually untrusted applications running as that user.
 
-Future broker hardening should still include:
+## Audit logs and usage analytics
 
-- A per-user broker token stored under `%LOCALAPPDATA%\NetVsMcp`.
-- Token validation for broker-facing requests that need authentication.
-- VSIX authentication to the broker before registration or command execution.
+Tool calls are recorded in a local JSONL audit log with time, tool name, success/failure, routing fields, failure reason, and a short message. The logger does not serialize full tool arguments or results. Paths and messages can still contain sensitive context, so protect local logs accordingly.
 
-Log enough metadata to explain what happened without creating a second sensitive data store.
+Usage analytics are separate from audit logging and are disabled by default. When enabled, analytics are stored locally in SQLite as aggregate counters: daily buckets by broker version, tool, category, endpoint, and success/failure, plus size, token-estimate, and duration totals. They do not store tool arguments, responses, source text, debugger values, output panes, or messages.
 
-## Known MVP Gaps
+## External services
 
-- Real end-to-end validation with a running broker and an experimental Visual Studio instance is still required.
-- Authentication token handling is not complete unless the current code proves otherwise.
-- Broker tool calls are audit-logged with levels, daily rolling retention keeps only today's file by default, and agents can inspect recent entries through the broker `/logs` endpoint.
-- Usage analytics are optional, local, aggregate-only, and can be queried through `vs_get_usage_summary` when enabled.
-- Debugger and editor tools should be reviewed carefully before being treated as safe for unattended client use.
-
-Until those gaps are closed, use NetVsMcp only with trusted local clients and keep high-impact operations human-visible.
+IDE requests travel between the local MCP client, broker, and Visual Studio. Update checks use GitHub; package searches and restores use configured package feeds. These operations can require network access. An MCP client may independently send tool results to its configured model provider; NetVsMcp's local transport does not change that client's privacy settings.

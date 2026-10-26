@@ -17,6 +17,35 @@ public sealed class LocalMcpHttpHostTests
 
     public LocalMcpHttpHostTests(Xunit.Abstractions.ITestOutputHelper output) => _output = output;
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task StartupDoesNotReadOrWriteGenericOperationHistory(bool legacyHistory)
+    {
+        var port = GetAvailablePort();
+        var directory = Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, $"operations-{port}.json");
+        if (legacyHistory) File.WriteAllText(path, "invalid legacy history");
+        var runtime = CreateRuntime($"http://127.0.0.1:{port}", sessionsDirectory: directory);
+        await runtime.StartAsync(CancellationToken.None);
+        try
+        {
+            using var http = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+            var tools = await ListToolNamesAsync(http, "/mcp");
+            Assert.DoesNotContain(tools, name => name.StartsWith("operation_", StringComparison.Ordinal));
+            Assert.Contains("build_solution", tools);
+            Assert.Contains("build_status", tools);
+            Assert.Contains("test_results_page", tools);
+            Assert.Contains("debug_status", tools);
+            Assert.Contains("debug_run_to", tools);
+        }
+        finally { await runtime.StopAsync(); }
+        if (legacyHistory) Assert.Equal("invalid legacy history", File.ReadAllText(path));
+        else Assert.False(File.Exists(path));
+        Assert.False(File.Exists(path + ".tmp"));
+    }
+
     [Fact]
     public async Task DiscoveryProfilesFilterToolsAndRejectHiddenCalls()
     {
@@ -1080,14 +1109,15 @@ public sealed class LocalMcpHttpHostTests
     private static BrokerRuntime CreateRuntime(
         string endpoint,
         string? pipeName = null,
-        IBrokerSettingsStore? settingsStore = null)
+        IBrokerSettingsStore? settingsStore = null,
+        string? sessionsDirectory = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "NetVsMcp.Broker.Tests", Guid.NewGuid().ToString("N"));
         var options = new BrokerOptions(
             endpoint,
             $@"\\.\pipe\{pipeName ?? $"netvs-mcp-test-{Guid.NewGuid():N}"}",
             LogsDirectory: Path.Combine(root, "Logs"),
-            SessionsDirectory: Path.Combine(root, "Sessions"),
+            SessionsDirectory: sessionsDirectory ?? Path.Combine(root, "Sessions"),
             SettingsFilePath: Path.Combine(root, "settings.json"),
             AnalyticsDatabasePath: Path.Combine(root, "Analytics", "analytics.db"));
         var sessions = new SessionRegistry();
