@@ -8,13 +8,23 @@ public sealed class BuildSolutionRequest
 
 public sealed record BuildSolutionResult(
     BuildStatusInfo Status,
-    int LastBuildInfo);
+    int LastBuildInfo,
+    string? BuildId = null,
+    string? Outcome = null,
+    string? Configuration = null,
+    string? Platform = null,
+    string? Project = null);
 
 public sealed record BuildStatusInfo(
     /// <summary>e.g. "Building", "Idle", "Cancelled".</summary>
     string State,
     /// <summary>DTE's raw <c>LastBuildInfo</c> error count.</summary>
-    int LastBuildInfo);
+    int LastBuildInfo,
+    string? BuildId = null,
+    string? Outcome = null,
+    string? Configuration = null,
+    string? Platform = null,
+    string? Project = null);
 
 public sealed record BuildConfigurationInfo(
     string? Configuration,
@@ -41,7 +51,9 @@ public sealed class ErrorListRequest
 }
 
 public sealed record ErrorListResult(
-    IReadOnlyCollection<ErrorListItemInfo> Items);
+    IReadOnlyCollection<ErrorListItemInfo> Items,
+    string Source = "unknown",
+    DateTimeOffset? CapturedUtc = null);
 
 public sealed record ErrorListItemInfo(
     string? Description,

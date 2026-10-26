@@ -24,25 +24,39 @@ internal sealed class BuildConfigurationSetRequest
 
 internal sealed class BuildSolutionResult
 {
-    public BuildSolutionResult(BuildStatusInfo status, int lastBuildInfo)
+    public BuildSolutionResult(BuildStatusInfo status, int lastBuildInfo, string? buildId = null, string? outcome = null,
+        string? configuration = null, string? platform = null, string? project = null)
     {
         Status = status;
         LastBuildInfo = lastBuildInfo;
+        BuildId = buildId; Outcome = outcome; Configuration = configuration; Platform = platform; Project = project;
     }
 
     public BuildStatusInfo Status { get; }
+    public string? BuildId { get; }
+    public string? Outcome { get; }
+    public string? Configuration { get; }
+    public string? Platform { get; }
+    public string? Project { get; }
     public int LastBuildInfo { get; }
 }
 
 internal sealed class BuildStatusInfo
 {
-    public BuildStatusInfo(string state, int lastBuildInfo)
+    public BuildStatusInfo(string state, int lastBuildInfo, string? buildId = null, string? outcome = null,
+        string? configuration = null, string? platform = null, string? project = null)
     {
         State = state;
         LastBuildInfo = lastBuildInfo;
+        BuildId = buildId; Outcome = outcome; Configuration = configuration; Platform = platform; Project = project;
     }
 
     public string State { get; }
+    public string? BuildId { get; }
+    public string? Outcome { get; }
+    public string? Configuration { get; }
+    public string? Platform { get; }
+    public string? Project { get; }
     public int LastBuildInfo { get; }
 }
 
@@ -66,6 +80,8 @@ internal sealed class ErrorListRequest
 
 internal sealed class ErrorListResult
 {
+    public string Source => "ideErrorListMixed";
+    public System.DateTimeOffset CapturedUtc { get; } = System.DateTimeOffset.UtcNow;
     public ErrorListResult(IReadOnlyCollection<ErrorListItemInfo> items)
     {
         Items = items;

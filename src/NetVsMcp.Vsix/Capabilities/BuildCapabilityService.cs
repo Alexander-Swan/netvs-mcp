@@ -10,16 +10,21 @@ using Task = System.Threading.Tasks.Task;
 
 namespace NetVsMcp.Vsix;
 
-internal sealed class BuildCapabilityService : IBuildCapabilityService
+internal sealed class BuildCapabilityService : IBuildCapabilityService, IDisposable
 {
     private static readonly Guid TaskProviderGuid = new("e22e7a99-2a83-4f12-ae69-1bc4504a7ee7");
 
     private readonly AsyncPackage package;
     private TaskProvider? taskProvider;
+    private readonly BuildExecutionTracker tracker = new();
+    private readonly NetVsMcp.Contracts.SessionEventBuffer? events;
+    private BuildEvents? buildEvents;
+    private SolutionBuild? observedBuild;
 
-    public BuildCapabilityService(AsyncPackage package)
+    public BuildCapabilityService(AsyncPackage package, NetVsMcp.Contracts.SessionEventBuffer? events = null)
     {
         this.package = package;
+        this.events = events;
     }
 
     public async Task<BuildSolutionResult> BuildSolutionAsync(BuildSolutionRequest request, CancellationToken cancellationToken)
@@ -31,11 +36,8 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
         var solutionBuild = dte.Solution?.SolutionBuild
             ?? throw new InvalidOperationException("Visual Studio solution build service is unavailable.");
 
-        solutionBuild.Build(request.WaitForBuildToFinish);
-
-        return new BuildSolutionResult(
-            GetBuildStatus(solutionBuild),
-            solutionBuild.LastBuildInfo);
+        return await RunTrackedBuildAsync(dte, solutionBuild, null, vsBuildScope.vsBuildScopeSolution,
+            vsBuildAction.vsBuildActionBuild, () => { ThreadHelper.ThrowIfNotOnUIThread(); solutionBuild.Build(false); }, request.WaitForBuildToFinish, cancellationToken);
     }
 
     public async Task<BuildSolutionResult> BuildProjectAsync(BuildProjectRequest request, CancellationToken cancellationToken)
@@ -54,8 +56,9 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
         var projectUniqueName = FindProjectUniqueName(dte.Solution, request.ProjectName)
             ?? throw new InvalidOperationException($"Project '{request.ProjectName}' was not found.");
 
-        solutionBuild.BuildProject(solutionBuild.ActiveConfiguration.Name, projectUniqueName, request.WaitForBuildToFinish);
-        return new BuildSolutionResult(GetBuildStatus(solutionBuild), solutionBuild.LastBuildInfo);
+        return await RunTrackedBuildAsync(dte, solutionBuild, projectUniqueName, vsBuildScope.vsBuildScopeProject,
+            vsBuildAction.vsBuildActionBuild, () => { ThreadHelper.ThrowIfNotOnUIThread(); solutionBuild.BuildProject(solutionBuild.ActiveConfiguration.Name, projectUniqueName, false); },
+            request.WaitForBuildToFinish, cancellationToken);
     }
 
     public async Task<BuildStatusInfo> CancelBuildAsync(CancellationToken cancellationToken)
@@ -87,8 +90,8 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
             ?? throw new InvalidOperationException("Visual Studio DTE2 service is unavailable.");
         var solutionBuild = dte.Solution?.SolutionBuild
             ?? throw new InvalidOperationException("Visual Studio solution build service is unavailable.");
-        solutionBuild.Clean(WaitForCleanToFinish: true);
-        return new BuildSolutionResult(GetBuildStatus(solutionBuild), solutionBuild.LastBuildInfo);
+        return await RunTrackedBuildAsync(dte, solutionBuild, null, vsBuildScope.vsBuildScopeSolution,
+            vsBuildAction.vsBuildActionClean, () => { ThreadHelper.ThrowIfNotOnUIThread(); solutionBuild.Clean(false); }, true, cancellationToken);
     }
 
     public async Task<BuildSolutionResult> RebuildSolutionAsync(BuildSolutionRequest request, CancellationToken cancellationToken)
@@ -99,9 +102,11 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
             ?? throw new InvalidOperationException("Visual Studio DTE2 service is unavailable.");
         var solutionBuild = dte.Solution?.SolutionBuild
             ?? throw new InvalidOperationException("Visual Studio solution build service is unavailable.");
-        solutionBuild.Clean(WaitForCleanToFinish: true);
-        solutionBuild.Build(request.WaitForBuildToFinish);
-        return new BuildSolutionResult(GetBuildStatus(solutionBuild), solutionBuild.LastBuildInfo);
+        await RunTrackedBuildAsync(dte, solutionBuild, null, vsBuildScope.vsBuildScopeSolution,
+            vsBuildAction.vsBuildActionClean, () => { ThreadHelper.ThrowIfNotOnUIThread(); solutionBuild.Clean(false); }, true, cancellationToken);
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        return await RunTrackedBuildAsync(dte, solutionBuild, null, vsBuildScope.vsBuildScopeSolution,
+            vsBuildAction.vsBuildActionBuild, () => { ThreadHelper.ThrowIfNotOnUIThread(); solutionBuild.Build(false); }, request.WaitForBuildToFinish, cancellationToken);
     }
 
     public async Task<BuildStatusInfo> GetBuildStatusAsync(CancellationToken cancellationToken)
@@ -529,13 +534,88 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService
         return false;
     }
 
-    private static BuildStatusInfo GetBuildStatus(SolutionBuild solutionBuild)
+    private async Task<BuildSolutionResult> RunTrackedBuildAsync(DTE2 dte, SolutionBuild solutionBuild,
+        string? project, vsBuildScope scope, vsBuildAction action, Action issue, bool wait, CancellationToken cancellationToken)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (solutionBuild.BuildState == vsBuildState.vsBuildStateInProgress)
+            throw new InvalidOperationException("Visual Studio is already building. Reconcile the existing build instead of submitting another.");
+        if (buildEvents is null)
+        {
+            buildEvents = dte.Events.BuildEvents;
+            buildEvents.OnBuildBegin += OnTrackedBuildBegin;
+            buildEvents.OnBuildDone += OnTrackedBuildDone;
+        }
+        observedBuild = solutionBuild;
+        var configuration = solutionBuild.ActiveConfiguration;
+        var platform = (configuration as SolutionConfiguration2)?.PlatformName ?? string.Empty;
+        var ticket = tracker.Begin(configuration.Name, platform, project, scope.ToString(), action.ToString());
+        _ = ticket.Completion.Task.ContinueWith(t => { _ = t.Exception; }, CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+        try { issue(); }
+        catch { tracker.Abort(ticket); throw; }
+        // After acceptance, cancellation only ends the broker/client wait. Continue observing
+        // this actual build until its completion event; build_cancel is the explicit control.
+        // This source is completed by VS build events, not another joinable operation.
+#pragma warning disable VSTHRD003
+        if (wait) await ticket.Completion.Task;
+#pragma warning restore VSTHRD003
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        var errors = ticket.Completed.HasValue ? ticket.Errors ?? -1 : solutionBuild.LastBuildInfo;
+        var outcome = ticket.Completed.HasValue ? errors == 0 ? "completed" : "failed" : ticket.Begun ? "running" : "accepted";
+        var status = new BuildStatusInfo(ticket.Completed.HasValue ? vsBuildState.vsBuildStateDone.ToString() : solutionBuild.BuildState.ToString(),
+            errors, ticket.Id, outcome, ticket.Configuration, ticket.Platform, ticket.Project);
+        return new(status, errors, ticket.Id, outcome,
+            ticket.Configuration, ticket.Platform, ticket.Project);
+    }
+
+    private void OnTrackedBuildBegin(vsBuildScope scope, vsBuildAction action)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        tracker.ObserveBegin(scope.ToString(), action.ToString());
+        events?.Publish("build.started", operationId: tracker.Current?.Id);
+    }
+
+    private void OnTrackedBuildDone(vsBuildScope scope, vsBuildAction action)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var ticket = tracker.Current;
+        if (ticket is { Completed: null })
+        {
+            try { tracker.ObserveDone(scope.ToString(), action.ToString(), observedBuild?.LastBuildInfo ?? -1); }
+            catch (COMException ex)
+            {
+                System.Diagnostics.Trace.TraceWarning("NetVsMcp: build completion state unavailable: {0}", ex.Message);
+                tracker.Abort(ticket);
+            }
+        }
+        events?.Publish("build.completed", operationId: ticket?.Id);
+    }
+
+    public void Dispose()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        if (buildEvents is not null)
+        {
+            buildEvents.OnBuildBegin -= OnTrackedBuildBegin;
+            buildEvents.OnBuildDone -= OnTrackedBuildDone;
+            buildEvents = null;
+        }
+        if (tracker.Current is { Completed: null } ticket) tracker.Abort(ticket);
+        taskProvider?.Dispose();
+    }
+
+    private BuildStatusInfo GetBuildStatus(SolutionBuild solutionBuild)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
 
+        var ticket = tracker.Current;
         return new BuildStatusInfo(
             solutionBuild.BuildState.ToString(),
-            solutionBuild.LastBuildInfo);
+            solutionBuild.LastBuildInfo, ticket?.Id,
+            ticket is null ? null : ticket.Completed.HasValue ? ticket.Errors == 0 ? "completed" : "failed" : ticket.Begun ? "running" : "accepted",
+            ticket?.Configuration, ticket?.Platform, ticket?.Project);
     }
 
     private static bool ShouldInclude(ErrorItem item, ErrorListRequest request)

@@ -56,7 +56,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Build, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "build_and_get_errors", Title = "Build And Get Errors", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Builds the routed solution and returns errors/warnings.")]
+    [Description("Compiles/builds the routed solution using its active configuration, waits for completion, and returns build status plus bounded errors and optional warnings. Inspect build.lastBuildInfo (0 means success); a successful tool call alone does not mean compilation succeeded. Does not launch the application.")]
     public Task<ToolResponse<BuildAndGetErrorsResult>> BuildAndGetErrors(
         bool includeWarnings = true,
         int maxItems = 100,
@@ -162,8 +162,10 @@ internal sealed partial class BrokerToolService
             cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Build, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "build_configuration_set", Title = "Build Configuration Set", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Sets the active solution build configuration and optional platform.")]
-    public Task<ToolResponse<BuildConfigurationInfo>> BuildConfigurationSet(string configuration, string? platform = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
+    [Description("Selects an existing Visual Studio solution build configuration, such as Debug or Release, and optionally its platform. Does not compile or launch the application; use build_and_get_errors, then debug_start to launch under the debugger.")]
+    public Task<ToolResponse<BuildConfigurationInfo>> BuildConfigurationSet(
+        [Description("Existing solution configuration name, such as Debug or Release; matched case-insensitively.")] string configuration,
+        [Description("Optional existing solution platform name, such as Any CPU or x64. Omit to select the first matching configuration regardless of platform.")] string? platform = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(configuration))
         {

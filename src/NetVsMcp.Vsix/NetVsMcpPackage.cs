@@ -19,6 +19,7 @@ public sealed class NetVsMcpPackage : AsyncPackage
     private BrokerRegistrationLifecycle? lifecycle;
     private BrokerStatusInfoBarService? brokerNotificationService;
     private DebuggerCapabilityService? debuggerService;
+    private BuildCapabilityService? buildService;
 
     protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
     {
@@ -30,12 +31,13 @@ public sealed class NetVsMcpPackage : AsyncPackage
 
         debuggerService = new DebuggerCapabilityService(this);
         await debuggerService.InitializeAsync(cancellationToken);
+        buildService = new BuildCapabilityService(this, debuggerService.Events);
         var capabilities = new VisualStudioCapabilityCatalog(
             new GeneralIdeCapabilityService(this),
             new EditorCapabilityService(this),
             new NavigationCapabilityService(this),
             new CodeActionsCapabilityService(this),
-            new BuildCapabilityService(this),
+            buildService,
             debuggerService,
             new AutomationCapabilityService(this),
             new SolutionCapabilityService(this, debuggerService.Events));
@@ -70,6 +72,8 @@ public sealed class NetVsMcpPackage : AsyncPackage
             {
                 await JoinableTaskFactory.SwitchToMainThreadAsync();
                 debuggerService?.Dispose();
+                buildService?.Dispose();
+                buildService = null;
                 debuggerService = null;
             });
             brokerNotificationService = null;
