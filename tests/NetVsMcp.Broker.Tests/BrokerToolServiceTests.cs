@@ -82,6 +82,14 @@ public sealed partial class BrokerToolServiceTests
 
     private sealed class FakeVisualStudioSessionRpc : IVisualStudioSessionRpc
     {
+        public Func<TestExplorerRequest, CancellationToken, Task<TestOperationResult>>? ExplorerDiscoverHandler { get; init; }
+        public Func<TestExplorerRequest, CancellationToken, Task<TestOperationResult>>? ExplorerRunHandler { get; init; }
+        public Func<TestExplorerRequest, CancellationToken, Task<bool>>? ExplorerCancelHandler { get; init; }
+        public Task<TestOperationResult> TestExplorerDiscoverAsync(TestExplorerRequest request, CancellationToken cancellationToken) => ExplorerDiscoverHandler?.Invoke(request, cancellationToken) ?? throw MissingFrameInspectionMethod();
+        public Task<TestOperationResult> TestExplorerRunAsync(TestExplorerRequest request, CancellationToken cancellationToken) => ExplorerRunHandler?.Invoke(request, cancellationToken) ?? throw MissingFrameInspectionMethod();
+        public Task<bool> TestExplorerCancelAsync(TestExplorerRequest request, CancellationToken cancellationToken) => ExplorerCancelHandler?.Invoke(request, cancellationToken) ?? throw MissingFrameInspectionMethod();
+        public Task<TestDebugResult> TestExplorerDebugAsync(TestExplorerRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public DebugFrameInspectionRequest? LastFrameInspectionRequest { get; private set; }
         public Func<DebugFrameInspectionRequest, CancellationToken, Task<DebugFrameInspectionResult>>? FrameInspectionHandler { get; init; }
 

@@ -4,7 +4,7 @@
 
 `NetVsMcp.Vsix` runs inside each Visual Studio instance and executes IDE operations using the Visual Studio SDK, Roslyn, and debugger APIs. It does not host MCP. The broker hosts the loopback HTTP MCP endpoints and routes requests over a per-user named pipe.
 
-The extension targets `net472` and packages for amd64 Visual Studio installations in the manifest range `[17.0,19.0)` (Visual Studio 2022 and 2026). Individual features can require newer IDE APIs. A matching installation range does not guarantee every engine or backend supports every feature.
+The extension targets `net472` and packages for amd64 Visual Studio installations in the manifest range `[17.0,19.0)` (Visual Studio 2022 and 2026). Individual features can require newer IDE APIs; optional Test Explorer integration requires the supported VS 18 API shape. A matching installation range does not guarantee every engine or backend supports every feature.
 
 Building the VSIX requires Visual Studio extension development tooling. The build publishes the broker into the VSIX payload. The `.netvsmcp-vsix-bundled-broker` marker identifies this copy, which is updated with the extension. The standalone MSI broker is packaged separately and remains user-managed.
 
@@ -39,7 +39,7 @@ Contracts target both `net10.0` and `netstandard2.0`. The extension also uses lo
 - **Watches:** the extension retains its own expression list and evaluates it in debugger context. These tools do not edit Visual Studio's Watch window.
 - **Immediate evaluation:** `immediate_execute` evaluates the supplied expression through the debugger API; it does not send keystrokes to the Immediate window. Evaluation can execute debuggee code and requires a paused session.
 - **Exception settings:** the extension reads and updates settings through `EnvDTE90.Debugger3` when available. Unsupported debugger APIs return explicit evidence.
-- **Tests:** CLI is the default backend. CLI results retain their own run identity.
+- **Tests:** CLI is the default backend. Explicit Test Explorer requests use the optional IDE adapter and never silently fall back to CLI. Native test IDs are selection evidence for the current discovery context; CLI results retain their own run identity.
 - **Modal dialogs:** the broker inspects dialogs through Windows UI Automation so it can recover while the extension's UI thread is blocked. A modal response does not establish command completion.
 
 Engine/backend prerequisites and older-extension compatibility are reported explicitly. Missing correctness-critical guards must not fall back to unguarded execution. Consult the focused [product guides](../README.md#best-practices-guides) before choosing a workflow.

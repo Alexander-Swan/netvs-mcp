@@ -880,14 +880,20 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "test_discover", Title = "Discover Tests", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Discovers tests through a routed Visual Studio session.")]
+    [Description("Discovers tests using CLI by default. backend=test-explorer requires projectName and a built test project, queries native IDE cases, and returns testId/fullyQualifiedName for selecting a case with test_run or test_debug. Discovery has no filter argument. No implicit CLI fallback.")]
     public Task<ToolResponse<TestOperationResult>> TestDiscover(
+        [Description(TestProjectDescription)]
         string? projectName = null,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description(TestBackendDescription)] string? backend = null)
     {
+        if (!ValidTestBackend(backend)) return Task.FromResult(FailWithCode<TestOperationResult>("backend must be cli or test-explorer.", ToolErrorCodes.InvalidRequest));
+        if (backend == "test-explorer") return DispatchValueAsync(sessionId, solutionName, solutionPath,
+            (connection, ct) => connection.TestExplorerDiscoverAsync(new TestExplorerRequest { ProjectName = NormalizeOptional(projectName) }, ct), cancellationToken,
+            unsupportedByVsixMessage: "Test Explorer requires an updated VSIX; no CLI fallback was started.");
         var request = new TestDiscoverRequest { ProjectName = NormalizeOptional(projectName) };
         return DispatchValueAsync(
             sessionId,
@@ -898,15 +904,20 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "test_run", Title = "Test Run", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Runs tests with the dotnet CLI/TRX fallback through a routed Visual Studio session, not Test Explorer. Updated extensions return backend, runId, runnerExitCode and outcome (completed/testsFailed/runnerFailed/noTests/incomplete); supported does not mean all tests passed. Results are a bounded first page: follow nextOffset with test_results_page and the exact runId.")]
+    [Description("Runs all or selected tests using CLI by default; filter uses dotnet test --filter syntax. backend=test-explorer runs visibly in Visual Studio Test Explorer, requires projectName, and accepts id:<testId> or an exact fullyQualifiedName. Omitted filter selects all cases in the scope; ambiguous IDE source/framework selections are rejected. Inspect outcome; supported does not mean passed. Follow nextOffset with test_results_page and exact runId. Cancellation of a Test Explorer call requests cancellation of its owned IDE run; inspect the returned outcome.")]
     public Task<ToolResponse<TestOperationResult>> TestRun(
+        [Description(TestProjectDescription)]
         string? projectName = null,
+        [Description(TestFilterDescription)]
         string? filter = null,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description(TestBackendDescription)] string? backend = null)
     {
+        if (!ValidTestBackend(backend)) return Task.FromResult(FailWithCode<TestOperationResult>("backend must be cli or test-explorer.", ToolErrorCodes.InvalidRequest));
+        if (backend == "test-explorer") return RunExplorerTestsAsync(projectName, filter, sessionId, solutionName, solutionPath, cancellationToken);
         var request = new TestRunRequest
         {
             ProjectName = NormalizeOptional(projectName),
@@ -940,16 +951,22 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "test_run_and_get_results", Title = "Test Run And Get Results", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Runs tests with the CLI fallback, then retrieves the exact returned runId when supported by the extension. Returns bounded run/result summaries on updated extensions; follow nextOffset using test_results_page. Distinguishes test failure, runner failure, no matching tests, incomplete results, and completed runs through structured outcome metadata.")]
+    [Description("Runs all or selected tests and returns results bound to the new runId. CLI is default and uses dotnet test filter expressions. backend=test-explorer requires projectName and uses id:<testId> or an exact fullyQualifiedName; runs appear in Test Explorer. Inspect outcome and follow nextOffset with test_results_page.")]
     public Task<ToolResponse<TestRunAndGetResultsResult>> TestRunAndGetResults(
+        [Description(TestProjectDescription)]
         string? projectName = null,
+        [Description(TestFilterDescription)]
         string? filter = null,
+        [Description("Compatibility fallback for older CLI extensions that omit their new runId. Updated runners bind results to the run just started; Test Explorer ignores this argument and creates a fresh runId. Use test_results to read a previous run.")]
         string? runId = null,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description(TestBackendDescription)] string? backend = null)
     {
+        if (!ValidTestBackend(backend)) return Task.FromResult(FailWithCode<TestRunAndGetResultsResult>("backend must be cli or test-explorer.", ToolErrorCodes.InvalidRequest));
+        if (backend == "test-explorer") return RunExplorerCompositeAsync(projectName, filter, sessionId, solutionName, solutionPath, cancellationToken);
         var runRequest = new TestRunRequest
         {
             ProjectName = NormalizeOptional(projectName),

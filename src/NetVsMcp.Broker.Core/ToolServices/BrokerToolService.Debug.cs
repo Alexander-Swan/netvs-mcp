@@ -1495,19 +1495,37 @@ internal sealed partial class BrokerToolService
         DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.ParallelWatchAsync(ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "test_debug", Title = "Test Debug", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Starts CLI test debugging for an explicit projectName, framework, and nonempty filter. A filter may match multiple cases; case fingerprints are not execution selectors. Requires an idle VS debugger. Attaches only to a unique verified descendant testhost of this runner; unrelated dotnet processes are never candidates. Windows process ownership evidence must be available. Failed/canceled setup cleans up verified owned hosts and its runner. VSTest can first pause in its DebuggerBreakpoint.WaitForDebugger/Break entry shim; inspect the stack, continue once only from that recognized shim, then wait for the intended test-method breakpoint. Successful attachment returns process IDs; do not blindly retry a timed-out mutation.")]
+    [Description("CLI default: requires projectName/framework/filter and an idle debugger. Attaches only to a verified owned runner testhost; failed setup cleans owned processes. VSTest may pause in DebuggerBreakpoint.WaitForDebugger/Break: confirm that stack before continuing once to the intended test breakpoint. backend=test-explorer accepts an exact native ID or fully qualified name and returns an accepted runId, not confirmed attachment; inspect debugger state. No implicit fallback or replay after timeout.")]
     public Task<ToolResponse<TestDebugResult>> TestDebug(
+        [Description(TestProjectDescription)]
         string? projectName = null,
+        [Description("Required non-empty selector; both backends require an idle debugger. CLI expressions can select multiple tests: use FullyQualifiedName=... to target a specific method. " + TestFilterDescription)]
         string? filter = null,
+        [Description("CLI testhost attach deadline in seconds (1–120). Not used by the Test Explorer backend.")]
         int attachTimeoutSeconds = 30,
+        [Description("CLI only: skip building before the test run. Must remain false for Test Explorer; build the project separately.")]
         bool noBuild = false,
+        [Description("CLI only: build configuration, such as Debug. Omit for Test Explorer, which uses the IDE project configuration.")]
         string? configuration = null,
+        [Description("Required target framework for CLI debugging, e.g. net10.0. Omit for Test Explorer; select a discovered case from one source/framework instead.")]
         string? framework = null,
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description(TestBackendDescription)] string? backend = null)
     {
+        if (!ValidTestBackend(backend)) return Task.FromResult(FailWithCode<TestDebugResult>("backend must be cli or test-explorer.", ToolErrorCodes.InvalidRequest));
+        if (backend == "test-explorer")
+        {
+            if (string.IsNullOrWhiteSpace(projectName) || string.IsNullOrWhiteSpace(filter))
+                return Task.FromResult(FailWithCode<TestDebugResult>("Test Explorer needs projectName and an exact native ID or fully qualified name.", ToolErrorCodes.InvalidRequest));
+            if (noBuild || configuration is not null || framework is not null)
+                return Task.FromResult(FailWithCode<TestDebugResult>("CLI build options do not apply to Test Explorer; select an exact discovered native ID.", ToolErrorCodes.InvalidRequest));
+            return DispatchValueAsync(sessionId, solutionName, solutionPath,
+                (connection, ct) => connection.TestExplorerDebugAsync(new TestExplorerRequest { ProjectName = projectName.Trim(), Filter = filter.Trim(), RunId = Guid.NewGuid().ToString("N") }, ct),
+                cancellationToken, unsupportedByVsixMessage: "Test Explorer requires an updated VSIX; no CLI fallback was started.");
+        }
         if (string.IsNullOrWhiteSpace(filter))
         {
             return Task.FromResult(ToolResponse<TestDebugResult>.Fail("Filter is required so test_debug does not start every test under the debugger."));

@@ -32,7 +32,7 @@ See [setup](docs/SETUP.md) for installation, client registration, and troublesho
 - **Live editing and navigation:** read unsaved buffers, inspect symbols, find references, and apply edits. Safe-edit previews support developer approval; code actions support snapshot-bound preview, application, and verified recovery.
 - **Builds and diagnostics:** build solutions or projects, read output panes and errors, cancel builds, and query compiler diagnostics for an exact document version.
 - **Debugger control:** launch, attach, step, inspect chosen threads and frames, manage breakpoints and watches, capture exception evidence, and run to a guarded source location. Pause identities protect against stale inspection requests.
-- **Tests:** discover and run tests with the CLI backend. Retrieve results using their exact run identity.
+- **Tests:** discover and run tests with the CLI backend. Retrieve results using their exact run identity. Optional VS 18 Test Explorer support can be explicitly selected and requires its backend prerequisites.
 - **Multiple sessions:** discover open instances and route explicitly. Pause new automation mutations when needed. Follow session events and reconcile observed state.
 - **Local records:** inspect tool-call audit metadata and optional aggregate usage analytics without recording full source or debugger values in those stores.
 

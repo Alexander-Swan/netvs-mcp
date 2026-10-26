@@ -279,16 +279,20 @@ internal sealed class TestOperationResult
 
 internal sealed class TestCaseInfo
 {
-    public TestCaseInfo(string name, string? projectName, string? source)
+    public TestCaseInfo(string name, string? projectName, string? source, string? testId = null, string? fullyQualifiedName = null)
     {
         Name = name;
         ProjectName = projectName;
         Source = source;
+        TestId = testId;
+        FullyQualifiedName = fullyQualifiedName;
     }
 
     public string Name { get; }
     public string? ProjectName { get; }
     public string? Source { get; }
+    public string? TestId { get; }
+    public string? FullyQualifiedName { get; }
 }
 
 internal sealed class TestResultInfo

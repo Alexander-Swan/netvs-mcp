@@ -1,5 +1,7 @@
 ﻿# Debugging A Single Test
 
+The examples below use the default CLI backend. For IDE-selected tests, see the [Test Explorer backend](../../manage-visual-studio/references/test-explorer.md); its debug response reports acceptance, so verify the actual pause before inspecting a test.
+
 Use `test_debug` when the user wants to step through a specific test rather than merely run it:
 
 ```json

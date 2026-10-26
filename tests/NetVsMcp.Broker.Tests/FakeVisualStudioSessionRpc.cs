@@ -9,6 +9,11 @@ namespace NetVsMcp.Broker.Tests;
 /// </summary>
 internal sealed class FakeVisualStudioSessionRpc : IVisualStudioSessionRpc
 {
+        public Task<TestOperationResult> TestExplorerDiscoverAsync(TestExplorerRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<TestOperationResult> TestExplorerRunAsync(TestExplorerRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> TestExplorerCancelAsync(TestExplorerRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<TestDebugResult> TestExplorerDebugAsync(TestExplorerRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
     public Task<DebugFrameInspectionResult> DebugInspectStoppedFrameAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken) => DebugInspectFrameAsync(request, cancellationToken);
 
         public Task<DebugFrameInspectionResult> DebugInspectThreadFrameAsync(DebugFrameInspectionRequest request, CancellationToken cancellationToken) =>

@@ -2,6 +2,8 @@
 
 Use test tools when the user wants Visual Studio's test context or a VS-routed test workflow.
 
+Existing calls default to the CLI backend. For IDE discovery, execution, owned cancellation, and debugging, explicitly select `backend: "test-explorer"` and follow [Test Explorer backend](test-explorer.md).
+
 ```json
 test_discover({ "projectName": "App.Tests", "sessionId": "..." })
 test_run({ "projectName": "App.Tests", "filter": "FullyQualifiedName~OrderTests", "sessionId": "..." })

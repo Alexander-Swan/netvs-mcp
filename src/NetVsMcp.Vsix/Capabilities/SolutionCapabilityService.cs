@@ -16,7 +16,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace NetVsMcp.Vsix;
 
-internal sealed class SolutionCapabilityService : ISolutionCapabilityService
+internal sealed partial class SolutionCapabilityService : ISolutionCapabilityService
 {
     private const string DotnetExecutable = "dotnet";
 
@@ -429,6 +429,7 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
     public async Task<TestOperationResult> RunTestsAsync(TestRunRequest request, CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        EnsureNoExplorerRun();
 
         var dte = await GetDteAsync();
         var target = ResolveTestTarget(dte, request.ProjectName);
@@ -511,6 +512,7 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
     public async Task<TestDebugResult> DebugTestAsync(TestDebugRequest request, CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        EnsureNoExplorerRun();
 
         if (string.IsNullOrWhiteSpace(request.ProjectName) || string.IsNullOrWhiteSpace(request.Framework))
             throw new ArgumentException("test_debug requires projectName and framework to identify one project/target framework before starting a runner.");
@@ -634,6 +636,7 @@ internal sealed class SolutionCapabilityService : ISolutionCapabilityService
         {
             return Task.FromResult(captured);
         }
+        if (explorerInstance?.Current(runId) is { } running) return Task.FromResult(running);
         return Task.FromResult(TestOperationResult.Unsupported(
             runId is null
                 ? "No test results have been captured by this VSIX session yet."

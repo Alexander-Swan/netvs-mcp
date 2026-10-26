@@ -167,7 +167,9 @@ public sealed record TestOperationResult(
 public sealed record TestCaseInfo(
     string Name,
     string? ProjectName,
-    string? Source);
+    string? Source,
+    string? TestId = null,
+    string? FullyQualifiedName = null);
 
 public sealed record TestResultInfo(
     string Name,
@@ -193,7 +195,10 @@ public sealed record TestDebugResult(
     string? CommandLine = null,
     string? WorkingDirectory = null,
     string? TargetPath = null,
-    int AttachTimeoutSeconds = 30);
+    int AttachTimeoutSeconds = 30,
+    string? Backend = null,
+    string? RunId = null,
+    string? Outcome = null);
 
 public sealed record TestRunAndGetResultsResult(
     TestOperationResult Run,

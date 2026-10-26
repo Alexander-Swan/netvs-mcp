@@ -6,6 +6,10 @@ namespace NetVsMcp.Contracts.Interfaces;
 /// </summary>
 public interface IVisualStudioSessionRpc
 {
+    Task<TestOperationResult> TestExplorerDiscoverAsync(TestExplorerRequest request, CancellationToken cancellationToken);
+    Task<TestOperationResult> TestExplorerRunAsync(TestExplorerRequest request, CancellationToken cancellationToken);
+    Task<bool> TestExplorerCancelAsync(TestExplorerRequest request, CancellationToken cancellationToken);
+    Task<TestDebugResult> TestExplorerDebugAsync(TestExplorerRequest request, CancellationToken cancellationToken);
     Task<SessionCapabilityReport> SessionCapabilitiesAsync(CancellationToken cancellationToken);
     Task<VsSessionEventSnapshot> SessionSnapshotAsync(CancellationToken cancellationToken);
     Task<DocumentDiagnosticsResult> DocumentDiagnosticsAsync(DocumentDiagnosticsRequest request, CancellationToken cancellationToken);

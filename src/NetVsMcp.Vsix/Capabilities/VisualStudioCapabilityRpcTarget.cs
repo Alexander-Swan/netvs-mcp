@@ -17,6 +17,16 @@ internal static class VsCapabilityRpcErrorCodes
 
 internal sealed class VisualStudioCapabilityRpcTarget
 {
+    private SolutionCapabilityService ExplorerSolution => capabilities.Solution as SolutionCapabilityService
+        ?? throw new NotSupportedException("The solution service does not provide Test Explorer.");
+    public Task<TestOperationResult> TestExplorerDiscoverAsync(NetVsMcp.Contracts.TestExplorerRequest request, CancellationToken ct) =>
+        InvokeAsync(() => ExplorerSolution.DiscoverExplorerAsync(request, ct), nameof(TestExplorerDiscoverAsync));
+    public Task<TestOperationResult> TestExplorerRunAsync(NetVsMcp.Contracts.TestExplorerRequest request, CancellationToken ct) =>
+        InvokeAsync(() => ExplorerSolution.RunExplorerAsync(request, ct), nameof(TestExplorerRunAsync));
+    public Task<bool> TestExplorerCancelAsync(NetVsMcp.Contracts.TestExplorerRequest request, CancellationToken ct) =>
+        InvokeAsync(() => ExplorerSolution.CancelExplorerAsync(request, ct), nameof(TestExplorerCancelAsync));
+    public Task<NetVsMcp.Contracts.TestDebugResult> TestExplorerDebugAsync(NetVsMcp.Contracts.TestExplorerRequest request, CancellationToken ct) =>
+        InvokeAsync(() => ExplorerSolution.DebugExplorerAsync(request, ct), nameof(TestExplorerDebugAsync));
     private readonly EditorRpcTarget editor;
     private readonly GeneralIdeRpcTarget generalIde;
     private readonly NavigationRpcTarget navigation;
@@ -85,7 +95,8 @@ internal sealed class VisualStudioCapabilityRpcTarget
                 "Roslyn workspace navigation supports documents present in its C#/VB workspace; other language services are not claimed.", "Use find_in_files for text search when no semantic document exists."),
             new("moduleInspection", paused ? "availableWhenEngineSupports" : "requiresPause",
                 "Concord modules are probed by module_list; support cannot be inferred from the VS edition.", "Pause the target and call module_list."),
-            new("testExplorer", "unsupported", "Tests currently use dotnet test and TRX; direct Test Explorer integration is not implemented.", "Use test_discover/test_run/test_debug with the CLI backend."),
+            new("testExplorer", (capabilities.Solution as SolutionCapabilityService)?.ExplorerStatus ?? "unsupported",
+                "Optional version-probed IDE backend; build the test project and initialize Test Explorer. CLI remains the default.", "Use backend=test-explorer; selectors are exact native IDs or fully qualified names."),
             new("retainedTestResults", "supported", "CLI/TRX runs retain bounded, immutable result pages for 15 minutes (up to eight runs), including failure stacks and target-scoped parameterized-case fingerprints. Fingerprints are not execution selectors.", "Use test_results_page with the exact runId and follow nextOffset; missing history must not trigger automatic reruns."),
             new("coverage", "unsupported", "Structured coverage collection is not implemented."),
             new("nativeDataBreakpoints", "unsupported", "Data breakpoint automation is not implemented."),

@@ -60,7 +60,7 @@ public class CoordinatedSessionRpc : DispatchProxy
         "WebBlazorInspectAsync", "WebBlazorWaitReadyAsync", "WebBlazorGetComponentsAsync", "WebBlazorGetStateAsync",
         "WebBlazorInspectCircuitAsync", "WebBlazorInspectWasmAsync", "WebNetworkAsync",
         // Recovery controls must remain callable while the command they interrupt is in flight.
-        "BuildCancelAsync", "DebugBreakAsync"
+        "BuildCancelAsync", "DebugBreakAsync", "TestExplorerCancelAsync"
     };
     private IVisualStudioSessionRpc target = null!;
     private SessionMutationCoordinator coordinator = null!;
