@@ -17,6 +17,8 @@ public sealed class SessionRegistry
     }
 
     public event EventHandler? SessionsChanged;
+    internal SessionEventStore Events { get; } = new();
+    internal object RegistrationGate { get; } = new();
     public event EventHandler<SessionConnectedEventArgs>? SessionConnected;
 
     public IReadOnlyCollection<VsSessionInfo> ListSessions()
@@ -136,6 +138,7 @@ public sealed class SessionRegistry
             if (removed)
             {
                 _activeDispatches.Remove(sessionId);
+                Events.Remove(sessionId);
             }
         }
 

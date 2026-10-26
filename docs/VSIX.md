@@ -16,6 +16,8 @@ On initialization, the extension captures its process and solution state, connec
 
 The pipe is scoped to the Windows user. Registration includes the Visual Studio process, solution, active document, and debugger state. The broker can route to several registered instances; callers should select an exact session or solution path when more than one instance is plausible.
 
+Solution, active-window, debugger, build, and document-save observations are published through the existing connection. Publication is bounded and does not rely on MCP client notification support. Reconnects and event gaps require fresh authoritative state; commands are not replayed automatically. See the [event and operation contract](event-operation-contract.md).
+
 ## RPC surface
 
 The connection carries registration calls from the extension to the broker and IDE capability calls from the broker to the extension. Public MCP tool names use snake_case; internal StreamJsonRpc methods use names such as `DocumentReadAsync`, `BuildSolutionAsync`, and `DebugStatusAsync`.

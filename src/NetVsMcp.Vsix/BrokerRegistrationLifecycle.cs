@@ -17,6 +17,7 @@ internal sealed class BrokerRegistrationLifecycle : IDisposable
     private readonly IVisualStudioStateChangeMonitor stateMonitor;
     private readonly IBrokerConnectionFactory connectionFactory;
     private readonly IBrokerNotificationService notificationService;
+    private readonly NetVsMcp.Contracts.SessionEventBuffer? events;
     private readonly CancellationTokenSource stop = new();
     private readonly SemaphoreSlim stateChanged = new(0, 1);
 
@@ -28,13 +29,15 @@ internal sealed class BrokerRegistrationLifecycle : IDisposable
         IVisualStudioCapabilityCatalog capabilities,
         IVisualStudioStateChangeMonitor stateMonitor,
         IBrokerConnectionFactory connectionFactory,
-        IBrokerNotificationService notificationService)
+        IBrokerNotificationService notificationService,
+        NetVsMcp.Contracts.SessionEventBuffer? events = null)
     {
         this.snapshotProvider = snapshotProvider;
         this.capabilities = capabilities;
         this.stateMonitor = stateMonitor;
         this.connectionFactory = connectionFactory;
         this.notificationService = notificationService;
+        this.events = events;
         this.stateMonitor.StateChanged += OnVisualStudioStateChanged;
     }
 
@@ -100,7 +103,14 @@ internal sealed class BrokerRegistrationLifecycle : IDisposable
                 await RegisterAsync(activeConnection, cancellationToken);
                 notificationService.Clear();
                 reconnectDelay = InitialReconnectDelay;
-                await RunConnectedHeartbeatLoopAsync(activeConnection, cancellationToken);
+                using var connected = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                var publishing = PublishEventsAsync(activeConnection, connected.Token);
+                try { await RunConnectedHeartbeatLoopAsync(activeConnection, cancellationToken); }
+                finally
+                {
+                    connected.Cancel();
+                    try { await publishing; } catch (OperationCanceledException) { }
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -131,6 +141,29 @@ internal sealed class BrokerRegistrationLifecycle : IDisposable
         var snapshot = await snapshotProvider.CaptureAsync(cancellationToken);
         var registration = VsRegistrationRequest.FromSnapshot(snapshot, capabilities);
         await connection.RegisterAsync(registration, cancellationToken);
+    }
+
+    private async Task PublishEventsAsync(IBrokerConnection connection, CancellationToken ct)
+    {
+        if (events is null || connection is not ISessionEventConnection publisher) return;
+        try
+        {
+            var batch = events.Snapshot();
+            while (!ct.IsCancellationRequested && connection.IsConnected)
+            {
+                await publisher.PublishEventsAsync(batch, ct);
+                await events.WaitAsync(batch.Epoch, batch.Watermark, TimeSpan.FromSeconds(20), ct);
+                batch = events.Snapshot();
+            }
+        }
+        catch (StreamJsonRpc.RemoteMethodNotFoundException)
+        { Trace.TraceInformation("Broker does not support session events; retaining legacy heartbeat behavior."); }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            Trace.TraceWarning("Session event publication interrupted; reconnecting for reconciliation: {0}", ex.Message);
+            connection.Dispose();
+        }
     }
 
     private async Task RunConnectedHeartbeatLoopAsync(IBrokerConnection connection, CancellationToken cancellationToken)

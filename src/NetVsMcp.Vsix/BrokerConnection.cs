@@ -139,7 +139,7 @@ internal sealed class NamedPipeBrokerConnectionFactory : IBrokerConnectionFactor
     }
 }
 
-internal sealed class JsonRpcBrokerConnection : IBrokerConnection
+internal sealed class JsonRpcBrokerConnection : IBrokerConnection, ISessionEventConnection
 {
     private static readonly TimeSpan RpcTimeout = TimeSpan.FromSeconds(15);
 
@@ -154,6 +154,9 @@ internal sealed class JsonRpcBrokerConnection : IBrokerConnection
     }
 
     public bool IsConnected => !disposed && stream.IsConnected;
+
+    public Task PublishEventsAsync(VsEventBatch batch, CancellationToken cancellationToken) =>
+        InvokeAndValidateAsync("PublishEventsAsync", cancellationToken, batch);
 
     public Task RegisterAsync(VsRegistrationRequest request, CancellationToken cancellationToken)
     {

@@ -45,7 +45,9 @@ public sealed record DebuggerStateInfo(
     /// <summary>Opaque identity of the current pause. Invalidated before resuming; unique across VSIX lifetimes.</summary>
     string? StopId = null,
     /// <summary>Sequence of execution commands issued through this VSIX.</summary>
-    long? ExecutionSequence = null);
+    long? ExecutionSequence = null,
+    /// <summary>Coherent event cursor for this state observation. Null for legacy, modal, or stale observations.</summary>
+    VsSessionEventCursor? EventCursor = null);
 
 /// <summary>An original IDE command retained while the client answers a modal dialog.</summary>
 public sealed record DebugOperationInfo(

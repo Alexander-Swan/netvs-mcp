@@ -52,7 +52,10 @@ public sealed class NetVsMcpPackage : AsyncPackage
                 capabilityRpcTarget,
                 new BrokerInstallationDetector(brokerLauncher),
                 brokerLauncher),
-            brokerNotificationService);
+            brokerNotificationService,
+            debuggerService.Events);
+
+        stateMonitor.StateChanged += (_, args) => debuggerService?.Events.Publish(args.Kind.ToString());
 
         await lifecycle.StartAsync(cancellationToken);
     }

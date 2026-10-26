@@ -283,6 +283,7 @@ public sealed class VsSessionDispatcherTests
             _activeDocument = activeDocument;
         }
 
+        public Task<VsSessionEventSnapshot> SessionSnapshotAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken)
         {
             throw new NotSupportedException();

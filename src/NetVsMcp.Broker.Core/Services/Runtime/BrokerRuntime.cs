@@ -67,7 +67,7 @@ public sealed class BrokerRuntime
         Dialogs = new DialogAutomationCoordinator(dialogAutomation ?? new DialogAutomationService());
         var sessionDispatcher = new VsSessionDispatcher(sessions, Connections);
         Mutations = sessionDispatcher.Mutations;
-        DialogOperations = new DialogAwareSessionDispatcher(sessionDispatcher, sessions, Dialogs);
+        DialogOperations = new DialogAwareSessionDispatcher(sessionDispatcher, sessions, Dialogs, connections: connections);
         Dispatcher = DialogOperations;
         Launcher = launcher;
         Registration = registration;

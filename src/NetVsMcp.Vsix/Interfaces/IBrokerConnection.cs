@@ -9,6 +9,11 @@ using StreamJsonRpc;
 
 namespace NetVsMcp.Vsix.Interfaces;
 
+internal interface ISessionEventConnection
+{
+    Task PublishEventsAsync(VsEventBatch batch, CancellationToken cancellationToken);
+}
+
 internal interface IBrokerConnection : IDisposable
 {
     bool IsConnected { get; }

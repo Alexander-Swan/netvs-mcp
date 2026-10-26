@@ -22,7 +22,10 @@ internal enum VisualStudioStateChangeKind
     SolutionClosed,
     ActiveDocumentChanged,
     DebuggerModeChanged,
-    ActiveWindowChanged
+    ActiveWindowChanged,
+    BuildStarted,
+    BuildCompleted,
+    DocumentSaved
 }
 
 internal sealed class VisualStudioStateChangeMonitor : IVisualStudioStateChangeMonitor
@@ -32,6 +35,8 @@ internal sealed class VisualStudioStateChangeMonitor : IVisualStudioStateChangeM
     private SolutionEvents? solutionEvents;
     private WindowEvents? windowEvents;
     private DebuggerEvents? debuggerEvents;
+    private BuildEvents? buildEvents;
+    private DocumentEvents? documentEvents;
 
     public VisualStudioStateChangeMonitor(AsyncPackage package)
     {
@@ -62,7 +67,16 @@ internal sealed class VisualStudioStateChangeMonitor : IVisualStudioStateChangeM
         debuggerEvents.OnEnterBreakMode += OnEnterBreakMode;
         debuggerEvents.OnEnterDesignMode += OnEnterDesignMode;
         debuggerEvents.OnEnterRunMode += OnEnterRunMode;
+        buildEvents = events.BuildEvents;
+        buildEvents.OnBuildBegin += OnBuildBegin;
+        buildEvents.OnBuildDone += OnBuildDone;
+        documentEvents = events.DocumentEvents;
+        documentEvents.DocumentSaved += OnDocumentSaved;
     }
+
+    private void OnBuildBegin(vsBuildScope scope, vsBuildAction action) => Raise(VisualStudioStateChangeKind.BuildStarted);
+    private void OnBuildDone(vsBuildScope scope, vsBuildAction action) => Raise(VisualStudioStateChangeKind.BuildCompleted);
+    private void OnDocumentSaved(Document document) => Raise(VisualStudioStateChangeKind.DocumentSaved);
 
     private void OnSolutionOpened()
     {

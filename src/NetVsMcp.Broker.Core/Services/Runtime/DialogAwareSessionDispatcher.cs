@@ -10,7 +10,7 @@ internal sealed class DialogAwareSessionDispatcher(
     IVsSessionDispatcher inner,
     SessionRegistry sessions,
     DialogAutomationCoordinator dialogs,
-    TimeSpan? probeInterval = null) : IVsSessionDispatcher
+    TimeSpan? probeInterval = null, IVsSessionConnectionMap? connections = null) : IVsSessionDispatcher
 {
     private sealed record Completion(bool Success, JsonElement? Result, string? Message, string? ErrorCode);
     private sealed record Pending(VsSessionInfo Session, Task<Completion> Work)
@@ -92,10 +92,10 @@ internal sealed class DialogAwareSessionDispatcher(
         new("dbgModalBlock", KnownMode(session), true, found, session.SessionId,
             operationId is null ? null : new DebugOperationInfo(operationId, "running"), Outcome: "dialogBlocked");
 
-    // Used inside debug wait/settle loops. Probe independently of DTE before each status read,
-    // but throttle accessibility traversal so a 50ms debugger poll doesn't scan at 20Hz.
+    // Use a coherent state/event capture for all debugger readers. UIA remains independent
+    // of the VS UI thread, and legacy extensions retain their status-read fallback.
     public async Task<DebuggerStateInfo> ReadDebugStateAsync(VsSessionInfo session, IVisualStudioSessionRpc connection,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, DebuggerStateInfo? fallbackState = null)
     {
         var timestamp = Environment.TickCount64;
         IReadOnlyList<DialogInfo> found;
@@ -108,7 +108,72 @@ internal sealed class DialogAwareSessionDispatcher(
         }
         cancellationToken.ThrowIfCancellationRequested();
         if (found.Count > 0) return ModalState(session, found);
-        var state = await connection.DebugStatusAsync(cancellationToken);
+        var state = await ReadAuthoritativeDebugStateAsync(session, connection, cancellationToken, fallbackState);
+        RememberState(session, state);
+        return state;
+    }
+
+    private async Task<DebuggerStateInfo> ReadAuthoritativeDebugStateAsync(VsSessionInfo session,
+        IVisualStudioSessionRpc connection, CancellationToken ct, DebuggerStateInfo? fallbackState)
+    {
+        if (connections is not null)
+        {
+            try
+            {
+                var snapshot = await SessionEventReconciliation.CaptureAsync(sessions, connections,
+                    session.SessionId, connection, ct);
+                return snapshot.Debugger;
+            }
+            catch (StreamJsonRpc.RemoteMethodNotFoundException) { /* Older VSIX: no atomic snapshot RPC. */ }
+            catch (NotSupportedException) { /* Older/unsupported backend: do not invent a cursor. */ }
+        }
+        return (fallbackState ?? await connection.DebugStatusAsync(ct)) with { EventCursor = null };
+    }
+
+    internal sealed class EventCursor(string? epoch, long sequence)
+    {
+        public string? Epoch = epoch;
+        public long Sequence = sequence;
+    }
+
+    internal EventCursor CaptureEventCursor(VsSessionInfo session)
+    {
+        var snapshot = sessions.Events.Find(session.SessionId)?.Snapshot();
+        return new(snapshot?.Epoch, snapshot?.Watermark ?? 0);
+    }
+
+    internal async Task<DebuggerStateInfo> WaitForDebugStateAsync(VsSessionInfo session,
+        IVisualStudioSessionRpc connection, DebuggerStateInfo current, EventCursor cursor, CancellationToken ct)
+    {
+        var stream = sessions.Events.Find(session.SessionId);
+        if (stream is null)
+        {
+            // Older extensions retain their original status-polling contract.
+            await Task.Delay(50, ct);
+            return await ReadDebugStateAsync(session, connection, ct);
+        }
+        var batch = await stream.WaitAsync(cursor.Epoch, cursor.Sequence, TimeSpan.FromSeconds(1), ct, 1000);
+        cursor.Epoch = batch.Epoch;
+        cursor.Sequence = batch.Events.Count > 0 ? batch.Events[batch.Events.Count - 1].Sequence : batch.Watermark;
+        if (batch.RequiresReconciliation || !ReferenceEquals(stream, sessions.Events.Find(session.SessionId)))
+        {
+            if (connections is null) return await ReadDebugStateAsync(session, connection, ct);
+            var snapshot = await SessionEventReconciliation.CaptureAsync(sessions, connections, session.SessionId, connection, ct);
+            cursor.Epoch = snapshot.Events.Epoch;
+            cursor.Sequence = snapshot.Events.Watermark;
+            RememberState(session, snapshot.Debugger);
+            return snapshot.Debugger;
+        }
+        var found = await ProbeAsync(session.ProcessId, ct);
+        if (found.Count > 0) return ModalState(session, found);
+        var observation = batch.Events.LastOrDefault(item => item.Debugger is not null);
+        if (observation is null) return current;
+        var state = observation.Debugger! with
+        {
+            EventCursor = new(session.SessionId, observation.Epoch, observation.Sequence)
+        };
+        // Delayed transport delivery cannot rewind a command already observed by RPC.
+        if (state.ExecutionSequence < current.ExecutionSequence || state.Generation < current.Generation) return current;
         RememberState(session, state);
         return state;
     }
@@ -158,7 +223,7 @@ internal sealed class DialogAwareSessionDispatcher(
             return ToolResponse<DebuggerStateInfo>.Ok(new(KnownMode(session), KnownMode(session), true,
                 SessionId: session.SessionId, Operation: operation));
         var dispatch = await DispatchAsync(new RoutingTarget(SessionId: session.SessionId),
-            static (connection, ct) => connection.DebugStatusAsync(ct), cancellationToken);
+            (connection, ct) => ReadDebugStateAsync(session, connection, ct), cancellationToken);
         if (dispatch.FailureReason == VsSessionDispatchFailureReason.DialogBlocked)
             return ToolResponse<DebuggerStateInfo>.Ok(ModalState(session, dispatch.Dialogs!, dispatch.OperationId));
         if (!dispatch.Success && operation is not null)

@@ -48,22 +48,30 @@ internal sealed class BrokerRegistrationRpcService : IBrokerRegistrationRpc
             return Task.FromResult(ProtocolMismatch(registration.ProtocolVersion));
         }
 
-        var response = _sessions.Register(registration);
-
-        if (response.Success)
+        lock (_sessions.RegistrationGate)
         {
             lock (_gate)
+                if (_registeredSessionIds.Contains(registration.SessionId) && !OwnsConnection(registration.SessionId))
+                    return Task.FromResult(ToolResponse.Fail("This connection was superseded; registration was not changed."));
+            var response = _sessions.Register(registration);
+
+            if (response.Success)
             {
-                _registeredSessionIds.Add(registration.SessionId);
+                lock (_gate)
+                {
+                    _registeredSessionIds.Add(registration.SessionId);
+                }
+
+                if (_sessionConnection is not null)
+                {
+                    if (_connections is not null && _connections.TryGet(registration.SessionId, out var old) && !ReferenceEquals(old, _sessionConnection))
+                        _sessions.Events.Remove(registration.SessionId);
+                    _connections?.AddOrUpdate(registration.SessionId, _sessionConnection);
+                }
             }
 
-            if (_sessionConnection is not null)
-            {
-                _connections?.AddOrUpdate(registration.SessionId, _sessionConnection);
-            }
+            return Task.FromResult(response);
         }
-
-        return Task.FromResult(response);
     }
 
     public Task<ToolResponse> UpdateAsync(
@@ -76,7 +84,24 @@ internal sealed class BrokerRegistrationRpcService : IBrokerRegistrationRpc
             return Task.FromResult(ProtocolMismatch(update.ProtocolVersion));
         }
 
-        return Task.FromResult(_sessions.Update(update));
+        lock (_sessions.RegistrationGate)
+            return Task.FromResult(OwnsConnection(update.SessionId) ? _sessions.Update(update) : ToolResponse.Fail("Session connection was superseded."));
+    }
+
+    public Task<ToolResponse> PublishEventsAsync(VsEventBatch batch, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_sessions.RegistrationGate)
+        lock (_gate)
+        {
+            if (!_registeredSessionIds.Contains(batch.SessionId) || !OwnsConnection(batch.SessionId))
+                return Task.FromResult(ToolResponse.Fail("Event publisher is not registered on this connection."));
+            if (batch.Events.Count > 256 || string.IsNullOrWhiteSpace(batch.Epoch) || batch.Watermark < 0)
+                return Task.FromResult(ToolResponse.Fail("Invalid event batch."));
+            try { _sessions.Events.Accept(batch); }
+            catch (ArgumentException ex) { return Task.FromResult(ToolResponse.Fail(ex.Message)); }
+        }
+        return Task.FromResult(ToolResponse.Ok());
     }
 
     public Task<ToolResponse> HeartbeatAsync(
@@ -84,7 +109,8 @@ internal sealed class BrokerRegistrationRpcService : IBrokerRegistrationRpc
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(_sessions.Heartbeat(sessionId));
+        lock (_sessions.RegistrationGate)
+            return Task.FromResult(OwnsConnection(sessionId) ? _sessions.Heartbeat(sessionId) : ToolResponse.Fail("Session connection was superseded."));
     }
 
     public Task<ToolResponse> UnregisterAsync(
@@ -92,15 +118,19 @@ internal sealed class BrokerRegistrationRpcService : IBrokerRegistrationRpc
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var response = _sessions.Unregister(sessionId);
-
-        if (response.Success)
+        lock (_sessions.RegistrationGate)
         {
-            RemoveConnection(sessionId);
-            RequestShutdownIfAllowedAndNoSessionsRemain();
-        }
+            if (!OwnsConnection(sessionId)) return Task.FromResult(ToolResponse.Fail("Session connection was superseded; registration was not removed."));
+            var response = _sessions.Unregister(sessionId);
 
-        return Task.FromResult(response);
+            if (response.Success)
+            {
+                RemoveConnection(sessionId);
+                RequestShutdownIfAllowedAndNoSessionsRemain();
+            }
+
+            return Task.FromResult(response);
+        }
     }
 
     public Task<ToolResponse> ShutdownAsync(CancellationToken cancellationToken)
@@ -118,19 +148,30 @@ internal sealed class BrokerRegistrationRpcService : IBrokerRegistrationRpc
 
     public void RemoveRegisteredConnections()
     {
-        var removedAny = false;
-        foreach (var sessionId in RegisteredSessionIds)
+        lock (_sessions.RegistrationGate)
         {
-            var response = _sessions.Unregister(sessionId);
-            removedAny = removedAny || response.Success;
-            RemoveConnection(sessionId);
-        }
+            var removedAny = false;
+            foreach (var sessionId in RegisteredSessionIds)
+            {
+                if (!OwnsConnection(sessionId))
+                {
+                    lock (_gate) _registeredSessionIds.Remove(sessionId);
+                    continue;
+                }
+                var response = _sessions.Unregister(sessionId);
+                removedAny = removedAny || response.Success;
+                RemoveConnection(sessionId);
+            }
 
-        if (removedAny)
-        {
-            RequestShutdownIfAllowedAndNoSessionsRemain();
+            if (removedAny)
+            {
+                RequestShutdownIfAllowedAndNoSessionsRemain();
+            }
         }
     }
+
+    private bool OwnsConnection(string sessionId) => _sessionConnection is null || _connections is null ||
+        (_connections.TryGet(sessionId, out var current) && ReferenceEquals(current, _sessionConnection));
 
     private void RemoveConnection(string sessionId)
     {

@@ -46,7 +46,7 @@ public class CoordinatedSessionRpc : DispatchProxy
 {
     private static readonly HashSet<string> Reads = new(StringComparer.Ordinal)
     {
-        "GetStatusAsync", "SessionCapabilitiesAsync", "DebugStatusAsync", "DebugGetModeAsync", "BuildStatusAsync",
+        "GetStatusAsync", "SessionCapabilitiesAsync", "SessionSnapshotAsync", "DebugStatusAsync", "DebugGetModeAsync", "BuildStatusAsync",
         "GetActiveDocumentAsync", "ListDocumentSymbolsAsync", "DocumentReadAsync", "DocumentListAsync", "SelectionGetAsync",
         "WindowListAsync", "EditListPendingAsync", "SolutionInfoAsync", "ProjectListAsync", "ProjectInfoAsync",
         "StartupProjectGetAsync", "TestResultsAsync", "CodeFindReferencesAsync", "CodeFindImplementationsAsync",
@@ -73,6 +73,9 @@ public class CoordinatedSessionRpc : DispatchProxy
         state.target = target; state.sessionId = sessionId; state.coordinator = coordinator;
         return proxy;
     }
+
+    internal static IVisualStudioSessionRpc Unwrap(IVisualStudioSessionRpc connection) =>
+        connection is CoordinatedSessionRpc proxy ? proxy.target : connection;
 
     protected override object? Invoke(MethodInfo? method, object?[]? args)
     {

@@ -328,6 +328,9 @@ public sealed partial class BrokerToolServiceTests
         public Task<NugetMutationResult> NugetUninstallAsync(NugetPackageMutationRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(CreateNugetMutation(request, "Uninstalled."));
 
+        public Func<Task<VsSessionEventSnapshot>>? SessionSnapshotHandler { get; set; }
+        public Task<VsSessionEventSnapshot> SessionSnapshotAsync(CancellationToken cancellationToken) =>
+            SessionSnapshotHandler?.Invoke() ?? throw new NotSupportedException();
         public Task<ToolResponse<VsSessionInfo>> GetStatusAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult(ToolResponse<VsSessionInfo>.Ok(new VsSessionInfo(

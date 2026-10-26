@@ -25,6 +25,7 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
     private readonly AsyncPackage package;
     private readonly List<string> watchExpressions = new();
     private readonly DebugExecutionTracker execution = new();
+    internal NetVsMcp.Contracts.SessionEventBuffer Events { get; } = new(SessionIdentity.CurrentProcessSessionId());
     private DebuggerEvents? executionEvents;
     private Debugger? eventDebugger;
 
@@ -1165,6 +1166,7 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
             executionEvents.OnEnterBreakMode += OnExecutionBreak;
             executionEvents.OnEnterRunMode += OnExecutionRun;
             executionEvents.OnEnterDesignMode += OnExecutionEnd;
+            PublishExecutionState(debugger.CurrentMode.ToString());
         }
         return debugger;
     }
@@ -1189,8 +1191,35 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
     private void RecordExecutionEvent(string mode, string? reason = null)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
-        try { execution.Record(mode, reason, eventDebugger?.CurrentMode.ToString()); }
+        try
+        {
+            var liveMode = eventDebugger?.CurrentMode.ToString() ?? mode;
+            execution.Record(mode, reason, liveMode);
+            PublishExecutionState(liveMode);
+        }
         catch (System.Runtime.InteropServices.COMException) { /* Next status can still describe the live mode. */ }
+    }
+
+    private void PublishExecutionState(string liveMode)
+    {
+        var state = execution.State(liveMode);
+        Events.Publish("debugger", new NetVsMcp.Contracts.DebuggerStateInfo(state.Mode,
+            BreakReason: state.BreakReason, Outcome: state.Outcome, Generation: state.Generation,
+            StopId: state.StopId, ExecutionSequence: state.ExecutionSequence));
+    }
+
+    internal VsSessionEventSnapshot CaptureEventSnapshot()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var debugger = eventDebugger ?? throw new InvalidOperationException("Debugger observation is not initialized.");
+        var state = GetDebuggerState(debugger);
+        var current = new NetVsMcp.Contracts.DebuggerStateInfo(state.Mode,
+            BreakReason: state.BreakReason, Outcome: state.Outcome, Generation: state.Generation,
+            StopId: state.StopId, ExecutionSequence: state.ExecutionSequence);
+        // No asynchronous boundary between reading state and publishing its watermark.
+        Events.Publish("snapshot", current);
+        var batch = Events.Snapshot();
+        return new(batch.SessionId, current, batch);
     }
 
     public void Dispose()

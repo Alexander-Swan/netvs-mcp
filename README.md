@@ -33,7 +33,7 @@ See [setup](docs/SETUP.md) for installation, client registration, and troublesho
 - **Builds and diagnostics:** build solutions or projects, read output panes and errors, cancel builds.
 - **Debugger control:** launch, attach, step, inspect chosen threads and frames, manage breakpoints and watches. Pause identities protect against stale inspection requests.
 - **Tests:** discover and run tests with the CLI backend.
-- **Multiple sessions:** discover open instances and route explicitly. Pause new automation mutations when needed.
+- **Multiple sessions:** discover open instances and route explicitly. Pause new automation mutations when needed. Follow session events and reconcile observed state.
 - **Local records:** inspect tool-call audit metadata and optional aggregate usage analytics without recording full source or debugger values in those stores.
 
 Use `get_help` for current tool descriptions.
@@ -42,7 +42,7 @@ Use `get_help` for current tool descriptions.
 
 | Area | Tools |
 | --- | --- |
-| Session management | `vs_list_sessions`, `vs_get_session`, `vs_select_session`, `vs_get_status`, `vs_ping`, `vs_launch_instance`, `session_automation_control`, `vs_get_logs`, `vs_get_usage_summary`, `netvs_doctor`, `get_status`, `get_help`, `netvs_get_best_practices` |
+| Session management | `vs_list_sessions`, `vs_get_session`, `vs_select_session`, `vs_get_status`, `vs_ping`, `vs_launch_instance`, `vs_events`, `session_automation_control`, `vs_get_logs`, `vs_get_usage_summary`, `netvs_doctor`, `get_status`, `get_help`, `netvs_get_best_practices` |
 | Documents & editor | `document_active`, `document_read`, `document_open`, `document_write`, `document_save`, `document_close`, `document_list`, `document_cleanup`, `document_outline` |
 | Editor mutations | `editor_insert`, `editor_replace`, `editor_goto_line`, `selection_get`, `selection_set` |
 | Safe-edit workflow | `edit_preview`, `edit_approve`, `edit_reject`, `edit_list_pending`, `prepare_safe_edit`, `apply_safe_edit_and_build` |
@@ -81,7 +81,7 @@ The broker exposes focused guides through `netvs_get_best_practices` and resourc
 - [Debugger inspection and control](BestPractices/debug-visual-studio.md)
 - [UI, browser, and console automation](BestPractices/automate-visual-studio.md)
 
-Debugger command timeouts do not cancel execution. If a modal dialog interrupts a command, retain its operation ID, use `dialog_list` / `dialog_respond` as appropriate, and inspect `debug_status` instead of repeating the command.
+Debugger command timeouts do not cancel execution. If a modal dialog interrupts a command, retain its operation ID, use `dialog_list` / `dialog_respond` as appropriate, and inspect `debug_status` instead of repeating the command. See the [event and operation contract](docs/event-operation-contract.md) for identity, ordering, cancellation, and reconciliation behavior.
 
 ## Architecture
 

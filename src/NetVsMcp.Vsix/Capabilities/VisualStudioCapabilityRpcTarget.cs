@@ -57,6 +57,14 @@ internal sealed class VisualStudioCapabilityRpcTarget
         }
     }
 
+    public async Task<NetVsMcp.Contracts.VsSessionEventSnapshot> SessionSnapshotAsync(CancellationToken cancellationToken)
+    {
+        await Microsoft.VisualStudio.Shell.ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        if (capabilities.Debugger is not DebuggerCapabilityService source)
+            throw new NotSupportedException("The selected debugger service does not expose event snapshots.");
+        return source.CaptureEventSnapshot();
+    }
+
     public async Task<NetVsMcp.Contracts.ToolResponse<string?>> GetActiveDocumentAsync(CancellationToken cancellationToken)
     {
         try

@@ -26,10 +26,11 @@ Read only the rows that match the task.
 | Resolve sessions, inspect broker health, or fetch logs | `manage-visual-studio/references/routing.md` |
 | Launch Visual Studio when no session exists | `manage-visual-studio/references/launching.md` |
 | Get a broad IDE snapshot before deciding what to do | `manage-visual-studio/references/context-snapshot.md` |
+| Observe session events or pause new automation mutations | `manage-visual-studio/references/events-control.md` |
 | Activate windows, show tool windows, or run DTE commands | `manage-visual-studio/references/windows-commands.md` |
 | Open/close/inspect solutions, projects, startup projects, files, or references | `manage-visual-studio/references/solutions-projects.md` |
 | Discover, run, debug, or inspect tests | `manage-visual-studio/references/tests.md` |
 
 ## Covered Tools
 
-`vs_*`, `netvs_doctor`, `get_help`, `execute_command`, `window_*`, `toolwindow_*`, `solution_*`, `project_*`, `startup_project_*`, `test_*`, `task_list_*`, `git_context`, and `vs_context_snapshot`.
+`vs_*`, `session_automation_control`, `netvs_doctor`, `get_help`, `execute_command`, `window_*`, `toolwindow_*`, `solution_*`, `project_*`, `startup_project_*`, `test_*`, `task_list_*`, `git_context`, and `vs_context_snapshot`.

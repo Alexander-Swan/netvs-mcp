@@ -4,6 +4,8 @@ namespace NetVsMcp.Contracts.Interfaces;
 
 public interface IBrokerRegistrationRpc
 {
+    Task<ToolResponse> PublishEventsAsync(VsEventBatch batch, CancellationToken cancellationToken);
+
     Task<ToolResponse> RegisterAsync(VsSessionRegistration registration, CancellationToken cancellationToken);
 
     Task<ToolResponse> UpdateAsync(VsSessionUpdate update, CancellationToken cancellationToken);

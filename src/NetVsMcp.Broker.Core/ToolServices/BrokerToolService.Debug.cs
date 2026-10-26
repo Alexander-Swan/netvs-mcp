@@ -27,7 +27,7 @@ internal sealed partial class BrokerToolService
 
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_status", Title = "Debug Status", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns the current debugger state with breakReason when paused (breakpoint, stepCompleted, exception, manualPause, unknown, or other), including broker-defined dbgModalBlock with dialogs when VS is waiting on a modal window. Modal detection runs outside the VS UI thread, including when a dialog appears after debug_continue returned. underlyingMode preserves the last known native mode and underlyingModeIsStale indicates a cached reading. Respond to an appropriate enabled button with dialog_respond, then call debug_status again. If an earlier command returned an operationId, pass it to retrieve that original command's running/completed/failed outcome in operation without repeating the command. Without operationId, includes the latest retained operation for the selected session. Completed outcomes are retained for 10 minutes. Canceling a status check does not cancel a retained command.")]
+    [Description("Returns the current debugger state with a coherent eventCursor when supported, and breakReason when paused (breakpoint, stepCompleted, exception, manualPause, unknown, or other), including broker-defined dbgModalBlock with dialogs when VS is waiting on a modal window. Modal detection runs outside the VS UI thread, including when a dialog appears after debug_continue returned. underlyingMode preserves the last known native mode and underlyingModeIsStale indicates a cached reading. Respond to an appropriate enabled button with dialog_respond, then call debug_status again. If an earlier command returned an operationId, pass it to retrieve that original command's running/completed/failed outcome in operation without repeating the command. Without operationId, includes the latest retained operation for the selected session. Completed outcomes are retained for 10 minutes. Canceling a status check does not cancel a retained command.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugStatus(
         [Description(DialogSessionDescription)] string? sessionId = null,
         [Description(DialogSolutionNameDescription)] string? solutionName = null,
@@ -654,6 +654,7 @@ internal sealed partial class BrokerToolService
         int settleTimeoutMilliseconds,
         CancellationToken cancellationToken)
     {
+        var eventCursor = _runtime.DialogOperations.CaptureEventCursor(session);
         var state = await _runtime.DialogOperations.ReadDebugStateAsync(session, connection, cancellationToken);
 
         if (!continueExecution || state.Mode != "dbgBreakMode")
@@ -667,8 +668,7 @@ internal sealed partial class BrokerToolService
         var stopwatch = Stopwatch.StartNew();
         while ((state.Mode == "dbgRunMode" || state.Outcome == "pending") && stopwatch.ElapsedMilliseconds < settleTimeoutMilliseconds)
         {
-            await Task.Delay(DebugSnapshotPollIntervalMilliseconds, cancellationToken);
-            state = await _runtime.DialogOperations.ReadDebugStateAsync(session, connection, cancellationToken);
+            state = await _runtime.DialogOperations.WaitForDebugStateAsync(session, connection, state, eventCursor, cancellationToken);
         }
 
         return state;
@@ -740,6 +740,7 @@ internal sealed partial class BrokerToolService
             solutionPath,
             async (connection, session, ct) =>
             {
+                var eventCursor = _runtime.DialogOperations.CaptureEventCursor(session);
                 DebuggerStateInfo state;
 
                 if (action is null)
@@ -768,8 +769,7 @@ internal sealed partial class BrokerToolService
                     var stopwatch = Stopwatch.StartNew();
                     while ((state.Mode == "dbgRunMode" || state.Outcome == "pending") && stopwatch.ElapsedMilliseconds < settleTimeoutMilliseconds)
                     {
-                        await Task.Delay(DebugSnapshotPollIntervalMilliseconds, ct);
-                        state = await _runtime.DialogOperations.ReadDebugStateAsync(session, connection, ct);
+                        state = await _runtime.DialogOperations.WaitForDebugStateAsync(session, connection, state, eventCursor, ct);
                     }
                     if (settleTimeoutMilliseconds > 0 && (state.Mode == "dbgRunMode" || state.Outcome == "pending"))
                         state = state with { Outcome = "timedOut" };
@@ -837,13 +837,13 @@ internal sealed partial class BrokerToolService
             solutionPath,
             async (connection, session, ct) =>
             {
+                var eventCursor = _runtime.DialogOperations.CaptureEventCursor(session);
                 var state = await _runtime.DialogOperations.ReadDebugStateAsync(session, connection, ct);
 
                 var stopwatch = Stopwatch.StartNew();
                 while ((state.Mode == "dbgRunMode" || state.Outcome == "pending") && stopwatch.ElapsedMilliseconds < timeoutMilliseconds)
                 {
-                    await Task.Delay(DebugSnapshotPollIntervalMilliseconds, ct);
-                    state = await _runtime.DialogOperations.ReadDebugStateAsync(session, connection, ct);
+                    state = await _runtime.DialogOperations.WaitForDebugStateAsync(session, connection, state, eventCursor, ct);
                 }
 
                 var timedOut = (state.Mode == "dbgRunMode" || state.Outcome == "pending") && stopwatch.ElapsedMilliseconds >= timeoutMilliseconds;
@@ -875,6 +875,9 @@ internal sealed partial class BrokerToolService
                 throw new InvalidOperationException("Stale debugger context: the expected pause is no longer available. Read debug_status before inspecting again.");
             return new DebugSnapshotResult(state, null, null, null, UnrecognizedInclude: unrecognizedInclude, TimedOut: timedOut);
         }
+
+        if (includeKeys.Count == 0 && expectedStopId is null && !expectedGeneration.HasValue)
+            return new DebugSnapshotResult(state, null, null, null, UnrecognizedInclude: unrecognizedInclude, TimedOut: timedOut);
 
         // Pin a snapshot to the observed pause, including untargeted inspection. Older VSIX
         // versions omit stop IDs and keep their existing behavior unless a guard was requested.
@@ -917,8 +920,13 @@ internal sealed partial class BrokerToolService
             }
         }
 
+        var inspectedState = frameInspection?.State ?? state;
+        // Keep the cursor only when the guarded inspection confirms the captured identity.
+        if (inspectedState.Mode == state.Mode && inspectedState.StopId == state.StopId &&
+            inspectedState.Generation == state.Generation && inspectedState.ExecutionSequence == state.ExecutionSequence)
+            inspectedState = inspectedState with { EventCursor = state.EventCursor };
         return new DebugSnapshotResult(
-            frameInspection?.State ?? state,
+            inspectedState,
             callStack,
             locals,
             breakpoints,
