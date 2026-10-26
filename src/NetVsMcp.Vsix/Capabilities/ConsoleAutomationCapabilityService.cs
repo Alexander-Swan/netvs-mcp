@@ -44,7 +44,7 @@ internal sealed class ConsoleAutomationCapabilityService
             return AutomationSupport.Success(request, consoleText, ("backend", "windows-console"), ("source", "debuggee-console"), ("processId", processId.Value.ToString()));
         }
 
-        var text = ReadOutputPane(dte, request.Target, ["Debug", "Tests", "Build"]);
+        var text = await ReadOutputPaneAsync(dte, request.Target, ["Debug", "Tests", "Build"], cancellationToken);
         return AutomationSupport.Success(request, text, ("backend", "visual-studio-output"), ("source", "output-window"), ("consoleMessage", consoleMessage ?? string.Empty));
     }
 
@@ -52,7 +52,7 @@ internal sealed class ConsoleAutomationCapabilityService
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var dte = await GetDteAsync();
-        var text = ReadOutputPane(dte, request.Target, ["Debug", "XAML Binding Failures", "XAML Diagnostics", "Output"]);
+        var text = await ReadOutputPaneAsync(dte, request.Target, ["Debug", "XAML Binding Failures", "XAML Diagnostics", "Output"], cancellationToken);
         var lines = text
             .Split(new[] { "\r\n", "\n" }, StringSplitOptions.None)
             .Where(line => line.IndexOf("binding", StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -121,9 +121,9 @@ internal sealed class ConsoleAutomationCapabilityService
         return null;
     }
 
-    private static string ReadOutputPane(DTE dte, string? paneName, IReadOnlyCollection<string> fallbackPaneNames)
+    private async Task<string> ReadOutputPaneAsync(DTE dte, string? paneName, IReadOnlyCollection<string> fallbackPaneNames, CancellationToken cancellationToken)
     {
-        ThreadHelper.ThrowIfNotOnUIThread();
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var panes = (dte as DTE2)?.ToolWindows?.OutputWindow?.OutputWindowPanes;
         if (panes is null)
         {
@@ -131,6 +131,7 @@ internal sealed class ConsoleAutomationCapabilityService
         }
 
         OutputWindowPane? first = null;
+        OutputWindowPane? fallback = null;
         for (var index = 1; index <= panes.Count; index++)
         {
             OutputWindowPane pane;
@@ -159,33 +160,15 @@ internal sealed class ConsoleAutomationCapabilityService
                 }
             }
 
-            if (matchesRequestedPane || matchesFallbackPane)
+            if (matchesRequestedPane)
             {
-                return AutomationSupport.Truncate(ReadPaneText(pane));
+                return AutomationSupport.Truncate(await OutputPaneTextReader.ReadAsync(package, pane, cancellationToken));
             }
+            if (matchesFallbackPane) fallback ??= pane;
         }
 
-        return first is null ? string.Empty : AutomationSupport.Truncate(ReadPaneText(first));
-    }
-
-    private static string ReadPaneText(OutputWindowPane pane)
-    {
-        ThreadHelper.ThrowIfNotOnUIThread();
-        try
-        {
-            if (pane.TextDocument is not TextDocument textDocument)
-            {
-                return string.Empty;
-            }
-
-            var editPoint = textDocument.StartPoint.CreateEditPoint();
-            return editPoint.GetText(textDocument.EndPoint);
-        }
-        catch (COMException)
-        {
-            // The pane's text document may not be available (e.g. pane never activated).
-            return string.Empty;
-        }
+        var selected = fallback ?? first;
+        return selected is null ? string.Empty : AutomationSupport.Truncate(await OutputPaneTextReader.ReadAsync(package, selected, cancellationToken));
     }
 
     private bool TryReadConsoleBuffer(int processId, out string text, out string? message)

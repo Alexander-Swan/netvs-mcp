@@ -388,7 +388,7 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService, IDisposa
             return new OutputReadResult(request.PaneName, string.Empty, true);
         }
 
-        var text = ReadOutputPaneText(pane);
+        var text = await OutputPaneTextReader.ReadAsync(package, pane, cancellationToken);
         var maxChars = request.MaxChars <= 0 ? text.Length : request.MaxChars;
         var truncated = text.Length > maxChars;
         if (truncated)
@@ -458,7 +458,7 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService, IDisposa
         }
 
         pane.OutputString(request.Text ?? string.Empty);
-        return new OutputReadResult(pane.Name, ReadOutputPaneText(pane), false);
+        return new OutputReadResult(pane.Name, await OutputPaneTextReader.ReadAsync(package, pane, cancellationToken), false);
     }
 
     private async Task<DTE?> GetDteAsync()
@@ -674,27 +674,6 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService, IDisposa
         }
 
         return panes.Add(string.IsNullOrWhiteSpace(paneName) ? "NetVsMcp" : paneName);
-    }
-
-    private static string ReadOutputPaneText(OutputWindowPane pane)
-    {
-        ThreadHelper.ThrowIfNotOnUIThread();
-
-        try
-        {
-            if (pane.TextDocument is not TextDocument textDocument)
-            {
-                return string.Empty;
-            }
-
-            var editPoint = textDocument.StartPoint.CreateEditPoint();
-            return editPoint.GetText(textDocument.EndPoint);
-        }
-        catch (COMException)
-        {
-            // Visual Studio can enumerate a pane whose text document is unavailable until the pane is activated.
-            return string.Empty;
-        }
     }
 
     private static string? FindProjectUniqueName(Solution? solution, string projectName)
