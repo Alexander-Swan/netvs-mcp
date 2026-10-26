@@ -49,13 +49,21 @@ internal sealed partial class DebuggerCapabilityService
                         && module.FullName.IndexOf(request.Name, StringComparison.OrdinalIgnoreCase) < 0))
                         continue;
 
-                    var symbols = module.Module;
+                    var symbolProbe = OptionalDebuggerProbe.Read(() => module.Module);
+                    var symbols = symbolProbe.Value;
+                    string? loadInformation = null, loadInformationReason = null;
+                    if (request.IncludeSymbolLoadInformation)
+                    {
+                        var search = OptionalDebuggerProbe.Read(() => module.GetSymbolLoadInformation());
+                        loadInformation = search.Value;
+                        loadInformationReason = search.Reason;
+                    }
                     result.Add(new ModuleInfo(process.LivePart?.Id, process.UniqueId, module.UniqueId,
                         module.Name, module.FullName, module.Version?.FileVersionString, module.BaseAddress, module.Size,
                         symbols is not null,
-                        symbols is not null ? "loaded" : (module.Flags & DkmModuleFlags.SymbolsUnavailable) != 0 ? "unavailable" : "notLoaded",
+                        !symbolProbe.Supported ? "unknown" : symbols is not null ? "loaded" : (module.Flags & DkmModuleFlags.SymbolsUnavailable) != 0 ? "unavailable" : "notLoaded",
                         symbols?.FilePath,
-                        request.IncludeSymbolLoadInformation ? module.GetSymbolLoadInformation() : null));
+                        loadInformation, symbolProbe.Reason, loadInformationReason));
                 }
             }
         }

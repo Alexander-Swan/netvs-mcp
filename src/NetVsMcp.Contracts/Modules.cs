@@ -24,7 +24,9 @@ public sealed record ModuleInfo(
     bool SymbolsLoaded,
     string SymbolStatus,
     string? SymbolFile,
-    string? SymbolLoadInformation);
+    string? SymbolLoadInformation,
+    string? SymbolStatusReason = null,
+    string? SymbolLoadInformationUnavailableReason = null);
 
 public sealed record ModuleListResult(
     bool Supported,
