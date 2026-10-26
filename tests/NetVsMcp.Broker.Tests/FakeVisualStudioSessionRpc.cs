@@ -212,8 +212,10 @@ internal sealed class FakeVisualStudioSessionRpc : IVisualStudioSessionRpc
         throw new NotSupportedException();
     }
 
+    public Func<Task<DebuggerStateInfo>>? ContinueHandler { get; set; }
     public Task<DebuggerStateInfo> DebugContinueAsync(CancellationToken cancellationToken)
     {
+        if (ContinueHandler is not null) return ContinueHandler();
         throw new NotSupportedException();
     }
 

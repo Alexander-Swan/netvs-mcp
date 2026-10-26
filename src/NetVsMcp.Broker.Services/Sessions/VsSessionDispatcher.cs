@@ -17,6 +17,7 @@ internal sealed class VsSessionDispatcher : IVsSessionDispatcher
 
     private readonly SessionRegistry _sessions;
     private readonly IVsSessionConnectionMap _connections;
+    internal SessionMutationCoordinator Mutations { get; } = new();
 
     public VsSessionDispatcher(
         SessionRegistry sessions,
@@ -70,7 +71,7 @@ internal sealed class VsSessionDispatcher : IVsSessionDispatcher
         try
         {
             var effectiveTimeout = timeout ?? DefaultTimeout;
-            var operationTask = InvokeSafely(operation, connection, cancellationToken);
+            var operationTask = InvokeSafely(operation, CoordinatedSessionRpc.Wrap(connection, route.Session.SessionId, Mutations), cancellationToken);
 
             // Cancelling a StreamJsonRpc call's token only sends a "$/cancelRequest" notification -
             // the local await does NOT unblock until the *server* actually responds to it. A VSIX-
@@ -105,6 +106,10 @@ internal sealed class VsSessionDispatcher : IVsSessionDispatcher
         catch (OperationCanceledException)
         {
             throw;
+        }
+        catch (SessionMutationConflictException ex)
+        {
+            return VsSessionDispatchResult<T>.Failed(VsSessionDispatchFailureReason.MutationConflict, ex.Message, route.Session);
         }
         catch (RemoteMethodNotFoundException)
         {

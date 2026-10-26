@@ -65,7 +65,9 @@ public sealed class BrokerRuntime
         StartedUtc = DateTimeOffset.UtcNow;
         Connections = connections;
         Dialogs = new DialogAutomationCoordinator(dialogAutomation ?? new DialogAutomationService());
-        DialogOperations = new DialogAwareSessionDispatcher(new VsSessionDispatcher(sessions, Connections), sessions, Dialogs);
+        var sessionDispatcher = new VsSessionDispatcher(sessions, Connections);
+        Mutations = sessionDispatcher.Mutations;
+        DialogOperations = new DialogAwareSessionDispatcher(sessionDispatcher, sessions, Dialogs);
         Dispatcher = DialogOperations;
         Launcher = launcher;
         Registration = registration;
@@ -96,6 +98,7 @@ public sealed class BrokerRuntime
         provider.GetService<BrokerShutdownPolicy>());
 
     public BrokerOptions Options { get; }
+    internal SessionMutationCoordinator Mutations { get; }
 
     /// <summary>The port the broker is actually listening on for this run.</summary>
     public int CurrentPort => Options.Port;

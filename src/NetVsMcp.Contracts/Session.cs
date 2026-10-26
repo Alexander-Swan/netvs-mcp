@@ -113,6 +113,7 @@ public static class ToolErrorCodes
     public const string VisualStudioError = "visual_studio_error";
     public const string OperationTimedOut = "operation_timed_out";
     public const string DialogBlocked = "dialog_blocked";
+    public const string MutationConflict = "mutation_conflict";
 }
 
 /// <summary>

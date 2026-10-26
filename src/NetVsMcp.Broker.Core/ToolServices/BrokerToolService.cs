@@ -611,6 +611,7 @@ internal sealed partial class BrokerToolService
             VsSessionDispatchFailureReason.UnsupportedByVsix => ToolErrorCodes.UnsupportedByVsix,
             VsSessionDispatchFailureReason.OperationTimedOut => ToolErrorCodes.OperationTimedOut,
             VsSessionDispatchFailureReason.DialogBlocked => ToolErrorCodes.DialogBlocked,
+            VsSessionDispatchFailureReason.MutationConflict => ToolErrorCodes.MutationConflict,
             _ => ToolErrorCodes.SessionRoutingFailed
         };
     }
@@ -668,6 +669,8 @@ internal sealed partial class BrokerToolService
     {
         return reason switch
         {
+            VsSessionDispatchFailureReason.MutationConflict =>
+                "Inspect session_automation_control and the original operation status. Wait for active work to finish or resume paused automation before retrying. No new command was sent.",
             VsSessionDispatchFailureReason.DialogBlocked =>
                 "Read the returned dialogs, choose an enabled button consistent with the user's task, and call dialog_respond with its dialogId, buttonId, and sessionId. Then call debug_status with sessionId and operationId to inspect the original outcome. Do not repeat the original command. Call dialog_list only if the dialog changed or its IDs are rejected.",
             VsSessionDispatchFailureReason.NoRegisteredSessions =>

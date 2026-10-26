@@ -15,7 +15,8 @@ public enum VsSessionDispatchFailureReason
     RpcFailure,
     UnsupportedByVsix,
     OperationTimedOut,
-    DialogBlocked
+    DialogBlocked,
+    MutationConflict
 }
 
 public sealed record VsSessionDispatchResult<T>(
