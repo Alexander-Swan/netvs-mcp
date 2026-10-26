@@ -438,6 +438,7 @@ public sealed class BrokerRegistrationRpcServiceTests
 
         public Task<TestOperationResult> TestRunAsync(TestRunRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<DebugSourceEvidenceResult> DebugSourceEvidenceAsync(DebugSourceEvidenceRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<DebugRunToResult> DebugRunToAsync(DebugRunToRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<DebugExceptionResult> DebugExceptionAsync(DebugExceptionRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();

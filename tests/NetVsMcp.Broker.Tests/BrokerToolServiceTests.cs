@@ -844,6 +844,9 @@ public sealed partial class BrokerToolServiceTests
             return Task.FromResult(TestRunReport ?? new TestOperationResult(true, "Ran tests.", [], CreateTestResults()));
         }
 
+        public Func<DebugSourceEvidenceRequest, CancellationToken, Task<DebugSourceEvidenceResult>>? SourceEvidenceHandler { get; set; }
+        public Task<DebugSourceEvidenceResult> DebugSourceEvidenceAsync(DebugSourceEvidenceRequest request, CancellationToken cancellationToken) =>
+            SourceEvidenceHandler?.Invoke(request, cancellationToken) ?? throw new NotSupportedException();
         public Task<DebugRunToResult> DebugRunToAsync(DebugRunToRequest request, CancellationToken cancellationToken) =>
             RunToHandler?.Invoke(request, cancellationToken) ?? throw new NotSupportedException();
 
