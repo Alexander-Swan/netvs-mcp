@@ -202,7 +202,11 @@ public sealed record VsLaunchInstanceResult(
     bool Success,
     string? Message,
     int? ProcessId,
-    VsSessionInfo? Session);
+    VsSessionInfo? Session,
+    string? OwnershipToken = null);
+
+public sealed record VsCloseInstanceResult(int ProcessId, string Outcome, bool ExitObserved, string? Message = null);
+public sealed record VsOwnedInstance(string OwnershipToken, int ProcessId, DateTimeOffset StartedUtc);
 
 /// <summary>Payload a VSIX instance sends when first registering with the broker.</summary>
 public sealed record VsSessionRegistration(

@@ -33,7 +33,7 @@ See [setup](docs/SETUP.md) for installation, client registration, and troublesho
 - **Builds and diagnostics:** build solutions or projects, read output panes and errors, cancel builds, and query compiler diagnostics for an exact document version.
 - **Debugger control:** launch, attach, step, inspect chosen threads and frames, manage breakpoints and watches, capture exception evidence, and run to a guarded source location. Pause identities protect against stale inspection requests.
 - **Tests and coverage:** use the CLI backend by default or explicitly select optional VS 18 Test Explorer support. Retrieve retained results and bounded line coverage; Test Explorer and coverage require their backend prerequisites.
-- **Multiple sessions:** discover open instances and route explicitly. Pause new automation mutations when needed. Follow session events and reconcile observed state.
+- **Multiple sessions:** discover open instances, route explicitly, follow session events, and pause new automation mutations. Launch requests return an ownership token for later graceful close.
 - **Local records:** inspect tool-call audit metadata and optional aggregate usage analytics without recording full source or debugger values in those stores.
 
 Use `get_help` for current tool descriptions. Add `?profile=debug` (or `manage`, `read`, `edit`, `build`, `test`) to the MCP URL to reduce discovery. Profiles also restrict invocation; session routing, guides, and modal-dialog recovery remain available. `get_help(compact: true, profile: "debug")` provides a smaller help response. `netvs_doctor` checks broker health and, with routing, the selected session.
@@ -42,7 +42,7 @@ Use `get_help` for current tool descriptions. Add `?profile=debug` (or `manage`,
 
 | Area | Tools |
 | --- | --- |
-| Session management | `vs_list_sessions`, `vs_get_session`, `vs_select_session`, `vs_get_status`, `vs_ping`, `vs_launch_instance`, `vs_events`, `session_automation_control`, `vs_get_logs`, `vs_get_usage_summary`, `netvs_doctor`, `get_status`, `get_help`, `netvs_get_best_practices` |
+| Session management | `vs_list_sessions`, `vs_get_session`, `vs_select_session`, `vs_get_status`, `vs_ping`, `vs_launch_instance`, `vs_close_instance`, `vs_events`, `session_automation_control`, `vs_get_logs`, `vs_get_usage_summary`, `netvs_doctor`, `get_status`, `get_help`, `netvs_get_best_practices` |
 | Documents & editor | `document_active`, `document_read`, `document_open`, `document_write`, `document_save`, `document_close`, `document_list`, `document_cleanup`, `document_outline` |
 | Editor mutations | `editor_insert`, `editor_replace`, `editor_goto_line`, `selection_get`, `selection_set` |
 | Safe-edit workflow | `edit_preview`, `edit_approve`, `edit_reject`, `edit_list_pending`, `prepare_safe_edit`, `apply_safe_edit_and_build` |

@@ -34,4 +34,10 @@ public sealed class ToolDiscoveryProfileTests
         Assert.Throws<ArgumentException>(() => ToolDiscoveryProfile.Includes("typo", catalog[0]));
     }
 
+    [Fact]
+    public async Task ClosingUnknownOwnershipNeverTargetsAnExistingInstance()
+    {
+        var launcher = new VisualStudioLauncher(new SessionRegistry());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => launcher.CloseOwnedAsync("unknown", 1, CancellationToken.None));
+    }
 }
