@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using NetVsMcp.Contracts;
@@ -16,15 +17,21 @@ internal sealed class BestPracticeGuideSurfacer
     }
 
     public void AppendGuideIfFirstUse(RequestContext<CallToolRequestParams> request, CallToolResult result)
+        => AppendGuideIfFirstUse(CreateSessionKey(request), request.Params?.Name, result);
+
+    internal void AppendGuideIfFirstUse(string sessionKey, string? toolName, CallToolResult result)
     {
-        var toolName = request.Params?.Name;
+        if (toolName == "netvs_get_best_practices")
+        {
+            RememberReadEntrypoint(sessionKey, result);
+            return;
+        }
         var guideName = ResolveGuideName(toolName);
         if (guideName is null)
         {
             return;
         }
 
-        var sessionKey = CreateSessionKey(request);
         if (!surfacedGuides.TryAdd($"{sessionKey}:{guideName}", 0))
         {
             return;
@@ -42,6 +49,27 @@ internal sealed class BestPracticeGuideSurfacer
         {
             Text = CreateGuideNotice(toolName!, content)
         });
+    }
+
+    private void RememberReadEntrypoint(string sessionKey, CallToolResult result)
+    {
+        if (result.IsError == true) return;
+        foreach (var block in result.Content?.OfType<TextContentBlock>() ?? [])
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(block.Text);
+                var root = document.RootElement;
+                if (!root.TryGetProperty("success", out var success) || success.ValueKind != JsonValueKind.True ||
+                    !root.TryGetProperty("value", out var value) || value.ValueKind != JsonValueKind.Object ||
+                    !value.TryGetProperty("content", out var content) || content.ValueKind != JsonValueKind.Object ||
+                    !content.TryGetProperty("guide", out var guide) || guide.ValueKind != JsonValueKind.String ||
+                    !content.TryGetProperty("file", out var file) || file.ValueKind != JsonValueKind.String) continue;
+                var name = guide.GetString();
+                if (file.GetString() == name + ".md") surfacedGuides.TryAdd($"{sessionKey}:{name}", 0);
+            }
+            catch (JsonException) { /* Non-guide text does not acknowledge a read. */ }
+        }
     }
 
     private static string? ResolveGuideName(string? toolName)
@@ -123,6 +151,7 @@ internal sealed class BestPracticeGuideSurfacer
             toolName.StartsWith("toolwindow_", StringComparison.Ordinal) ||
             toolName.StartsWith("task_list_", StringComparison.Ordinal) ||
             string.Equals(toolName, "git_context", StringComparison.Ordinal) ||
+            string.Equals(toolName, "session_automation_control", StringComparison.Ordinal) ||
             string.Equals(toolName, "execute_command", StringComparison.Ordinal) ||
             string.Equals(toolName, "get_status", StringComparison.Ordinal))
         {

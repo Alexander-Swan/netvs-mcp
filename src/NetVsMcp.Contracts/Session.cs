@@ -315,6 +315,7 @@ public sealed record BestPracticeGuideContent(
 
 public sealed record BestPracticeGuideToolResult(
     string Message,
+    /// <summary>All guides when listing; only the selected guide's metadata when reading a file.</summary>
     IReadOnlyCollection<BestPracticeGuideInfo> Guides,
     /// <summary>The specific file's content when a single file was requested; null when listing guides/files only.</summary>
     BestPracticeGuideContent? Content,

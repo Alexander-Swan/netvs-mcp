@@ -14,6 +14,31 @@ namespace NetVsMcp.Broker.Tests;
 public sealed class LocalMcpHttpHostTests
 {
     [Theory]
+    [InlineData(null, 1)]
+    [InlineData("references/documents.md", 2)]
+    public async Task SuccessfulEntrypointReadPreventsRedundantToolGuideContent(string? reference, int expectedBlocks)
+    {
+        var port = GetAvailablePort();
+        var runtime = CreateRuntime($"http://127.0.0.1:{port}");
+        await runtime.StartAsync(CancellationToken.None);
+        try
+        {
+            using var http = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+            using var init = await InitializeMcpAsync(http, "/mcp", 1);
+            init.EnsureSuccessStatusCode();
+            using var read = await PostMcpAsync(http, new { jsonrpc = "2.0", id = 2, method = "tools/call",
+                @params = new { name = "netvs_get_best_practices", arguments = new { guide = "edit-visual-studio", file = reference } } });
+            var guide = await ReadMcpToolResponseAsync<BestPracticeGuideToolResult>(read);
+            Assert.True(guide.Success);
+            Assert.Single(guide.Value!.Guides);
+            using var call = await PostMcpAsync(http, new { jsonrpc = "2.0", id = 3, method = "tools/call",
+                @params = new { name = "document_read", arguments = new { path = "missing.cs" } } });
+            Assert.Equal(expectedBlocks, (await ReadMcpToolContentTextAsync(call)).Count);
+        }
+        finally { await runtime.StopAsync(); }
+    }
+
+    [Theory]
     [InlineData("http://127.0.0.1:0")]
     [InlineData("http://localhost:0")]
     public async Task StartAsync_StartsMcpHttpTransportOnLoopback(string endpoint)

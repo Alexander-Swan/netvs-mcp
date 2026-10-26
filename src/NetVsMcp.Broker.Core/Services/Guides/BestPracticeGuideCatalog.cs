@@ -93,7 +93,7 @@ internal sealed class BestPracticeGuideCatalog
 
         return ToolResponse<BestPracticeGuideToolResult>.Ok(new BestPracticeGuideToolResult(
             $"Read NetVsMcp best-practices guide '{guideName}' file '{resolvedFile}'.",
-            GuideNames.Select(CreateInfo).ToArray(),
+            [CreateInfo(guideName)],
             new BestPracticeGuideContent(guideName, resolvedFile, resourceUri, mimeType, content),
             BrokerVersion));
     }
