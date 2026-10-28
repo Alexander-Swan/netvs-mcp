@@ -2,15 +2,15 @@
 
 NetVsMcp is a local MCP bridge for Visual Studio. It gives AI agents and MCP clients access to the live IDE: editor buffers, Roslyn navigation, build diagnostics, debugger control, test execution, and UI/browser automation.
 
-This extension includes the **NetVsMcp Broker**, a lightweight local app that exposes a standard MCP endpoint on loopback (`http://127.0.0.1:5050/mcp`). Your MCP client (Claude, Copilot, or any agent) talks to the broker; the broker routes tool calls through to the right Visual Studio instance. No cloud services, no telemetry - everything runs on your machine.
+This extension includes the **NetVsMcp Broker**, a lightweight local app that exposes a standard MCP endpoint on loopback (`http://127.0.0.1:5050/mcp`). Your MCP client (Claude, Copilot, or any agent) talks to the broker; the broker routes tool calls through to the right Visual Studio instance. IDE requests run locally. Optional aggregate usage analytics stay on your machine and are disabled by default. Your MCP client's data handling still applies.
 
-NetVsMcp does not use repo-local configuration files and does not require separate MCP client configuration for each Visual Studio instance. Register the broker once, then target open Visual Studio sessions by session ID, process ID, solution path, workspace path, or solution name.
+NetVsMcp does not use repo-local configuration files and does not require separate MCP client configuration for each Visual Studio instance. Register the broker once, then target open Visual Studio sessions by session ID, solution path, or solution name.
 
 > **Broker included** - installing this extension also installs the local broker payload. The first Visual Studio instance that loads the extension connects to an existing broker if one is already running; otherwise it starts the bundled broker and shows it in the Windows tray. If no detected MCP client is already registered for the broker endpoint and setup has not already been shown, the status window opens on **Agents** so you can register or copy configuration. If the bundled broker cannot be used on a machine, the GitHub release assets include a standalone broker MSI that the extension can connect to instead.
 
 ## Broker setup
 
-This Visual Studio extension does **not** run MCP tools inside Visual Studio itself. Instead, it ships the NetVsMcp Broker and starts that broker locally when Visual Studio opens. The broker is still the MCP server; the extension registers each open Visual Studio instance with it.
+The broker hosts MCP and routes requests; the extension executes IDE operations inside its Visual Studio instance. The extension ships the broker and starts it locally when needed.
 
 1. Install the NetVsMcp Visual Studio extension.
 2. Open Visual Studio. The extension connects to an already-running broker, or starts the bundled tray broker if no compatible broker is running. For fallback/manual deployments, install and start the standalone broker MSI first.
@@ -30,7 +30,7 @@ Read and write documents, apply edits to the live in-memory buffer, go to defini
 Trigger solution or project builds, read the live error list and output panes, cancel in-progress builds, switch build configurations, and restore NuGet packages - all from the agent.
 
 ### Debug
-Full debugger control: start, stop, attach, step (into/over/out), set and manage **conditional breakpoints**, read locals and the call stack, evaluate expressions in the current frame, manage watches, switch threads, freeze/thaw threads, inspect parallel stacks, and take structured snapshots of debugger state.
+Full debugger control: start, stop, attach, step (into/over/out), set and manage **conditional breakpoints**, read locals and the call stack, evaluate expressions in a chosen thread and frame, manage watches, switch threads, freeze/thaw threads, inspect parallel stacks, and take structured snapshots of debugger state.
 
 ### Solution, projects & tests
 Query solution structure, project dependencies, and NuGet packages. Discover and run tests, debug a filtered test under the Visual Studio debugger, and read results.
@@ -49,8 +49,8 @@ Query solution structure, project dependencies, and NuGet packages. Discover and
 | Tests | `test_discover`, `test_run_and_get_results`, `test_debug` |
 | NuGet | `nuget_search`, `nuget_install`, `nuget_update` |
 
-170+ tools in total - see the full list in the project README.
+See the current tool list in the [project README](https://github.com/Alexander-Swan/netvs-mcp#tool-coverage), or call `get_help` from your MCP client.
 
 ## Project
 
-Source, documentation, issue tracker, and preview builds: https://github.com/Alexander-Swan/netvs-mcp
+[Source, documentation, issue tracker, and releases](https://github.com/Alexander-Swan/netvs-mcp).

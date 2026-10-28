@@ -2,11 +2,13 @@
 
 NetVsMcp is a local-only Visual Studio MCP broker plus VSIX. The broker runs on your Windows machine, exposes MCP over loopback HTTP, and routes requests to registered Visual Studio instances.
 
-Two setup paths exist:
+Three setup paths exist:
 
 - **Install (recommended)** -- install the VSIX. It includes the broker payload and can start it from Visual Studio. No separate broker installer is required for normal use.
 - **Standalone broker fallback** -- if the bundled broker cannot be used on a machine, install the broker MSI from the GitHub release assets, then open Visual Studio. The extension will connect to the already-running standalone broker instead of starting its bundled broker.
 - **Build from source (contributors)** -- clone the repo and build/run the broker and VSIX yourself.
+
+The extension targets amd64 Visual Studio 2022 and 2026 installations. The broker is framework-dependent and requires the .NET 10 Desktop Runtime.
 
 ## Install (Recommended)
 

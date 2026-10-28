@@ -14,7 +14,7 @@ The installer project publishes `NetVsMcp.Broker` before packaging. By default t
 artifacts\publish\NetVsMcp.Broker
 ```
 
-Override the product version or broker publish directory when needed:
+The product version defaults to `VersionPrefix` in `Directory.Build.props`. Override the broker publish directory when needed:
 
 ```powershell
 dotnet build .\src\NetVsMcp.Installer\NetVsMcp.Installer.wixproj -c Release /p:ProductVersion=0.2.0
