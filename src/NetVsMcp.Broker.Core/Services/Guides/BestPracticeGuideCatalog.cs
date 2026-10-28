@@ -68,7 +68,8 @@ internal sealed class BestPracticeGuideCatalog
         return new BestPracticeGuideToolResult(
             "NetVsMcp best-practices guides are available as MCP resources and through this tool. For tool use, read the matching guide's small entrypoint first, then only the reference files needed for the current operation. For learning NetVsMcp or creating local agent skills, read the entrypoints and the relevant references deliberately instead of loading every file by default. These guides are agent-neutral defaults, not locked policy; user or project instructions can layer additional guidance on top.",
             GuideNames.Select(CreateInfo).ToArray(),
-            null);
+            null,
+            BrokerVersion);
     }
 
     public ToolResponse<BestPracticeGuideToolResult> Read(string? guide, string? file)
@@ -93,7 +94,8 @@ internal sealed class BestPracticeGuideCatalog
         return ToolResponse<BestPracticeGuideToolResult>.Ok(new BestPracticeGuideToolResult(
             $"Read NetVsMcp best-practices guide '{guideName}' file '{resolvedFile}'.",
             GuideNames.Select(CreateInfo).ToArray(),
-            new BestPracticeGuideContent(guideName, resolvedFile, resourceUri, mimeType, content)));
+            new BestPracticeGuideContent(guideName, resolvedFile, resourceUri, mimeType, content),
+            BrokerVersion));
     }
 
     public TextResourceContents ReadResource(string guideName)

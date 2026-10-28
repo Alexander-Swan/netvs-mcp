@@ -309,7 +309,9 @@ public sealed record BestPracticeGuideToolResult(
     string Message,
     IReadOnlyCollection<BestPracticeGuideInfo> Guides,
     /// <summary>The specific file's content when a single file was requested; null when listing guides/files only.</summary>
-    BestPracticeGuideContent? Content);
+    BestPracticeGuideContent? Content,
+    /// <summary>The installed NetVsMcp version, present when listing as well as reading guides.</summary>
+    string? Version = null);
 
 /// <summary>Result of resolving a <see cref="RoutingTarget"/> to a concrete VS session.</summary>
 public sealed record RouteResult(
