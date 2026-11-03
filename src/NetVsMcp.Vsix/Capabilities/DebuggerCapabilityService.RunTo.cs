@@ -69,6 +69,7 @@ internal sealed partial class DebuggerCapabilityService
         var tag = "NetVsMcp:" + JsonSerializer.Serialize(new BreakpointMetadata { GroupName = group });
         var scope = new OwnedBreakpointScope<Breakpoint>();
         var roots = new HashSet<IntPtr>();
+        var createdRoots = new List<Breakpoint>();
         var fullyObserved = true;
         var issued = false;
         var outcome = "setupFailed";
@@ -89,6 +90,7 @@ internal sealed partial class DebuggerCapabilityService
                     var identity = BreakpointIdentity(root);
                     if (existing.Contains(identity)) throw new InvalidOperationException("VS returned an existing breakpoint; it will not be changed or deleted.");
                     if (!roots.Add(identity)) continue;
+                    createdRoots.Add(root);
                     scope.Add(root, root.Tag, tag);
                     root.Tag = tag;
                     if (root.Tag != tag) throw new NotSupportedException("VS did not preserve the temporary breakpoint's ownership tag.");
@@ -105,14 +107,25 @@ internal sealed partial class DebuggerCapabilityService
             else if (!CanBorrowForRunTo(borrowed, request.ExpectedProcessId))
                 throw new StaleDebugContextException("The existing target breakpoint changed before execution.");
             execution.Validate(debugger.CurrentMode.ToString(), request.ExpectedStopId, request.ExpectedGeneration);
-            if (!string.Equals(solution, dte.Solution?.FullName, StringComparison.OrdinalIgnoreCase) ||
-                debugger.DebuggedProcesses.Count != 1 || debugger.CurrentProcess?.ProcessID != request.ExpectedProcessId)
-                throw new StaleDebugContextException("The selected solution or process changed before run-to execution.");
-            cancellationToken.ThrowIfCancellationRequested();
-            var before = execution.Begin();
-            issued = true; // A throwing COM call may still have resumed the target.
-            try { debugger.Go(WaitForBreakOrEnd: false); }
-            catch { execution.RejectCommand(debugger.CurrentMode.ToString()); throw; }
+            var before = await IssueCommandAsync(debugger, () =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                issued = true; // A throwing COM call may still have resumed the target.
+                debugger.Go(WaitForBreakOrEnd: false);
+            }, newSession: false, cancellationToken, validateContext: () =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                if (!string.Equals(solution, dte.Solution?.FullName, StringComparison.OrdinalIgnoreCase) ||
+                    debugger.DebuggedProcesses.Count != 1 || debugger.CurrentProcess?.ProcessID != request.ExpectedProcessId)
+                    throw new StaleDebugContextException("The selected solution or process changed before run-to execution.");
+                if (borrowed is not null && (!CanBorrowForRunTo(borrowed, request.ExpectedProcessId) ||
+                    !MatchesRunToLocation(borrowed.File, borrowed.FileLine, borrowed.FileColumn, file, request)))
+                    throw new StaleDebugContextException("The existing target breakpoint changed before execution.");
+                foreach (var root in createdRoots)
+                    if (root.Tag != tag || !CanBorrowForRunTo(root, request.ExpectedProcessId) ||
+                        !MatchesRunToLocation(root.File, root.FileLine, root.FileColumn, file, request))
+                        throw new StaleDebugContextException("A temporary run-to breakpoint changed before execution.");
+            });
             var observed = await execution.WaitAsync(before, true, TimeSpan.FromSeconds(request.TimeoutSeconds), cancellationToken);
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(CancellationToken.None);
             var state = GetDebuggerState(debugger);

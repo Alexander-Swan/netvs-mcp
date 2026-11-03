@@ -1322,20 +1322,31 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
     private async Task<DebuggerStateInfo> ExecuteAsync(Debugger debugger, Action issue,
         bool waitForStop, bool newSession, CancellationToken cancellationToken)
     {
-        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        var before = execution.Begin(newSession);
-        try { issue(); }
-        catch
+        long before;
+        try
         {
-            execution.RejectCommand(debugger.CurrentMode.ToString());
-            throw;
+            before = await IssueCommandAsync(debugger, issue, newSession, cancellationToken);
+        }
+        catch (System.Runtime.InteropServices.COMException ex)
+        {
+            throw new InvalidOperationException($"Debugger command was rejected (HRESULT 0x{ex.ErrorCode:X8}): {ex.Message}", ex);
         }
         var observed = await execution.WaitAsync(before, waitForStop, TimeSpan.FromSeconds(10), cancellationToken);
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var state = GetDebuggerState(debugger);
         return observed ? state : execution.State(debugger.CurrentMode.ToString(), outcome: "timedOut");
     }
+
+    private Task<long> IssueCommandAsync(Debugger debugger, Action issue, bool newSession,
+        CancellationToken cancellationToken, Action? validateContext = null) =>
+        DebugCommandExecution.IssueAsync(execution,
+            async (ct, action) =>
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(ct);
+                action();
+            },
+            () => { ThreadHelper.ThrowIfNotOnUIThread(); return debugger.CurrentMode.ToString(); },
+            issue, newSession, cancellationToken, validateContext);
 
     private DebuggerStateInfo GetDebuggerState(Debugger debugger, bool refresh = false)
     {

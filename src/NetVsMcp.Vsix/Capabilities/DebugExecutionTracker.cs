@@ -18,6 +18,7 @@ internal sealed class DebugExecutionTracker
     private long version;
     private bool active;
     private bool pending;
+    private bool unobservedCommand;
     private long command;
 
     private static TaskCompletionSource<bool> NewSignal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -38,6 +39,7 @@ internal sealed class DebugExecutionTracker
         {
             if (newSession) { generation++; active = true; }
             pending = true;
+            unobservedCommand = true;
             stopId = null;
             reason = null;
             command++;
@@ -50,6 +52,7 @@ internal sealed class DebugExecutionTracker
         TaskCompletionSource<bool> wake;
         lock (gate)
         {
+            unobservedCommand = false;
             // Delayed notifications must not resurrect a mode the debugger has already left.
             if (liveMode != null && nextMode != liveMode)
             {
@@ -78,16 +81,25 @@ internal sealed class DebugExecutionTracker
         wake.TrySetResult(true);
     }
 
-    public void RejectCommand(string liveMode)
+    public void RejectCommand(string liveMode, long? expectedSequence = null)
     {
         lock (gate)
         {
+            // A rejected or canceled readiness wait must not erase a newer command
+            // or a stop notification that arrived while the UI thread was yielded.
+            if (expectedSequence.HasValue && (!pending || command != expectedSequence.Value)) return;
             // Do not manufacture a new pause from a command rejected before any notification.
             pending = false;
+            unobservedCommand = false;
             mode = liveMode;
             stopId = null;
             reason = null;
         }
+    }
+
+    public bool CanRetryCommand(long? expectedSequence)
+    {
+        lock (gate) return pending && unobservedCommand && command == expectedSequence;
     }
 
     public DebuggerStateInfo State(string liveMode, string? liveReason = null, string? outcome = null, bool refresh = false)
