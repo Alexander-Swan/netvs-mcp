@@ -5,11 +5,20 @@ namespace NetVsMcp.Broker.Services;
 internal sealed partial class BrokerToolService
 {
     // Keep identity once per public response, and only when explicitly requested.
-    internal static ToolResponse<T> ShapeInspectionOutput<T>(ToolResponse<T> response, bool includeContext, bool compact = false, string? solutionPath = null)
+    internal static ToolResponse<T> ShapeInspectionOutput<T>(ToolResponse<T> response, bool includeContext, string? solutionPath = null)
     {
         if (response.Value is null) return response;
         object value = response.Value switch
         {
+            FindReferencesResult r => r with
+            {
+                Symbol = r.Symbol is null ? null : r.Symbol with { File = CompactSourcePath(r.Symbol.File, solutionPath) },
+                References = r.References.Select(reference => reference with
+                {
+                    File = CompactSourcePath(reference.File, solutionPath),
+                    Symbol = reference.Symbol with { File = CompactSourcePath(reference.Symbol.File, solutionPath) }
+                }).ToArray()
+            },
             LocalsResult r => r with { Context = includeContext ? r.Context : null },
             CallStackResult r => r with { Context = includeContext ? r.Context : null },
             EvaluateExpressionResult r => r with { Context = includeContext ? r.Context : null },
@@ -30,21 +39,10 @@ internal sealed partial class BrokerToolService
                 Watch = r.Watch is null ? null : r.Watch with { Context = null } },
             _ => response.Value
         };
-        if (compact) value = value switch
-        {
-            DebugSnapshotResult r => r with
-            {
-                CallStack = r.CallStack is null ? null : r.CallStack with
-                {
-                    Frames = r.CallStack.Frames.Select(frame => frame with { File = CompactSourcePath(frame.File, solutionPath) }).ToArray()
-                }
-            },
-            _ => value
-        };
         return response with { Value = (T)value };
     }
 
-    private static string? CompactSourcePath(string? file, string? solutionPath)
+    internal static string? CompactSourcePath(string? file, string? solutionPath)
     {
         if (file is null || solutionPath is null || !Path.IsPathRooted(file) || !Path.IsPathRooted(solutionPath)) return file;
         try

@@ -892,12 +892,13 @@ public sealed partial class BrokerToolServiceTests
                 request.AttachTimeoutSeconds));
         }
 
+        public TestOperationResult? TestResultsReport { get; set; }
         public Task<TestOperationResult> TestResultsAsync(
             TestResultsRequest request,
             CancellationToken cancellationToken)
         {
             LastTestResultsRequest = request;
-            return Task.FromResult(new TestOperationResult(true, "Returned test results.", [], CreateTestResults()));
+            return Task.FromResult(TestResultsReport ?? new TestOperationResult(true, "Returned test results.", [], CreateTestResults()));
         }
 
         public Task<PackageRestoreResult> PackageRestoreAsync(

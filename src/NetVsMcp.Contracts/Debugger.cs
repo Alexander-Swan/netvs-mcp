@@ -47,7 +47,9 @@ public sealed record DebuggerStateInfo(
     /// <summary>Sequence of execution commands issued through this VSIX.</summary>
     long? ExecutionSequence = null,
     /// <summary>Coherent event cursor for this state observation. Null for legacy, modal, or stale observations.</summary>
-    VsSessionEventCursor? EventCursor = null);
+    VsSessionEventCursor? EventCursor = null,
+    /// <summary>Verified new startup process IDs observed after a launch without debugging; null when unavailable.</summary>
+    IReadOnlyList<int>? LaunchedProcessIds = null);
 
 /// <summary>An original IDE command retained while the client answers a modal dialog.</summary>
 public sealed record DebugOperationInfo(

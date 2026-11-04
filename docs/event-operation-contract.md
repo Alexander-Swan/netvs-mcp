@@ -30,6 +30,6 @@ IDE state; a missing record does not establish whether work executed.
 
 ## Compatibility
 
-New wire members are additive. Features requiring correctness-critical guards or event delivery are negotiated explicitly. Missing support must produce a structured unsupported result instead of silently ignoring a guard. Legacy clients keep existing request/response behavior while newer clients can opt into stronger contracts.
+New wire members are additive. Features requiring correctness-critical guards or event delivery are negotiated explicitly. Missing support must produce a structured unsupported result instead of silently ignoring a guard. Internal RPC contracts retain their full state; public MCP responses use the reduced representation described in compact-debugger-output.md.
 
-Default debugger MCP responses retain nested state fields. Only `compact: true` opts into inherited-state deduplication. Breakpoint group mutations use a dedicated IDE-side RPC and advertise `breakpointGroupMutation`; an older VSIX returns `unsupported_by_vsix` instead of a broker-side name/location fallback.
+Debugger MCP responses inherit identical child state by default; there is no debugger `compact` parameter. Breakpoint group mutations use a dedicated IDE-side RPC and advertise `breakpointGroupMutation`; an older VSIX returns `unsupported_by_vsix` instead of a broker-side name/location fallback.

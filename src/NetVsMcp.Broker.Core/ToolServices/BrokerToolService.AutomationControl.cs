@@ -8,7 +8,7 @@ internal sealed partial class BrokerToolService
 {
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "session_automation_control", Title = "Pause Session Mutations", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Inspects or pauses new automation mutations for an explicitly selected session. Omit paused to inspect; paused=true blocks new commands while preserving reads and build-cancel/debug-break recovery controls. Already-running commands continue and are reported as activeMethod. Pausing does not suspend the developer or debuggee. Resume with paused=false; state lasts for this broker lifetime.")]
+    [Description("Inspects or pauses new automation mutations for an explicitly selected session. Omit paused to inspect; paused=true blocks new commands while preserving reads and build-cancel/debug-break recovery controls. Already-running commands continue and are reported as activeMethod. Pausing does not suspend the developer or debuggee. Resume with paused=false; state lasts for this broker lifetime. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Setting paused returns true; querying returns paused. Controls automation, not debuggee execution.")]
     public ToolResponse<SessionAutomationControl> SessionAutomationControl(string sessionId, bool? paused = null)
     {
         if (string.IsNullOrWhiteSpace(sessionId)) return ToolResponse<SessionAutomationControl>.Fail("An explicit sessionId is required.");

@@ -19,8 +19,8 @@ public sealed partial class BrokerToolServiceTests
         runtime.Sessions.Register(CreateRegistration("vs-1", "Fixture"));
         runtime.Connections.AddOrUpdate("vs-1", rpc);
         var result = wait
-            ? await runtime.Tools.DebugWaitForBreak(include: ["callStack", "locals"], sessionId: "vs-1", expectedStopId: state.StopId, expectedGeneration: 2, compact: true)
-            : await runtime.Tools.DebugSnapshot(include: ["callStack", "locals"], sessionId: "vs-1", expectedStopId: state.StopId, expectedGeneration: 2, compact: true);
+            ? await runtime.Tools.DebugWaitForBreak(include: ["callStack", "locals"], sessionId: "vs-1", expectedStopId: state.StopId, expectedGeneration: 2)
+            : await runtime.Tools.DebugSnapshot(include: ["callStack", "locals"], sessionId: "vs-1", expectedStopId: state.StopId, expectedGeneration: 2);
         Assert.True(result.Success);
         Assert.Equal(state, result.Value!.State);
         Assert.Equal(state, result.Value.CallStack!.State);

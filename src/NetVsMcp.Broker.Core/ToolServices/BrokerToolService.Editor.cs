@@ -13,7 +13,7 @@ internal sealed partial class BrokerToolService
 {
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "selection_get", Title = "Selection Get", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns the current editor selection from a routed Visual Studio session.")]
+    [Description("Returns the current editor selection from a routed Visual Studio session. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns location=file:anchorLine:anchorColumn-activeLine:activeColumn plus selected text/evidence.")]
     public Task<ToolResponse<SelectionInfo?>> SelectionGet(
         string? sessionId = null,
         string? solutionName = null,
@@ -201,7 +201,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "editor_goto_line", Title = "Editor Goto Line", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Moves the caret through a routed Visual Studio session. Pass path, not documentPath.")]
+    [Description("Moves the caret through a routed Visual Studio session. Pass path, not documentPath. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns true on success; failures use MCP isError with an error message.")]
     public Task<ToolResponse<EditorDocumentInfo>> EditorGotoLine(
         [Description(PathParameterDescription)]
         string? path = null,
@@ -240,7 +240,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "selection_set", Title = "Selection Set", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Sets the editor selection through a routed Visual Studio session. Pass path, not documentPath.")]
+    [Description("Sets the editor selection through a routed Visual Studio session. Pass path, not documentPath. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns true on success; failures use MCP isError with an error message.")]
     public Task<ToolResponse<SelectionInfo>> SelectionSet(
         [Description(PathParameterDescription)]
         string? path = null,

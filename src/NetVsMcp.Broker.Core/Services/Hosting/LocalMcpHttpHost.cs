@@ -78,11 +78,9 @@ internal sealed class LocalMcpHttpHost : IAsyncDisposable
                 filters.AddCallToolFilter(next => async (request, cancellationToken) =>
                 {
                     var result = await next(request, cancellationToken);
-                    // Existing clients consume nested state fields. Only compact callers opt
-                    // into inheriting identical state from the enclosing response.
-                    if (request.Params?.Arguments?.TryGetValue("compact", out var compact) == true &&
-                        compact.ValueKind == JsonValueKind.True)
-                        DebuggerResponseOutput.DeduplicateState(result);
+                    if (request.Params is { } parameters && DebuggingToolOutput.Handles(parameters.Name))
+                        DebuggingToolOutput.Apply(result, parameters.Name,
+                            _tools.GetResponseSolutionPath(parameters.Arguments), parameters.Arguments);
                     request.Services
                         ?.GetService<BestPracticeGuideSurfacer>()
                         ?.AppendGuideIfFirstUse(request, result);

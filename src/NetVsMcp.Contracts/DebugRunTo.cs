@@ -26,4 +26,4 @@ public sealed record DebugRunToResult(DebuggerStateInfo State, string Outcome, s
     string TemporaryBreakpointGroup, string RequestedFile, int RequestedLine, int RequestedColumn,
     string? HitFile, int? HitLine, int? HitColumn, TemporaryBreakpointCleanup Cleanup, string? Message,
     int? ProcessId = null, long? StartedGeneration = null, string? StartedStopId = null, string SourceMatchStatus = "notVerified",
-    string BreakpointMode = "temporaryOwned");
+    string BreakpointMode = "temporaryOwned", int? ThreadId = null);

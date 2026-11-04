@@ -21,14 +21,12 @@ public sealed class CompactDebuggerOutputTests
         Assert.Equal(JsonSerializer.Serialize(response, Json), JsonSerializer.Serialize(shaped, Json));
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void SnapshotOutputKeepsStateOnceWithoutMutatingOriginal(bool useCompact)
+    [Fact]
+    public void SnapshotOutputKeepsStateOnceWithoutMutatingOriginal()
     {
         var snapshot = new DebugSnapshotResult(State, new(State, [], true), new(State, []), null);
         var response = ToolResponse<DebugSnapshotResult>.Ok(snapshot);
-        var compact = BrokerToolService.ShapeInspectionOutput(response, false, useCompact).Value!;
+        var compact = BrokerToolService.ShapeInspectionOutput(response, false).Value!;
         Assert.Equal(State, compact.State);
         Assert.Equal(State.Mode, compact.CallStack!.State.Mode);
         Assert.Equal(State, compact.CallStack.State);
@@ -48,7 +46,7 @@ public sealed class CompactDebuggerOutputTests
         var modal = State with { Mode = "dbgModalBlock", UnderlyingMode = "dbgBreakMode", UnderlyingModeIsStale = true };
         var batch = new DebugEvalManyResult(State, [new(State, new("a", "1", "int", true)),
             new(other, new("b", "2", "int", true)), new(modal, new("c", "blocked", null, false))]);
-        var compact = BrokerToolService.ShapeInspectionOutput(ToolResponse<DebugEvalManyResult>.Ok(batch), false, true).Value!;
+        var compact = BrokerToolService.ShapeInspectionOutput(ToolResponse<DebugEvalManyResult>.Ok(batch), false).Value!;
         var rows = compact.Results.ToArray();
         Assert.Equal(State, compact.State);
         Assert.Equal(State, rows[0].State);
@@ -56,7 +54,7 @@ public sealed class CompactDebuggerOutputTests
         Assert.Equal(modal, rows[2].State);
         Assert.False(rows[2].Expression.IsValidValue);
         var sameModal = BrokerToolService.ShapeInspectionOutput(ToolResponse<DebugEvalManyResult>.Ok(
-            new(modal, [new(modal, new("blocked", null, null, false))])), false, true).Value!;
+            new(modal, [new(modal, new("blocked", null, null, false))])), false).Value!;
         Assert.Equal(modal, Assert.Single(sameModal.Results).State);
         var output = Output(compact).GetProperty("results");
         Assert.False(output[0].TryGetProperty("state", out _));
@@ -85,10 +83,9 @@ public sealed class CompactDebuggerOutputTests
         var external = Path.Combine(root + "Sibling", "External.cs");
         var snapshot = new DebugSnapshotResult(State, new(State,
             [new("Main", source, 5, 0, 1, true), new("External", external, 3, 0), new("Native", null, 0, 0)]), null, null);
-        var result = BrokerToolService.ShapeInspectionOutput(ToolResponse<DebugSnapshotResult>.Ok(snapshot), false, true,
-            Path.Combine(root, "Example.slnx")).Value!;
-        var frames = result.CallStack!.Frames.ToArray();
-        Assert.Equal("Project/Program.cs", frames[0].File);
+        var solution = Path.Combine(root, "Example.slnx");
+        var frames = snapshot.CallStack!.Frames.ToArray();
+        Assert.Equal("Project/Program.cs", BrokerToolService.CompactSourcePath(frames[0].File, solution));
         Assert.Equal(5, frames[0].Line);
         Assert.Equal(1, frames[0].FrameIndex);
         Assert.Equal(external, frames[1].File);

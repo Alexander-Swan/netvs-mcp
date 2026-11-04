@@ -10,7 +10,7 @@ namespace NetVsMcp.Vsix;
 internal sealed class DebuggerStateInfo
 {
     public DebuggerStateInfo(string mode, string? breakReason = null, string? outcome = null,
-        long? generation = null, string? stopId = null, long? executionSequence = null)
+        long? generation = null, string? stopId = null, long? executionSequence = null, IReadOnlyList<int>? launchedProcessIds = null)
     {
         Mode = mode;
         BreakReason = breakReason;
@@ -18,6 +18,7 @@ internal sealed class DebuggerStateInfo
         Generation = generation;
         StopId = stopId;
         ExecutionSequence = executionSequence;
+        LaunchedProcessIds = launchedProcessIds;
     }
 
     public string Mode { get; }
@@ -26,6 +27,7 @@ internal sealed class DebuggerStateInfo
     public long? Generation { get; }
     public string? StopId { get; }
     public long? ExecutionSequence { get; }
+    public IReadOnlyList<int>? LaunchedProcessIds { get; }
 }
 
 internal static class DebuggerBreakReason

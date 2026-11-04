@@ -61,9 +61,11 @@ internal static class DebuggerResponseOutput
     private static bool InheritsState(JsonObject state, JsonObject inherited)
     {
         if (JsonNode.DeepEquals(inherited, state)) return true;
-        if (state.ContainsKey("eventCursor") || !inherited.ContainsKey("eventCursor")) return false;
-        var withoutCursor = (JsonObject)inherited.DeepClone();
-        withoutCursor.Remove("eventCursor");
-        return JsonNode.DeepEquals(withoutCursor, state);
+        var comparable = (JsonObject)inherited.DeepClone();
+        // The broker supplies routing identity/cursor that older child reads may omit.
+        // Explicit, differing child observations must never inherit those values.
+        foreach (var key in new[] { "eventCursor", "sessionId" })
+            if (!state.ContainsKey(key)) comparable.Remove(key);
+        return JsonNode.DeepEquals(comparable, state);
     }
 }

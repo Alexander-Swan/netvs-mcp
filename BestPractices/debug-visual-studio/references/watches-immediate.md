@@ -10,7 +10,7 @@ immediate_execute({ "statement": "someExpression", "sessionId": "..." })
 
 `immediate_execute` uses Visual Studio expression evaluation rather than sending keystrokes. It only works while debugging.
 
-`watch_add` evaluates immediately and therefore requires an active debug session. For one-off inspection, prefer snapshot `watchExpressions` so you do not modify the persistent watch list.
+`watch_add` saves the watch even when its value is not currently available; it returns `$unavailable` in that case. When paused, it evaluates immediately. For one-off inspection, prefer snapshot `watchExpressions` so you do not modify the persistent watch list.
 
 `watch_add`, `watch_list`, and `immediate_execute` accept optional `stackFrame` (1-based). Omit it to use the currently selected frame. When supplied, the debugger must be paused; the selected thread and frame remain unchanged:
 
@@ -26,4 +26,4 @@ Preserving the selected frame does not undo assignments, function calls, or othe
 
 The tools that accept `stackFrame` also accept optional `threadId`. With a thread ID, frame indices belong to that thread and default to 1. Inspection uses the target frame directly and leaves the debugger selection unchanged. Saved watches remain expression text, not bindings to a thread or frame; later queries use their own requested/current context. See `inspection.md` for examples and version requirements. Assignment and immediate-execution side effects persist.
 
-Check `isValidValue` on returned watch expressions: a framework/native frame may have no evaluation context even when the call succeeds. Scoped `immediate_execute` reports `success: false` with the evaluation explanation in `output` in that case. Choose an explicit user-code frame from the target thread's call stack to retry; see `inspection.md`.
+Named watch values are strings, `$preview` object summaries, or `$error` values. `watch_add` instead uses `$unavailable` when saving succeeded but evaluation is unavailable. Failure to save or execute uses an MCP error with the explanation. Duplicate/unnamed watch arrays retain validity flags. Choose an explicit user-code frame from the target thread's call stack to retry; see `inspection.md`.

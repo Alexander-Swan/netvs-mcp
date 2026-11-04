@@ -133,8 +133,15 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
         await GetDebuggerAsync();
         var solutionBuild = dte.Solution?.SolutionBuild
             ?? throw new InvalidOperationException("Visual Studio solution build service is unavailable.");
+        var targets = NonDebugLaunchObserver.StartupExecutables(dte);
+        var before = NonDebugLaunchObserver.ProcessIds();
+        var started = DateTime.UtcNow;
         solutionBuild.Run();
-        return GetDebuggerState(dte.Debugger);
+        var processIds = await NonDebugLaunchObserver.ObserveAsync(targets, before, started, cancellationToken);
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+        var state = GetDebuggerState(dte.Debugger);
+        return new(state.Mode, state.BreakReason, state.Outcome, state.Generation, state.StopId,
+            state.ExecutionSequence, processIds.Count > 0 ? processIds : null);
     }
 
     public async Task<DebuggerStateInfo> RestartAsync(CancellationToken cancellationToken)

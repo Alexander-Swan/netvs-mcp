@@ -13,7 +13,7 @@ internal sealed partial class BrokerToolService
 {
     [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "vs_list_sessions", Title = "List Visual Studio Sessions", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists Visual Studio instances registered with the local NetVsMcp broker.")]
+    [Description("Lists Visual Studio instances registered with the local NetVsMcp broker. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns session context without duplicate solution names or routine capability/version lists. processId identifies Visual Studio, not a debuggee.")]
     public ToolResponse<IReadOnlyCollection<VsSessionInfo>> VsListSessions()
     {
         try
@@ -45,7 +45,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "netvs_doctor", Title = "Run NetVsMcp Doctor", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Diagnoses local broker endpoint, registration pipe, registered sessions, and tool endpoint health.")]
+    [Description("Diagnoses local broker endpoint, registration pipe, registered sessions, and tool endpoint health. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns healthy and failed/warning checks; successful checks and repeated broker status are omitted.")]
     public ToolResponse<BrokerDoctorResult> NetVsDoctor(string? sessionId = null)
     {
         try
@@ -272,7 +272,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "vs_get_session", Title = "Resolve Visual Studio Session", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Resolves a Visual Studio session using sessionId, solutionName, or solutionPath and returns its current broker status.")]
+    [Description("Resolves a Visual Studio session using sessionId, solutionName, or solutionPath and returns its current broker status. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns session context without duplicate solution names or routine capability/version lists. processId identifies Visual Studio, not a debuggee.")]
     public ToolResponse<VsSessionStatus> VsGetSession(
         string? sessionId = null,
         string? solutionName = null,
@@ -308,7 +308,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "vs_select_session", Title = "Select Visual Studio Session", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Resolves and returns a Visual Studio session using broker routing rules without storing global selection state.")]
+    [Description("Resolves and returns a Visual Studio session using broker routing rules without storing global selection state. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns true on success; failures use MCP isError with an error message.")]
     public ToolResponse<VsSessionInfo> VsSelectSession(
         string? sessionId = null,
         string? solutionName = null,
@@ -418,7 +418,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "vs_context_snapshot", Title = "Get Visual Studio Context Snapshot", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns active session, solution, document, selection, debugger, build, errors, and pending edit context.")]
+    [Description("Returns active session, solution, document, selection, debugger, build, errors, and pending edit context. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns shared session/solution/document context with selection, debugger/build state, severity-grouped diagnostics and pending edits.")]
     public Task<ToolResponse<VsContextSnapshotResult>> VsContextSnapshot(
         string? sessionId = null,
         string? solutionName = null,
@@ -493,7 +493,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "get_status", Title = "Get Visual Studio Session Status", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns Visual Studio session status through a routed session.")]
+    [Description("Returns Visual Studio session status through a routed session. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns session context without duplicate solution names or routine capability/version lists. processId identifies Visual Studio, not a debuggee.")]
     public async Task<ToolResponse<VsSessionInfo>> GetStatus(
         string? sessionId = null,
         string? solutionName = null,
@@ -885,7 +885,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "test_discover", Title = "Discover Tests", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Discovers tests using CLI by default. backend=test-explorer requires projectName and a built test project, queries native IDE cases, and returns testId/fullyQualifiedName for selecting a case with test_run or test_debug. Discovery has no filter argument. No implicit CLI fallback.")]
+    [Description("Discovers tests using CLI by default. backend=test-explorer requires projectName and a built test project, queries native IDE cases, and returns testId/fullyQualifiedName for selecting a case with test_run or test_debug. Discovery has no filter argument. No implicit CLI fallback. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns discovered entries directly with IDs and fully qualified names used by filters.")]
     public Task<ToolResponse<TestOperationResult>> TestDiscover(
         [Description(TestProjectDescription)]
         string? projectName = null,
@@ -909,7 +909,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "test_run", Title = "Test Run", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Runs all or selected tests using CLI by default; filter uses dotnet test --filter syntax. backend=test-explorer runs visibly in Visual Studio Test Explorer, requires projectName, and accepts id:<testId> or an exact fullyQualifiedName. Omitted filter selects all cases in the scope; ambiguous IDE source/framework selections are rejected. Inspect outcome; supported does not mean passed. Follow nextOffset with test_results_page and exact runId. Cancellation of a Test Explorer call requests cancellation of its owned IDE run; inspect the returned outcome.")]
+    [Description("Runs all or selected tests using CLI by default; filter uses dotnet test --filter syntax. backend=test-explorer runs visibly in Visual Studio Test Explorer, requires projectName, and accepts id:<testId> or an exact fullyQualifiedName. Omitted filter selects all cases in the scope; ambiguous IDE source/framework selections are rejected. Inspect outcome; supported does not mean passed. Follow nextOffset with test_results_page and exact runId. Cancellation of a Test Explorer call requests cancellation of its owned IDE run; inspect the returned outcome. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns runId/outcome/backend and any completed results/coverage.")]
     public Task<ToolResponse<TestOperationResult>> TestRun(
         [Description(TestProjectDescription)]
         string? projectName = null,
@@ -938,7 +938,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "test_results", Title = "Get Test Results", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns retained CLI/TRX or Test Explorer results through a routed Visual Studio session; backend selection is determined by the runId, not a backend argument. Supply runId to avoid accidentally reading a different run. Updated extensions preserve adapter testId, executionId, failure message and stack trace. This legacy call returns the retained collection; prefer test_results_page for bounded output. Test ID stability is adapter-dependent; executionId is specific to one execution.")]
+    [Description("Returns retained CLI/TRX or Test Explorer results through a routed Visual Studio session; backend selection is determined by the runId, not a backend argument. Supply runId to avoid accidentally reading a different run. Updated extensions preserve adapter testId, executionId, failure message and stack trace. This legacy call returns the retained collection; prefer test_results_page for bounded output. Test ID stability is adapter-dependent; executionId is specific to one execution. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns run metadata/results once, preserving runner exit code, pagination, failure messages, stack traces and truncation.")]
     public Task<ToolResponse<TestOperationResult>> TestResults(
         string? runId = null,
         string? sessionId = null,
@@ -956,7 +956,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "test_run_and_get_results", Title = "Test Run And Get Results", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Runs all or selected tests and returns results bound to the new runId. CLI is default and uses dotnet test filter expressions. backend=test-explorer requires projectName and uses id:<testId> or an exact fullyQualifiedName; runs appear in Test Explorer. Inspect outcome and follow nextOffset with test_results_page.")]
+    [Description("Runs all or selected tests and returns results bound to the new runId. CLI is default and uses dotnet test filter expressions. backend=test-explorer requires projectName and uses id:<testId> or an exact fullyQualifiedName; runs appear in Test Explorer. Inspect outcome and follow nextOffset with test_results_page. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns run metadata/results once, preserving runner exit code, pagination, failure messages, stack traces and truncation.")]
     public Task<ToolResponse<TestRunAndGetResultsResult>> TestRunAndGetResults(
         [Description(TestProjectDescription)]
         string? projectName = null,
@@ -1290,7 +1290,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "vs_get_logs", Title = "Get Broker Logs", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns recent broker log files with bounded tail text.")]
+    [Description("Returns recent broker log files with bounded tail text. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns log file entries directly without duplicated filename/directory fields; truncation remains explicit.")]
     public ToolResponse<BrokerLogResult> VsGetLogs(int maxFiles = 5, int maxCharsPerFile = 8000, string? minLevel = null)
     {
         if (maxFiles <= 0)

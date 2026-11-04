@@ -226,7 +226,7 @@ public sealed class LocalMcpHttpHostTests
             {
                 var schema = catalog.RootElement.GetProperty("result").GetProperty("tools").EnumerateArray()
                     .Single(tool => tool.GetProperty("name").GetString() == name).GetProperty("inputSchema");
-                Assert.False(schema.GetProperty("properties").GetProperty("compact").GetProperty("default").GetBoolean());
+                Assert.False(schema.GetProperty("properties").TryGetProperty("compact", out _));
                 if (schema.TryGetProperty("required", out var required))
                     Assert.DoesNotContain(required.EnumerateArray(), item => item.GetString() == "compact");
             }
@@ -793,8 +793,8 @@ public sealed class LocalMcpHttpHostTests
             Assert.False(string.IsNullOrWhiteSpace(text));
 
             using var toolResponse = JsonDocument.Parse(text);
-            Assert.True(toolResponse.RootElement.GetProperty("success").GetBoolean() == false);
-            Assert.True(toolResponse.RootElement.TryGetProperty("message", out _));
+            Assert.True(responseDocument.RootElement.GetProperty("result").GetProperty("isError").GetBoolean());
+            Assert.True(toolResponse.RootElement.TryGetProperty("error", out _));
             Assert.False(toolResponse.RootElement.TryGetProperty("value", out _));
             Assert.False(toolResponse.RootElement.TryGetProperty("metadata", out _));
         }
@@ -919,32 +919,27 @@ public sealed class LocalMcpHttpHostTests
 
             var toolResponse = await ReadMcpToolResponseAsync<string?>(toolCall);
             Assert.True(toolResponse.Success);
-            Assert.Equal(@"C:\Code\NetVsMcp\Program.cs", toolResponse.Value);
+            Assert.Equal("Program.cs", toolResponse.Value);
 
-            foreach (var mode in new[] { "omitted", "false", "true" })
+            var arguments = new Dictionary<string, object?>
+                { ["sessionId"] = "vs-e2e", ["expressions"] = new[] { "first", "second" } };
+            using var batch = await PostMcpAsync(http, new
             {
-                var compact = mode == "true";
-                var arguments = new Dictionary<string, object?>
-                    { ["sessionId"] = "vs-e2e", ["expressions"] = new[] { "first", "second" } };
-                if (mode != "omitted") arguments["compact"] = compact;
-                using var batch = await PostMcpAsync(http, new
-                {
-                    jsonrpc = "2.0", id = compact ? 4 : 3, method = "tools/call",
-                    @params = new { name = "debug_eval_many", arguments }
-                });
-                batch.EnsureSuccessStatusCode();
-                var response = await ReadMcpToolResponseAsync<JsonElement>(batch);
-                Assert.True(response.Success, response.Message);
-                Assert.Equal("dbgBreakMode", response.Value.GetProperty("state").GetProperty("mode").GetString());
-                var rows = response.Value.GetProperty("results");
-                Assert.Equal(2, rows.GetArrayLength());
-                Assert.All(rows.EnumerateArray(), row =>
-                {
-                    Assert.Equal(!compact, row.TryGetProperty("state", out var state));
-                    if (!compact) Assert.Equal("dbgBreakMode", state.GetProperty("mode").GetString());
-                });
-                Assert.Equal("selected-frame-3", rows[0].GetProperty("expression").GetProperty("value").GetString());
-            }
+                jsonrpc = "2.0", id = 3, method = "tools/call",
+                @params = new { name = "debug_eval_many", arguments }
+            });
+            batch.EnsureSuccessStatusCode();
+            var response = await ReadMcpToolResponseAsync<JsonElement>(batch);
+            Assert.True(response.Success, response.Message);
+            Assert.Equal("dbgBreakMode", response.Value.GetProperty("state").GetProperty("mode").GetString());
+            var rows = response.Value.GetProperty("results");
+            Assert.Equal(JsonValueKind.Object, rows.ValueKind);
+            Assert.Equal(2, rows.EnumerateObject().Count());
+            Assert.Equal("selected-frame-3", rows.GetProperty("first").GetString());
+            using var raw = JsonDocument.Parse((await ReadMcpToolContentTextAsync(batch))[0]);
+            Assert.False(raw.RootElement.TryGetProperty("success", out _));
+            Assert.False(raw.RootElement.TryGetProperty("value", out _));
+
         }
         finally
         {
@@ -1012,10 +1007,9 @@ public sealed class LocalMcpHttpHostTests
                 Assert.True(response.Success, response.Message);
                 var value = response.Value;
                 var expression = tool == "debug_get_locals"
-                    ? value.GetProperty("locals")[0]
+                    ? value.GetProperty("locals")
                     : value.GetProperty("expression");
-                Assert.Equal("currentLocal", expression.GetProperty("name").GetString());
-                Assert.Equal("selected-frame-3", expression.GetProperty("value").GetString());
+                Assert.Equal("selected-frame-3", expression.GetProperty("currentLocal").GetString());
             }
         }
         finally
@@ -1172,10 +1166,15 @@ public sealed class LocalMcpHttpHostTests
         var text = (await ReadMcpToolContentTextAsync(response))[0];
 
         Assert.False(string.IsNullOrWhiteSpace(text));
-        return JsonSerializer.Deserialize<ToolResponse<T>>(text, new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        })!;
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        using var document = JsonDocument.Parse(text);
+        var root = document.RootElement;
+        if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("success", out _))
+            return JsonSerializer.Deserialize<ToolResponse<T>>(text, options)!;
+        if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("error", out var error))
+            return new(false, default, error.GetString(), root.TryGetProperty("metadata", out var metadata)
+                ? metadata.Deserialize<Dictionary<string, string>>(options) : null);
+        return ToolResponse<T>.Ok(root.Deserialize<T>(options)!);
     }
 
     private static async Task<IReadOnlyList<string>> ReadMcpToolContentTextAsync(HttpResponseMessage response)

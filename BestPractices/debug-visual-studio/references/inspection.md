@@ -42,7 +42,7 @@ Use `debug_select_frame` only when you deliberately want to change the selected 
 debug_select_frame({ "frameIndex": 2, "sessionId": "..." })
 ```
 
-A valid frame can still lack an evaluation context, particularly in framework/native code. Check each returned expression's `isValidValue`, including entries in batches and snapshot watches. When the debugger returns no evaluation result, NetVsMcp preserves the requested expression name and returns `isValidValue: false` with an explanation in `value`. The enclosing inspection call can succeed while the expression is invalid. Read that thread's call stack and retry with an explicit user-code `stackFrame`; the broker does not silently evaluate in a different frame.
+A valid frame can still lack an evaluation context, particularly in framework/native code. Named expressions use debugger-formatted strings, object `$preview` summaries, or `{ "$error": "explanation" }` values. An invalid value does not imply the enclosing inspection failed. Duplicate/unnamed expression arrays retain explicit validity flags to avoid losing entries. Read that thread's call stack and retry with an explicit user-code `stackFrame`; the broker never silently evaluates in another frame.
 
 Before evaluating variables manually, check whether stepping or moving the breakpoint can expose their live runtime values. If expected locals are missing, execution may be paused before their declaration or initialization.
 

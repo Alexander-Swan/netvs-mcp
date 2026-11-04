@@ -45,7 +45,8 @@ internal sealed partial class DebuggerCapabilityService
                 return new(ReadRunToState(debugger), "alreadyAtLocation", owner, group, file, request.Line, request.Column,
                     current.Value.File, current.Value.Line, current.Value.Column, new(0, 0, 0, Array.Empty<string>(), true),
                     "The debugger is already at the requested source location; no execution command was sent.",
-                    request.ExpectedProcessId, request.ExpectedGeneration, request.ExpectedStopId, BreakpointMode: "none");
+                    request.ExpectedProcessId, request.ExpectedGeneration, request.ExpectedStopId, BreakpointMode: "none",
+                    ThreadId: ReadRunToThreadId(debugger));
             }
         }
         catch (COMException) { /* Current source is optional; a fresh owned hit can still verify the target. */ }
@@ -182,10 +183,17 @@ internal sealed partial class DebuggerCapabilityService
         return new(ReadRunToState(debugger),
             outcome, owner, group, file, request.Line, request.Column, hitFile, hitLine, hitColumn, cleanup, message,
             request.ExpectedProcessId, request.ExpectedGeneration, request.ExpectedStopId,
-            BreakpointMode: borrowed is null ? "temporaryOwned" : "existingCallerBreakpoint");
+            BreakpointMode: borrowed is null ? "temporaryOwned" : "existingCallerBreakpoint",
+            ThreadId: ReadRunToThreadId(debugger));
     }
 
     private static string RemoveWhitespace(string value) => new(value.Where(c => !char.IsWhiteSpace(c)).ToArray());
+    private static int? ReadRunToThreadId(Debugger debugger)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        try { return debugger.CurrentMode == dbgDebugMode.dbgBreakMode ? debugger.CurrentThread?.ID : null; }
+        catch (Exception ex) when (ex is COMException or NotSupportedException or NotImplementedException) { return null; }
+    }
     private static bool MatchesRunToLocation(string? hitFile, int hitLine, int hitColumn, string file, DebugRunToRequest request) =>
         !string.IsNullOrWhiteSpace(hitFile) && string.Equals(Path.GetFullPath(hitFile), file, StringComparison.OrdinalIgnoreCase) &&
         hitLine == request.Line && (request.Column == 1 || hitColumn == request.Column);

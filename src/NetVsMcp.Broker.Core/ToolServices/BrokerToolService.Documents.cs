@@ -12,7 +12,7 @@ internal sealed partial class BrokerToolService
 {
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "document_active", Title = "Document Active", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns the active document for a routed Visual Studio session.")]
+    [Description("Returns the active document for a routed Visual Studio session. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns the active/opened document path directly.")]
     public async Task<ToolResponse<string?>> DocumentActive(
         string? sessionId = null,
         string? solutionName = null,
@@ -30,7 +30,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "code_document_symbols", Title = "Code Document Symbols", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists document symbols for a document in a routed Visual Studio session.")]
+    [Description("Lists document symbols for a document in a routed Visual Studio session. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns qualified name/kind/location entries, preserving truncation/pagination when applicable.")]
     public async Task<ToolResponse<IReadOnlyCollection<string>>> CodeDocumentSymbols(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
@@ -60,7 +60,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "code_go_to_definition", Title = "Code Go To Definition", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Finds and navigates to a symbol definition through a routed Visual Studio session.")]
+    [Description("Finds and navigates to a symbol definition through a routed Visual Studio session. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns symbol and locations. Identical nested symbols are inherited; related symbols and navigation outcomes remain explicit.")]
     public Task<ToolResponse<GoToDefinitionResult>> CodeGoToDefinition(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
@@ -95,7 +95,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "code_find_references", Title = "Code Find References", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Finds symbol references through a routed Visual Studio session.")]
+    [Description("Finds symbol references through a routed Visual Studio session. Returns symbol and references directly, without a success/value envelope. Symbol names include their containing type/namespace; locations use solution-relative file:line:column (external files remain absolute). References inherit the top-level symbol unless a different related symbol is returned. isImplicit is present only when true. Failures use the MCP error response. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns the requested data directly. Pagination, truncation, unavailable evidence and distinct identities remain explicit.")]
     public Task<ToolResponse<FindReferencesResult>> CodeFindReferences(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
@@ -130,7 +130,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "symbol_context", Title = "Symbol Context", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns document text, nearby snippet, definition, and references for a code position.")]
+    [Description("Returns document text, nearby snippet, definition, and references for a code position. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns symbol/definitions/references/snippet without the repeated full source document.")]
     public Task<ToolResponse<SymbolContextResult>> SymbolContext(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
@@ -168,7 +168,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "document_outline", Title = "Document Outline", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns document symbol outline information.")]
+    [Description("Returns document symbol outline information. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns formatted outline labels directly as an array.")]
     public async Task<ToolResponse<DocumentOutlineResult>> DocumentOutline(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
@@ -202,7 +202,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "find_implementations", Title = "Find Implementations", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns best-effort implementation lookup status for a code position.")]
+    [Description("Returns best-effort implementation lookup status for a code position. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns symbol and locations. Identical nested symbols are inherited; related symbols and navigation outcomes remain explicit.")]
     public Task<ToolResponse<FindImplementationsResult>> FindImplementations(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
@@ -315,7 +315,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "call_hierarchy_get", Title = "Call Hierarchy Get", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns the call hierarchy (incoming callers and/or outgoing callees) for the symbol at a code position through a routed Visual Studio session.")]
+    [Description("Returns the call hierarchy (incoming callers and/or outgoing callees) for the symbol at a code position through a routed Visual Studio session. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns incoming/outgoing trees with qualified symbols and call-site locations; recursion/truncation evidence is preserved.")]
     public Task<ToolResponse<CallHierarchyResult>> CallHierarchyGet(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
@@ -447,7 +447,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "document_read", Title = "Document Read", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Reads a document through a routed Visual Studio session, including unsaved buffers. Pass path, not documentPath. Optional startLine (1-based) and lineCount select a range; omit them to read the full document. Returns startLine, returned lineCount, totalLines, truncated, and a textVersion identifying the ENTIRE original document, including line endings. Pass that version to document_diagnostics for consistent pages. An empty document has one line; a trailing newline starts an empty final line. A startLine beyond EOF returns empty text and lineCount=0.")]
+    [Description("Reads a document through a routed Visual Studio session, including unsaved buffers. Pass path, not documentPath. Optional startLine (1-based) and lineCount select a range; omit them to read the full document. Returns startLine, returned lineCount, totalLines and truncated when applicable. Use document_diagnostics for version-sensitive diagnostic pages. An empty document has one line; a trailing newline starts an empty final line. A startLine beyond EOF returns empty text and lineCount=0. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns path/text/source and range/truncation fields directly. Simple reads omit duplicate document metadata, usedLiveBuffer and textVersion.")]
     public Task<ToolResponse<DocumentReadResult>> DocumentRead(
         [Description(PathParameterDescription)]
         string? path = null,
@@ -479,7 +479,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "document_open", Title = "Document Open", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Opens a document through a routed Visual Studio session. Pass path, not documentPath.")]
+    [Description("Opens a document through a routed Visual Studio session. Pass path, not documentPath. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns the active/opened document path directly.")]
     public async Task<ToolResponse<EditorDocumentInfo>> DocumentOpen(
         [Description(PathParameterDescription)]
         string? path = null,
@@ -525,7 +525,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "open_relevant_files", Title = "Open Relevant Files", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Opens a set of relevant files in the routed Visual Studio session.")]
+    [Description("Opens a set of relevant files in the routed Visual Studio session. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns document entries directly, retaining active-document information when supplied.")]
     public Task<ToolResponse<OpenRelevantFilesResult>> OpenRelevantFiles(
         [Description(DocumentPathsParameterDescription)]
         string[]? paths = null,
@@ -568,7 +568,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "errors_list", Title = "Errors List", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists errors and warnings from a routed Visual Studio session.")]
+    [Description("Lists errors and warnings from a routed Visual Studio session. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Diagnostics are grouped as errors/warnings/messages, each with position=file:line:column and description. Empty groups are omitted; version/range/pagination evidence remains. Build composites also return buildId/outcome.")]
     public async Task<ToolResponse<ErrorListResult>> ErrorsList(
         bool includeWarnings = true,
         int maxItems = 100,
@@ -599,7 +599,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "diagnostics_for_document", Title = "Diagnostics For Document", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Filters routed diagnostics to one document path.")]
+    [Description("Filters routed diagnostics to one document path. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Diagnostics are grouped as errors/warnings/messages, each with position=file:line:column and description. Empty groups are omitted; version/range/pagination evidence remains. Build composites also return buildId/outcome.")]
     public Task<ToolResponse<DiagnosticsForDocumentResult>> DiagnosticsForDocument(
         [Description(DocumentPathParameterDescription)]
         string? documentPath = null,
@@ -716,7 +716,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "diagnostics_binding_errors", Title = "Diagnostics Binding Errors", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns binding diagnostics when a VSIX diagnostics backend is available.")]
+    [Description("Returns binding diagnostics when a VSIX diagnostics backend is available. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Diagnostics are grouped as errors/warnings/messages, each with position=file:line:column and description. Empty groups are omitted; version/range/pagination evidence remains. Build composites also return buildId/outcome.")]
     public Task<ToolResponse<AutomationResult>> DiagnosticsBindingErrors(string? target = null, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         if (timeoutMilliseconds <= 0)
@@ -734,7 +734,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "document_list", Title = "Document List", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists open documents in a routed Visual Studio session.")]
+    [Description("Lists open documents in a routed Visual Studio session. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns document entries directly, retaining active-document information when supplied.")]
     public Task<ToolResponse<DocumentListResult>> DocumentList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(
             sessionId,
@@ -744,7 +744,7 @@ internal sealed partial class BrokerToolService
             cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "document_close", Title = "Document Close", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Closes an open document with save, discard, or no-save policy.")]
+    [Description("Closes an open document with save, discard, or no-save policy. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns true on success; failures use MCP isError with an error message.")]
     public Task<ToolResponse<DocumentCloseResult>> DocumentClose(
         [Description(DocumentPathParameterDescription)]
         string path = "",
@@ -771,7 +771,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "editor_find", Title = "Editor Find", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Finds text in one editor document.")]
+    [Description("Finds text in one editor document. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns position/text matches with match/context information and truncation evidence.")]
     public Task<ToolResponse<TextSearchResult>> EditorFind(
         string query,
         [Description(OptionalDocumentPathParameterDescription)]
@@ -816,7 +816,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "find_in_files", Title = "Find In Files", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Runs Visual Studio Find in Files for a solution or root path.")]
+    [Description("Runs Visual Studio Find in Files for a solution or root path. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns position/text matches with match/context information and truncation evidence.")]
     public Task<ToolResponse<TextSearchResult>> FindInFiles(
         string query,
         [Description("Optional search root relative to the solution or an absolute path. Prefer forward slashes, for example src/Project; if using Windows backslashes in JSON, escape them as double backslashes.")]
@@ -864,7 +864,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "code_go_to_implementation", Title = "Code Go To Implementation", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Finds implementation locations for a symbol at a code position.")]
+    [Description("Finds implementation locations for a symbol at a code position. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns symbol and locations. Identical nested symbols are inherited; related symbols and navigation outcomes remain explicit.")]
     public Task<ToolResponse<FindImplementationsResult>> CodeGoToImplementation(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
@@ -895,7 +895,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "code_workspace_symbols", Title = "Code Workspace Symbols", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Searches symbols in the live Visual Studio workspace.")]
+    [Description("Searches symbols in the live Visual Studio workspace. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns qualified name/kind/location entries, preserving truncation/pagination when applicable.")]
     public Task<ToolResponse<CodeWorkspaceSymbolsResult>> CodeWorkspaceSymbols(string query, int maxResults = 50, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query))
