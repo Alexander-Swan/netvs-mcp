@@ -8,9 +8,13 @@ internal sealed partial class BrokerToolService
 {
     [BrokerToolMetadata(BrokerToolCategory.Broker, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "vs_events", Title = "Read or Wait for Session Events", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Reads buffered observations pushed by the selected Visual Studio instance. Omit epoch/afterSequence to obtain a watermark before issuing a command. Then pass that epoch and watermark as afterSequence to receive subsequent events, including fast stops that occurred before this call. timeoutSeconds=0 reads immediately; positive values wait. Advance a paged cursor using the last returned event sequence, not watermark until all pages are read. requiresReconciliation means events were lost or the publisher restarted: call debug_snapshot(include: []) for current debugger state plus state.eventCursor; never replay a mutation. Unsupported older VSIX versions fail explicitly. Events are internal VS-to-broker observations; clients do not need MCP notification support. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Events inherit matching sessionId/epoch from the enclosing batch. requiresReconciliation appears when true; differing identities remain explicit.")]
-    public async Task<ToolResponse<VsEventBatch>> VsEvents(string? epoch = null, long? afterSequence = null,
-        int timeoutSeconds = 0, int maxItems = 100, string? sessionId = null,
+    [Description("Reads or waits for buffered Visual Studio session events, including stops that occurred before the call. On requiresReconciliation, use debug_snapshot with include: [] to refresh state and its event cursor without replaying the mutation. Older VSIX versions without events fail explicitly. Compact output.")]
+    public async Task<ToolResponse<VsEventBatch>> VsEvents(
+        [Description("Epoch from the same event cursor as afterSequence. A changed epoch requires reconciliation.")] string? epoch = null,
+        [Description("Read events after this nonnegative sequence. Start at the cursor's watermark and advance pages using the last returned event's sequence. Omit to get the current cursor.")] long? afterSequence = null,
+        [Description("Seconds to wait for events when afterSequence is supplied, 0 to 60. Zero reads immediately.")] int timeoutSeconds = 0,
+        [Description("Maximum events per page, 1 to 1000. Defaults to 100.")] int maxItems = 100,
+        string? sessionId = null,
         string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         var target = CreateTarget(sessionId, solutionName, solutionPath);

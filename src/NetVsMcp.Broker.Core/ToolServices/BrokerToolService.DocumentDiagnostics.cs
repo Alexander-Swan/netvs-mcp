@@ -8,10 +8,15 @@ internal sealed partial class BrokerToolService
 {
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "document_diagnostics", Title = "Read Versioned Compiler Diagnostics", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Computes compiler diagnostics from an immutable Roslyn document, including unsaved text. Returns its textVersion (same format as document_read), project/language identity, source=roslynCompiler, current-state check, and pages up to 200 items. This excludes analyzer and build Error List diagnostics. Pass expectedTextVersion from document_read or the first page to reject different text; linked files require unambiguous projectName/project path. A changed workspace returns stale_document with the observed version and requires a fresh query. Requires an updated extension. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Diagnostics are grouped as errors/warnings/messages, each with position=file:line:column and description. Empty groups are omitted; version/range/pagination evidence remains. Build composites also return buildId/outcome.")]
-    public async Task<ToolResponse<DocumentDiagnosticsResult>> DocumentDiagnostics(string path,
-        string? expectedTextVersion = null, string? projectName = null, bool includeWarnings = true,
-        int offset = 0, int maxItems = 100, string? sessionId = null, string? solutionName = null,
+    [Description("Computes compiler diagnostics for an immutable Roslyn document, including unsaved text. Excludes analyzers and build Error List entries. Returns severity groups and version/paging evidence. On stale_document, start a fresh diagnostics query. Requires an updated VSIX. Compact output.")]
+    public async Task<ToolResponse<DocumentDiagnosticsResult>> DocumentDiagnostics(
+        [Description("Path to the document to analyze.")] string path,
+        [Description("Pass the first diagnostics page's textVersion on subsequent pages to reject changed text.")] string? expectedTextVersion = null,
+        [Description("Project name or path to disambiguate a linked document.")] string? projectName = null,
+        [Description("Include warnings. Defaults to true.")] bool includeWarnings = true,
+        [Description("Zero-based offset. Use nextOffset from the preceding page.")] int offset = 0,
+        [Description("Maximum diagnostics per page, 1 to 200. Defaults to 100.")] int maxItems = 100,
+        string? sessionId = null, string? solutionName = null,
         string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(path) || offset < 0 || maxItems is < 1 or > 200)
@@ -29,7 +34,7 @@ internal sealed partial class BrokerToolService
             return response with { Success = false, Message = value.Message, Metadata = new Dictionary<string, string>
             {
                 ["error_code"] = ToolErrorCodes.StaleDocument, ["textVersion"] = value.TextVersion,
-                ["nextActions"] = "Read the current live document and request fresh diagnostics. Use that textVersion on subsequent pages; do not mutate based on stale diagnostics."
+                ["nextActions"] = "Request a fresh first diagnostics page. Pass its textVersion as expectedTextVersion on subsequent pages. Avoid mutations based on stale diagnostics."
             } };
         return response;
     }

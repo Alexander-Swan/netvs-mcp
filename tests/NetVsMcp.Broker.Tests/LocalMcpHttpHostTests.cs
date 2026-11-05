@@ -474,6 +474,11 @@ public sealed class LocalMcpHttpHostTests
             using var initialize = await InitializeMcpAsync(http, "/mcp", 1);
             initialize.EnsureSuccessStatusCode();
 
+            var initializeBody = await initialize.Content.ReadAsStringAsync();
+            using var initialized = JsonDocument.Parse(initializeBody[initializeBody.IndexOf('{')..]);
+            var instructions = initialized.RootElement.GetProperty("result").GetProperty("instructions").GetString();
+            Assert.Contains("Tools marked Compact output", instructions);
+
             using var listTools = await PostMcpAsync(http, "/mcp", new
             {
                 jsonrpc = "2.0",
@@ -539,6 +544,11 @@ public sealed class LocalMcpHttpHostTests
                 .GetProperty("properties")
                 .GetProperty("expression");
             Assert.Contains("does not accept a watch id", expression.GetProperty("description").GetString());
+
+            var snapshot = tools.EnumerateArray().Single(tool => tool.GetProperty("name").GetString() == "debug_snapshot");
+            var annotations = snapshot.GetProperty("annotations");
+            Assert.False(annotations.GetProperty("readOnlyHint").GetBoolean());
+            Assert.False(annotations.GetProperty("idempotentHint").GetBoolean());
 
             Assert.Contains(tools.EnumerateArray(), tool => tool.GetProperty("name").GetString() == "module_list");
 

@@ -4,29 +4,16 @@ Use `web_connect` to connect to a Chromium CDP endpoint, such as a browser launc
 
 ```json
 web_connect({ "target": "9222", "url": "https://localhost:5001/", "sessionId": "..." })
-web_status({ "sessionId": "..." })
-web_navigate({ "url": "https://localhost:5001/about", "sessionId": "..." })
-web_screenshot({ "sessionId": "..." })
-web_dom_get({ "sessionId": "..." })
 web_dom_query({ "selector": "#submit-button", "sessionId": "..." })
-web_console({ "sessionId": "..." })
-web_js_execute({ "text": "document.title", "sessionId": "..." })
-web_blazor_inspect({ "sessionId": "..." })
-web_blazor_wait_ready({ "sessionId": "...", "timeoutMilliseconds": 10000 })
-web_blazor_get_components({ "sessionId": "..." })
-web_blazor_get_state({ "selector": "#blazorFixtureRoot", "sessionId": "..." })
-web_blazor_trigger_event({ "selector": "#blazorEchoButton", "eventName": "click", "sessionId": "..." })
-web_blazor_inspect_circuit({ "sessionId": "..." })
-web_blazor_inspect_wasm({ "sessionId": "..." })
-web_network({ "sessionId": "..." })
 web_element_click({ "selector": "#submit-button", "sessionId": "..." })
-web_element_set_value({ "selector": "#username", "text": "alice", "sessionId": "..." })
 web_disconnect({ "sessionId": "..." })
 ```
 
 After connecting, check `Metadata.backend`, not just success. `backend: "cdp"` means real browser automation. `browser-shell-uia` and `http-fetch` are lower-fidelity fallbacks.
 
 `web_dom_get` and `web_dom_query` operate on the most recent connected/navigated URL; they do not accept a URL parameter.
+
+Specialized Blazor operations: `web_blazor_inspect`, `web_blazor_wait_ready`, `web_blazor_get_components`, `web_blazor_get_state`, `web_blazor_trigger_event`, `web_blazor_inspect_circuit`, and `web_blazor_inspect_wasm`.
 
 `web_blazor_*` tools report observable browser-side Blazor state. They can detect readiness, component markers, DOM-visible state, Server circuit indicators, and WebAssembly runtime resources, but they do not expose private .NET component fields.
 

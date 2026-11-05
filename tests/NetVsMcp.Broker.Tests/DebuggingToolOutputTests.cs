@@ -226,8 +226,7 @@ public sealed class DebuggingToolOutputTests
             var tool = method.GetCustomAttribute<McpServerToolAttribute>();
             if (tool is null || !DebuggingToolOutput.Handles(tool.Name)) continue;
             var description = method.GetCustomAttribute<DescriptionAttribute>()!.Description;
-            Assert.Contains("Output:", description);
-            Assert.Contains("isError", description);
+            Assert.Contains("Compact output.", description);
             Assert.DoesNotContain(method.GetParameters(), p => p.Name == "compact");
         }
     }

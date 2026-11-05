@@ -1,11 +1,6 @@
 ﻿# Build Visual Studio With NetVsMcp
 
-Agent-neutral entrypoint for build, rebuild, clean, build status, diagnostics, output panes, Task List, package restore, dependencies, and NuGet operations through NetVsMcp.
-
-## How To Read This Guide
-
-- For tool use, read this entrypoint before calling a matching build/package tool, then only the relevant reference files.
-- For learning or local skill creation, read references deliberately and keep generated skills as routers with references.
+Read this entrypoint, then only relevant references. User and project instructions override these defaults.
 
 ## First Rules
 
@@ -17,12 +12,14 @@ Agent-neutral entrypoint for build, rebuild, clean, build status, diagnostics, o
 
 ## Reference Files
 
+Pass reference paths as `file` to `netvs_get_best_practices` with this guide's name (or the guide named in the row).
+
 | Task | Read |
 | --- | --- |
-| Build, rebuild, clean, cancel, status, or configuration | `build-visual-studio/references/building.md` |
-| Read errors or output panes | `build-visual-studio/references/errors-output.md` |
-| Inspect or mutate Visual Studio Task List items | `build-visual-studio/references/task-list.md` |
-| Restore packages, inspect dependencies, or manage NuGet packages | `build-visual-studio/references/packages.md` |
+| Build, rebuild, clean, cancel, status, or configuration | `references/building.md` |
+| Read errors or output panes | `references/errors-output.md` |
+| Inspect or mutate Visual Studio Task List items | `references/task-list.md` |
+| Restore packages, inspect dependencies, or manage NuGet packages | `references/packages.md` |
 
 ## Covered Tools
 

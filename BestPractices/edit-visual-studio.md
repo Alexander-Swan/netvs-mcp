@@ -1,11 +1,6 @@
 ﻿# Edit Visual Studio With NetVsMcp
 
-Agent-neutral entrypoint for opening, reading, editing, formatting, selecting, saving, and previewing document changes through NetVsMcp.
-
-## How To Read This Guide
-
-- For tool use, read this entrypoint before calling a matching edit/document tool, then only the reference files needed for the operation.
-- For learning or local skill creation, read references deliberately. Do not embed this whole guide in generated skills; route to references there too.
+Read this entrypoint, then only relevant references. User and project instructions override these defaults.
 
 ## First Rules
 
@@ -17,14 +12,16 @@ Agent-neutral entrypoint for opening, reading, editing, formatting, selecting, s
 
 ## Reference Files
 
+Pass reference paths as `file` to `netvs_get_best_practices` with this guide's name (or the guide named in the row).
+
 | Task | Read |
 | --- | --- |
-| Open, read, list, close, or understand path conventions | `edit-visual-studio/references/documents.md` |
-| Insert, replace, write, or save immediately | `edit-visual-studio/references/direct-edits.md` |
-| Get or set editor selection | `edit-visual-studio/references/selection.md` |
-| Format, cleanup, or organize imports | `edit-visual-studio/references/formatting.md` |
-| Preview, approve, reject, or build-verify pending edits | `edit-visual-studio/references/safe-edit.md` |
-| Search text through the editor or Visual Studio Find in Files | `edit-visual-studio/references/search.md` |
+| Open, read, list, close, or understand path conventions | `references/documents.md` |
+| Insert, replace, write, or save immediately | `references/direct-edits.md` |
+| Get or set editor selection | `references/selection.md` |
+| Format, cleanup, or organize imports | `references/formatting.md` |
+| Preview, approve, reject, or build-verify pending edits | `references/safe-edit.md` |
+| Search text through the editor or Visual Studio Find in Files | `references/search.md` |
 | Read compiler diagnostics tied to the live document version | Guide `navigate-visual-studio`, file `references/search-diagnostics.md` |
 
 ## Covered Tools

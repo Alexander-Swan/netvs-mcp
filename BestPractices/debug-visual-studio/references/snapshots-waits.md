@@ -8,19 +8,17 @@ debug_snapshot({ "action": "stepOver", "include": ["watch"], "watchExpressions":
 debug_snapshot({ "include": ["locals"], "sessionId": "..." })
 ```
 
-`action` may be `stepInto`, `stepOver`, `stepOut`, `continue`, or `break`. Omit it for read-only inspection. Omit `include` to default to call stack only; pass `[]` to fetch no optional categories. Supported include values are `callStack`, `locals`, `breakpoints`, `watch`, `threads`, `parallelStacks`, `parallelWatch`, and `modules`. Modules are opt-in; use `moduleOptions` to filter the process or module name and optionally request symbol-search diagnostics. See `modules-symbols.md`.
+## Shared Defaults
 
-Call-stack responses include up to two frames by default. Pass `maxFrames` when deeper callers are needed. When `callStack.hasMore` is `true`, additional callers were omitted to keep the snapshot small.
+- Omit `action` for read-only inspection; otherwise choose `stepInto`, `stepOver`, `stepOut`, `continue`, or `break` (`debug_snapshot` only).
+- Omit `include` for call stack only; `[]` requests state only. Sections are `callStack`, `locals`, `breakpoints`, `watch`, `threads`, `parallelStacks`, `parallelWatch`, and `modules`. Locals/modules are opt-in; prefer `watch` with `watchExpressions` for targeted values.
+- Call stacks default to two frames. Use `maxFrames` for deeper callers; `callStack.hasMore` reports omitted frames.
+- Optional `threadId` targets stack, locals, and watches; `stackFrame` targets locals/watches. Other sections retain their scope. See [inspection](inspection.md) for targeting and [context](inspection-context.md) for `includeContext` and pause guards. Inspection preserves selection; an explicit action still advances execution.
+- `moduleOptions` (`processId`, `name`, `includeSymbolLoadInformation`) applies only when modules are included, independently of thread/frame. See [modules and symbols](modules-symbols.md) for interpretation and support limits.
 
-For event observation, call `debug_snapshot` with `include: []`. On updated extensions, `state.eventCursor` contains epoch and watermark (session ID inherits from state) captured coherently with that state. Pass its epoch and watermark to `vs_events` to read subsequent events. If replay reports a gap or changed epoch, obtain a new snapshot and resume from its cursor; never repeat an execution action to reconcile events. `debug_status` uses the same coherent capture, and debugger waits consume session events. Legacy extensions and modal or stale observations omit the cursor; do not infer one from a separate event read.
-
-The event call's argument is `afterSequence`: pass the cursor's `watermark` there. Follow [session events](../../manage-visual-studio/references/events-control.md) for paging and timeout rules. Frame-readiness retries and independent modal-window detection can still use bounded probes; an event indicating break mode does not guarantee usable frames.
-
-Locals are opt-in and can be large. Snapshot responses will not contain locals unless you pass `include: ["locals"]`. Prefer `include: ["watch"]` with `watchExpressions` for targeted values.
+For event observation, request `include: []`. Updated extensions return a coherent `state.eventCursor`; pass its `epoch` and `watermark` (as `afterSequence`) to `vs_events`. On a gap or changed epoch, obtain a new read-only snapshot; never replay execution. `debug_status` also captures a coherent cursor. Legacy, modal, or stale observations omit it; do not infer one from a separate event read. See [session events](../../manage-visual-studio/references/events-control.md) for paging/timeouts. Break events do not guarantee frame readiness; bounded read-only probes may still be needed.
 
 MCP responses use reduced JSON by default, without a `compact` argument or `success`/`value` envelope. Identical child states inherit the nearest enclosing state; different observations remain explicit. Source locations use solution-relative `file:line:column`; external paths stay absolute. Locals and watches use expression-keyed objects, with debugger strings, `$preview` for object summaries and `$error` for invalid values. Duplicate/unnamed expressions retain arrays. Matching event-cursor session IDs inherit from state. Pause guards, diagnostic evidence and pagination remain available. Request `includeContext` only when process/thread/frame identity is needed.
-
-Both snapshot tools accept optional `threadId` and `stackFrame`. With `threadId`, call stack, locals, and watches use that thread; `stackFrame` selects the frame for locals and watches and defaults to 1 on an explicit thread. Omit both to use the current selection. Other sections retain their usual scope. Inspection leaves thread/frame selection unchanged; an explicit `action` still advances execution. See `inspection.md` for discovery, version requirements, and invalid evaluation results.
 
 While paused, `state.breakReason` reports `breakpoint`, `stepCompleted`, `exception`, `manualPause`, `unknown`, or `other`. It is null outside break mode or when an older extension does not supply it.
 
@@ -31,7 +29,7 @@ debug_continue({ "sessionId": "..." })
 debug_wait_for_break({ "timeoutSeconds": 30, "include": ["callStack"], "sessionId": "..." })
 ```
 
-If it times out, the call succeeds with `timedOut: true`; call again when a longer wait is reasonable.
+If it times out, the call succeeds with `timedOut: true`; wait again when reasonable. A wait does not start, resume, or cancel execution. For `dbgModalBlock`, respond using returned dialog/button IDs within existing authorization, then check `debug_status` with any `operationId`; never replay the action.
 
 Break mode can precede usable thread/frame objects during attachment or an engine transition. Updated extensions report `inspection_unavailable` for missing frame objects instead of a null-reference failure. `debug_wait_for_break` retries only read-only inspection within its original deadline. At the deadline, it preserves current state and returns `timedOut: true`, null inspection sections, and an explicit `inspectionStatus`/`inspectionMessage`. This does not prove the target is running or that frames will become available for this engine. Use `include: []` for state-only observation. Never repeat Continue, Step, launch, or attach merely to obtain a frame.
 
@@ -47,4 +45,4 @@ debug_wait_for_break({ "include": ["callStack", "modules"], "moduleOptions": { "
 
 The module query runs once after the debugger reaches break mode, not on each status poll. Inspect `state.mode`, `state.breakReason`, and `timedOut` first. A timeout while running, an ended session, or a modal dialog returns no module section. A tracepoint that continues execution will not by itself produce a paused module snapshot. Set a stopping breakpoint when a paused inspection is needed.
 
-`debug_snapshot` supports the same opt-in section and `moduleOptions` (`processId`, `name`, `includeSymbolLoadInformation`). These options only apply when `modules` is included. Module scope is independent of `threadId` and `stackFrame`. Missing support in an older extension yields `modules.supported: false` with update guidance, preserving other requested sections. Unsupported Concord engines also return `supported: false`; do not interpret that as missing binaries or symbols. Use `module_list` for a separate follow-up query.
+Missing module support in an older extension or unsupported Concord engine returns `modules.supported: false`, preserving other sections; this does not mean binaries or symbols are missing. Use `module_list` for a separate query.

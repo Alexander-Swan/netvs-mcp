@@ -1,11 +1,6 @@
 ﻿# Navigate Visual Studio With NetVsMcp
 
-Agent-neutral entrypoint for definitions, references, symbols, diagnostics, code actions, renames, call hierarchy, workspace search, and relevant file opening through NetVsMcp.
-
-## How To Read This Guide
-
-- For tool use, read this entrypoint before calling a matching tool, then only the reference files needed for the operation.
-- For learning or skill creation, read the entrypoints and relevant references deliberately. Do not load every reference by default.
+Read this entrypoint, then only relevant references. User and project instructions override these defaults.
 
 ## First Rules
 
@@ -17,13 +12,15 @@ Agent-neutral entrypoint for definitions, references, symbols, diagnostics, code
 
 ## Reference Files
 
+Pass reference paths as `file` to `netvs_get_best_practices` with this guide's name (or the guide named in the row).
+
 | Task | Read |
 | --- | --- |
-| Path, document, line, and column conventions | `navigate-visual-studio/references/path-position.md` |
-| Definition, references, implementation, or symbol context | `navigate-visual-studio/references/symbol-position.md` |
-| Document symbols, outline, or workspace symbols | `navigate-visual-studio/references/symbol-lists.md` |
-| Rename, call hierarchy, code fixes, or refactorings | `navigate-visual-studio/references/code-intelligence.md` |
-| Diagnostics, binding errors, text search, git context, or opening relevant files | `navigate-visual-studio/references/search-diagnostics.md` |
+| Path, document, line, and column conventions | `references/path-position.md` |
+| Definition, references, implementation, or symbol context | `references/symbol-position.md` |
+| Document symbols, outline, or workspace symbols | `references/symbol-lists.md` |
+| Rename, call hierarchy, code fixes, or refactorings | `references/code-intelligence.md` |
+| Diagnostics, binding errors, text search, git context, or opening relevant files | `references/search-diagnostics.md` |
 
 ## Covered Tools
 

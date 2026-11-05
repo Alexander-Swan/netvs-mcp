@@ -172,6 +172,14 @@ internal sealed class LocalMcpHttpHost : IAsyncDisposable
             }
         }
 
+        if (toolCollection.Any(tool => DebuggingToolOutput.Handles(tool.ProtocolTool.Name)))
+        {
+            options.ServerInstructions =
+                "Tools marked Compact output return reduced JSON without success/value wrappers. " +
+                "Source paths are solution-relative when possible and locations use file:line:column. " +
+                "Call failures set isError and retain an error message and any recovery metadata.";
+        }
+
         return Task.CompletedTask;
     }
 

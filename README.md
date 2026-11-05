@@ -1,4 +1,4 @@
-# NetVsMcp
+﻿# NetVsMcp
 
 NetVsMcp connects MCP clients to live Visual Studio sessions on your Windows machine. It provides editor buffers, Roslyn navigation, build diagnostics, test execution, and debugger control through a local broker.
 
@@ -72,7 +72,7 @@ Document/editor tools use `path`; navigation, diagnostics, and breakpoint tools 
 
 ## Best-practices guides
 
-The broker exposes focused guides through `netvs_get_best_practices` and resources such as `guide://netvsmcp/manage-visual-studio.md`. List the guides, read the relevant entrypoint, then read only the references needed for the task. User and project instructions can refine these defaults.
+The broker exposes focused guides through `netvs_get_best_practices` and resources such as `guide://netvsmcp/manage-visual-studio.md`. List the guides, read the relevant entrypoint, then read only the references needed for the task. User and project instructions can refine these defaults. For learning or skill creation, read references deliberately and keep generated skills as small routers with focused references.
 
 - [Session routing, projects, and tests](BestPractices/manage-visual-studio.md)
 - [Code navigation and diagnostics](BestPractices/navigate-visual-studio.md)

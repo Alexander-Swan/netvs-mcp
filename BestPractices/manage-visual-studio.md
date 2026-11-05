@@ -1,12 +1,6 @@
 ﻿# Manage Visual Studio With NetVsMcp
 
-Agent-neutral entrypoint for session routing, launching Visual Studio, windows, solutions, projects, references, and tests through NetVsMcp.
-
-## How To Read This Guide
-
-- For tool use, read this entrypoint before calling a matching tool, then read only the reference files needed for the current operation.
-- For learning NetVsMcp or creating local agent skills, read entrypoints broadly and then relevant references deliberately.
-- Do not load every reference file by default. These guides are product knowledge exposed by NetVsMcp, not Codex-specific policy.
+Read this entrypoint, then only relevant references. User and project instructions override these defaults.
 
 ## First Rules
 
@@ -19,17 +13,17 @@ Agent-neutral entrypoint for session routing, launching Visual Studio, windows, 
 
 ## Reference Files
 
-Read only the rows that match the task.
+Pass reference paths as `file` to `netvs_get_best_practices` with this guide's name (or the guide named in the row).
 
 | Task | Read |
 | --- | --- |
-| Resolve sessions, inspect broker health, or fetch logs | `manage-visual-studio/references/routing.md` |
-| Launch Visual Studio when no session exists | `manage-visual-studio/references/launching.md` |
-| Get a broad IDE snapshot before deciding what to do | `manage-visual-studio/references/context-snapshot.md` |
-| Observe session events or pause new automation mutations | `manage-visual-studio/references/events-control.md` |
-| Activate windows, show tool windows, or run DTE commands | `manage-visual-studio/references/windows-commands.md` |
-| Open/close/inspect solutions, projects, startup projects, files, or references | `manage-visual-studio/references/solutions-projects.md` |
-| Discover, run, debug, or inspect tests | `manage-visual-studio/references/tests.md` |
+| Resolve sessions, inspect broker health, or fetch logs | `references/routing.md` |
+| Launch Visual Studio when no session exists | `references/launching.md` |
+| Get a broad IDE snapshot before deciding what to do | `references/context-snapshot.md` |
+| Observe session events or pause new automation mutations | `references/events-control.md` |
+| Activate windows, show tool windows, or run DTE commands | `references/windows-commands.md` |
+| Open/close/inspect solutions, projects, startup projects, files, or references | `references/solutions-projects.md` |
+| Discover, run, debug, or inspect tests | `references/tests.md` |
 
 ## Covered Tools
 

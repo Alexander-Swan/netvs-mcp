@@ -30,7 +30,7 @@ internal sealed partial class BrokerToolService
 
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_status", Title = "Debug Status", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns the current debugger state with a coherent eventCursor when supported, and breakReason when paused (breakpoint, stepCompleted, exception, manualPause, unknown, or other), including broker-defined dbgModalBlock with dialogs when VS is waiting on a modal window. Modal detection runs outside the VS UI thread, including when a dialog appears after debug_continue returned. underlyingMode preserves the last known native mode and underlyingModeIsStale indicates a cached reading. Respond to an appropriate enabled button with dialog_respond, then call debug_status again. If an earlier command returned an operationId, pass it to retrieve that original command's running/completed/failed outcome in operation without repeating the command. Without operationId, includes the latest retained operation for the selected session. Completed outcomes are retained for 10 minutes. Canceling a status check does not cancel a retained command. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns debugger state directly, preserving mode, breakReason, outcome, pause identity and event cursor. Modal/pending outcomes remain explicit.")]
+    [Description("Returns the current debugger state with a coherent eventCursor when supported, and breakReason when paused (breakpoint, stepCompleted, exception, manualPause, unknown, or other), including broker-defined dbgModalBlock with dialogs when VS is waiting on a modal window. Modal detection runs outside the VS UI thread, including when a dialog appears after debug_continue returned. underlyingMode preserves the last known native mode and underlyingModeIsStale indicates a cached reading. Respond to an appropriate enabled button with dialog_respond, then call debug_status again. If an earlier command returned an operationId, pass it to retrieve that original command's running/completed/failed outcome in operation without repeating the command. Without operationId, includes the latest retained operation for the selected session. Completed outcomes are retained for 10 minutes. Canceling a status check does not cancel a retained command. Compact output. Returns debugger state directly, preserving mode, breakReason, outcome, pause identity and event cursor. Modal/pending outcomes remain explicit.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugStatus(
         [Description(DialogSessionDescription)] string? sessionId = null,
         [Description(DialogSolutionNameDescription)] string? solutionName = null,
@@ -54,7 +54,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_hot_reload_apply", Title = "Debug Hot Reload Apply", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Requests pending code changes via Hot Reload (Debug.ApplyCodeChanges) in a routed Visual Studio session. Requires an active debug session. Success means the command returned without throwing and no compile errors were reported; it does not verify runtime behavior. If paused, step or continue to a fresh stop before checking updated values. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns true on success; failures are MCP errors retaining compilation/initialization evidence.")]
+    [Description("Requests pending code changes via Hot Reload (Debug.ApplyCodeChanges) in a routed Visual Studio session. Requires an active debug session. Success means the command returned without throwing and no compile errors were reported; it does not verify runtime behavior. If paused, step or continue to a fresh stop before checking updated values. Compact output. Returns true on success; failures are MCP errors retaining compilation/initialization evidence.")]
     public Task<ToolResponse<HotReloadApplyResult>> DebugHotReloadApply(
         string? sessionId = null,
         string? solutionName = null,
@@ -70,7 +70,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_get_mode", Title = "Debug Get Mode", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns the debugger mode, retaining dbgModalBlock details and dialogs when VS has a modal window. Respond with dialog_respond and check debug_status afterward. Use debug_status(operationId: ...) to retrieve the outcome of a specific modal-blocked command. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns the mode string directly; modal blocks retain an object with dialogs and underlying mode.")]
+    [Description("Returns the debugger mode, retaining dbgModalBlock details and dialogs when VS has a modal window. Respond with dialog_respond and check debug_status afterward. Use debug_status(operationId: ...) to retrieve the outcome of a specific modal-blocked command. Compact output. Returns the mode string directly; modal blocks retain an object with dialogs and underlying mode.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugGetMode(
         string? sessionId = null,
         string? solutionName = null,
@@ -81,7 +81,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_start", Title = "Debug Start", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Launches the configured startup project under the Visual Studio debugger (F5) and waits up to ten seconds for a new debugger notification. Updated VSIX versions return outcome, generation, stopId, and executionSequence. running means launch was observed, not that a breakpoint was reached; use debug_wait_for_break. timedOut does not cancel the launch. Older VSIX versions omit the new fields. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns debugger state directly, preserving mode, breakReason, outcome, pause identity and event cursor. Modal/pending outcomes remain explicit.")]
+    [Description("Launches the configured startup project under the Visual Studio debugger (F5) and waits up to ten seconds for a new debugger notification. Updated VSIX versions return outcome, generation, stopId, and executionSequence. running means launch was observed, not that a breakpoint was reached; use debug_wait_for_break. timedOut does not cancel the launch. Older VSIX versions omit the new fields. Compact output. Returns debugger state directly, preserving mode, breakReason, outcome, pause identity and event cursor. Modal/pending outcomes remain explicit.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugStart(
         string? sessionId = null,
         string? solutionName = null,
@@ -97,7 +97,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_stop", Title = "Debug Stop", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Stops an active debug session in a routed Visual Studio session. Call debug_status first; this tool is expected to fail when the debugger is already in design mode. After stopping, call debug_status again because Visual Studio can report the pre-stop mode in the immediate debug_stop response. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns debugger state directly, preserving mode, breakReason, outcome, pause identity and event cursor. Modal/pending outcomes remain explicit.")]
+    [Description("Stops an active debug session in a routed Visual Studio session. Call debug_status first; this tool is expected to fail when the debugger is already in design mode. After stopping, call debug_status again because Visual Studio can report the pre-stop mode in the immediate debug_stop response. Compact output. Returns debugger state directly, preserving mode, breakReason, outcome, pause identity and event cursor. Modal/pending outcomes remain explicit.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugStop(
         string? sessionId = null,
         string? solutionName = null,
@@ -113,7 +113,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_continue", Title = "Debug Continue", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Continues debugging in a routed Visual Studio session. An updated VSIX invalidates the old stopId before resuming and waits up to ten seconds for a new notification. Inspect outcome: running, stopped, exited, or timedOut. Use debug_wait_for_break for the next pause. A timed-out or canceled wait does not undo the command. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns debugger state directly, preserving mode, breakReason, outcome, pause identity and event cursor. Modal/pending outcomes remain explicit.")]
+    [Description("Continues debugging in a routed Visual Studio session. An updated VSIX invalidates the old stopId before resuming and waits up to ten seconds for a new notification. Inspect outcome: running, stopped, exited, or timedOut. Use debug_wait_for_break for the next pause. A timed-out or canceled wait does not undo the command. Compact output. Returns debugger state directly, preserving mode, breakReason, outcome, pause identity and event cursor. Modal/pending outcomes remain explicit.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugContinue(
         string? sessionId = null,
         string? solutionName = null,
@@ -129,7 +129,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_break", Title = "Debug Break", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Pauses a running application under the Visual Studio debugger (Break All) so its call stack, locals, and watches can be inspected. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns debugger state directly, preserving mode, breakReason, outcome, pause identity and event cursor. Modal/pending outcomes remain explicit.")]
+    [Description("Pauses a running application under the Visual Studio debugger (Break All) so its call stack, locals, and watches can be inspected. Compact output. Returns debugger state directly, preserving mode, breakReason, outcome, pause identity and event cursor. Modal/pending outcomes remain explicit.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugBreak(
         string? sessionId = null,
         string? solutionName = null,
@@ -145,7 +145,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_step", Title = "Debug Step", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Steps the paused debugger in a routed Visual Studio session. An updated VSIX waits up to ten seconds for a new pause or session end, rather than returning the old break state. outcome=stopped carries a new stopId; exited means debugging ended; timedOut preserves the observed mode and does not cancel execution. Refresh debug_status or use debug_wait_for_break before inspection after a timeout. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns debugger state directly, preserving mode, breakReason, outcome, pause identity and event cursor. Modal/pending outcomes remain explicit.")]
+    [Description("Steps the paused debugger in a routed Visual Studio session. An updated VSIX waits up to ten seconds for a new pause or session end, rather than returning the old break state. outcome=stopped carries a new stopId; exited means debugging ended; timedOut preserves the observed mode and does not cancel execution. Refresh debug_status or use debug_wait_for_break before inspection after a timeout. Compact output. Returns debugger state directly, preserving mode, breakReason, outcome, pause identity and event cursor. Modal/pending outcomes remain explicit.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugStep(
         DebugStepKind stepKind = DebugStepKind.Over,
         string? sessionId = null,
@@ -180,7 +180,7 @@ internal sealed partial class BrokerToolService
         !string.IsNullOrWhiteSpace(request.DependsOnBreakpointName);
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "breakpoint_set", Title = "Breakpoint Set", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Sets a source breakpoint, conditional breakpoint, hit-count breakpoint, or tracepoint in Visual Studio. Use actionMessage with continueAfterAction=true to log without stopping. dependsOnBreakpointName is informational metadata only and does not enforce a breakpoint dependency. A created breakpoint can remain unbound; inspect breakpoint_diagnostics when binding matters. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns the exact breakpoint name string used by follow-up operations.")]
+    [Description("Sets a source breakpoint, conditional breakpoint, hit-count breakpoint, or tracepoint in Visual Studio. Use actionMessage with continueAfterAction=true to log without stopping. dependsOnBreakpointName is informational metadata only and does not enforce a breakpoint dependency. A created breakpoint can remain unbound; inspect breakpoint_diagnostics when binding matters. Compact output. Returns the exact breakpoint name string used by follow-up operations.")]
     public async Task<ToolResponse<BreakpointInfo>> BreakpointSet(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
@@ -280,7 +280,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "breakpoint_list", Title = "Breakpoint List", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists breakpoints from a routed Visual Studio session. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns exact breakpoint names and configured settings including tracepoint messages/continuation. Default enabled/Break flags and repeated source coordinates are omitted.")]
+    [Description("Lists breakpoints from a routed Visual Studio session. Compact output. Returns exact breakpoint names and configured settings including tracepoint messages/continuation. Default enabled/Break flags and repeated source coordinates are omitted.")]
     public Task<ToolResponse<BreakpointListResult>> BreakpointList(
         string? sessionId = null,
         string? solutionName = null,
@@ -296,7 +296,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "breakpoint_group_list", Title = "Breakpoint Group List", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists breakpoint groups from a routed Visual Studio session. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns groups as object keys with breakpoint arrays; the empty-string key holds ungrouped entries.")]
+    [Description("Lists breakpoint groups from a routed Visual Studio session. Compact output. Returns groups as object keys with breakpoint arrays; the empty-string key holds ungrouped entries.")]
     public Task<ToolResponse<BreakpointGroupListResult>> BreakpointGroupList(
         string? sessionId = null,
         string? solutionName = null,
@@ -322,7 +322,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "breakpoint_remove", Title = "Breakpoint Remove", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Removes breakpoints in a routed Visual Studio session. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns true if at least one breakpoint was removed; false if none matched.")]
+    [Description("Removes breakpoints in a routed Visual Studio session. Compact output. Returns true if at least one breakpoint was removed; false if none matched.")]
     public Task<ToolResponse<BreakpointRemoveResult>> BreakpointRemove(
         string? name = null,
         [Description(OptionalDocumentPathParameterDescription)]
@@ -356,7 +356,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "breakpoint_enable", Title = "Breakpoint Enable", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Enables or disables breakpoints in a routed Visual Studio session. Pass continueExecution when disabling to resume the debugger afterward; such calls retain observed execution state. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns true when updated or false when unmatched; execution/modal evidence remains explicit when applicable.")]
+    [Description("Enables or disables breakpoints in a routed Visual Studio session. Pass continueExecution when disabling to resume the debugger afterward; such calls retain observed execution state. Compact output. Returns true when updated or false when unmatched; execution/modal evidence remains explicit when applicable.")]
     public Task<ToolResponse<BreakpointEnableResult>> BreakpointEnable(
         bool enabled,
         string? name = null,
@@ -411,7 +411,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "breakpoint_group_enable", Title = "Breakpoint Group Enable", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Enables or disables all breakpoints in a group through a routed Visual Studio session. Pass continueExecution when disabling to resume the debugger afterward; such calls retain observed execution state. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns matched/updated counts, with execution state when applicable.")]
+    [Description("Enables or disables all breakpoints in a group through a routed Visual Studio session. Pass continueExecution when disabling to resume the debugger afterward; such calls retain observed execution state. Compact output. Returns matched/updated counts, with execution state when applicable.")]
     public Task<ToolResponse<BreakpointGroupOperationResult>> BreakpointGroupEnable(
         string groupName,
         bool enabled,
@@ -454,7 +454,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "breakpoint_group_remove", Title = "Breakpoint Group Remove", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Removes all breakpoints in a group through a routed Visual Studio session. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns the number removed directly.")]
+    [Description("Removes all breakpoints in a group through a routed Visual Studio session. Compact output. Returns the number removed directly.")]
     public Task<ToolResponse<BreakpointGroupOperationResult>> BreakpointGroupRemove(
         string groupName,
         string? sessionId = null,
@@ -480,7 +480,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_get_callstack", Title = "Debug Get Callstack", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists the paused debugger's call stack and caller frames. maxFrames defaults to 2; hasMore signals omitted frames. Updated VSIX versions return 1-based frameIndex and isCurrent. Use a returned frameIndex with debug_get_locals or debug_evaluate to inspect a caller without changing selection, or debug_select_frame to change selection. Optional threadId targets that debugger thread. expectedStopId/expectedGeneration reject a changed pause atomically; guards require an updated VSIX and never fall back. includeContext=true adds stop, process, thread, frame, and source identity. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns ordered frames with functionName/location and explicit 1-based frameIndex when available. hasMore appears when true; inspection/thread identity remains where applicable.")]
+    [Description("Lists the paused debugger's call stack and caller frames. maxFrames defaults to 2; hasMore signals omitted frames. Updated VSIX versions return 1-based frameIndex and isCurrent. Use a returned frameIndex with debug_get_locals or debug_evaluate to inspect a caller without changing selection, or debug_select_frame to change selection. Optional threadId targets that debugger thread. expectedStopId/expectedGeneration reject a changed pause atomically; guards require an updated VSIX and never fall back. includeContext=true adds stop, process, thread, frame, and source identity. Compact output. Returns ordered frames with functionName/location and explicit 1-based frameIndex when available. hasMore appears when true; inspection/thread identity remains where applicable.")]
     public Task<ToolResponse<CallStackResult>> DebugGetCallstack(
         string? sessionId = null,
         string? solutionName = null,
@@ -512,7 +512,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_select_frame", Title = "Select Debugger Stack Frame", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Selects a 1-based frameIndex from the current thread's debug_get_callstack result. Requires a paused debugger. Changes the inspection context for subsequent debug_get_locals, debug_evaluate, and watch queries without resuming execution or moving the instruction pointer. Refresh the call stack after stepping, continuing, or switching threads because frame indices may change. Requires an updated VSIX. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns only the selected frame with frameIndex/functionName/location; no repeated state.")]
+    [Description("Selects a 1-based frameIndex from the current thread's debug_get_callstack result. Requires a paused debugger. Changes the inspection context for subsequent debug_get_locals, debug_evaluate, and watch queries without resuming execution or moving the instruction pointer. Refresh the call stack after stepping, continuing, or switching threads because frame indices may change. Requires an updated VSIX. Compact output. Returns only the selected frame with frameIndex/functionName/location; no repeated state.")]
     public Task<ToolResponse<DebugSelectFrameResult>> DebugSelectFrame(
         [Description("1-based frameIndex from the current thread's latest call stack.")] int frameIndex,
         string? sessionId = null,
@@ -529,7 +529,7 @@ internal sealed partial class BrokerToolService
 
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_get_locals", Title = "Debug Get Locals", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns locals from a routed Visual Studio session. Omit both threadId and stackFrame to use the currently selected frame. Optional stackFrame is a 1-based index from the current thread's call stack; inspection uses that frame without changing the original selection. Requires a paused debugger when stackFrame is specified. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Values are expression-keyed objects of debugger-formatted strings; objects use $preview and failed evaluations use $error. Duplicate or unnamed expressions retain arrays. Inspection state/context and different observations remain explicit.")]
+    [Description("Returns locals from a routed Visual Studio session. Omit both threadId and stackFrame to use the currently selected frame. Optional stackFrame is a 1-based index from the current thread's call stack; inspection uses that frame without changing the original selection. Requires a paused debugger when stackFrame is specified. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1. Compact output. Values are expression-keyed objects of debugger-formatted strings; objects use $preview and failed evaluations use $error. Duplicate or unnamed expressions retain arrays. Inspection state/context and different observations remain explicit.")]
     public Task<ToolResponse<LocalsResult>> DebugGetLocals(
         string? sessionId = null,
         string? solutionName = null,
@@ -565,7 +565,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_evaluate", Title = "Debug Evaluate", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Evaluates an expression in a routed Visual Studio session. Omit both threadId and stackFrame for the current frame. Optional stackFrame is a 1-based index from the current thread's call stack; the original frame selection remains unchanged. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Values are expression-keyed objects of debugger-formatted strings; objects use $preview and failed evaluations use $error. Duplicate or unnamed expressions retain arrays. Inspection state/context and different observations remain explicit.")]
+    [Description("Evaluates an expression in a routed Visual Studio session. Omit both threadId and stackFrame for the current frame. Optional stackFrame is a 1-based index from the current thread's call stack; the original frame selection remains unchanged. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1. Compact output. Values are expression-keyed objects of debugger-formatted strings; objects use $preview and failed evaluations use $error. Duplicate or unnamed expressions retain arrays. Inspection state/context and different observations remain explicit.")]
     public Task<ToolResponse<EvaluateExpressionResult>> DebugEvaluate(
         string expression,
         int timeoutMilliseconds = 5000,
@@ -674,13 +674,14 @@ internal sealed partial class BrokerToolService
         "modules"
     ];
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
-    [McpServerTool(Name = "debug_snapshot", Title = "Debug Snapshot", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Reads debugger state with a coherent state.eventCursor when supported; use its epoch/watermark with vs_events. Use include: [] for state and cursor only. Reconciles event gaps without replaying execution. Also performs stepInto, stepOver, stepOut, continue, or break before waiting and inspecting. Omit action for read-only inspection. Sections: callStack, locals, watch, breakpoints, threads, parallelStacks, parallelWatch, modules. Omitted include fetches callStack only, up to maxFrames (default 2); callStack.hasMore signals omitted frames. [] returns state only. Request locals explicitly or use watch with watchExpressions for targeted values. Frame indexes are 1-based; omit threadId/stackFrame for the selected frame, or pass threadId to default to its frame 1 without changing selection. Pause guards require an updated VSIX and never fall back. Output omits identical child states and uses solution-relative frame paths; includeContext=true adds inspection identity. Modules expose loaded binaries and symbol status once paused in process/session scope. dbgModalBlock omits inspection: use dialog_respond, then debug_status with any operationId; never replay the action. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns state and requested sections. Named expressions are objects, modules are grouped by process and identical child states are inherited. Frame indexes remain explicit. No compact parameter.")]
+    [McpServerTool(Name = "debug_snapshot", Title = "Debug Snapshot", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
+    [Description("Reads debugger state and requested inspection sections, optionally after one execution action. Timeouts do not undo the action. Use state.eventCursor with vs_events when available. callStack.hasMore signals omitted frames. Modules report symbol status once paused. For dbgModalBlock, use dialog_respond, then check debug_status with any operationId. Never replay the action to recover its result. Compact output.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugSnapshot(
-        [Description("Optional execution action: stepInto, stepOver, stepOut, continue, or break. Omit for read-only inspection; a timed-out wait does not undo the action.")]
+        [Description("Optional execution action: stepInto, stepOver, stepOut, continue, or break. Omit for read-only inspection.")]
         DebugAdvanceAction? action = null,
         [Description(SnapshotIncludeDescription)]
         string[]? include = null,
+        [Description("Nonnegative wait in milliseconds for debugger state to settle after action. Defaults to 300. Zero skips waiting.")]
         int settleTimeoutMilliseconds = 300,
         string? sessionId = null,
         string? solutionName = null,
@@ -781,7 +782,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_wait_for_break", Title = "Debug Wait For Break", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Uses session events to wait for a breakpoint, exception, step completion, or other debugger stop and requested frame readiness; does not start, continue, or step execution. Start/continue first unless already paused. Sections: callStack, locals, watch, breakpoints, threads, parallelStacks, parallelWatch, modules. Omitted include fetches callStack only, up to maxFrames (default 2); callStack.hasMore signals omitted frames. [] returns state only. Locals require explicit inclusion; use watch with watchExpressions for targeted values. Frame indexes are 1-based; an explicit thread defaults to its frame 1. Inspection preserves selection. A readiness timeout preserves paused state with inspectionStatus/inspectionMessage and unavailable sections; it does not resume or cancel execution. Caller pause guards are never refreshed. Output omits identical child states and uses solution-relative frame paths; includeContext=true adds identity. dbgModalBlock returns dialogs without inspection: use dialog_respond, then debug_status. Modules expose symbol status once paused and use process/session scope. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns state and requested sections. Named expressions are objects, modules are grouped by process and identical child states are inherited. Frame indexes remain explicit. No compact parameter.")]
+    [Description("Uses session events to wait for a breakpoint, exception, step completion, or other debugger stop and requested frame readiness; does not start, continue, or step execution. Start/continue first unless already paused. Sections: callStack, locals, watch, breakpoints, threads, parallelStacks, parallelWatch, modules. Omitted include fetches callStack only, up to maxFrames (default 2); callStack.hasMore signals omitted frames. [] returns state only. Locals require explicit inclusion; use watch with watchExpressions for targeted values. Frame indexes are 1-based; an explicit thread defaults to its frame 1. Inspection preserves selection. A readiness timeout preserves paused state with inspectionStatus/inspectionMessage and unavailable sections; it does not resume or cancel execution. Caller pause guards are never refreshed. Output omits identical child states and uses solution-relative frame paths; includeContext=true adds identity. dbgModalBlock returns dialogs without inspection: use dialog_respond, then debug_status. Modules expose symbol status once paused and use process/session scope. Compact output. Returns state and requested sections. Named expressions are objects, modules are grouped by process and identical child states are inherited. Frame indexes remain explicit. No compact parameter.")]
     public Task<ToolResponse<DebugSnapshotResult>> DebugWaitForBreak(
         [Description("Maximum time in seconds to wait for a stop and requested frame readiness. A timeout preserves current debugger state and reports unavailable inspection explicitly.")]
         int timeoutSeconds = 30,
@@ -1020,7 +1021,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_eval_many", Title = "Debug Eval Many", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Evaluates multiple debugger expressions in one pinned pause and frame; use this for a batch of targeted variable values instead of fetching all locals. Requires a paused debugger. stackFrame is a 1-based frameIndex; omit threadId/stackFrame for the selected frame, or supply threadId to default to its frame 1. Selection is preserved. Plain calls retain legacy compatibility; explicit selectors/guards require an updated VSIX and never fall back. Output omits identical child states that inherit the enclosing state. includeContext=true adds stop, process, thread, frame, and source identity. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Values are expression-keyed objects of debugger-formatted strings; objects use $preview and failed evaluations use $error. Duplicate or unnamed expressions retain arrays. Inspection state/context and different observations remain explicit.")]
+    [Description("Evaluates multiple debugger expressions in one pinned pause and frame; use this for a batch of targeted variable values instead of fetching all locals. Requires a paused debugger. stackFrame is a 1-based frameIndex; omit threadId/stackFrame for the selected frame, or supply threadId to default to its frame 1. Selection is preserved. Plain calls retain legacy compatibility; explicit selectors/guards require an updated VSIX and never fall back. Output omits identical child states that inherit the enclosing state. includeContext=true adds stop, process, thread, frame, and source identity. Compact output. Values are expression-keyed objects of debugger-formatted strings; objects use $preview and failed evaluations use $error. Duplicate or unnamed expressions retain arrays. Inspection state/context and different observations remain explicit.")]
     public Task<ToolResponse<DebugEvalManyResult>> DebugEvalMany(
         [Description("Required non-empty array of debugger expressions, evaluated in one pause and frame.")]
         string[] expressions,
@@ -1132,7 +1133,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_start_without_debugging", Title = "Debug Start Without Debugging", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Starts the current startup project without debugging. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns observed launched process ID(s) when available; otherwise reports launched/processIdUnavailable explicitly.")]
+    [Description("Starts the current startup project without debugging. Compact output. Returns observed launched process ID(s) when available; otherwise reports launched/processIdUnavailable explicitly.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugStartWithoutDebugging(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(
             sessionId,
@@ -1142,7 +1143,7 @@ internal sealed partial class BrokerToolService
             cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_restart", Title = "Debug Restart", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Restarts the active debug session. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns debugger state directly, preserving mode, breakReason, outcome, pause identity and event cursor. Modal/pending outcomes remain explicit.")]
+    [Description("Restarts the active debug session. Compact output. Returns debugger state directly, preserving mode, breakReason, outcome, pause identity and event cursor. Modal/pending outcomes remain explicit.")]
     public Task<ToolResponse<DebuggerStateInfo>> DebugRestart(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(
             sessionId,
@@ -1152,7 +1153,7 @@ internal sealed partial class BrokerToolService
             cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_attach", Title = "Debug Attach", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Attaches the Visual Studio debugger to a local process by id or name, or to a process on a remote debugger transport (SSH/WSL/Docker/etc.) when transport is set. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns attached process identity and observed debugger state; process IDs use id inside the process object.")]
+    [Description("Attaches the Visual Studio debugger to a local process by id or name, or to a process on a remote debugger transport (SSH/WSL/Docker/etc.) when transport is set. Compact output. Returns attached process identity and observed debugger state; process IDs use id inside the process object.")]
     public Task<ToolResponse<DebugAttachResult>> DebugAttach(
         int? processId = null,
         string? processName = null,
@@ -1181,12 +1182,12 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_get_threads", Title = "Debug Get Threads", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists debugger threads for the current debug program. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns thread entries with id/name and isCurrent only when true.")]
+    [Description("Lists debugger threads for the current debug program. Compact output. Returns thread entries with id/name and isCurrent only when true.")]
     public Task<ToolResponse<DebugThreadListResult>> DebugGetThreads(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.DebugGetThreadsAsync(ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_set_variable", Title = "Debug Set Variable", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Sets a debugger variable by evaluating an assignment expression. Optional stackFrame is a 1-based frame index; omit for the current frame. The requested frame's variable is changed while the original inspection frame remains unchanged. Assignment side effects persist. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns the verified value directly; $unavailable means assignment completed but verification was unavailable.")]
+    [Description("Sets a debugger variable by evaluating an assignment expression. Optional stackFrame is a 1-based frame index; omit for the current frame. The requested frame's variable is changed while the original inspection frame remains unchanged. Assignment side effects persist. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1. Compact output. Returns the verified value directly; $unavailable means assignment completed but verification was unavailable.")]
     public Task<ToolResponse<DebugSetVariableResult>> DebugSetVariable(string name, string value, int timeoutMilliseconds = 5000, string? sessionId = null, string? solutionName = null, string? solutionPath = null, int? stackFrame = null, int? threadId = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -1224,7 +1225,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "watch_add", Title = "Watch Add", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Saves and evaluates a debugger watch. Optional stackFrame evaluates it in a 1-based frame for this call without changing the original selection; omit for the current frame. The saved expression is not bound to a frame. Later watch_list calls evaluate in their own requested or current frame. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1. expectedStopId/expectedGeneration atomically guard the pause; require an updated VSIX and never fall back. includeContext adds identity. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns the evaluated value directly, $preview for objects, or $unavailable when added but not currently evaluable. Failure to add is an MCP error.")]
+    [Description("Saves and evaluates a debugger watch. Optional stackFrame evaluates it in a 1-based frame for this call without changing the original selection; omit for the current frame. The saved expression is not bound to a frame. Later watch_list calls evaluate in their own requested or current frame. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1. expectedStopId/expectedGeneration atomically guard the pause; require an updated VSIX and never fall back. includeContext adds identity. Compact output. Returns the evaluated value directly, $preview for objects, or $unavailable when added but not currently evaluable. Failure to add is an MCP error.")]
     public Task<ToolResponse<WatchOperationResult>> WatchAdd(string expression, string? sessionId = null, string? solutionName = null, string? solutionPath = null, int? stackFrame = null, int? threadId = null, CancellationToken cancellationToken = default,
         string? expectedStopId = null, long? expectedGeneration = null, bool includeContext = false)
     {
@@ -1254,7 +1255,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "watch_remove", Title = "Watch Remove", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Removes a debugger watch by expression text when supported by the VSIX debugger service. Pass expression, not an id. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns true on success; failures use MCP isError with an error message.")]
+    [Description("Removes a debugger watch by expression text when supported by the VSIX debugger service. Pass expression, not an id. Compact output. Returns true on success; failures use MCP isError with an error message.")]
     public Task<ToolResponse<WatchOperationResult>> WatchRemove(
         [Description("The watch expression text to remove; watch_remove does not accept a watch id.")]
         string expression,
@@ -1273,7 +1274,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "watch_list", Title = "Watch List", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Evaluates saved debugger watches. Optional stackFrame is a 1-based frame index; omit for the current frame. The original inspection frame remains unchanged; saved watch expressions are unchanged. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1. expectedStopId/expectedGeneration atomically guard the pause; require an updated VSIX and never fall back. includeContext adds identity. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Values are expression-keyed objects of debugger-formatted strings; objects use $preview and failed evaluations use $error. Duplicate or unnamed expressions retain arrays. Inspection state/context and different observations remain explicit.")]
+    [Description("Evaluates saved debugger watches. Optional stackFrame is a 1-based frame index; omit for the current frame. The original inspection frame remains unchanged; saved watch expressions are unchanged. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1. expectedStopId/expectedGeneration atomically guard the pause; require an updated VSIX and never fall back. includeContext adds identity. Compact output. Values are expression-keyed objects of debugger-formatted strings; objects use $preview and failed evaluations use $error. Duplicate or unnamed expressions retain arrays. Inspection state/context and different observations remain explicit.")]
     public Task<ToolResponse<WatchListResult>> WatchList(string? sessionId = null, string? solutionName = null, string? solutionPath = null, int? stackFrame = null, int? threadId = null, CancellationToken cancellationToken = default,
         string? expectedStopId = null, long? expectedGeneration = null, bool includeContext = false)
     {
@@ -1292,7 +1293,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "thread_switch", Title = "Thread Switch", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Switches the active debugger thread. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns true on success; failures use MCP isError with an error message.")]
+    [Description("Switches the active debugger thread. Compact output. Returns true on success; failures use MCP isError with an error message.")]
     public Task<ToolResponse<ThreadSwitchResult>> ThreadSwitch(int threadId, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         if (threadId <= 0)
@@ -1305,7 +1306,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "thread_set_frozen", Title = "Thread Set Frozen", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Freezes or thaws a debugger thread when supported by the active debug engine. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns true on success; failures use MCP isError with an error message.")]
+    [Description("Freezes or thaws a debugger thread when supported by the active debug engine. Compact output. Returns true on success; failures use MCP isError with an error message.")]
     public Task<ToolResponse<ThreadSetFrozenResult>> ThreadSetFrozen(int threadId, bool frozen, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         if (threadId <= 0)
@@ -1318,7 +1319,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "thread_get_callstack", Title = "Thread Get Callstack", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns the call stack for a debugger thread when supported by the active debug engine. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns ordered frames with functionName/location and explicit 1-based frameIndex when available. hasMore appears when true; inspection/thread identity remains where applicable.")]
+    [Description("Returns the call stack for a debugger thread when supported by the active debug engine. Compact output. Returns ordered frames with functionName/location and explicit 1-based frameIndex when available. hasMore appears when true; inspection/thread identity remains where applicable.")]
     public Task<ToolResponse<ThreadCallStackResult>> ThreadGetCallstack(int threadId, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         if (threadId <= 0)
@@ -1331,7 +1332,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "process_list_debugged", Title = "Process List Debugged", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists processes currently being debugged by Visual Studio. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns the process array directly with id/name, optional transport/user information and isBeingDebugged only when true.")]
+    [Description("Lists processes currently being debugged by Visual Studio. Compact output. Returns the process array directly with id/name, optional transport/user information and isBeingDebugged only when true.")]
     public Task<ToolResponse<DebuggedProcessListResult>> ProcessListDebugged(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(
             sessionId,
@@ -1341,7 +1342,7 @@ internal sealed partial class BrokerToolService
             cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "process_list_local", Title = "Process List Local", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists local processes visible to Visual Studio for debugger attach workflows. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns the process array directly with id/name, optional transport/user information and isBeingDebugged only when true.")]
+    [Description("Lists local processes visible to Visual Studio for debugger attach workflows. Compact output. Returns the process array directly with id/name, optional transport/user information and isBeingDebugged only when true.")]
     public Task<ToolResponse<LocalProcessListResult>> ProcessListLocal(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(
             sessionId,
@@ -1351,7 +1352,7 @@ internal sealed partial class BrokerToolService
             cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "process_detach", Title = "Process Detach", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Detaches the Visual Studio debugger from a debugged process by id or name. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns true on success; failures use MCP isError with an error message.")]
+    [Description("Detaches the Visual Studio debugger from a debugged process by id or name. Compact output. Returns true on success; failures use MCP isError with an error message.")]
     public Task<ToolResponse<ProcessDetachResult>> ProcessDetach(int? processId = null, string? processName = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         if (processId is null && string.IsNullOrWhiteSpace(processName))
@@ -1368,7 +1369,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "process_terminate", Title = "Process Terminate", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Terminates a debugged process by id or name when supported by the active debug engine. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns true on success; failures use MCP isError with an error message.")]
+    [Description("Terminates a debugged process by id or name when supported by the active debug engine. Compact output. Returns true on success; failures use MCP isError with an error message.")]
     public Task<ToolResponse<ProcessTerminateResult>> ProcessTerminate(int? processId = null, string? processName = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         if (processId is null && string.IsNullOrWhiteSpace(processName))
@@ -1385,7 +1386,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "immediate_execute", Title = "Immediate Execute", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Executes text in the immediate window when supported by the VSIX debugger service. Pass statement, not expression. Optional stackFrame is a 1-based frame index; omit for the current frame. The original inspection frame remains unchanged; any statement side effects persist. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns Immediate window output directly as a string.")]
+    [Description("Executes text in the immediate window when supported by the VSIX debugger service. Pass statement, not expression. Optional stackFrame is a 1-based frame index; omit for the current frame. The original inspection frame remains unchanged; any statement side effects persist. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1. Compact output. Returns Immediate window output directly as a string.")]
     public Task<ToolResponse<ImmediateExecuteResult>> ImmediateExecute(
         [Description("Immediate-window text to execute. Use the argument name statement, not expression.")]
         string? statement = null,
@@ -1423,7 +1424,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "exception_settings_get", Title = "Exception Settings Get", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns debugger exception settings when supported by the VSIX debugger service. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns settings keyed by exception name; duplicate names retain their full list and group identity.")]
+    [Description("Returns debugger exception settings when supported by the VSIX debugger service. Compact output. Returns settings keyed by exception name; duplicate names retain their full list and group identity.")]
     public Task<ToolResponse<ExceptionSettingsResult>> ExceptionSettingsGet(string? exceptionName = null, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         var request = new ExceptionSettingsRequest { ExceptionName = exceptionName };
@@ -1431,7 +1432,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "exception_settings_set", Title = "Exception Settings Set", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Sets debugger exception settings when supported by the VSIX debugger service. Pass breakOnThrown for thrown-exception behavior. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns true on success; failures use MCP isError with an error message.")]
+    [Description("Sets debugger exception settings when supported by the VSIX debugger service. Pass breakOnThrown for thrown-exception behavior. Compact output. Returns true on success; failures use MCP isError with an error message.")]
     public Task<ToolResponse<ExceptionSettingsResult>> ExceptionSettingsSet(
         string exceptionName,
         [Description("Whether to break when this exception is thrown. Use breakOnThrown.")]
@@ -1451,21 +1452,21 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "parallel_stacks", Title = "Parallel Stacks", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns parallel stack information when the active Visual Studio debug engine exposes it. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns threads grouped by ID/name, each containing frames; shared thread metadata appears once.")]
+    [Description("Returns parallel stack information when the active Visual Studio debug engine exposes it. Compact output. Returns threads grouped by ID/name, each containing frames; shared thread metadata appears once.")]
     public Task<ToolResponse<ParallelStacksResult>> ParallelStacks(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.ParallelStacksAsync(ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "parallel_watch", Title = "Parallel Watch", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns parallel watch expressions when the active Visual Studio debug engine exposes them. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Values are expression-keyed objects of debugger-formatted strings; objects use $preview and failed evaluations use $error. Duplicate or unnamed expressions retain arrays. Inspection state/context and different observations remain explicit.")]
+    [Description("Returns parallel watch expressions when the active Visual Studio debug engine exposes them. Compact output. Values are expression-keyed objects of debugger-formatted strings; objects use $preview and failed evaluations use $error. Duplicate or unnamed expressions retain arrays. Inspection state/context and different observations remain explicit.")]
     public Task<ToolResponse<ParallelWatchResult>> ParallelWatch(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(sessionId, solutionName, solutionPath, static (connection, ct) => connection.ParallelWatchAsync(ct), cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "test_debug", Title = "Test Debug", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("CLI default: requires projectName/framework/filter and an idle debugger. Attaches only to a verified owned runner testhost; failed setup cleans owned processes. VSTest may pause in DebuggerBreakpoint.WaitForDebugger/Break: confirm that stack before continuing once to the intended test breakpoint. backend=test-explorer accepts an exact native ID or fully qualified name and returns an accepted runId, not confirmed attachment; inspect debugger state. No implicit fallback or replay after timeout. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns runId/outcome/backend and processes grouped as testHost/testRunner. Attachment failures retain launch diagnostics.")]
+    [Description("Debugs selected tests with an idle debugger. Attaches only to a verified owned runner testhost; failed setup cleans owned processes. VSTest may pause in DebuggerBreakpoint.WaitForDebugger/Break: confirm that stack before continuing once to the intended test breakpoint. Test Explorer returns an accepted runId. Check debugger state to confirm attachment. No implicit fallback or replay after timeout. Compact output. Returns runId/outcome/backend and processes grouped as testHost/testRunner. Attachment failures retain launch diagnostics.")]
     public Task<ToolResponse<TestDebugResult>> TestDebug(
         [Description(TestProjectDescription)]
         string? projectName = null,
-        [Description("Required non-empty selector; both backends require an idle debugger. CLI expressions can select multiple tests: use FullyQualifiedName=... to target a specific method. " + TestFilterDescription)]
+        [Description("Required non-empty selector. In CLI mode, use FullyQualifiedName=... to target a specific method. " + TestFilterDescription)]
         string? filter = null,
         [Description("CLI testhost attach deadline in seconds (1\u2013120). Not used by the Test Explorer backend.")]
         int attachTimeoutSeconds = 30,

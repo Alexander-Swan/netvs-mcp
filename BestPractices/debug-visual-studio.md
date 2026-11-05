@@ -1,48 +1,42 @@
 ﻿# Debug Visual Studio With NetVsMcp
 
-Agent-neutral entrypoint for launching, attaching, pausing, stepping, inspecting, hot reload, breakpoints, tracepoints, watches, threads, processes, modules, symbols, and test debugging through NetVsMcp.
-
-## How To Read This Guide
-
-- For tool use, read this entrypoint before calling a matching debug tool, then only the references needed for the current operation.
-- For learning or local skill creation, read references deliberately and keep generated skills as routers with their own references.
-- Do not load every debug reference before a small operation such as setting one breakpoint.
+Read this entrypoint, then only relevant references. User and project instructions override these defaults.
 
 ## First Rules
 
-- Check `debug_status` before inspection or stepping.
-- `dbgDesignMode` means no active debuggee; use `debug_start` or `debug_attach`.
-- `dbgRunMode` means the debuggee is running; break or wait before inspecting locals/call stack.
-- `dbgBreakMode` means paused; inspection and stepping tools apply.
+- Check `debug_status`: `dbgDesignMode` has no debuggee (start or attach); `dbgRunMode` is running (break or wait before inspection); `dbgBreakMode` is paused (inspect or step).
+- For `dbgModalBlock`, use `dialog_respond` with returned `dialogId`/`buttonId` and the same session routing, choosing an enabled button within existing authorization. Then check `debug_status` with any returned `operationId`; never replay the original command. Refresh IDs with `dialog_list` after a timeout or rejected response.
 - Confirm before `debug_stop`, `process_terminate`, or broad breakpoint removal unless explicitly requested.
-- Prefer `debug_snapshot` or `debug_wait_for_break` when they avoid manual continue/step plus repeated inspection calls.
-- Before evaluating variables manually, prefer stepping or placing a breakpoint where their live values are available.
-- Keep locals opt-in; use watch expressions for targeted values.
-- Call-stack tools default to two frames; pass `maxFrames` only when deeper callers are needed.
-- Frame-dependent tools accept optional `stackFrame` (1-based) and `threadId`. Omit both for the currently selected frame; explicit inspection leaves the selected thread and frame unchanged. See `inspection.md` for targeting and version requirements.
-- Use `debug_select_frame` when you deliberately want to change the selected frame for subsequent calls. Refresh indices after stepping or switching threads.
-- Use `module_list` in break mode to verify loaded binaries and debugger symbol status; see `modules-symbols.md` for filters, diagnostics, and engine limits.
+- Prefer `debug_snapshot` or `debug_wait_for_break` over repeated control and inspection calls.
+- Prefer stepping or moving a breakpoint to expose live values before manual evaluation. Keep locals opt-in; use watches for targeted values.
+- Call stacks default to two frames; request `maxFrames` only for deeper callers.
+- Frame-dependent tools accept optional `stackFrame` (1-based) and `threadId`; omit both for the selected frame. Explicit inspection preserves selection. See `references/inspection.md` for targeting and version requirements.
+- Use `debug_select_frame` to change selection; refresh frame indices after stepping or switching threads.
+- Use `module_list` in break mode to verify binaries and symbols; see `references/modules-symbols.md` for filters and engine limits.
 
 ## Reference Files
 
+Pass reference paths as `file` to `netvs_get_best_practices` with this guide's name (or the guide named in the row).
+
 | Task | Read |
 | --- | --- |
-| Start, stop, continue, break, step, wait, or understand debugger states | `debug-visual-studio/references/session-control.md` |
-| Run to a source location with owned temporary breakpoint cleanup | `debug-visual-studio/references/run-to-location.md` |
-| Debug a specific test | `debug-visual-studio/references/test-debugging.md` |
-| Apply hot reload | `debug-visual-studio/references/hot-reload.md` |
-| Set, disable, group, remove, or clean up breakpoints/tracepoints | `debug-visual-studio/references/breakpoints.md` |
-| Inspect breakpoint binding, bound locations, and engine warning history | `debug-visual-studio/references/breakpoint-diagnostics.md` |
-| Verify loaded modules, symbol status, or symbol-search diagnostics | `debug-visual-studio/references/modules-symbols.md` |
-| Compare loaded source checksums with disk and unsaved editor text | `debug-visual-studio/references/source-evidence.md` |
-| Inspect paused call stack, locals, variables, or expressions | `debug-visual-studio/references/inspection.md` |
-| Keep stack, locals, evaluations, and watches on one pause/thread/frame | `debug-visual-studio/references/inspection-context.md` |
-| Read exception details tied to the current pause | `debug-visual-studio/references/exception-evidence.md` |
-| Use `debug_snapshot` or `debug_wait_for_break` | `debug-visual-studio/references/snapshots-waits.md` |
+| Start, stop, continue, break, step, wait, or understand debugger states | `references/session-control.md` |
+| Run to a source location with owned temporary breakpoint cleanup | `references/run-to-location.md` |
+| Debug a specific test | `references/test-debugging.md` |
+| Apply hot reload | `references/hot-reload.md` |
+| Set, disable, group, remove, or clean up breakpoints/tracepoints | `references/breakpoints.md` |
+| Inspect breakpoint binding, bound locations, and engine warning history | `references/breakpoint-diagnostics.md` |
+| Verify loaded modules, symbol status, or symbol-search diagnostics | `references/modules-symbols.md` |
+| Compare loaded source checksums with disk and unsaved editor text | `references/source-evidence.md` |
+| Inspect paused call stack, locals, variables, or expressions | `references/inspection.md` |
+| Expand an object with bounded children and function evaluation off | `references/inspection.md` |
+| Keep stack, locals, evaluations, and watches on one pause/thread/frame | `references/inspection-context.md` |
+| Read exception details tied to the current pause | `references/exception-evidence.md` |
+| Use `debug_snapshot` or `debug_wait_for_break` | `references/snapshots-waits.md` |
 | Read or wait for session events and reconcile a cursor | Guide `manage-visual-studio`, file `references/events-control.md` |
-| Use watches or immediate execution | `debug-visual-studio/references/watches-immediate.md` |
-| Attach, detach, list, or terminate processes, including remote transports | `debug-visual-studio/references/processes-attach.md` |
-| Threads, parallel stacks, or exception settings | `debug-visual-studio/references/advanced-state.md` |
+| Use watches or immediate execution | `references/watches-immediate.md` |
+| Attach, detach, list, or terminate processes, including remote transports | `references/processes-attach.md` |
+| Threads, parallel stacks, or exception settings | `references/advanced-state.md` |
 
 ## Covered Tools
 

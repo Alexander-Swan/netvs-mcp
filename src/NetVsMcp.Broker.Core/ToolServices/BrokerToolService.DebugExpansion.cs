@@ -8,12 +8,23 @@ internal sealed partial class BrokerToolService
 {
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_expand", Title = "Expand Stopped Debugger Value", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Expands an expression in one validated pause/frame with bounded children, depth, nodes, value length, and cooperative elapsed budget. Obtain expectedStopId/expectedGeneration from debug_status or a stopped snapshot. Function evaluation defaults off and auto-expand rules are disabled; opting in may execute debuggee code. Synchronous engine calls can exceed the budget. Follow a node's memberPath and nextOffset in the SAME pause for more children; requires an updated VSIX. Output: standard reduced MCP JSON without success/value wrappers. Source paths are solution-relative when possible; source locations use file:line:column. Call failures set isError and retain an error message/recovery metadata. Returns the expanded object directly with member names as keys, strings for scalar values, $preview for unexpanded objects and $error for failed values. Incomplete or duplicate-member expansions return $value plus $expansion with member paths, nextOffset and truncation evidence.")]
-    public Task<ToolResponse<DebugFrameInspectionResult>> DebugExpand(string expression, string expectedStopId, long expectedGeneration,
-        int[]? memberPath = null, int childOffset = 0, int maxChildren = 20, int maxDepth = 1, int maxNodes = 100,
-        int maxValueCharacters = 1024, int budgetMilliseconds = 1000, bool allowFunctionEvaluation = false,
-        int stackFrame = 0, int? threadId = null, string? sessionId = null, string? solutionName = null,
-        string? solutionPath = null, CancellationToken cancellationToken = default, bool includeContext = false)
+    [Description("Expands an expression within one validated pause and frame with auto-expand rules disabled. Requires an updated VSIX. Incomplete or duplicate-member results include $value and $expansion with paging and truncation evidence. Compact output.")]
+    public Task<ToolResponse<DebugFrameInspectionResult>> DebugExpand(
+        [Description("Expression to expand, 1 to 4096 characters.")] string expression,
+        [Description("Required stopId from debug_status or a stopped snapshot.")] string expectedStopId,
+        [Description("Required generation from the same state as expectedStopId.")] long expectedGeneration,
+        [Description("Returned node's 1-based member path, up to eight indices. Reuse only within the same pause. Omit for the root.")] int[]? memberPath = null,
+        [Description("Zero-based child offset. Use the node's returned nextOffset to continue.")] int childOffset = 0,
+        [Description("Maximum children per node, 1 to 100. Defaults to 20.")] int maxChildren = 20,
+        [Description("Maximum expansion depth, 0 to 4. Defaults to 1.")] int maxDepth = 1,
+        [Description("Maximum expanded nodes, 1 to 1000. Defaults to 100.")] int maxNodes = 100,
+        [Description("Maximum characters per value, 64 to 4096. Defaults to 1024.")] int maxValueCharacters = 1024,
+        [Description("Cooperative expansion budget in milliseconds, 1 to 10000. Defaults to 1000. Synchronous engine calls can exceed it.")] int budgetMilliseconds = 1000,
+        [Description("Allow debugger function evaluation, which may execute debuggee code. Defaults to false.")] bool allowFunctionEvaluation = false,
+        [Description(InspectionFrameDescription)] int stackFrame = 0,
+        [Description("Debugger thread ID from debug_get_threads. Omit to use the selected thread. When supplied without a frame, uses frame 1.")] int? threadId = null,
+        string? sessionId = null, string? solutionName = null, string? solutionPath = null,
+        CancellationToken cancellationToken = default, [Description(InspectionContextDescription)] bool includeContext = false)
     {
         var expand = new DebugExpansionRequest
         {
