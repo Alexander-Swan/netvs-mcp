@@ -12,8 +12,8 @@ namespace NetVsMcp.Broker.Services;
 internal sealed partial class BrokerToolService
 {
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
-    [McpServerTool(Name = "package_restore", Title = "Package Restore", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns package restore support status for a routed project.")]
+    [McpServerTool(Name = "package_restore", Title = "Package Restore", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
+    [Description("Runs package restore for the routed solution or project and waits for completion. Returns true on success; errors include restore diagnostics and exit code. Compact output.")]
     public Task<ToolResponse<PackageRestoreResult>> PackageRestore(
         string? projectName = null,
         string? sessionId = null,
@@ -31,7 +31,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "project_add_reference", Title = "Project Add Reference", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Adds an assembly or project reference to a project in the routed Visual Studio solution.")]
+    [Description("Adds an assembly or project reference to a project in the routed Visual Studio solution. Returns true on success. Compact output.")]
     public Task<ToolResponse<ProjectReferenceResult>> ProjectAddReference(
         string projectName,
         string reference,
@@ -65,7 +65,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "project_remove_reference", Title = "Project Remove Reference", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Removes an assembly or project reference from a project in the routed Visual Studio solution.")]
+    [Description("Removes an assembly or project reference from a project in the routed Visual Studio solution. Returns true on success. Compact output.")]
     public Task<ToolResponse<ProjectReferenceResult>> ProjectRemoveReference(
         string projectName,
         string reference,

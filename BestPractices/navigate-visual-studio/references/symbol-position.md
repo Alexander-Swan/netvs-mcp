@@ -14,4 +14,4 @@ symbol_context({ "documentPath": "...", "line": 590, "column": 24, "contextLines
 
 `find_implementations` reports `Supported: false` when implementation lookup is unavailable for the language or symbol kind.
 
-`symbol_context` combines a document read, definition lookup, references lookup, and a small snippet. Use it as a first look before deeper investigation.
+`symbol_context` combines a document read, definition lookup, references lookup, and a small snippet. Use it as a first look. If referencesTruncated is true, use `code_find_references` for the full search.

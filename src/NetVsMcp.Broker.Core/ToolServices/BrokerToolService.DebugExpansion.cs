@@ -8,7 +8,7 @@ internal sealed partial class BrokerToolService
 {
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_expand", Title = "Expand Stopped Debugger Value", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Expands an expression within one validated pause and frame with auto-expand rules disabled. Requires an updated VSIX. Incomplete or duplicate-member results include $value and $expansion with paging and truncation evidence. Compact output.")]
+    [Description("Expands an expression within one validated pause and frame with auto-expand rules disabled. Requires an updated VSIX. Expanded text has a shared 65536-character budget. Incomplete or duplicate-member results include $value and $expansion with paging and truncation evidence. Compact output.")]
     public Task<ToolResponse<DebugFrameInspectionResult>> DebugExpand(
         [Description("Expression to expand, 1 to 4096 characters.")] string expression,
         [Description("Required stopId from debug_status or a stopped snapshot.")] string expectedStopId,

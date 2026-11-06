@@ -148,10 +148,10 @@ public sealed partial class BrokerToolServiceTests
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "debug_evaluate", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "document_read", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "document_write", RequiresVisualStudioSession: true });
-        Assert.Contains(response.Value.Tools, tool => tool is { Name: "prepare_safe_edit", RequiresVisualStudioSession: true });
+        Assert.DoesNotContain(response.Value.Tools, tool => tool.Name == "prepare_safe_edit");
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "edit_preview", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "edit_list_pending", RequiresVisualStudioSession: true });
-        Assert.Contains(response.Value.Tools, tool => tool is { Name: "apply_safe_edit_and_build", RequiresVisualStudioSession: true });
+        Assert.DoesNotContain(response.Value.Tools, tool => tool.Name == "apply_safe_edit_and_build");
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "solution_open", RequiresVisualStudioSession: true, Category: BrokerToolCategory.Admin });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "solution_close", RequiresVisualStudioSession: true, Category: BrokerToolCategory.Admin });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "solution_info", RequiresVisualStudioSession: true });
@@ -167,7 +167,6 @@ public sealed partial class BrokerToolServiceTests
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "test_debug", RequiresVisualStudioSession: true, Category: BrokerToolCategory.Test });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "test_run_and_get_results", RequiresVisualStudioSession: true });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "document_write", Category: BrokerToolCategory.EditDirect });
-        Assert.Contains(response.Value.Tools, tool => tool is { Name: "prepare_safe_edit", Category: BrokerToolCategory.EditPreview });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "build_and_get_errors", Category: BrokerToolCategory.Build });
         Assert.Contains(response.Value.Tools, tool => tool is { Name: "debug_start", Category: BrokerToolCategory.Debug });
         Assert.All(
@@ -395,8 +394,8 @@ public sealed partial class BrokerToolServiceTests
         Assert.Equal("Editor.cs", response.Value.ActiveDocument);
         Assert.Equal("NetVsMcp", response.Value.Solution!.Name);
         Assert.Equal("Break", response.Value.Debugger!.Mode);
-        Assert.Single(response.Value.Errors!.Items);
-        Assert.Single(response.Value.PendingEdits!.PendingEdits);
+        Assert.Null(response.Value.Errors);
+        Assert.Null(response.Value.PendingEdits);
     }
 
     [Fact]
@@ -416,7 +415,7 @@ public sealed partial class BrokerToolServiceTests
         Assert.Null(response.Value.Build);
         Assert.Equal("Editor.cs", response.Value.ActiveDocument);
         Assert.Equal("NetVsMcp", response.Value.Solution!.Name);
-        Assert.Single(response.Value.Errors!.Items);
+        Assert.Null(response.Value.Errors);
     }
 
     [Fact]
@@ -855,10 +854,9 @@ public sealed partial class BrokerToolServiceTests
 
         var response = await runtime.Tools.ProjectDependencies("NetVsMcp.Broker", sessionId: "vs-1");
 
-        Assert.True(response.Success);
+        Assert.False(response.Success);
         Assert.Equal("NetVsMcp.Broker", session.LastProjectInfoRequest!.ProjectName);
-        Assert.Equal("NetVsMcp.Broker", response.Value!.Project!.Name);
-        Assert.Empty(response.Value.PackageReferences);
+        Assert.Contains("project file is unavailable", response.Message);
     }
 
     [Fact]
@@ -915,11 +913,11 @@ public sealed partial class BrokerToolServiceTests
 
         var response = await runtime.Tools.TestRun(
             projectName: "NetVsMcp.Broker.Tests",
-            filter: "FullyQualifiedName~BrokerToolServiceTests",
+            filter: "FullyQualifiedName=NetVsMcp.Broker.Tests.BrokerToolServiceTests.TestRun_RoutesFilterToConnectedSession",
             sessionId: "vs-1");
 
         Assert.True(response.Success);
-        Assert.Equal("FullyQualifiedName~BrokerToolServiceTests", session.LastTestRunRequest!.Filter);
+        Assert.Equal("FullyQualifiedName=NetVsMcp.Broker.Tests.BrokerToolServiceTests.TestRun_RoutesFilterToConnectedSession", session.LastTestRunRequest!.Filter);
         Assert.Equal("Passed", Assert.Single(response.Value!.Results).Outcome);
     }
 

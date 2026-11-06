@@ -615,12 +615,17 @@ public sealed partial class BrokerToolServiceTests
             return Task.FromResult(ActionApplicationReport ?? new CodeActionsApplyResult(true, "Applied 'Remove unnecessary usings'.", "Remove unnecessary usings", changes));
         }
 
+        public bool PageDocumentRead { get; init; }
+
         public Task<DocumentReadResult> DocumentReadAsync(
             DocumentReadRequest request,
             CancellationToken cancellationToken)
         {
             LastDocumentReadRequest = request;
-            return Task.FromResult(new DocumentReadResult(CreateDocument(request.Path), DocumentText, "live", true));
+            var result = new DocumentReadResult(CreateDocument(request.Path), DocumentText, "live", true);
+            return Task.FromResult(PageDocumentRead && request.StartLine is int startLine
+                ? DocumentReadRange.Select(result, startLine, request.LineCount, request.StartColumn ?? 1)
+                : result);
         }
 
         public Task<EditorDocumentInfo> DocumentOpenAsync(
@@ -909,13 +914,17 @@ public sealed partial class BrokerToolServiceTests
             return Task.FromResult(new PackageRestoreResult(true, "Restored packages.", CreateProject(request.ProjectName ?? "NetVsMcp.Broker"), 0));
         }
 
+        public bool OmitBuildDiagnostics { get; init; }
+
         public Task<BuildSolutionResult> BuildSolutionAsync(
             BuildSolutionRequest request,
             CancellationToken cancellationToken)
         {
             LastBuildSolutionRequest = request;
             var status = new BuildStatusInfo("Done", 0);
-            return Task.FromResult(new BuildSolutionResult(status, 0));
+            var diagnostics = request.CaptureDiagnostics is null || OmitBuildDiagnostics ? null :
+                new BuildDiagnosticsCapture([new("Build-specific diagnostic", "Editor.cs", 1, 1, "Error", null)]);
+            return Task.FromResult(new BuildSolutionResult(status, 0, Diagnostics: diagnostics));
         }
 
         public Task<BuildSolutionResult> BuildProjectAsync(
@@ -1230,7 +1239,7 @@ public sealed partial class BrokerToolServiceTests
 
         public Task<LocalProcessListResult> ProcessListLocalAsync(CancellationToken cancellationToken)
         {
-            IReadOnlyCollection<LocalProcessInfo> processes = [new(1234, "NetVsMcp.Broker.exe", "Default", "alex", true)];
+            IReadOnlyCollection<LocalProcessInfo> processes = [new(1234, "NetVsMcp.Broker.exe", "alex", true)];
             return Task.FromResult(new LocalProcessListResult(processes));
         }
 

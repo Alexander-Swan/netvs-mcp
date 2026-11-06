@@ -60,7 +60,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "code_go_to_definition", Title = "Code Go To Definition", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Finds and navigates to a symbol definition through a routed Visual Studio session. Compact output. Returns symbol and locations. Identical nested symbols are inherited; related symbols and navigation outcomes remain explicit.")]
+    [Description("Finds source definitions and navigates to a single destination when available. Compact output. Returns an array of locations; entries with distinct related symbols retain their names.")]
     public Task<ToolResponse<GoToDefinitionResult>> CodeGoToDefinition(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
@@ -130,7 +130,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "symbol_context", Title = "Symbol Context", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns document text, nearby snippet, definition, and references for a code position. Compact output. Returns symbol/definitions/references/snippet without the repeated full source document.")]
+    [Description("Returns a nearby snippet, definitions, and up to 50 references for the symbol at a code position. Compact output. Plain reference entries are location strings. Use code_find_references when referencesTruncated is true.")]
     public Task<ToolResponse<SymbolContextResult>> SymbolContext(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
@@ -231,7 +231,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "rename_symbol_preview", Title = "Rename Symbol Preview", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns safe rename preview status for a code position.")]
+    [Description("Returns safe rename preview status for a code position. Compact output.")]
     public Task<ToolResponse<RenameSymbolPreviewResult>> RenameSymbolPreview(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
@@ -273,7 +273,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "rename_symbol_apply", Title = "Rename Symbol Apply", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Applies a Roslyn solution-wide rename for the symbol at a code position through a routed Visual Studio session.")]
+    [Description("Applies a Roslyn solution-wide rename for the symbol at a code position through a routed Visual Studio session. Compact output.")]
     public Task<ToolResponse<RenameSymbolApplyResult>> RenameSymbolApply(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
@@ -356,7 +356,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "code_actions_list", Title = "Code Actions List", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists available code fixes and refactorings (like the VS lightbulb) at a code position or selection through a routed Visual Studio session.")]
+    [Description("Lists available code fixes and refactorings (like the VS lightbulb) at a code position or selection through a routed Visual Studio session. Compact output.")]
     public Task<ToolResponse<CodeActionsListResult>> CodeActionsList(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
@@ -397,7 +397,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "code_actions_apply", Title = "Code Actions Apply", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Applies a code fix or refactoring. Prefer actionId returned by code_actions_list: it binds the original action to the workspace snapshot and rejects stale or reused selections. IDs expire after two minutes and require an updated extension. Legacy index-only calls recompute actions and do not provide stale-selection protection.")]
+    [Description("Applies a code fix or refactoring. Prefer actionId returned by code_actions_list: it binds the original action to the workspace snapshot and rejects stale or reused selections. IDs expire after two minutes and require an updated extension. Legacy index-only calls recompute actions and do not provide stale-selection protection. Compact output.")]
     public Task<ToolResponse<CodeActionsApplyResult>> CodeActionsApply(
         [Description(DocumentPathParameterDescription)]
         string documentPath,
@@ -447,7 +447,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "document_read", Title = "Document Read", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Reads a document through a routed Visual Studio session, including unsaved buffers. Pass path, not documentPath. Optional startLine (1-based) and lineCount select a range; omit them to read the full document. Returns startLine, returned lineCount, totalLines and truncated when applicable. Use document_diagnostics for version-sensitive diagnostic pages. An empty document has one line; a trailing newline starts an empty final line. A startLine beyond EOF returns empty text and lineCount=0. Compact output. Returns path/text/source and range/truncation fields directly. Simple reads omit duplicate document metadata, usedLiveBuffer and textVersion.")]
+    [Description("Reads a document through a routed Visual Studio session, including unsaved buffers. Pass path, not documentPath. Optional startLine and lineCount select a range. Text is capped at 65536 UTF-16 code units per response. If the cap cuts the requested range short, pass nextLine and nextColumn as startLine and startColumn to continue. Returns startLine, returned lineCount, totalLines and truncated when applicable. An empty document has one line and a trailing newline starts an empty final line. A startLine beyond EOF returns empty text and lineCount=0. Compact output. Returns path/text/source and range/truncation fields directly.")]
     public Task<ToolResponse<DocumentReadResult>> DocumentRead(
         [Description(PathParameterDescription)]
         string? path = null,
@@ -458,7 +458,9 @@ internal sealed partial class BrokerToolService
         int startLine = 1,
         [Description("Maximum lines to return. Omit to read through the end of the document.")]
         int? lineCount = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description("1-based UTF-16 column on startLine. Defaults to 1. Use nextColumn to continue a capped read.")]
+        int startColumn = 1)
     {
         if (ValidateRequiredPath(path) is { } validation)
         {
@@ -466,14 +468,19 @@ internal sealed partial class BrokerToolService
         }
 
         var trimmedPath = path!.Trim();
-        if (startLine < 1 || lineCount is <= 0)
-            return Task.FromResult(ToolResponse<DocumentReadResult>.Fail("startLine and lineCount must be greater than zero."));
-        var request = new DocumentReadRequest { Path = trimmedPath };
+        if (startLine < 1 || lineCount is <= 0 || startColumn < 1)
+            return Task.FromResult(ToolResponse<DocumentReadResult>.Fail("startLine, startColumn, and lineCount must be greater than zero."));
+        var request = new DocumentReadRequest { Path = trimmedPath, StartLine = startLine, LineCount = lineCount, StartColumn = startColumn };
         return DispatchValueAsync(
             sessionId,
             solutionName,
             solutionPath,
-            async (connection, ct) => DocumentReadRange.Select(await connection.DocumentReadAsync(request, ct), startLine, lineCount),
+            async (connection, ct) =>
+            {
+                var result = await connection.DocumentReadAsync(request, ct);
+                // Older extensions ignore the new request fields and return the whole document.
+                return result.StartLine.HasValue ? result : DocumentReadRange.Select(result, startLine, lineCount, startColumn);
+            },
             cancellationToken,
             workspacePath: GetRoutableWorkspacePath(request.Path));
     }
@@ -771,7 +778,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "editor_find", Title = "Editor Find", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Finds text in one editor document. Compact output. Returns position/text matches with match/context information and truncation evidence.")]
+    [Description("Finds text in one editor document. Compact output. Returns the file once with line:column matches, optional surrounding text, and truncation evidence.")]
     public Task<ToolResponse<TextSearchResult>> EditorFind(
         string query,
         [Description(OptionalDocumentPathParameterDescription)]

@@ -10,13 +10,3 @@ public sealed record VsContextSnapshotResult(
     BuildStatusInfo? Build,
     ErrorListResult? Errors,
     PendingEditListResult? PendingEdits);
-
-public sealed record PrepareSafeEditResult(
-    /// <summary>The document's content as read immediately before staging the edit, for the caller to diff against.</summary>
-    DocumentReadResult Original,
-    EditPreviewResult Preview);
-
-public sealed record ApplySafeEditAndBuildResult(
-    EditDecisionResult Edit,
-    BuildSolutionResult Build,
-    ErrorListResult Errors);

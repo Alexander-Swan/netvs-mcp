@@ -8,7 +8,7 @@ internal sealed partial class BrokerToolService
 {
     [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "test_results_page", Title = "Read Retained Test Result Page", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Reads a retained CLI or Test Explorer run by ID and reports results, failure evidence, and truncation. Requires an updated VSIX. History retains up to eight runs for 15 minutes. Expired or unknown runs fail explicitly. Avoid rerunning tests merely to recover output. Compact output.")]
+    [Description("Reads retained test results by run ID. Returns result rows, nextOffset when more rows exist, and truncation when evidence was dropped. An active Test Explorer run returns its current outcome. Requires an updated VSIX. History retains up to eight runs for 15 minutes. Expired or unknown runs fail explicitly. Avoid rerunning tests merely to recover output. Compact output.")]
     public Task<ToolResponse<TestResultPage>> TestResultsPage(
         [Description("Exact runId from test_run or test_run_and_get_results, up to 200 characters.")] string runId,
         [Description("Zero-based result offset. Pass nextOffset from the preceding page.")] int offset = 0,

@@ -26,4 +26,4 @@ Pass reference paths as `file` to `netvs_get_best_practices` with this guide's n
 
 ## Covered Tools
 
-`document_*`, `editor_*`, `selection_*`, `document_cleanup`, `format_and_organize`, `edit_*`, `prepare_safe_edit`, `apply_safe_edit_and_build`, `find_in_files`, and `open_relevant_files`.
+`document_*`, `editor_*`, `selection_*`, `document_cleanup`, `format_and_organize`, `edit_*`, `find_in_files`, and `open_relevant_files`.

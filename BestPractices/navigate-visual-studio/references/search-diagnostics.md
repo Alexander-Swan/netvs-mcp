@@ -2,7 +2,7 @@
 
 Use `diagnostics_for_document` for compiler/analyzer diagnostics scoped to one file and `diagnostics_binding_errors` for VSIX-surfaced binding diagnostics. Check `Supported` when present.
 
-For compiler diagnostics tied to an exact live buffer, use `document_diagnostics` with `path` (not `documentPath`). Pass `expectedTextVersion` from `document_read` or the first diagnostic page. It includes unsaved text and returns Roslyn compiler diagnostics, excluding analyzer and build Error List diagnostics. Use zero-based `offset`, `maxItems` from 1–200, and follow `nextOffset` with the same text version. Linked files require an unambiguous `projectName` or project path. `stale_document` means read the current buffer and restart the query; do not combine pages from different versions. This tool requires an updated extension.
+For compiler diagnostics tied to an exact live buffer, use `document_diagnostics` with `path` (not `documentPath`). Pass the first diagnostic page�s `textVersion` as `expectedTextVersion` on subsequent pages. It includes unsaved text and returns Roslyn compiler diagnostics, excluding analyzer and build Error List diagnostics. Use zero-based `offset`, `maxItems` from 1–200, and follow `nextOffset` with the same text version. Linked files require an unambiguous `projectName` or project path. `stale_document` means read the current buffer and restart the query; do not combine pages from different versions. This tool requires an updated extension.
 
 ```json
 diagnostics_for_document({ "documentPath": "Project/File.cs", "includeWarnings": true, "maxItems": 200, "sessionId": "..." })

@@ -55,8 +55,8 @@ internal sealed partial class BrokerToolService
         return response;
     }
     [BrokerToolMetadata(BrokerToolCategory.Build, requiresVisualStudioSession: true)]
-    [McpServerTool(Name = "build_and_get_errors", Title = "Build And Get Errors", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Compiles/builds the routed solution using its active configuration, waits for completion, and returns build status plus bounded errors and optional warnings. Inspect build.lastBuildInfo (0 means success); a successful tool call alone does not mean compilation succeeded. Does not launch the application. Compact output. Diagnostics are grouped as errors/warnings/messages, each with position=file:line:column and description. Empty groups are omitted; version/range/pagination evidence remains. Build composites also return buildId/outcome.")]
+    [McpServerTool(Name = "build_and_get_errors", Title = "Build And Get Errors", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
+    [Description("Builds the routed solution with its active configuration and waits for completion. Returns build status and bounded diagnostics captured from this build's output. Use build.outcome and build.lastBuildInfo to check compilation. Compact output. Errors precede optional warnings. Truncated indicates omitted diagnostics. diagnosticsUnavailable explains when build output could not be attributed or read.")]
     public Task<ToolResponse<BuildAndGetErrorsResult>> BuildAndGetErrors(
         bool includeWarnings = true,
         int maxItems = 100,
@@ -82,9 +82,16 @@ internal sealed partial class BrokerToolService
             solutionPath,
             async (connection, ct) =>
             {
-                var build = await connection.BuildSolutionAsync(new BuildSolutionRequest { WaitForBuildToFinish = true }, ct);
-                var errors = await connection.ErrorsListAsync(errorsRequest, ct);
-                return new BuildAndGetErrorsResult(build, errors);
+                var build = await connection.BuildSolutionAsync(new BuildSolutionRequest
+                {
+                    WaitForBuildToFinish = true,
+                    CaptureDiagnostics = errorsRequest
+                }, ct);
+                var diagnostics = build.Diagnostics;
+                return new BuildAndGetErrorsResult(build with { Diagnostics = null },
+                    new ErrorListResult(diagnostics?.Items ?? [], "buildOutput"),
+                    diagnostics?.Truncated ?? false,
+                    diagnostics is null ? "The Visual Studio extension did not return build-scoped diagnostics." : diagnostics.Unavailable);
             },
             cancellationToken);
     }

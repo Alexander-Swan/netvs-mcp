@@ -382,7 +382,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: false)]
     [McpServerTool(Name = "vs_launch_instance", Title = "Launch Visual Studio", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Launches a new Visual Studio (devenv.exe) process, optionally opening a solution and/or running experimental (/rootsuffix Exp), and waits for it to register with the broker.")]
+    [Description("Launches a new Visual Studio (devenv.exe) process, optionally opening a solution and/or running experimental (/rootsuffix Exp), and waits for it to register with the broker. Returns the registered session ID as a string. Compact output.")]
     public async Task<ToolResponse<VsLaunchInstanceResult>> VsLaunchInstance(
         string? solutionPath = null,
         bool experimental = false,
@@ -418,7 +418,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "vs_context_snapshot", Title = "Get Visual Studio Context Snapshot", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns active session, solution, document, selection, debugger, build, errors, and pending edit context. Compact output. Returns shared session/solution/document context with selection, debugger/build state, severity-grouped diagnostics and pending edits.")]
+    [Description("Returns the routed session, solution path, active document, selection, and debugger state. Compact output.")]
     public Task<ToolResponse<VsContextSnapshotResult>> VsContextSnapshot(
         string? sessionId = null,
         string? solutionName = null,
@@ -439,29 +439,11 @@ internal sealed partial class BrokerToolService
                     activeDocument.Value,
                     await connection.SelectionGetAsync(ct),
                     await _runtime.DialogOperations.ReadDebugStateAsync(session, connection, ct),
-                    await TryGetSnapshotValueAsync(() => connection.BuildStatusAsync(ct)),
-                    await connection.ErrorsListAsync(new ErrorListRequest { IncludeWarnings = true, MaxItems = 50 }, ct),
-                    await connection.EditListPendingAsync(ct));
+                    null, null, null);
             },
             cancellationToken);
     }
 
-    private static async Task<T?> TryGetSnapshotValueAsync<T>(Func<Task<T>> getValue)
-        where T : class
-    {
-        try
-        {
-            return await getValue();
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch
-        {
-            return null;
-        }
-    }
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "execute_command", Title = "Execute Visual Studio Command", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
     [Description("Executes a Visual Studio command in a routed session.")]
@@ -512,12 +494,13 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "window_list", Title = "List Visual Studio Windows", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists Visual Studio windows in a routed session.")]
+    [Description("Returns an array of Visual Studio windows with captions and categories. isActive appears when true; isVisible appears when false. Request includeObjectKind for Visual Studio window type IDs. Compact output.")]
     public Task<ToolResponse<WindowListResult>> WindowList(
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool includeObjectKind = false)
     {
         return DispatchValueAsync(
             sessionId,
@@ -665,7 +648,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "project_list", Title = "List Projects", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists projects from a routed Visual Studio session.")]
+    [Description("Returns an array of project names and paths, with loaded=false for unloaded projects. Compact output.")]
     public Task<ToolResponse<ProjectListResult>> ProjectList(
         string? sessionId = null,
         string? solutionName = null,
@@ -750,7 +733,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "project_add_file", Title = "Project Add File", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Adds an existing file to a project in the routed Visual Studio solution.")]
+    [Description("Adds an existing file to a project in the routed Visual Studio solution. Compact output.")]
     public Task<ToolResponse<ProjectInfo>> ProjectAddFile(
         string projectName,
         string filePath,
@@ -799,7 +782,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "solution_overview", Title = "Get Solution Overview", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns solution, project, startup-project, and test-project summary.")]
+    [Description("Returns solution, projects, startupProject, and likely testProjects directly. Project rows contain names, paths, and unloaded status when applicable. Compact output.")]
     public Task<ToolResponse<SolutionOverviewResult>> SolutionOverview(
         string? sessionId = null,
         string? solutionName = null,
@@ -824,7 +807,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "project_dependencies", Title = "Get Project Dependencies", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns project/package references parsed from a project file when available.")]
+    [Description("Returns declared target frameworks, project reference paths, and package references with declared versions. Compact output.")]
     public Task<ToolResponse<ProjectDependenciesResult>> ProjectDependencies(
         string projectName,
         string? sessionId = null,
@@ -848,7 +831,7 @@ internal sealed partial class BrokerToolService
                 var projectPath = project?.FullName;
                 if (string.IsNullOrWhiteSpace(projectPath) || !File.Exists(projectPath))
                 {
-                    return new ProjectDependenciesResult(project, [], [], []);
+                    throw new FileNotFoundException("The project file is unavailable.");
                 }
 
                 var dependencies = ReadProjectDependencies(projectPath!);
@@ -909,11 +892,11 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "test_run", Title = "Test Run", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Runs tests and returns runId, outcome, backend, and any completed results or coverage. Test Explorer runs appear in the IDE. Canceling the call requests cancellation of its owned IDE run. Check outcome and follow nextOffset with test_results_page using the exact runId. Compact output.")]
+    [Description("Runs a single test case. Use test_run_and_get_results for multiple tests. Returns the test result directly, with failure evidence when available. Compact output.")]
     public Task<ToolResponse<TestOperationResult>> TestRun(
         [Description(TestProjectDescription)]
         string? projectName = null,
-        [Description("Omit to run all tests in the selected scope. " + TestFilterDescription)]
+        [Description("Required single-case selector. " + TestFilterDescription)]
         string? filter = null,
         string? sessionId = null,
         string? solutionName = null,
@@ -922,11 +905,17 @@ internal sealed partial class BrokerToolService
         [Description(TestBackendDescription)] string? backend = null)
     {
         if (!ValidTestBackend(backend)) return Task.FromResult(FailWithCode<TestOperationResult>("backend must be cli or test-explorer.", ToolErrorCodes.InvalidRequest));
-        if (backend == "test-explorer") return RunExplorerTestsAsync(projectName, filter, sessionId, solutionName, solutionPath, cancellationToken);
+        if (string.IsNullOrWhiteSpace(filter))
+            return Task.FromResult(FailWithCode<TestOperationResult>("A single-test filter is required.", ToolErrorCodes.InvalidRequest));
+        if (backend == "test-explorer") return RunExplorerTestsAsync(projectName, filter, sessionId, solutionName, solutionPath, cancellationToken, singleCase: true);
+        if (!filter.Trim().StartsWith("FullyQualifiedName=", StringComparison.OrdinalIgnoreCase) ||
+            filter.IndexOfAny(['&', '|', '~', '!']) >= 0)
+            return Task.FromResult(FailWithCode<TestOperationResult>("Use an exact FullyQualifiedName filter for a single CLI test.", ToolErrorCodes.InvalidRequest));
         var request = new TestRunRequest
         {
             ProjectName = NormalizeOptional(projectName),
-            Filter = NormalizeOptional(filter)
+            Filter = NormalizeOptional(filter),
+            SingleCase = true
         };
 
         return DispatchValueAsync(
@@ -936,10 +925,7 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.TestRunAsync(request, ct),
             cancellationToken);
     }
-    [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
-    [McpServerTool(Name = "test_results", Title = "Get Test Results", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns retained CLI/TRX or Test Explorer results through a routed Visual Studio session; backend selection is determined by the runId, not a backend argument. Supply runId to avoid accidentally reading a different run. Updated extensions preserve adapter testId, executionId, failure message and stack trace. This legacy call returns the retained collection; prefer test_results_page for bounded output. Test ID stability is adapter-dependent; executionId is specific to one execution. Compact output. Returns run metadata/results once, preserving runner exit code, pagination, failure messages, stack traces and truncation.")]
-    public Task<ToolResponse<TestOperationResult>> TestResults(
+    internal Task<ToolResponse<TestOperationResult>> TestResults(
         string? runId = null,
         string? sessionId = null,
         string? solutionName = null,
@@ -956,13 +942,13 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Test, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "test_run_and_get_results", Title = "Test Run And Get Results", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Runs tests and returns results bound to the new runId, including runner exit code, failure evidence, and truncation. Test Explorer runs appear in the IDE. Check outcome and follow nextOffset with test_results_page. Compact output.")]
+    [Description("Runs a test batch and returns the run ID, outcome, exit code, counts, and a small failure sample. Use test_results_page with the returned run ID and offset 0 for individual results. Compact output.")]
     public Task<ToolResponse<TestRunAndGetResultsResult>> TestRunAndGetResults(
         [Description(TestProjectDescription)]
         string? projectName = null,
         [Description("Omit to run all tests in the selected scope. " + TestFilterDescription)]
         string? filter = null,
-        [Description("Compatibility fallback for older CLI extensions that omit their new runId. Updated runners bind results to the run just started; Test Explorer ignores this argument and creates a fresh runId. Use test_results to read a previous run.")]
+        [Description("Compatibility fallback for older CLI extensions that omit their new runId. Updated runners bind results to the run just started; Test Explorer ignores this argument and creates a fresh runId. Use test_results_page to read a retained run.")]
         string? runId = null,
         string? sessionId = null,
         string? solutionName = null,
@@ -1268,7 +1254,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Admin, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "project_remove_file", Title = "Project Remove File", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Removes a file item from a project in the routed Visual Studio solution without deleting it from disk.")]
+    [Description("Removes a file item from a project and leaves the file on disk. Compact output. Returns true on success.")]
     public Task<ToolResponse<ProjectFileResult>> ProjectRemoveFile(string projectName, string filePath, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(projectName))

@@ -941,7 +941,7 @@ public sealed class LocalMcpHttpHostTests
             batch.EnsureSuccessStatusCode();
             var response = await ReadMcpToolResponseAsync<JsonElement>(batch);
             Assert.True(response.Success, response.Message);
-            Assert.Equal("dbgBreakMode", response.Value.GetProperty("state").GetProperty("mode").GetString());
+            Assert.False(response.Value.TryGetProperty("state", out _));
             var rows = response.Value.GetProperty("results");
             Assert.Equal(JsonValueKind.Object, rows.ValueKind);
             Assert.Equal(2, rows.EnumerateObject().Count());
@@ -1017,7 +1017,7 @@ public sealed class LocalMcpHttpHostTests
                 Assert.True(response.Success, response.Message);
                 var value = response.Value;
                 var expression = tool == "debug_get_locals"
-                    ? value.GetProperty("locals")
+                    ? value
                     : value.GetProperty("expression");
                 Assert.Equal("selected-frame-3", expression.GetProperty("currentLocal").GetString());
             }

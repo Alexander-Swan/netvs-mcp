@@ -82,6 +82,8 @@ internal sealed class TestExplorerCoordinator(ITestExplorerAdapter adapter, Test
         {
             var available = await adapter.DiscoverAsync(RequireProject(request.ProjectName), run.Cancellation.Token).ConfigureAwait(false);
             var selected = Select(available, request.Filter);
+            if (request.SingleCase && selected.Count != 1)
+                throw new ArgumentException("The selector must match exactly one Test Explorer case.");
             if (selected.Count == 0)
             {
                 prepared?.TrySetException(new ArgumentException("No current IDE test matches this exact selector."));

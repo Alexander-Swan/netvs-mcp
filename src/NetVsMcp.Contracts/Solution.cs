@@ -124,6 +124,7 @@ public sealed class TestRunRequest
 {
     public string? ProjectName { get; set; }
     public bool CollectCoverage { get; set; }
+    public bool SingleCase { get; set; }
 
     /// <summary>An MSTest/xUnit/NUnit-style test filter expression passed through to the underlying test runner.</summary>
     public string? Filter { get; set; }
@@ -164,7 +165,12 @@ public sealed record TestOperationResult(
     int? RetainedResults = null,
     bool ResultsTruncated = false,
     int? NextOffset = null,
-    CoverageReport? Coverage = null);
+    CoverageReport? Coverage = null,
+    TestRunCounts? Counts = null,
+    IReadOnlyCollection<TestFailureSample>? FailureSample = null);
+
+public sealed record TestRunCounts(int Passed, int Failed, int Skipped, int Other);
+public sealed record TestFailureSample(string Name, string? Message);
 
 public sealed record TestCaseInfo(
     string Name,

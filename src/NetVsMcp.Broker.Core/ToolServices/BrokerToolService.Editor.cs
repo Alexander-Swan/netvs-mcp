@@ -361,7 +361,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.EditPreview, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "edit_preview", Title = "Edit Preview", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Prepares a safe-edit preview without applying it. Required operation is write (whole buffer), insert (line/column), or replace (start/end coordinates); path and text are required for all three. Pass value.pendingEdit.editId to edit_approve, edit_reject, or apply_safe_edit_and_build using the same VS session route.")]
+    [Description("Prepares a safe-edit preview without applying it. Required operation is write (whole buffer), insert (line/column), or replace (start/end coordinates); path and text are required for all three. Returns an editId and the affected path and range. Use that ID with edit_approve or edit_reject on the same VS session. Compact output.")]
     public Task<ToolResponse<EditPreviewResult>> EditPreview(
         [Description("Required operation: write (whole buffer), insert (line/column), or replace (start/end coordinates).")]
         string? operation = null,
@@ -417,72 +417,9 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.EditPreviewAsync(request, ct),
             cancellationToken);
     }
-    [BrokerToolMetadata(BrokerToolCategory.EditPreview, requiresVisualStudioSession: true)]
-    [McpServerTool(Name = "prepare_safe_edit", Title = "Prepare Safe Edit", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Reads a document and creates a safe-edit preview through a routed Visual Studio session. Pass value.preview.pendingEdit.editId to edit_approve, edit_reject, or apply_safe_edit_and_build.")]
-    public Task<ToolResponse<PrepareSafeEditResult>> PrepareSafeEdit(
-        [Description("Required operation: write (whole buffer), insert (line/column), or replace (start/end coordinates).")]
-        string? operation = null,
-        [Description("Required path argument; solution-relative or absolute file path. Prefer forward slashes.")]
-        string? path = null,
-        [Description("Required replacement or inserted text. Empty text is valid; omission is rejected.")]
-        string? text = null,
-        bool createIfMissing = false,
-        bool saveAfterEdit = false,
-        [Description("1-based line number; required when operation is 'insert'.")]
-        int line = 0,
-        [Description("1-based column number; required when operation is 'insert'.")]
-        int column = 0,
-        [Description("1-based start line number; required when operation is 'replace'.")]
-        int startLine = 0,
-        [Description("1-based start column number; required when operation is 'replace'.")]
-        int startColumn = 0,
-        [Description("1-based end line number; required when operation is 'replace'.")]
-        int endLine = 0,
-        [Description("1-based end column number; required when operation is 'replace'.")]
-        int endColumn = 0,
-        string? sessionId = null,
-        string? solutionName = null,
-        string? solutionPath = null,
-        CancellationToken cancellationToken = default)
-    {
-        if (ValidateEditPreview(operation, path, text, line, column, startLine, startColumn, endLine, endColumn) is { } validation)
-        {
-            return Task.FromResult(ToolResponse<PrepareSafeEditResult>.Fail(validation));
-        }
-
-        var normalizedOperation = operation!.Trim().ToLowerInvariant();
-        var normalizedPath = path!.Trim();
-        var request = new EditPreviewRequest
-        {
-            Operation = normalizedOperation,
-            Path = normalizedPath,
-            Text = text!,
-            CreateIfMissing = createIfMissing,
-            SaveAfterEdit = saveAfterEdit,
-            Line = line,
-            Column = column,
-            StartLine = startLine,
-            StartColumn = startColumn,
-            EndLine = endLine,
-            EndColumn = endColumn
-        };
-
-        return DispatchValueAsync(
-            sessionId,
-            solutionName,
-            solutionPath,
-            async (connection, ct) =>
-            {
-                var original = await connection.DocumentReadAsync(new DocumentReadRequest { Path = normalizedPath }, ct);
-                var preview = await connection.EditPreviewAsync(request, ct);
-                return new PrepareSafeEditResult(original, preview);
-            },
-            cancellationToken);
-    }
     [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "edit_approve", Title = "Edit Approve", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
-    [Description("Approves a pending safe edit through a routed Visual Studio session. First call edit_preview and use value.pendingEdit.editId, or call prepare_safe_edit and use value.preview.pendingEdit.editId; preserve the same explicit route for both calls (sessionId, solutionPath, or solutionName).")]
+    [Description("Applies a staged edit after validating the current buffer. Returns true if saved or false if applied without saving. First call edit_preview and use its editId with the same session route. Compact output.")]
     public Task<ToolResponse<EditDecisionResult>> EditApprove(
         string? editId = null,
         bool saveAfterApply = false,
@@ -509,57 +446,9 @@ internal sealed partial class BrokerToolService
             (connection, ct) => connection.EditApproveAsync(request, ct),
             cancellationToken);
     }
-    [BrokerToolMetadata(BrokerToolCategory.Build, requiresVisualStudioSession: true)]
-    [McpServerTool(Name = "apply_safe_edit_and_build", Title = "Apply Safe Edit And Build", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Approves a pending safe edit, builds the routed solution, and returns diagnostics. First call edit_preview and use value.pendingEdit.editId, or call prepare_safe_edit and use value.preview.pendingEdit.editId; preserve the same explicit route for both calls (sessionId, solutionPath, or solutionName).")]
-    public Task<ToolResponse<ApplySafeEditAndBuildResult>> ApplySafeEditAndBuild(
-        string? editId = null,
-        bool saveAfterApply = true,
-        bool includeWarnings = true,
-        int maxItems = 100,
-        string? sessionId = null,
-        string? solutionName = null,
-        string? solutionPath = null,
-        CancellationToken cancellationToken = default)
-    {
-        if (ValidateEditId(editId) is { } validation)
-        {
-            return Task.FromResult(ToolResponse<ApplySafeEditAndBuildResult>.Fail(validation));
-        }
-
-        if (maxItems < 1)
-        {
-            return Task.FromResult(ToolResponse<ApplySafeEditAndBuildResult>.Fail("Max items must be greater than zero."));
-        }
-
-        var editRequest = new EditDecisionRequest
-        {
-            EditId = editId!.Trim(),
-            SaveAfterApply = saveAfterApply
-        };
-
-        var errorsRequest = new ErrorListRequest
-        {
-            IncludeWarnings = includeWarnings,
-            MaxItems = maxItems
-        };
-
-        return DispatchValueAsync(
-            sessionId,
-            solutionName,
-            solutionPath,
-            async (connection, ct) =>
-            {
-                var edit = await connection.EditApproveAsync(editRequest, ct);
-                var build = await connection.BuildSolutionAsync(new BuildSolutionRequest { WaitForBuildToFinish = true }, ct);
-                var errors = await connection.ErrorsListAsync(errorsRequest, ct);
-                return new ApplySafeEditAndBuildResult(edit, build, errors);
-            },
-            cancellationToken);
-    }
     [BrokerToolMetadata(BrokerToolCategory.EditPreview, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "edit_reject", Title = "Edit Reject", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Rejects a pending safe edit through a routed Visual Studio session. First call edit_preview and use value.pendingEdit.editId, or call prepare_safe_edit and use value.preview.pendingEdit.editId; preserve the same explicit route for both calls (sessionId, solutionPath, or solutionName).")]
+    [Description("Discards a staged edit and returns true. First call edit_preview and use its editId with the same session route. Compact output.")]
     public Task<ToolResponse<EditDecisionResult>> EditReject(
         string? editId = null,
         string? sessionId = null,
@@ -582,7 +471,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "edit_list_pending", Title = "Edit List Pending", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists pending safe edits through a routed Visual Studio session.")]
+    [Description("Lists staged edits by ID, operation, path, and range. Compact output.")]
     public Task<ToolResponse<PendingEditListResult>> EditListPending(
         string? sessionId = null,
         string? solutionName = null,

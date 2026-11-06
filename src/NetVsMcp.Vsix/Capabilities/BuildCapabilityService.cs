@@ -5,7 +5,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnvDTE;
 using EnvDTE80;
+using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Interop;
+using Microsoft.VisualStudio.TextManager.Interop;
 using Task = System.Threading.Tasks.Task;
 
 namespace NetVsMcp.Vsix;
@@ -20,6 +23,7 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService, IDisposa
     private readonly NetVsMcp.Contracts.SessionEventBuffer? events;
     private BuildEvents? buildEvents;
     private SolutionBuild? observedBuild;
+    private BuildOutputCapture? buildOutputCapture;
 
     public BuildCapabilityService(AsyncPackage package, NetVsMcp.Contracts.SessionEventBuffer? events = null)
     {
@@ -36,8 +40,11 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService, IDisposa
         var solutionBuild = dte.Solution?.SolutionBuild
             ?? throw new InvalidOperationException("Visual Studio solution build service is unavailable.");
 
+        var outputWindow = request.CaptureDiagnostics is null ? null :
+            await package.GetServiceAsync(typeof(SVsOutputWindow)) as IVsOutputWindow;
         return await RunTrackedBuildAsync(dte, solutionBuild, null, vsBuildScope.vsBuildScopeSolution,
-            vsBuildAction.vsBuildActionBuild, () => { ThreadHelper.ThrowIfNotOnUIThread(); solutionBuild.Build(false); }, request.WaitForBuildToFinish, cancellationToken);
+            vsBuildAction.vsBuildActionBuild, () => { ThreadHelper.ThrowIfNotOnUIThread(); solutionBuild.Build(false); },
+            request.WaitForBuildToFinish, cancellationToken, request.CaptureDiagnostics, outputWindow);
     }
 
     public async Task<BuildSolutionResult> BuildProjectAsync(BuildProjectRequest request, CancellationToken cancellationToken)
@@ -535,7 +542,8 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService, IDisposa
     }
 
     private async Task<BuildSolutionResult> RunTrackedBuildAsync(DTE2 dte, SolutionBuild solutionBuild,
-        string? project, vsBuildScope scope, vsBuildAction action, Action issue, bool wait, CancellationToken cancellationToken)
+        string? project, vsBuildScope scope, vsBuildAction action, Action issue, bool wait, CancellationToken cancellationToken,
+        ErrorListRequest? captureDiagnostics = null, IVsOutputWindow? outputWindow = null)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
@@ -553,21 +561,40 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService, IDisposa
         var ticket = tracker.Begin(configuration.Name, platform, project, scope.ToString(), action.ToString());
         _ = ticket.Completion.Task.ContinueWith(t => { _ = t.Exception; }, CancellationToken.None,
             TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
-        try { issue(); }
-        catch { tracker.Abort(ticket); throw; }
-        // After acceptance, cancellation only ends the broker/client wait. Continue observing
-        // this actual build until its completion event; build_cancel is the explicit control.
-        // This source is completed by VS build events, not another joinable operation.
+        BuildOutputCapture? capture = null;
+        try
+        {
+            try
+            {
+                if (captureDiagnostics is not null)
+                    buildOutputCapture = capture = new BuildOutputCapture(ticket, dte, outputWindow);
+                issue();
+            }
+            catch { tracker.Abort(ticket); throw; }
+            // After acceptance, cancellation only ends the broker/client wait. Continue observing
+            // this actual build until its completion event; build_cancel is the explicit control.
+            // This source is completed by VS build events, not another joinable operation.
 #pragma warning disable VSTHRD003
-        if (wait) await ticket.Completion.Task;
+            if (wait) await ticket.Completion.Task;
 #pragma warning restore VSTHRD003
-        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-        var errors = ticket.Completed.HasValue ? ticket.Errors ?? -1 : solutionBuild.LastBuildInfo;
-        var outcome = ticket.Completed.HasValue ? errors == 0 ? "completed" : "failed" : ticket.Begun ? "running" : "accepted";
-        var status = new BuildStatusInfo(ticket.Completed.HasValue ? vsBuildState.vsBuildStateDone.ToString() : solutionBuild.BuildState.ToString(),
-            errors, ticket.Id, outcome, ticket.Configuration, ticket.Platform, ticket.Project);
-        return new(status, errors, ticket.Id, outcome,
-            ticket.Configuration, ticket.Platform, ticket.Project);
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            var errors = ticket.Completed.HasValue ? ticket.Errors ?? -1 : solutionBuild.LastBuildInfo;
+            var outcome = ticket.Completed.HasValue ? errors == 0 ? "completed" : "failed" : ticket.Begun ? "running" : "accepted";
+            var status = new BuildStatusInfo(ticket.Completed.HasValue ? vsBuildState.vsBuildStateDone.ToString() : solutionBuild.BuildState.ToString(),
+                errors, ticket.Id, outcome, ticket.Configuration, ticket.Platform, ticket.Project);
+            var diagnostics = capture is null || captureDiagnostics is null ? null :
+                BuildOutputDiagnostics.Read(capture.Before, capture.After, capture.Clears, errors, captureDiagnostics);
+            return new(status, errors, ticket.Id, outcome, ticket.Configuration, ticket.Platform, ticket.Project, diagnostics);
+        }
+        finally
+        {
+            if (capture is not null)
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                if (ReferenceEquals(buildOutputCapture, capture)) buildOutputCapture = null;
+                capture.Dispose();
+            }
+        }
     }
 
     private void OnTrackedBuildBegin(vsBuildScope scope, vsBuildAction action)
@@ -583,7 +610,13 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService, IDisposa
         var ticket = tracker.Current;
         if (ticket is { Completed: null })
         {
-            try { tracker.ObserveDone(scope.ToString(), action.ToString(), observedBuild?.LastBuildInfo ?? -1); }
+            try
+            {
+                if (buildOutputCapture is { } capture && ReferenceEquals(capture.Ticket, ticket) &&
+                    ticket.Begun && ticket.Scope == scope.ToString() && ticket.Action == action.ToString())
+                    capture.Complete();
+                tracker.ObserveDone(scope.ToString(), action.ToString(), observedBuild?.LastBuildInfo ?? -1);
+            }
             catch (COMException ex)
             {
                 System.Diagnostics.Trace.TraceWarning("NetVsMcp: build completion state unavailable: {0}", ex.Message);
@@ -604,6 +637,95 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService, IDisposa
         }
         if (tracker.Current is { Completed: null } ticket) tracker.Abort(ticket);
         taskProvider?.Dispose();
+    }
+
+    private sealed class BuildOutputCapture : IDisposable
+    {
+        private readonly DTE2 dte;
+        private readonly IVsOutputWindow? outputWindow;
+        private readonly OutputWindowEvents? outputEvents;
+        private int observedClears;
+        public BuildExecutionTracker.Ticket Ticket { get; }
+        public string? Before { get; }
+        public string? After { get; private set; }
+        public int Clears { get; private set; }
+
+        public BuildOutputCapture(BuildExecutionTracker.Ticket ticket, DTE2 dte, IVsOutputWindow? outputWindow)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            Ticket = ticket;
+            this.dte = dte;
+            this.outputWindow = outputWindow;
+            Before = ReadText();
+            try
+            {
+                outputEvents = dte.Events.OutputWindowEvents[null];
+                if (outputEvents is not null) outputEvents.PaneClearing += OnPaneClearing;
+            }
+            catch (COMException) { outputEvents = null; }
+        }
+
+        public void Complete()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            After = ReadText();
+            Clears = observedClears;
+        }
+
+        public void Dispose()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            try { if (outputEvents is not null) outputEvents.PaneClearing -= OnPaneClearing; }
+            catch (COMException) { }
+        }
+
+        private void OnPaneClearing(OutputWindowPane pane)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            try
+            {
+                if (Guid.TryParse(pane.Guid, out var id) && id == VSConstants.OutputWindowPaneGuid.BuildOutputPane_guid)
+                    observedClears++;
+            }
+            catch (COMException) { }
+        }
+
+        private string? ReadText()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var id = VSConstants.OutputWindowPaneGuid.BuildOutputPane_guid;
+            var paneExists = false;
+            try
+            {
+                if (outputWindow is not null && outputWindow.GetPane(ref id, out var pane) >= 0 && pane is not null)
+                {
+                    paneExists = true;
+                    IVsTextLines? buffer = null;
+                    if (pane is IVsTextBufferProvider provider) provider.GetTextBuffer(out buffer);
+                    if (buffer is null && pane is IVsTextView view) view.GetBuffer(out buffer);
+                    if (buffer is not null && buffer.GetLastLineIndex(out var line, out var column) >= 0 &&
+                        buffer.GetLineText(0, 0, line, column, out var text) >= 0)
+                        return text ?? string.Empty;
+                }
+            }
+            catch (COMException) { return null; }
+
+            try
+            {
+                var panes = dte.ToolWindows?.OutputWindow?.OutputWindowPanes;
+                if (panes is null) return null;
+                for (var index = 1; index <= panes.Count; index++)
+                {
+                    var candidate = panes.Item(index);
+                    if (Guid.TryParse(candidate.Guid, out var candidateId) && candidateId == id)
+                        return candidate.TextDocument is TextDocument document
+                            ? document.StartPoint.CreateEditPoint().GetText(document.EndPoint)
+                            : null;
+                }
+                return paneExists ? null : string.Empty;
+            }
+            catch (COMException) { return null; }
+        }
     }
 
     private BuildStatusInfo GetBuildStatus(SolutionBuild solutionBuild)

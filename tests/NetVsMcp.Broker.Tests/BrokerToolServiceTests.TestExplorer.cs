@@ -9,7 +9,7 @@ public sealed partial class BrokerToolServiceTests
     {
         var runtime = CreateRuntime(); var rpc = new FakeVisualStudioSessionRpc("Editor.cs");
         runtime.Sessions.Register(CreateRegistration("vs-1", "Fixture")); runtime.Connections.AddOrUpdate("vs-1", rpc);
-        var response = await runtime.Tools.TestRun("Fixture", sessionId: "vs-1", backend: "test-explorer");
+        var response = await runtime.Tools.TestRun("Fixture", filter: "Fixture.Tests.Case", sessionId: "vs-1", backend: "test-explorer");
         Assert.False(response.Success);
         Assert.Equal(ToolErrorCodes.UnsupportedByVsix, response.Metadata!["error_code"]);
         Assert.Null(rpc.LastTestRunRequest);
@@ -28,7 +28,7 @@ public sealed partial class BrokerToolServiceTests
         };
         runtime.Sessions.Register(CreateRegistration("vs-1", "Fixture")); runtime.Connections.AddOrUpdate("vs-1", rpc);
         using var cancel = new CancellationTokenSource();
-        var running = runtime.Tools.TestRun("Fixture", sessionId: "vs-1", cancellationToken: cancel.Token, backend: "test-explorer");
+        var running = runtime.Tools.TestRun("Fixture", filter: "Fixture.Tests.Case", sessionId: "vs-1", cancellationToken: cancel.Token, backend: "test-explorer");
         await entered.Task; cancel.Cancel();
         var response = await running;
         Assert.True(response.Success);

@@ -177,7 +177,7 @@ internal sealed class VisualStudioCapabilityRpcTarget
     public Task<ToolWindowResult> ToolWindowHideAsync(ToolWindowRequest request, CancellationToken cancellationToken) =>
         InvokeAsync(() => generalIde.ToolWindowHideAsync(request, cancellationToken), nameof(ToolWindowHideAsync));
 
-    public Task<DocumentReadResult> DocumentReadAsync(DocumentReadRequest request, CancellationToken cancellationToken) =>
+    public Task<NetVsMcp.Contracts.DocumentReadResult> DocumentReadAsync(NetVsMcp.Contracts.DocumentReadRequest request, CancellationToken cancellationToken) =>
         InvokeAsync(() => editor.DocumentReadAsync(request, cancellationToken), nameof(DocumentReadAsync));
 
     public Task<TextSearchResult> EditorFindAsync(EditorFindRequest request, CancellationToken cancellationToken) =>

@@ -78,6 +78,9 @@ public sealed record TextSearchResult(
 public sealed class DocumentReadRequest
 {
     public string Path { get; set; } = string.Empty;
+    public int? StartLine { get; set; }
+    public int? LineCount { get; set; }
+    public int? StartColumn { get; set; }
 }
 
 public sealed record DocumentReadResult(
@@ -91,7 +94,10 @@ public sealed record DocumentReadResult(
     int? LineCount = null,
     int? TotalLines = null,
     bool? Truncated = null,
-    string? TextVersion = null);
+    string? TextVersion = null,
+    int? StartColumn = null,
+    int? NextLine = null,
+    int? NextColumn = null);
 
 public sealed class DocumentOpenRequest
 {

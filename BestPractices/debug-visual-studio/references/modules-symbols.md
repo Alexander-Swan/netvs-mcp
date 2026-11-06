@@ -37,3 +37,5 @@ debug_wait_for_break({ "include": ["callStack", "modules"], "moduleOptions": { "
 Older broker/VSIX versions may lack these options or the standalone tool; update both components before using them.
 
 When finished, remove or disable breakpoints created for the investigation and continue execution if paused, unless the user asked to leave it paused or stop.
+
+Module lists are paged. Follow `nextOffset` with the same filters while the debugger remains paused.

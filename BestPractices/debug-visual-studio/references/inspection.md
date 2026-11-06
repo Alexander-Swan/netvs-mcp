@@ -4,7 +4,7 @@ Inspect only in `dbgBreakMode`. Prefer stepping or moving a breakpoint to expose
 
 ## Target A Frame
 
-Get thread IDs from `debug_get_threads` and 1-based frame indices from `thread_get_callstack` or `debug_get_callstack`. Call stacks default to two frames; use `maxFrames` and check `hasMore` for deeper callers. Returned frames expose `frameIndex` and `isCurrent` on updated extensions.
+Get thread IDs from `debug_get_threads` and 1-based frame indices from `thread_get_callstack` or `debug_get_callstack`. Call stacks default to two frames; use `maxFrames` and check `hasMore` for deeper callers. Returned frames expose `index` and `isCurrent` on updated extensions.
 
 | Arguments | Inspection target |
 | --- | --- |

@@ -4,6 +4,7 @@ public sealed class BuildSolutionRequest
 {
     /// <summary>If false, the call returns immediately after kicking off the build; use <c>build_status</c>, diagnostics, or output tools to check progress and results.</summary>
     public bool WaitForBuildToFinish { get; set; }
+    public ErrorListRequest? CaptureDiagnostics { get; set; }
 }
 
 public sealed record BuildSolutionResult(
@@ -13,7 +14,8 @@ public sealed record BuildSolutionResult(
     string? Outcome = null,
     string? Configuration = null,
     string? Platform = null,
-    string? Project = null);
+    string? Project = null,
+    BuildDiagnosticsCapture? Diagnostics = null);
 
 public sealed record BuildStatusInfo(
     /// <summary>e.g. "Building", "Idle", "Cancelled".</summary>
@@ -145,4 +147,11 @@ public sealed class OutputWriteRequest
 
 public sealed record BuildAndGetErrorsResult(
     BuildSolutionResult Build,
-    ErrorListResult Errors);
+    ErrorListResult Errors,
+    bool Truncated = false,
+    string? DiagnosticsUnavailable = null);
+
+public sealed record BuildDiagnosticsCapture(
+    IReadOnlyCollection<ErrorListItemInfo> Items,
+    bool Truncated = false,
+    string? Unavailable = null);

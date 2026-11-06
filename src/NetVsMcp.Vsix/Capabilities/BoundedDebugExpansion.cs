@@ -25,6 +25,7 @@ internal static class BoundedDebugExpansion
         request.Validate();
         var clock = elapsed ?? Stopwatch.StartNew();
         var count = 0;
+        var remainingCharacters = 65536;
         bool OutOfTime() => clock.ElapsedMilliseconds >= request.BudgetMilliseconds;
         DebugValueNode Read(IDebugValue value, int depth, int[] path, int offset)
         {
@@ -33,9 +34,13 @@ internal static class BoundedDebugExpansion
             var reasons = new List<string>();
             string? Clip(string? text)
             {
-                if (text is null || text.Length <= request.MaxValueCharacters) return text;
-                reasons.Add("valueLimit");
-                return text.Substring(0, request.MaxValueCharacters);
+                if (text is null) return null;
+                var limit = Math.Min(remainingCharacters, request.MaxValueCharacters);
+                if (text.Length > limit)
+                    reasons.Add(limit < request.MaxValueCharacters ? "outputBudget" : "valueLimit");
+                var length = Math.Min(text.Length, limit);
+                remainingCharacters -= length;
+                return length == text.Length ? text : text.Substring(0, length);
             }
             string? name = null, type = null, text = null;
             var valid = false;
@@ -58,6 +63,7 @@ internal static class BoundedDebugExpansion
                             while (index < total)
                             {
                                 cancellationToken.ThrowIfCancellationRequested();
+                                if (remainingCharacters == 0) { reasons.Add("outputBudget"); break; }
                                 if (count >= request.MaxNodes) { reasons.Add("nodeLimit"); break; }
                                 if (children.Count >= request.MaxChildren) { reasons.Add("childLimit"); break; }
                                 if (OutOfTime()) { reasons.Add("timeBudget"); break; }

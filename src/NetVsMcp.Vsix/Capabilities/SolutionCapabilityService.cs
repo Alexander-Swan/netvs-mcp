@@ -437,6 +437,17 @@ internal sealed partial class SolutionCapabilityService : ISolutionCapabilitySer
         if (request.CollectCoverage && string.IsNullOrWhiteSpace(request.ProjectName))
             throw new ArgumentException("Coverage requires an explicit projectName.");
         var filter = EmptyToNull(request.Filter);
+        if (request.SingleCase)
+        {
+            if (filter is null) throw new ArgumentException("A single-test filter is required.");
+            var discovery = await RunProcessAsync(DotnetExecutable,
+                $"test {QuoteArgument(target.Path)} --list-tests --filter {QuoteArgument(filter)}",
+                target.WorkingDirectory, cancellationToken).ConfigureAwait(false);
+            if (discovery.ExitCode != 0)
+                throw new InvalidOperationException(CreateProcessFailureMessage("Single-test discovery failed", discovery));
+            if (ParseListedTests(discovery.StandardOutput, target.ProjectName).Count != 1)
+                throw new ArgumentException("The selector must match exactly one CLI test case.");
+        }
         var resultsDirectory = Path.Combine(Path.GetTempPath(), "NetVsMcp", "TestResults", runId);
         Directory.CreateDirectory(resultsDirectory);
 
@@ -447,6 +458,7 @@ internal sealed partial class SolutionCapabilityService : ISolutionCapabilitySer
             .Append(QuoteArgument($"trx;LogFileName={runId}.trx"))
             .Append(" --results-directory ")
             .Append(QuoteArgument(resultsDirectory));
+        if (request.SingleCase) arguments.Append(" --no-build");
         if (request.CollectCoverage) arguments.Append(" --collect ").Append(QuoteArgument("XPlat Code Coverage"));
 
         if (filter is not null)
@@ -652,6 +664,12 @@ internal sealed partial class SolutionCapabilityService : ISolutionCapabilitySer
     public Task<NetVsMcp.Contracts.TestResultPage> GetTestResultPageAsync(NetVsMcp.Contracts.TestResultsPageRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (explorerInstance?.Current(request.RunId) is { } active)
+        {
+            if (request.Offset != 0) throw new ArgumentException("An active test run has no retained pages yet.");
+            return Task.FromResult(new NetVsMcp.Contracts.TestResultPage(request.RunId, active.Backend, active.Outcome,
+                null, 0, 0, 0, null, false, DateTimeOffset.UtcNow, Array.Empty<NetVsMcp.Contracts.TestResultInfo>()));
+        }
         return Task.FromResult(testResults.Page(request));
     }
 

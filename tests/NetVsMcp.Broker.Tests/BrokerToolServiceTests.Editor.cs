@@ -172,27 +172,6 @@ public sealed partial class BrokerToolServiceTests
     }
 
     [Fact]
-    public async Task PrepareSafeEdit_ReadsOriginalAndPreviewsEdit()
-    {
-        var runtime = CreateRuntime();
-        var session = new FakeVisualStudioSessionRpc("Editor.cs");
-        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
-        runtime.Connections.AddOrUpdate("vs-1", session);
-
-        var response = await runtime.Tools.PrepareSafeEdit(
-            operation: "write",
-            path: "Program.cs",
-            text: "replacement",
-            sessionId: "vs-1");
-
-        Assert.True(response.Success);
-        Assert.Equal("Program.cs", session.LastDocumentReadRequest!.Path);
-        Assert.Equal("write", session.LastEditPreviewRequest!.Operation);
-        Assert.Equal("class Program {}", response.Value!.Original.Text);
-        Assert.Equal("edit-1", response.Value.Preview.PendingEdit!.EditId);
-    }
-
-    [Fact]
     public async Task FormatAndOrganize_RoutesCleanup()
     {
         var runtime = CreateRuntime();
@@ -231,22 +210,6 @@ public sealed partial class BrokerToolServiceTests
         Assert.True(response.Success);
         Assert.True(session.LastEditApproveRequest!.SaveAfterApply);
         Assert.True(response.Value!.Applied);
-    }
-
-    [Fact]
-    public async Task ApplySafeEditAndBuild_ApprovesBuildsAndReturnsErrors()
-    {
-        var runtime = CreateRuntime();
-        var session = new FakeVisualStudioSessionRpc("Editor.cs");
-        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
-        runtime.Connections.AddOrUpdate("vs-1", session);
-
-        var response = await runtime.Tools.ApplySafeEditAndBuild("edit-1", sessionId: "vs-1");
-
-        Assert.True(response.Success);
-        Assert.Equal("edit-1", session.LastEditApproveRequest!.EditId);
-        Assert.True(session.LastBuildSolutionRequest!.WaitForBuildToFinish);
-        Assert.Single(response.Value!.Errors.Items);
     }
 
     [Fact]

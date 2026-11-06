@@ -18,7 +18,7 @@ internal static class DebuggingToolOutput
         "output_read output_write output_clear output_list_panes document_active document_read document_open document_list document_close open_relevant_files document_outline " +
         "code_document_symbols code_go_to_definition code_find_references find_implementations code_go_to_implementation code_workspace_symbols call_hierarchy_get symbol_context " +
         "editor_find find_in_files errors_list diagnostics_for_document diagnostics_binding_errors document_diagnostics selection_get selection_set editor_goto_line " +
-        "test_discover test_run test_results test_results_page test_run_and_get_results test_coverage_run test_coverage_results test_coverage_file vs_get_logs").Split(' '), StringComparer.Ordinal);
+        "edit_preview edit_approve edit_reject edit_list_pending code_actions_list code_actions_preview code_actions_apply code_actions_revert rename_symbol_preview rename_symbol_apply solution_overview window_list vs_launch_instance project_list project_dependencies project_add_file project_remove_file project_add_reference project_remove_reference package_restore test_discover test_run test_results_page test_run_and_get_results test_coverage_run test_coverage_results test_coverage_file vs_get_logs").Split(' '), StringComparer.Ordinal);
 
     internal static bool Handles(string? tool) => tool is not null && Tools.Contains(tool);
 
@@ -69,6 +69,12 @@ internal static class DebuggingToolOutput
         if (tool == "vs_list_sessions" && value is JsonArray sessionList)
             foreach (var session in sessionList.OfType<JsonObject>()) Normalize(session, String(session["solutionPath"]), null);
         else Normalize(value, solutionPath, null, tool is "test_coverage_run" or "test_coverage_results" or "test_coverage_file");
+        if (tool == "rename_symbol_preview" && value is JsonObject preview && preview["symbol"] is null)
+        {
+            output = Failure(preview);
+            error = true;
+            return true;
+        }
         output = Shape(value, tool, args);
         // Do not discard recovery/routing information carried outside the value.
         if (envelope["metadata"] is { } metadata)
@@ -143,20 +149,33 @@ internal static class DebuggingToolOutput
         switch (tool)
         {
             case "debug_snapshot": case "debug_wait_for_break":
+                (obj["state"] as JsonObject)?.Remove("sessionId");
                 foreach (var (key, kind) in new[] { ("locals", "debug_get_locals"), ("watch", "watch_list"), ("threads", "debug_get_threads"),
                     ("parallelStacks", "parallel_stacks"), ("parallelWatch", "parallel_watch"), ("breakpoints", "breakpoint_list"), ("modules", "module_list") })
-                    if (obj[key] is JsonObject child) obj[key] = Shape(child.DeepClone(), kind, args);
+                    if (obj[key] is JsonObject child)
+                        obj[key] = key == "locals" ? Expressions((JsonObject)child.DeepClone(), "locals") : Shape(child.DeepClone(), kind, args);
                 if (obj["context"] is JsonObject ctx && obj["callStack"]?["frames"] is JsonArray frames &&
                     frames.OfType<JsonObject>().Any(f => JsonNode.DeepEquals(f["frameIndex"], ctx["frameIndex"])))
                     Remove(ctx, "functionName", "location", "frameDepth");
+                if (obj["callStack"] is JsonObject stack) CompactFrames(stack);
+                foreach (var key in new[] { "threads", "breakpoints" })
+                    if (obj[key] is JsonObject section && section.Count == 1 && section[key] is JsonArray rows)
+                        obj[key] = rows.DeepClone();
                 return obj;
-            case "debug_get_locals": return Expressions(obj, "locals");
+            case "debug_get_locals":
+                if (String(obj["state"]?["mode"]) == "dbgBreakMode") Remove(obj, "state", "context");
+                return Expressions(obj, "locals");
+            case "debug_get_callstack": case "thread_get_callstack":
+                if (String(obj["state"]?["mode"]) == "dbgBreakMode") Remove(obj, "state", "context");
+                CompactFrames(obj);
+                return obj;
             case "watch_list": return Expressions(obj, "watches");
             case "parallel_watch": return Expressions(obj, "expressions");
             case "debug_evaluate":
                 if (obj["expression"] is JsonObject expression) obj["expression"] = ExpressionMap(new JsonArray(expression.DeepClone()));
                 return obj;
             case "debug_eval_many":
+                if (String(obj["state"]?["mode"]) == "dbgBreakMode") Remove(obj, "state", "context");
                 if (obj["results"] is JsonArray results && results.All(r => r is JsonObject row && row.Count == 1 && row["expression"] is JsonObject))
                     obj["results"] = ExpressionMap(new JsonArray(results.Select(r => Copy(r!["expression"])).ToArray()));
                 return obj;
@@ -166,7 +185,7 @@ internal static class DebuggingToolOutput
                 var selectedFrame = (JsonObject)selected.DeepClone();
                 if (selectedFrame["frameIndex"] is null) selectedFrame["frameIndex"] = Copy(obj["frameIndex"]);
                 selectedFrame.Remove("isCurrent");
-                return selectedFrame;
+                CompactFrame(selectedFrame); return selectedFrame;
             case "debug_set_variable": return obj["evaluation"]?["expression"] is JsonObject evaluated ? ExpressionValue(evaluated) :
                 new JsonObject { ["$unavailable"] = "Assignment completed, but the resulting value could not be read." };
             case "watch_add":
@@ -186,20 +205,34 @@ internal static class DebuggingToolOutput
                     : new JsonObject { ["launched"] = true, ["processIdUnavailable"] = true };
             case "debug_get_threads": return Collection(obj, "threads", false);
             case "process_list_debugged": case "process_list_local":
-                if (obj["processes"] is JsonArray processes) foreach (var p in processes.OfType<JsonObject>()) Rename(p, "processId", "id");
+                if (obj["processes"] is JsonArray processes) foreach (var p in processes.OfType<JsonObject>())
+                {
+                    Rename(p, "processId", "id");
+                    if (tool == "process_list_local") p.Remove("transport");
+                }
                 return Collection(obj, "processes", true);
             case "debug_attach": if (obj["process"] is JsonObject process) Rename(process, "processId", "id"); return obj;
             case "parallel_stacks": return ParallelStacks(obj);
             case "breakpoint_set": return Copy(obj["name"]) ?? obj;
             case "breakpoint_list":
                 if (obj["breakpoints"] is JsonArray breakpoints) foreach (var b in breakpoints.OfType<JsonObject>()) Breakpoint(b);
-                return obj;
+                return Collection(obj, "breakpoints", true);
             case "breakpoint_group_list": return BreakpointGroups(obj);
             case "breakpoint_remove": return JsonValue.Create((obj["removed"]?.GetValue<int>() ?? 0) > 0);
-            case "breakpoint_enable": return NeedsObservation(obj) || RequestedContinue(args) ? obj : JsonValue.Create((obj["updated"]?.GetValue<int>() ?? 0) > 0);
-            case "breakpoint_group_enable": return RequestedContinue(args) || NeedsObservation(obj) ? Select(obj, "matched", "updated", "state", "message") : Select(obj, "matched", "updated");
+            case "breakpoint_enable":
+                if (NeedsObservation(obj)) return Select(obj, "updated", "state", "message", "operation");
+                if (!RequestedContinue(args) || obj["state"] is null) return JsonValue.Create((obj["updated"]?.GetValue<int>() ?? 0) > 0);
+                var toggle = Select(obj, "updated");
+                toggle["resumeOutcome"] = Copy(obj["state"]?["outcome"]) ?? Copy(obj["state"]?["mode"]);
+                return toggle;
+            case "breakpoint_group_enable":
+                var groupNeedsObservation = NeedsObservation(obj);
+                if (!groupNeedsObservation && obj["state"] is JsonObject groupState) Remove(groupState, "mode", "outcome", "sessionId");
+                return RequestedContinue(args) || groupNeedsObservation ? Select(obj, "matched", "updated", "state", "message") : Select(obj, "matched", "updated");
             case "breakpoint_group_remove": return Copy(obj["updated"]) ?? Copy(obj["removed"]) ?? obj;
             case "breakpoint_diagnostics":
+                if (obj["errorNotifications"] is JsonArray notifications)
+                    foreach (var notification in notifications.OfType<JsonObject>()) Remove(notification, "observedUtc", "engineId");
                 if (obj["breakpoints"] is JsonArray bindingEvidence)
                     foreach (var binding in bindingEvidence.OfType<JsonObject>())
                     {
@@ -207,12 +240,32 @@ internal static class DebuggingToolOutput
                         if (IsTrue(binding["enabled"])) binding.Remove("enabled");
                     }
                 return obj;
-            case "module_list": return Modules(obj);
+            case "module_list": return Modules(obj, args);
             case "immediate_execute": return Copy(obj["output"]) ?? JsonValue.Create("");
             case "exception_settings_get": return ExceptionSettings(obj);
             case "dialog_list": return Collection(obj, "dialogs", true);
             case "vs_events": return Events(obj);
-            case "debug_run_to": Coordinates(obj, "requested"); Coordinates(obj, "hit"); return obj;
+            case "debug_run_to":
+                Coordinates(obj, "requested"); Coordinates(obj, "hit");
+                if (String(obj["outcome"]) is "reachedLocation" or "alreadyAtLocation" && IsTrue(obj["cleanup"]?["complete"]))
+                {
+                    var hit = Select(obj, "outcome", "hitLocation");
+                    if (obj["state"] is JsonObject hitState) hit["state"] = Select(hitState, "generation", "stopId");
+                    return hit;
+                }
+                Remove(obj, "startedGeneration", "startedStopId", "sourceMatchStatus");
+                return obj;
+            case "debug_source_evidence":
+                var evidence = Select(obj, "location", "message");
+                if (args.TryGetValue("includeChecksums", out var checksums) && checksums.ValueKind == JsonValueKind.True)
+                {
+                    Merge(evidence, Select(obj, "checksumAlgorithm", "expectedChecksums", "disk", "editor"));
+                    return evidence;
+                }
+                foreach (var key in new[] { "disk", "editor" })
+                    if (obj[key] is JsonObject comparison)
+                        evidence[key] = comparison.ContainsKey("message") ? Select(comparison, "status", "message") : Copy(comparison["status"]);
+                return evidence;
             case "test_debug": return TestDebug(obj);
             case "vs_context_snapshot": return Context(obj);
             case "get_status": Session(obj); return obj;
@@ -222,38 +275,212 @@ internal static class DebuggingToolOutput
             case "build_solution": case "build_project": case "clean_solution": case "rebuild_solution": return Build(obj, false);
             case "build_status": case "build_cancel": return Build(obj, true);
             case "build_and_get_errors":
-                if (obj["build"] is JsonObject build) obj["build"] = Build(build, false);
-                if (obj["errors"] is JsonObject errors) { obj.Remove("errors"); Merge(obj, Diagnostics(errors)); }
+                if (obj["build"] is JsonObject build)
+                {
+                    var buildSummary = (JsonObject)Build(build, false);
+                    if (String(buildSummary["outcome"]) is "completed" or "failed") buildSummary.Remove("message");
+                    obj["build"] = buildSummary;
+                }
+                if (obj["errors"] is JsonObject errors)
+                {
+                    obj.Remove("errors");
+                    var diagnostics = Diagnostics(errors);
+                    Remove(diagnostics, "source", "capturedUtc");
+                    Merge(obj, diagnostics);
+                }
                 return obj;
-            case "errors_list": case "diagnostics_for_document": case "diagnostics_binding_errors": case "document_diagnostics": return Diagnostics(obj);
+            case "document_diagnostics": return DocumentDiagnostics(obj);
+            case "errors_list": case "diagnostics_for_document": case "diagnostics_binding_errors": return Diagnostics(obj);
             case "output_read": if (args.ContainsKey("paneName")) obj.Remove("paneName"); return obj;
             case "output_list_panes": return Names(obj, "panes", "name");
             case "document_read":
                 if (obj["document"] is JsonObject document) { obj["path"] = Copy(document["path"]); obj.Remove("document"); }
                 Remove(obj, "usedLiveBuffer", "textVersion"); return obj;
             case "document_open": return Copy(obj["path"]) ?? obj;
-            case "document_list": return Collection(obj, "documents", true);
+            case "document_list": return Documents(obj);
+            case "project_list": return Projects(obj["projects"]);
+            case "solution_overview":
+                if (obj["projects"] is JsonObject projectList) obj["projects"] = Projects(projectList["projects"]);
+                if (obj["testProjects"] is JsonArray testProjects) obj["testProjects"] = Projects(testProjects);
+                return obj;
+            case "project_dependencies":
+                obj.Remove("project");
+                if (obj["projectReferences"] is JsonArray projectReferences)
+                    obj["projectReferences"] = new JsonArray(projectReferences.OfType<JsonObject>().Select(reference => Copy(reference["path"])).ToArray());
+                return obj;
+            case "window_list":
+                if (obj["windows"] is JsonArray windows)
+                    foreach (var window in windows.OfType<JsonObject>())
+                    {
+                        if (!IsTrue(window["isActive"])) window.Remove("isActive");
+                        if (IsTrue(window["isVisible"])) window.Remove("isVisible");
+                        if (!args.TryGetValue("includeObjectKind", out var includeKind) || includeKind.ValueKind != JsonValueKind.True)
+                            window.Remove("objectKind");
+                    }
+                return Collection(obj, "windows", true);
+            case "vs_launch_instance": return Copy(obj["session"]?["sessionId"]) ?? obj;
+            case "edit_approve": return Copy(obj["mutation"]?["saved"]) ?? obj;
+            case "edit_reject": case "project_add_file": case "project_remove_file":
+            case "project_add_reference": case "project_remove_reference": return JsonValue.Create(true);
+            case "package_restore": return JsonValue.Create(true);
+            case "edit_preview":
+                if (obj["pendingEdit"] is not JsonObject pendingEdit) return obj;
+                CompactRange(pendingEdit);
+                return Select(pendingEdit, "editId", "path", "start", "end");
+            case "edit_list_pending":
+                if (obj["pendingEdits"] is not JsonArray edits) return obj;
+                return new JsonArray(edits.OfType<JsonObject>().Select(edit =>
+                {
+                    CompactRange(edit);
+                    return Select(edit, "editId", "operation", "path", "start", "end");
+                }).ToArray());
+            case "code_actions_list": return CodeActions(obj);
+            case "code_actions_preview": case "rename_symbol_preview":
+                return Preview(obj, tool == "code_actions_preview");
+            case "code_actions_apply": case "code_actions_revert": case "rename_symbol_apply":
+                return AppliedAction(obj, tool == "code_actions_revert");
             case "open_relevant_files": return Names(obj, "documents", "path");
             case "document_outline": return Collection(obj, "symbols", true, "documentPath");
             case "code_document_symbols": return Collection(obj, "symbols", true);
             case "code_workspace_symbols": return IsTrue(obj["truncated"]) ? Collection(obj, "symbols", true, "query") : Collection(obj, "symbols", true, "query", "matchCount");
-            case "code_go_to_definition": case "find_implementations": case "code_go_to_implementation": return Navigation(obj);
+            case "code_go_to_definition": return Collection((JsonObject)Navigation(obj), "definitions", true, "symbol", "navigated");
+            case "find_implementations": case "code_go_to_implementation": return Navigation(obj);
             case "symbol_context": return SymbolContext(obj);
-            case "call_hierarchy_get": return Hierarchy(obj);
-            case "editor_find": case "find_in_files": return Search(obj);
+            case "call_hierarchy_get":
+                Remove(obj, "direction");
+                if (obj["symbol"] is not null) obj.Remove("message");
+                return Hierarchy(obj);
+            case "editor_find": return Search(obj, singleFile: true, args);
+            case "find_in_files": return Search(obj);
             case "selection_get": return Selection(obj);
             case "test_discover":
                 if (obj["results"] is JsonArray noResults && noResults.Count == 0) obj.Remove("results");
                 return Collection(obj, "tests", true, "message", "backend");
             case "test_run": return TestRun(obj);
-            case "test_results": case "test_results_page":
-                if (obj["tests"] is JsonArray noTests && noTests.Count == 0) obj.Remove("tests");
-                return obj;
+            case "test_results_page":
+                if (String(obj["outcome"]) is "running" or "cancelRequested") return Select(obj, "outcome");
+                if (obj["results"] is JsonArray testRows)
+                    foreach (var row in testRows.OfType<JsonObject>()) Remove(row, "executionId", "caseId");
+                var page = Select(obj, "results", "nextOffset", "resultsTruncated");
+                if (obj["results"] is JsonArray { Count: 0 } && String(obj["outcome"]) is not "completed")
+                    Merge(page, Select(obj, "outcome"));
+                return page;
             case "test_run_and_get_results": return TestComposite(obj);
-            case "test_coverage_run": case "test_coverage_results": case "test_coverage_file": return Coverage(obj);
+            case "test_coverage_run": case "test_coverage_results":
+                if (obj["coverage"] is JsonObject coverage)
+                {
+                    coverage.Remove("runId");
+                    if (coverage["files"] is JsonArray files)
+                        foreach (var file in files.OfType<JsonObject>())
+                            if (file["lines"] is JsonArray { Count: 0 }) file.Remove("lines");
+                }
+                return Coverage(obj);
+            case "test_coverage_file": return Coverage(obj);
             case "vs_get_logs": return Collection(obj, "files", true, "logsDirectory");
             default: return obj;
         }
+    }
+
+    private static void CompactFrame(JsonObject frame)
+    {
+        Rename(frame, "frameIndex", "index");
+        Rename(frame, "functionName", "function");
+        if (frame["line"]?.ToJsonString() == "0") frame.Remove("line");
+        if (frame["column"]?.ToJsonString() == "0") frame.Remove("column");
+    }
+
+    private static void CompactFrames(JsonObject stack)
+    {
+        if (stack["frames"] is JsonArray frames)
+            foreach (var frame in frames.OfType<JsonObject>()) CompactFrame(frame);
+    }
+
+    private static void CompactRange(JsonObject edit)
+    {
+        foreach (var endpoint in new[] { "start", "end" })
+        {
+            if (edit[endpoint + "Line"] is { } line && edit[endpoint + "Column"] is { } column)
+                edit[endpoint] = $"{line}:{column}";
+            Remove(edit, endpoint + "Line", endpoint + "Column");
+        }
+    }
+
+    private static JsonNode Documents(JsonObject obj)
+    {
+        if (obj["documents"] is not JsonArray documents) return obj;
+        var active = String(obj["activeDocument"]);
+        return new JsonArray(documents.OfType<JsonObject>().Select(document =>
+        {
+            var row = document["path"] is null ? Select(document, "name") : Select(document, "path");
+            var path = String(document["path"]) ?? String(document["name"]);
+            if (path is not null && string.Equals(active, path, StringComparison.OrdinalIgnoreCase)) row["active"] = true;
+            if (IsFalse(document["isSaved"])) row["unsaved"] = true;
+            return row;
+        }).ToArray());
+    }
+
+    private static JsonArray Projects(JsonNode? node)
+    {
+        var projects = new JsonArray();
+        if (node is not JsonArray rows) return projects;
+        foreach (var project in rows.OfType<JsonObject>())
+        {
+            var row = Select(project, "name");
+            var path = String(project["uniqueName"]) ?? String(project["fullName"]);
+            if (path is not null) row["path"] = path.Replace('\\', '/');
+            if (IsFalse(project["isLoaded"])) row["loaded"] = false;
+            projects.Add(row);
+        }
+        return projects;
+    }
+
+    private static JsonNode CodeActions(JsonObject obj)
+    {
+        if (obj["actions"] is not JsonArray actions) return obj;
+        var rows = new JsonArray(actions.OfType<JsonObject>().Select(action =>
+            Select(action, action["actionId"] is null ? "index" : "actionId", "title", "kind", "diagnosticId")).ToArray());
+        if (obj["discovery"] is JsonObject discovery)
+        {
+            var evidence = Select(discovery, "truncated");
+            if (discovery["providerErrors"] is JsonArray { Count: > 0 } errors) evidence["providerErrors"] = errors.DeepClone();
+            if (evidence.Count > 0)
+            {
+                evidence["actions"] = rows;
+                return evidence;
+            }
+        }
+        return rows;
+    }
+
+    private static JsonNode Preview(JsonObject obj, bool includeTitle)
+    {
+        var preview = new JsonObject();
+        if (includeTitle && obj["appliedTitle"] is { } title) preview["title"] = title.DeepClone();
+        var files = new JsonObject();
+        if (obj["changes"] is JsonArray changes)
+            foreach (var change in changes.OfType<JsonObject>())
+            {
+                var path = String(change["file"]) ?? string.Empty;
+                if (files[path] is not JsonArray edits) files[path] = edits = new JsonArray();
+                CompactRange(change);
+                edits.Add(Select(change, "start", "end", "oldText", "newText"));
+            }
+        preview["changes"] = files;
+        return preview;
+    }
+
+    private static JsonNode AppliedAction(JsonObject obj, bool revert)
+    {
+        if (String(obj["outcome"]) is "unknown" or "failedWithChanges" or "notApplied") return obj;
+        var result = Select(obj, "recoveryId");
+        result["outcome"] = revert ? "reverted" : "applied";
+        var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var key in new[] { "changes", "documentVersions" })
+            if (obj[key] is JsonArray rows)
+                foreach (var row in rows.OfType<JsonObject>())
+                    if (String(row["file"]) is { } path) files.Add(path);
+        result["files"] = new JsonArray(files.Select(path => (JsonNode?)JsonValue.Create(path)).ToArray());
+        return result;
     }
 
     private static JsonObject Select(JsonObject obj, params string[] keys)
@@ -300,7 +527,7 @@ internal static class DebuggingToolOutput
     private static JsonNode Expressions(JsonObject obj, string key)
     {
         if (obj[key] is JsonArray values) obj[key] = ExpressionMap(values);
-        return obj.Count == 1 && obj[key] is JsonObject map ? map.DeepClone() : obj;
+        return obj.Count == 1 && obj[key] is { } valuesOnly ? valuesOnly.DeepClone() : obj;
     }
     private static JsonNode? Expansion(JsonObject obj)
     {
@@ -342,7 +569,9 @@ internal static class DebuggingToolOutput
     }
     private static void Breakpoint(JsonObject b)
     {
-        if (b["name"] is not null && b["location"] is not null) Remove(b, "location", "functionName");
+        if (b["name"] is not null && JsonNode.DeepEquals(b["name"], b["location"])) b.Remove("location");
+        if (b["name"] is not null && JsonNode.DeepEquals(b["name"], b["functionName"])) b.Remove("functionName");
+        CompactFrame(b);
         if (IsTrue(b["enabled"])) b.Remove("enabled");
         if (String(b["action"]) == "Break") b.Remove("action");
     }
@@ -368,20 +597,25 @@ internal static class DebuggingToolOutput
             var first = grouping.First(); var thread = new JsonObject { ["id"] = Copy(first["threadId"]) };
             if (first["threadName"] is { } name) thread["name"] = name.DeepClone();
             var stack = new JsonArray();
-            foreach (var frame in grouping) { var copy = (JsonObject)frame.DeepClone(); Remove(copy, "threadId", "threadName"); stack.Add(copy); }
+            foreach (var frame in grouping) { var copy = (JsonObject)frame.DeepClone(); Remove(copy, "threadId", "threadName"); CompactFrame(copy); stack.Add(copy); }
             thread["frames"] = stack; groups.Add(thread);
         }
         return new JsonObject { ["threads"] = groups };
     }
-    private static JsonNode Modules(JsonObject obj)
+    private static JsonNode Modules(JsonObject obj, Dictionary<string, JsonElement> args)
     {
         if (obj["modules"] is not JsonArray modules) return obj;
+        var offset = args.TryGetValue("offset", out var start) && start.TryGetInt32(out var startValue) ? startValue : 0;
+        var maximum = args.TryGetValue("maxItems", out var count) && count.TryGetInt32(out var countValue) ? countValue : 100;
+        var rows = modules.OfType<JsonObject>().ToArray();
+        var ambiguousPids = rows.GroupBy(module => module["processId"]?.ToJsonString())
+            .Where(group => group.Select(module => module["processUniqueId"]?.ToJsonString()).Distinct().Skip(1).Any())
+            .Select(group => group.Key).ToHashSet();
         var processes = new JsonArray();
-        foreach (var group in modules.OfType<JsonObject>().GroupBy(m => (m["processId"]?.ToJsonString(), m["processUniqueId"]?.ToJsonString())))
+        foreach (var group in rows.Skip(offset).Take(maximum).GroupBy(m => (m["processId"]?.ToJsonString(), m["processUniqueId"]?.ToJsonString())))
         {
             var process = new JsonObject { ["processId"] = Copy(group.First()["processId"]) };
-            var ambiguousPid = modules.OfType<JsonObject>().Where(m => JsonNode.DeepEquals(m["processId"], group.First()["processId"]))
-                .Select(m => m["processUniqueId"]?.ToJsonString()).Distinct().Skip(1).Any();
+            var ambiguousPid = ambiguousPids.Contains(group.Key.Item1);
             if (process["processId"] is null || ambiguousPid) process["processUniqueId"] = Copy(group.First()["processUniqueId"]);
             var list = new JsonArray();
             foreach (var module in group)
@@ -396,7 +630,10 @@ internal static class DebuggingToolOutput
             }
             process["modules"] = list; processes.Add(process);
         }
-        obj.Remove("modules"); obj["processes"] = processes; return obj;
+        obj.Remove("modules");
+        obj["processes"] = processes;
+        if ((long)offset + maximum < rows.Length) obj["nextOffset"] = offset + maximum;
+        return obj;
     }
     private static JsonNode ExceptionSettings(JsonObject obj)
     {
@@ -437,10 +674,9 @@ internal static class DebuggingToolOutput
         if (obj["session"] is JsonObject session) { obj["sessionId"] = Copy(session["sessionId"]); obj.Remove("session"); }
         if (obj["solution"] is JsonObject solution) obj["solution"] = Copy(solution["path"]);
         Rename(obj, "activeDocument", "document");
+        Remove(obj, "build", "errors", "pendingEdits");
         if (obj["selection"] is JsonObject selection) obj["selection"] = Selection(selection);
         if (obj["debugger"] is JsonObject debugger && JsonNode.DeepEquals(debugger["sessionId"], obj["sessionId"])) debugger.Remove("sessionId");
-        if (obj["errors"] is JsonObject errors) { obj.Remove("errors"); Merge(obj, Diagnostics(errors)); }
-        if (obj["pendingEdits"] is JsonObject pending && pending["pendingEdits"] is { } edits) obj["pendingEdits"] = edits.DeepClone();
         return obj;
     }
     private static JsonNode Doctor(JsonObject obj)
@@ -477,6 +713,29 @@ internal static class DebuggingToolOutput
         }
         return result;
     }
+    private static JsonNode DocumentDiagnostics(JsonObject obj)
+    {
+        var path = String(obj["documentPath"]);
+        Rename(obj, "documentPath", "file");
+        Remove(obj, "source", "language", "offset", "totalItems", "versionMatches", "isCurrent", "projectId");
+        if (IsTrue(obj["linkedFile"])) Rename(obj, "projectName", "project");
+        Remove(obj, "linkedFile", "projectName");
+        if (obj["items"] is JsonArray items)
+            foreach (var item in items.OfType<JsonObject>())
+            {
+                if (String(item["location"]) is { } location && path is not null &&
+                    location.StartsWith(path + ":", StringComparison.OrdinalIgnoreCase))
+                {
+                    item["start"] = location[(path.Length + 1)..];
+                    item.Remove("location");
+                }
+                if (item["endLine"] is { } line && item["endColumn"] is { } column)
+                    item["end"] = $"{line}:{column}";
+                Remove(item, "endLine", "endColumn");
+            }
+        return Diagnostics(obj);
+    }
+
     private static JsonNode Navigation(JsonObject obj)
     {
         var key = obj.ContainsKey("definitions") ? "definitions" : "implementations";
@@ -500,12 +759,14 @@ internal static class DebuggingToolOutput
         if (obj["references"] is JsonObject refs && refs["references"] is JsonArray references)
         {
             var compact = new JsonArray();
-            foreach (var reference in references.OfType<JsonObject>())
+            const int maxReferences = 50;
+            if (references.Count > maxReferences) result["referencesTruncated"] = true;
+            foreach (var reference in references.OfType<JsonObject>().Take(maxReferences))
             {
                 var copy = (JsonObject)reference.DeepClone();
                 if (copy["symbol"] is JsonObject s && refs["symbol"] is JsonObject parent &&
                     JsonNode.DeepEquals(s["name"], parent["name"]) && JsonNode.DeepEquals(s["kind"], parent["kind"])) copy.Remove("symbol");
-                compact.Add(copy);
+                compact.Add(copy.Count == 1 && copy["location"] is { } location ? location.DeepClone() : copy);
             }
             result["references"] = compact;
         }
@@ -522,9 +783,27 @@ internal static class DebuggingToolOutput
             }
         Remove(obj, "position"); return obj;
     }
-    private static JsonNode Search(JsonObject obj)
+    private static JsonNode Search(JsonObject obj, bool singleFile = false, Dictionary<string, JsonElement>? args = null)
     {
         if (obj["matches"] is JsonArray matches) foreach (var match in matches.OfType<JsonObject>()) { Rename(match, "location", "position"); Rename(match, "lineText", "text"); }
+        if (singleFile && obj["matches"] is JsonArray { Count: > 0 } rows &&
+            String(rows[0]?["position"]) is { } first)
+        {
+            var end = first.LastIndexOf(':');
+            var start = end > 0 ? first.LastIndexOf(':', end - 1) : -1;
+            if (start > 0)
+            {
+                var path = first[..start];
+                obj["file"] = path;
+                foreach (var row in rows.OfType<JsonObject>())
+                {
+                    if (String(row["position"]) is { } position && position.StartsWith(path + ":", StringComparison.OrdinalIgnoreCase))
+                        row["position"] = position[(start + 1)..];
+                    if (args?.TryGetValue("query", out var query) == true && query.ValueKind == JsonValueKind.String &&
+                        String(row["matchText"]) == query.GetString()) row.Remove("matchText");
+                }
+            }
+        }
         return Collection(obj, "matches", true, "query", "matchCount");
     }
     private static JsonNode Selection(JsonObject obj)
@@ -538,6 +817,10 @@ internal static class DebuggingToolOutput
     }
     private static JsonNode TestDebug(JsonObject obj)
     {
+        var outcome = String(obj["outcome"]);
+        if (outcome == "accepted") return Select(obj, "outcome", "runId");
+        if (outcome == "attached" || obj["testHostProcessId"] is not null && outcome is null)
+            return new JsonObject { ["outcome"] = "attached", ["processId"] = Copy(obj["testHostProcessId"]) };
         var result = Select(obj, "runId", "outcome", "message", "backend"); var processes = new JsonObject();
         foreach (var role in new[] { "testHost", "testRunner" })
             if (obj[role + "ProcessId"] is { } id) processes[role] = new JsonObject { ["id"] = id.DeepClone(), ["name"] = Copy(obj[role + "ProcessName"]) };
@@ -548,6 +831,9 @@ internal static class DebuggingToolOutput
     }
     private static JsonNode TestRun(JsonObject obj)
     {
+        if (obj["results"] is JsonArray { Count: 1 } single && single[0] is JsonObject test &&
+            !obj.ContainsKey("nextOffset") && !IsTrue(obj["resultsTruncated"]))
+            return Select(test, "name", "outcome", "duration", "message", "stackTrace", "evidenceTruncated");
         var result = Select(obj, "runId", "outcome", "backend", "message", "runnerExitCode", "coverage",
             "totalResults", "retainedResults", "nextOffset", "resultsTruncated");
         if (obj["results"] is JsonArray results && results.Count > 0) result["results"] = results.DeepClone();
@@ -560,7 +846,11 @@ internal static class DebuggingToolOutput
             !JsonNode.DeepEquals(original["runId"], results["runId"])) return obj;
         var result = (JsonObject)results.DeepClone();
         if (obj["run"] is JsonObject run) foreach (var key in new[] { "runId", "outcome", "backend" }) if (!result.ContainsKey(key)) result[key] = Copy(run[key]);
-        return result;
+        var summary = Select(result, "runId", "outcome", "runnerExitCode", "totalResults", "counts", "resultsTruncated");
+        if (result["failureSample"] is JsonArray { Count: > 0 } failures) summary["failures"] = failures.DeepClone();
+        if (String(result["outcome"]) is "runnerFailed" or "outcomeUnknown" or "incomplete")
+            Merge(summary, Select(result, "message"));
+        return summary;
     }
     private static JsonNode Coverage(JsonObject obj)
     {

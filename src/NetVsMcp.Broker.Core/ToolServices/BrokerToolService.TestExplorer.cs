@@ -12,10 +12,10 @@ internal sealed partial class BrokerToolService
     private static bool ValidTestBackend(string? backend) => backend is null or "cli" or "dotnet-cli" or "test-explorer";
     private Task<ToolResponse<TestOperationResult>> RunExplorerTestsAsync(string? projectName, string? filter,
         string? sessionId, string? solutionName, string? solutionPath, CancellationToken cancellationToken,
-        [CallerMemberName] string toolName = "")
+        [CallerMemberName] string toolName = "", bool singleCase = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var request = new TestExplorerRequest { ProjectName = NormalizeOptional(projectName), Filter = NormalizeOptional(filter), RunId = Guid.NewGuid().ToString("N") };
+        var request = new TestExplorerRequest { ProjectName = NormalizeOptional(projectName), Filter = NormalizeOptional(filter), SingleCase = singleCase, RunId = Guid.NewGuid().ToString("N") };
         return DispatchValueAsync(sessionId, solutionName, solutionPath, async (connection, _) =>
         {
             cancellationToken.ThrowIfCancellationRequested();

@@ -1199,7 +1199,8 @@ internal sealed partial class DebuggerCapabilityService : IDebuggerCapabilitySer
             foreach (StackFrame frame in stackFrames)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                frames.Add(new ParallelStackFrameInfo(thread.ID, thread.Name, frame.FunctionName, null, 0, 0));
+                var source = CallStackFrameInfo.FromStackFrame(frame);
+                frames.Add(new ParallelStackFrameInfo(thread.ID, thread.Name, source.FunctionName, source.File, source.Line, source.Column));
             }
         }
 

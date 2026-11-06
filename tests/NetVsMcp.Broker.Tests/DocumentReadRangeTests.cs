@@ -1,4 +1,3 @@
-using NetVsMcp.Broker.Services;
 using NetVsMcp.Contracts;
 
 namespace NetVsMcp.Broker.Tests;
@@ -49,6 +48,37 @@ public class DocumentReadRangeTests
     {
         var document = new DocumentReadResult(new EditorDocumentInfo(null, null, null, false, true), "text", "disk", false);
         Assert.Throws<ArgumentOutOfRangeException>(() => DocumentReadRange.Select(document, startLine, lineCount));
+    }
+
+    [Fact]
+    public void Select_ContinuesWithinLongLinesWithoutSplittingSurrogatePairs()
+    {
+        var text = new string('x', DocumentReadRange.MaxPageCharacters - 1) + "\U0001F600more\r\nlast";
+        var original = new DocumentReadResult(new EditorDocumentInfo(null, null, null, true, false), text, "live", true);
+
+        var first = DocumentReadRange.Select(original, 1, null);
+        var second = DocumentReadRange.Select(original, first.NextLine!.Value, null, first.NextColumn!.Value);
+
+        Assert.Equal(DocumentReadRange.MaxPageCharacters - 1, first.Text.Length);
+        Assert.Equal(1, first.NextLine);
+        Assert.Equal(DocumentReadRange.MaxPageCharacters, first.NextColumn);
+        Assert.Equal(text, first.Text + second.Text);
+        Assert.Equal(first.TextVersion, second.TextVersion);
+        Assert.Null(second.NextLine);
+    }
+
+    [Fact]
+    public void Select_ContinuesBeforeCrLfAndRespectsTheRequestedEnd()
+    {
+        var text = new string('x', DocumentReadRange.MaxPageCharacters - 1) + "\r\nexcluded";
+        var original = new DocumentReadResult(new EditorDocumentInfo(null, null, null, true, false), text, "live", true);
+
+        var first = DocumentReadRange.Select(original, 1, 1);
+        var second = DocumentReadRange.Select(original, first.NextLine!.Value, 1, first.NextColumn!.Value);
+
+        Assert.Equal("\r\n", second.Text);
+        Assert.Equal(1, second.LineCount);
+        Assert.Null(second.NextLine);
     }
 
     [Fact]

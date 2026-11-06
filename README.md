@@ -45,7 +45,7 @@ Use `get_help` for current tool descriptions. Add `?profile=debug` (or `manage`,
 | Session management | `vs_list_sessions`, `vs_get_session`, `vs_select_session`, `vs_get_status`, `vs_ping`, `vs_launch_instance`, `vs_close_instance`, `vs_events`, `session_automation_control`, `vs_get_logs`, `vs_get_usage_summary`, `netvs_doctor`, `get_status`, `get_help`, `netvs_get_best_practices` |
 | Documents & editor | `document_active`, `document_read`, `document_open`, `document_write`, `document_save`, `document_close`, `document_list`, `document_cleanup`, `document_outline` |
 | Editor mutations | `editor_insert`, `editor_replace`, `editor_goto_line`, `selection_get`, `selection_set` |
-| Safe-edit workflow | `edit_preview`, `edit_approve`, `edit_reject`, `edit_list_pending`, `prepare_safe_edit`, `apply_safe_edit_and_build` |
+| Safe edits, with builds run separately | `edit_preview`, `edit_approve`, `edit_reject`, `edit_list_pending` |
 | Code navigation | `code_document_symbols`, `code_workspace_symbols`, `code_go_to_definition`, `code_go_to_implementation`, `code_find_references`, `find_implementations`, `rename_symbol_preview`, `rename_symbol_apply`, `call_hierarchy_get` |
 | Code fixes & refactorings | `code_actions_list`, `code_actions_preview`, `code_actions_apply`, `code_actions_revert` |
 | Search | `editor_find`, `find_in_files`, `open_relevant_files` |
@@ -59,7 +59,7 @@ Use `get_help` for current tool descriptions. Add `?profile=debug` (or `manage`,
 | Exceptions | `exception_settings_get`, `exception_settings_set` |
 | Solution & projects | `solution_info`, `solution_overview`, `solution_open`, `solution_close`, `solution_add_project`, `solution_remove_project`, `project_list`, `project_info`, `project_dependencies`, `project_add_file`, `project_remove_file`, `project_add_reference`, `project_remove_reference`, `startup_project_get`, `startup_project_set` |
 | NuGet | `nuget_list`, `nuget_search`, `nuget_install`, `nuget_update`, `nuget_uninstall` |
-| Tests | `test_discover`, `test_run`, `test_debug`, `test_run_and_get_results`, `test_results`, `test_results_page`, `test_coverage_run`, `test_coverage_results`, `test_coverage_file` |
+| Tests | `test_discover`, `test_run` (single case), `test_debug`, `test_run_and_get_results`, `test_results_page`, `test_coverage_run`, `test_coverage_results`, `test_coverage_file` |
 | Git context | `git_context` |
 | Snapshots | `vs_context_snapshot`, `symbol_context`, `debug_snapshot` |
 | Console | `console_get_info`, `console_read`, `console_send` |

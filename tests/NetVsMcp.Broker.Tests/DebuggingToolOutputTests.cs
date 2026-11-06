@@ -30,6 +30,32 @@ public sealed class DebuggingToolOutputTests
     }
 
     [Fact]
+    public void SafeEditApprovalSeparatesUnsavedSuccessFromFailure()
+    {
+        var (saved, successful) = Output("edit_approve", new EditDecisionResult(true, null, "edit-1", true,
+            null, new DocumentMutationResult(true, null, null, false, 5)));
+        Assert.False(saved!.GetValue<bool>());
+        Assert.False(successful.IsError == true);
+
+        var (error, failed) = Output("edit_approve", new EditDecisionResult(false, "Stale preview", "edit-1", false, null, null));
+        Assert.True(failed.IsError);
+        Assert.Equal("Stale preview", error!["error"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void BatchTestRunReturnsSummaryInsteadOfResultRows()
+    {
+        var run = new TestOperationResult(true, "Test run completed.", [], [new("Example.Test", "Failed", null, "Failure")],
+            RunId: "run-1", Outcome: "testsFailed", Counts: new(20, 1, 0, 0), FailureSample: [new("Example.Test", "Failure")]);
+        var (node, _) = Output("test_run_and_get_results", new TestRunAndGetResultsResult(run, run));
+
+        Assert.Equal("run-1", node!["runId"]!.GetValue<string>());
+        Assert.Equal(20, node["counts"]!["passed"]!.GetValue<int>());
+        Assert.Equal("Example.Test", node["failures"]![0]!["name"]!.GetValue<string>());
+        Assert.Null(node["results"]);
+    }
+
+    [Fact]
     public void ModalEvidenceNeverBecomesSuccessTrue()
     {
         var (node, _) = Output("process_detach", new { success = true, state = new { mode = "dbgModalBlock", operation = new { operationId = "op-1" } } });
@@ -61,11 +87,11 @@ public sealed class DebuggingToolOutputTests
         var state = new DebuggerStateInfo("dbgBreakMode", StopId: "s", Generation: 1);
         var (node, _) = Output("debug_get_locals", new LocalsResult(state,
             [new("a", "001", "int", true), new("order", "{Shop.Order}", "Shop.Order", true), new("bad", "Out of scope", null, false)]));
-        Assert.Equal("001", node!["locals"]!["a"]!.GetValue<string>());
-        Assert.Equal("{Shop.Order}", node["locals"]!["order"]!["$preview"]!.GetValue<string>());
-        Assert.Equal("Out of scope", node["locals"]!["bad"]!["$error"]!.GetValue<string>());
+        Assert.Equal("001", node!["a"]!.GetValue<string>());
+        Assert.Equal("{Shop.Order}", node["order"]!["$preview"]!.GetValue<string>());
+        Assert.Equal("Out of scope", node["bad"]!["$error"]!.GetValue<string>());
         var (duplicates, _) = Output("debug_get_locals", new LocalsResult(state, [new("a", "1", null, true), new("a", "2", null, true)]));
-        Assert.Equal(2, duplicates!["locals"]!.AsArray().Count);
+        Assert.Equal(2, duplicates!.AsArray().Count);
     }
 
     [Fact]
@@ -115,7 +141,7 @@ public sealed class DebuggingToolOutputTests
         Assert.Equal(bp.Name, trace["name"]!.GetValue<string>());
         Assert.Equal("Print", trace["action"]!.GetValue<string>());
         Assert.True(trace["continueAfterAction"]!.GetValue<bool>());
-        Assert.Null(trace["location"]);
+        Assert.Equal("C:/App/Main.cs:10:1", trace["location"]!.GetValue<string>());
         Assert.Null(trace["groupName"]);
     }
 

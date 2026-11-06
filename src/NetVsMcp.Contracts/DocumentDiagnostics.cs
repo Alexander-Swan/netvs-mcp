@@ -30,4 +30,4 @@ public sealed record DocumentDiagnostic(string Id, string Severity, string Messa
 public sealed record DocumentDiagnosticsResult(string DocumentPath, string TextVersion, string ProjectId,
     string ProjectName, string Language, bool VersionMatches, bool IsCurrent,
     int Offset, int TotalItems, int? NextOffset, IReadOnlyCollection<DocumentDiagnostic> Items,
-    string Source = "roslynCompiler", string? Message = null);
+    string Source = "roslynCompiler", string? Message = null, bool LinkedFile = false);

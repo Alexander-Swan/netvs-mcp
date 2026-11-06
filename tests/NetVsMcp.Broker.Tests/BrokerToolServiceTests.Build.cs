@@ -35,9 +35,27 @@ public sealed partial class BrokerToolServiceTests
 
         Assert.True(response.Success);
         Assert.True(session.LastBuildSolutionRequest!.WaitForBuildToFinish);
-        Assert.False(session.LastErrorListRequest!.IncludeWarnings);
-        Assert.Equal(10, session.LastErrorListRequest.MaxItems);
-        Assert.Single(response.Value!.Errors.Items);
+        Assert.False(session.LastBuildSolutionRequest.CaptureDiagnostics!.IncludeWarnings);
+        Assert.Equal(10, session.LastBuildSolutionRequest.CaptureDiagnostics.MaxItems);
+        Assert.Null(session.LastErrorListRequest);
+        Assert.Equal("Build-specific diagnostic", Assert.Single(response.Value!.Errors.Items).Description);
+        Assert.Null(response.Value.Build.Diagnostics);
+    }
+
+    [Fact]
+    public async Task BuildAndGetErrors_OlderExtensionReportsUnavailableWithoutReadingMixedErrors()
+    {
+        var runtime = CreateRuntime();
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { OmitBuildDiagnostics = true };
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.BuildAndGetErrors(sessionId: "vs-1");
+
+        Assert.True(response.Success);
+        Assert.Null(session.LastErrorListRequest);
+        Assert.Empty(response.Value!.Errors.Items);
+        Assert.NotNull(response.Value.DiagnosticsUnavailable);
     }
 
     [Fact]

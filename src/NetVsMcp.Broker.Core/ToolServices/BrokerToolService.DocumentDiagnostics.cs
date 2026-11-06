@@ -8,7 +8,7 @@ internal sealed partial class BrokerToolService
 {
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "document_diagnostics", Title = "Read Versioned Compiler Diagnostics", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Computes compiler diagnostics for an immutable Roslyn document, including unsaved text. Excludes analyzers and build Error List entries. Returns severity groups and version/paging evidence. On stale_document, start a fresh diagnostics query. Requires an updated VSIX. Compact output.")]
+    [Description("Computes compiler diagnostics for an immutable Roslyn document, including unsaved text. Excludes analyzers and build Error List entries. Returns severity groups, textVersion, and nextOffset when another page exists. The project is reported for linked files. A page may end early at its character budget. On stale_document, start a fresh diagnostics query. Requires an updated VSIX. Compact output.")]
     public async Task<ToolResponse<DocumentDiagnosticsResult>> DocumentDiagnostics(
         [Description("Path to the document to analyze.")] string path,
         [Description("Pass the first diagnostics page's textVersion on subsequent pages to reject changed text.")] string? expectedTextVersion = null,

@@ -53,10 +53,16 @@ internal sealed class TestResultStore
             if (retained.Count == 10000 || characters + size > 2097152) break;
             retained.Add(value); characters += size;
         }
+        var passed = original.Results.Count(r => string.Equals(r.Outcome, "Passed", StringComparison.OrdinalIgnoreCase));
+        var failed = original.Results.Count(r => string.Equals(r.Outcome, "Failed", StringComparison.OrdinalIgnoreCase));
+        var skipped = original.Results.Count(r => string.Equals(r.Outcome, "Skipped", StringComparison.OrdinalIgnoreCase));
+        var counts = new TestRunCounts(passed, failed, skipped, original.Results.Count - passed - failed - skipped);
+        var failureSample = original.Results.Where(r => string.Equals(r.Outcome, "Failed", StringComparison.OrdinalIgnoreCase)).Take(3)
+            .Select(r => new TestFailureSample(Shorten(r.Name, 256)!, Shorten(r.Message, 500))).ToArray();
         var result = new TestOperationResult(original.Supported, original.Message.Length > 4096 ? original.Message.Substring(0, 4080) + " [truncated]" : original.Message,
             original.Tests, retained, original.Backend, original.RunId, original.Outcome, original.RunnerExitCode,
             original.TotalResults ?? original.Results.Count, retained.Count, retained.Count < original.Results.Count || original.ResultsTruncated,
-            coverage: original.Coverage);
+            coverage: original.Coverage, counts: counts, failureSample: failureSample);
         lock (gate)
         {
             Prune();
@@ -68,7 +74,7 @@ internal sealed class TestResultStore
             var page = Slice(entry, 0, 25);
             return new(result.Supported, result.Message, result.Tests, page, result.Backend, result.RunId, result.Outcome, result.RunnerExitCode,
                 result.TotalResults, result.RetainedResults, result.ResultsTruncated, page.Count < result.Results.Count ? page.Count : null,
-                coverage: result.Coverage);
+                coverage: result.Coverage, counts: result.Counts, failureSample: result.FailureSample);
         }
     }
 
@@ -114,6 +120,9 @@ internal sealed class TestResultStore
         }
         return page;
     }
+
+    private static string? Shorten(string? text, int limit) =>
+        text is not null && text.Length > limit ? text.Substring(0, limit - 1) + "…" : text;
 
     private static int Size(TestResultInfo value) => value.Name.Length + value.Outcome.Length +
         (value.Duration?.Length ?? 0) + (value.Message?.Length ?? 0) + (value.TestId?.Length ?? 0) +

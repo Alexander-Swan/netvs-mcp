@@ -8,6 +8,7 @@ namespace NetVsMcp.Vsix;
 internal sealed class BuildSolutionRequest
 {
     public bool WaitForBuildToFinish { get; set; }
+    public ErrorListRequest? CaptureDiagnostics { get; set; }
 }
 
 internal sealed class BuildProjectRequest
@@ -25,11 +26,13 @@ internal sealed class BuildConfigurationSetRequest
 internal sealed class BuildSolutionResult
 {
     public BuildSolutionResult(BuildStatusInfo status, int lastBuildInfo, string? buildId = null, string? outcome = null,
-        string? configuration = null, string? platform = null, string? project = null)
+        string? configuration = null, string? platform = null, string? project = null,
+        NetVsMcp.Contracts.BuildDiagnosticsCapture? diagnostics = null)
     {
         Status = status;
         LastBuildInfo = lastBuildInfo;
         BuildId = buildId; Outcome = outcome; Configuration = configuration; Platform = platform; Project = project;
+        Diagnostics = diagnostics;
     }
 
     public BuildStatusInfo Status { get; }
@@ -39,6 +42,7 @@ internal sealed class BuildSolutionResult
     public string? Platform { get; }
     public string? Project { get; }
     public int LastBuildInfo { get; }
+    public NetVsMcp.Contracts.BuildDiagnosticsCapture? Diagnostics { get; }
 }
 
 internal sealed class BuildStatusInfo

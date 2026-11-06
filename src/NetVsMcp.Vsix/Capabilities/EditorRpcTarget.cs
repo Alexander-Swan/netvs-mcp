@@ -27,9 +27,18 @@ internal sealed class EditorRpcTarget
         return editor.CloseDocumentAsync(request, cancellationToken);
     }
 
-    public Task<DocumentReadResult> DocumentReadAsync(DocumentReadRequest request, CancellationToken cancellationToken)
+    public async Task<NetVsMcp.Contracts.DocumentReadResult> DocumentReadAsync(NetVsMcp.Contracts.DocumentReadRequest request, CancellationToken cancellationToken)
     {
-        return editor.ReadDocumentAsync(request.Path, cancellationToken);
+        var result = await editor.ReadDocumentAsync(request.Path, cancellationToken).ConfigureAwait(false);
+        var document = result.Document;
+        var response = new NetVsMcp.Contracts.DocumentReadResult(
+            new NetVsMcp.Contracts.EditorDocumentInfo(document.Name, document.Path, document.Language, document.IsOpen, document.IsSaved),
+            result.Text, result.Source, result.UsedLiveBuffer);
+        if (request.StartLine is not int startLine)
+            return response;
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return NetVsMcp.Contracts.DocumentReadRange.Select(response, startLine, request.LineCount, request.StartColumn ?? 1);
     }
 
     public Task<TextSearchResult> EditorFindAsync(EditorFindRequest request, CancellationToken cancellationToken)
@@ -106,11 +115,6 @@ internal sealed class EditorRpcTarget
     {
         return editor.ListPendingEditsAsync(cancellationToken);
     }
-}
-
-internal sealed class DocumentReadRequest
-{
-    public string Path { get; set; } = string.Empty;
 }
 
 internal sealed class DocumentOpenRequest

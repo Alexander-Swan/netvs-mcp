@@ -22,25 +22,23 @@ public sealed partial class BrokerToolServiceTests
         };
         runtime.Sessions.Register(CreateRegistration("vs-1", "First"));
         runtime.Connections.AddOrUpdate("vs-1", session);
-        var response = await runtime.Tools.DebugEvalMany(["one", "two"], sessionId: "vs-1", includeContext: true);
+        var response = await runtime.Tools.DebugEvalMany(["one", "two"], sessionId: "vs-1");
         Assert.True(response.Success);
         Assert.Equal(1, calls);
-        Assert.Equal(context, response.Value!.Context);
+        Assert.Null(response.Value!.Context);
         Assert.All(response.Value.Results, result => Assert.Null(result.Context));
         Assert.Null(session.LastEvaluateExpressionRequest);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ExplicitBatchIdentityDoesNotFallBackOnOlderExtensions(bool guard)
+    [Fact]
+    public async Task ExplicitBatchIdentityDoesNotFallBackOnOlderExtensions()
     {
         var runtime = CreateRuntime();
         var session = new FakeVisualStudioSessionRpc("Editor.cs") { FrameInspectionHandler = (_, _) => throw MissingFrameInspectionMethod() };
         runtime.Sessions.Register(CreateRegistration("vs-1", "First"));
         runtime.Connections.AddOrUpdate("vs-1", session);
         var response = await runtime.Tools.DebugEvalMany(["one", "two"], sessionId: "vs-1",
-            expectedStopId: guard ? "exact" : null, includeContext: !guard);
+            expectedStopId: "exact");
         Assert.False(response.Success);
         Assert.Equal(ToolErrorCodes.UnsupportedByVsix, response.Metadata!["error_code"]);
         Assert.Null(session.LastEvaluateExpressionRequest);
@@ -62,7 +60,7 @@ public sealed partial class BrokerToolServiceTests
     }
 
     [Fact]
-    public async Task DefaultBatchJsonHasNoAddedIdentityTokensAndOptInContainsOnlyOneContext()
+    public async Task DefaultBatchJsonHasNoAddedIdentityTokens()
     {
         var runtime = CreateRuntime();
         var context = new DebugInspectionContext("exact", 2, 10, 20, 3, 2, "Caller");
@@ -72,13 +70,10 @@ public sealed partial class BrokerToolServiceTests
         runtime.Connections.AddOrUpdate("vs-1", new FakeVisualStudioSessionRpc("Editor.cs")
         { FrameInspectionHandler = (_, _) => Task.FromResult(new DebugFrameInspectionResult(state, null, results, null, Context: context)) });
         var compact = await runtime.Tools.DebugEvalMany(["one"], sessionId: "vs-1");
-        var detailed = await runtime.Tools.DebugEvalMany(["one"], sessionId: "vs-1", includeContext: true);
         var options = new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)
         { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
         var legacy = new DebugEvalManyResult(state, results.Select(r => r with { Context = null }).ToArray());
         Assert.Equal(System.Text.Json.JsonSerializer.Serialize(legacy, options), System.Text.Json.JsonSerializer.Serialize(compact.Value, options));
-        var text = System.Text.Json.JsonSerializer.Serialize(detailed.Value, options);
-        Assert.Single(System.Text.RegularExpressions.Regex.Matches(text, "\"context\"").Cast<System.Text.RegularExpressions.Match>());
     }
 
     [Theory]

@@ -135,9 +135,7 @@ internal sealed class BestPracticeGuideSurfacer
             toolName.StartsWith("selection_", StringComparison.Ordinal) ||
             toolName.StartsWith("edit_", StringComparison.Ordinal) ||
             string.Equals(toolName, "document_cleanup", StringComparison.Ordinal) ||
-            string.Equals(toolName, "format_and_organize", StringComparison.Ordinal) ||
-            string.Equals(toolName, "prepare_safe_edit", StringComparison.Ordinal) ||
-            string.Equals(toolName, "apply_safe_edit_and_build", StringComparison.Ordinal))
+            string.Equals(toolName, "format_and_organize", StringComparison.Ordinal))
         {
             return "edit-visual-studio";
         }

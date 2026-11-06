@@ -8,7 +8,7 @@ internal sealed partial class BrokerToolService
 {
     [BrokerToolMetadata(BrokerToolCategory.EditDirect, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "code_actions_revert", Title = "Revert Owned Code Action", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Reverts only verified source changes described by a code-action recoveryId. Receipts are single use, bounded to 32 entries, expire after 15 minutes, and are lost on VS restart. Any later workspace source/project change rejects the receipt; developer-created changes are not overwritten. This is scoped recovery, not the global VS undo stack. Returns observed source versions and any new recovery receipt; inspect partial/unknown outcomes before retrying. Requires an updated extension.")]
+    [Description("Reverts only verified source changes described by a code-action recoveryId. Receipts are single use, bounded to 32 entries, expire after 15 minutes, and are lost on VS restart. Any later workspace source/project change rejects the receipt; developer-created changes are not overwritten. This is scoped recovery, not the global VS undo stack. Returns observed source versions and any new recovery receipt; inspect partial/unknown outcomes before retrying. Requires an updated extension. Compact output.")]
     public Task<ToolResponse<CodeActionsApplyResult>> CodeActionsRevert(string recoveryId,
         string? sessionId = null, string? solutionName = null, string? solutionPath = null,
         CancellationToken cancellationToken = default)

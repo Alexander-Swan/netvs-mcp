@@ -22,6 +22,24 @@ public sealed partial class BrokerToolServiceTests
         Assert.Equal(3, response.Value.TotalLines);
         Assert.True(response.Value.Truncated);
         Assert.Equal("Editor.cs", session.LastDocumentReadRequest!.Path);
+        Assert.Equal(2, session.LastDocumentReadRequest.StartLine);
+        Assert.Equal(1, session.LastDocumentReadRequest.LineCount);
+    }
+
+    [Fact]
+    public async Task DocumentRead_DoesNotResliceWhenVsixReturnsRange()
+    {
+        var runtime = CreateRuntime();
+        runtime.Sessions.Register(CreateRegistration("vs-1", "NetVsMcp"));
+        var session = new FakeVisualStudioSessionRpc("Editor.cs") { DocumentText = "first\nsecond\nlast", PageDocumentRead = true };
+        runtime.Connections.AddOrUpdate("vs-1", session);
+
+        var response = await runtime.Tools.DocumentRead("Editor.cs", sessionId: "vs-1", startLine: 2, lineCount: 1, startColumn: 3);
+
+        Assert.True(response.Success);
+        Assert.Equal("cond\n", response.Value!.Text);
+        Assert.Equal(3, response.Value.TotalLines);
+        Assert.Equal(3, session.LastDocumentReadRequest!.StartColumn);
     }
 
     [Fact]

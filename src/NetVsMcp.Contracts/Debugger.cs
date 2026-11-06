@@ -76,7 +76,6 @@ public sealed record DebuggedProcessInfo(
 public sealed record LocalProcessInfo(
     int ProcessId,
     string? Name,
-    string? Transport,
     string? UserName,
     bool IsBeingDebugged);
 

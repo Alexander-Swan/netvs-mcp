@@ -40,7 +40,7 @@ Query solution structure, project dependencies, and NuGet packages. Discover and
 | Area | Example tools |
 | --- | --- |
 | Documents | `document_read`, `document_write`, `document_outline`, `editor_goto_line` |
-| Safe edits | `edit_preview`, `edit_approve`, `edit_reject`, `apply_safe_edit_and_build` |
+| Safe edits | `edit_preview`, `edit_approve`, `edit_reject` |
 | Navigation | `code_go_to_definition`, `code_find_references`, `code_workspace_symbols`, `rename_symbol_apply` |
 | Build | `build_solution`, `build_and_get_errors`, `errors_list`, `output_read` |
 | Debugger | `debug_start`, `debug_step`, `debug_evaluate`, `debug_get_locals`, `debug_snapshot` |

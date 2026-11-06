@@ -2,7 +2,7 @@
 
 ## Identity
 
-- `includeContext: true` adds identity to stack, locals, evaluations, watches, snapshots, and expansion; it defaults to false. Composite results return `context` once at the root. Direct expansion/watch-add values use `$value`/`$context` to separate identity from debuggee members.
+- `includeContext: true` adds identity to individual evaluations, watches, snapshots, and expansion; it defaults to false. Composite results return `context` once at the root. Direct expansion/watch-add values use `$value`/`$context` to separate identity from debuggee members.
 - Context contains `stopId`, `generation`, process/thread IDs, frame index/depth, and available function/source position. Matching pause IDs inherit from enclosing state; missing optional engine fields are omitted. Unresolved selected-frame indices remain null.
 - Identity describes the inspected frame, which may differ from IDE selection. Indices/depth apply only to that thread and pause; distinguish recursion by depth/index, never function name. See [inspection targeting](inspection.md).
 

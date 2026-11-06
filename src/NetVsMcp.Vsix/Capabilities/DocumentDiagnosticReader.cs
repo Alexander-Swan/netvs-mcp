@@ -24,14 +24,16 @@ internal static class DocumentDiagnosticReader
         var workspace = componentModel?.GetService<VisualStudioWorkspace>()
             ?? throw new NotSupportedException("Roslyn workspace is unavailable; use Error List diagnostics with mixed provenance.");
         var snapshot = workspace.CurrentSolution;
-        var documents = snapshot.GetDocumentIdsWithFilePath(path).Select(snapshot.GetDocument).Where(d => d is not null)
+        var linkedDocuments = snapshot.GetDocumentIdsWithFilePath(path);
+        var documents = linkedDocuments.Select(snapshot.GetDocument).Where(d => d is not null)
             .Where(d => string.IsNullOrWhiteSpace(request.ProjectName) ||
                 string.Equals(d!.Project.Name, request.ProjectName, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(d.Project.FilePath, request.ProjectName, StringComparison.OrdinalIgnoreCase)).ToArray();
         if (documents.Length == 0) throw new FileNotFoundException("Document was not found in the selected Roslyn project/workspace.", path);
         if (documents.Length != 1) throw new ArgumentException("Document belongs to multiple projects; supply an unambiguous projectName or project file path.");
         var document = documents[0]!;
-        return await ReadDocumentAsync(document, request, () => ReferenceEquals(snapshot, workspace.CurrentSolution), cancellationToken).ConfigureAwait(false);
+        var result = await ReadDocumentAsync(document, request, () => ReferenceEquals(snapshot, workspace.CurrentSolution), cancellationToken).ConfigureAwait(false);
+        return result with { LinkedFile = linkedDocuments.Length > 1 };
     }
 
     internal static async Task<DocumentDiagnosticsResult> ReadDocumentAsync(Microsoft.CodeAnalysis.Document document,
@@ -52,17 +54,22 @@ internal static class DocumentDiagnosticReader
                 request.IncludeWarnings && d.Severity == DiagnosticSeverity.Warning))
             .OrderBy(d => d.Location.SourceSpan.Start).ThenBy(d => d.Id, StringComparer.Ordinal).ToArray();
         if (request.Offset > diagnostics.Length) throw new ArgumentException("offset exceeds the diagnostic count.");
-        var items = diagnostics.Skip(request.Offset).Take(request.MaxItems).Select(d =>
+        var items = new System.Collections.Generic.List<DocumentDiagnostic>();
+        var characters = 0;
+        foreach (var diagnostic in diagnostics.Skip(request.Offset).Take(request.MaxItems))
         {
-            var location = d.Location.GetLineSpan();
-            var message = d.GetMessage();
-            return new DocumentDiagnostic(d.Id, d.Severity.ToString(), message.Length > 4096 ? message.Substring(0, 4096) : message,
+            var location = diagnostic.Location.GetLineSpan();
+            var message = diagnostic.GetMessage();
+            var size = Math.Min(message.Length, 4096) + (location.Path?.Length ?? 0) + 128;
+            if (items.Count > 0 && characters + size > 65536) break;
+            characters += size;
+            items.Add(new DocumentDiagnostic(diagnostic.Id, diagnostic.Severity.ToString(), message.Length > 4096 ? message.Substring(0, 4096) : message,
                 location.Path, location.StartLinePosition.Line + 1, location.StartLinePosition.Character + 1,
-                location.EndLinePosition.Line + 1, location.EndLinePosition.Character + 1, message.Length > 4096);
-        }).ToArray();
+                location.EndLinePosition.Line + 1, location.EndLinePosition.Character + 1, message.Length > 4096));
+        }
         var current = isCurrent();
         return new(path, version, project.Id.Id.ToString("N"), project.Name, project.Language, true, current,
-            request.Offset, diagnostics.Length, request.Offset + items.Length < diagnostics.Length ? request.Offset + items.Length : null, items,
+            request.Offset, diagnostics.Length, request.Offset + items.Count < diagnostics.Length ? request.Offset + items.Count : null, items,
             Message: current ? null : "Workspace changed while computing diagnostics; these results describe the returned text version. Request fresh diagnostics before acting.");
     }
 }

@@ -296,12 +296,13 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "breakpoint_group_list", Title = "Breakpoint Group List", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists breakpoint groups from a routed Visual Studio session. Compact output. Returns groups as object keys with breakpoint arrays; the empty-string key holds ungrouped entries.")]
+    [Description("Lists breakpoint groups from a routed Visual Studio session. Compact output. Returns groups as object keys with breakpoint arrays; the empty-string key holds ungrouped entries. Set groupName to select one group.")]
     public Task<ToolResponse<BreakpointGroupListResult>> BreakpointGroupList(
         string? sessionId = null,
         string? solutionName = null,
         string? solutionPath = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? groupName = null)
     {
         return DispatchValueAsync(
             sessionId,
@@ -310,13 +311,16 @@ internal sealed partial class BrokerToolService
             async (connection, ct) =>
             {
                 var breakpoints = await connection.BreakpointListAsync(ct);
-                var groups = breakpoints.Breakpoints
+                var selected = groupName is null ? breakpoints.Breakpoints : breakpoints.Breakpoints
+                    .Where(breakpoint => string.Equals(NormalizeOptional(breakpoint.GroupName),
+                        NormalizeOptional(groupName), StringComparison.OrdinalIgnoreCase)).ToArray();
+                var groups = selected
                     .Select(breakpoint => NormalizeOptional(breakpoint.GroupName))
                     .Where(group => group is not null)
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .Select(group => group!)
                     .ToArray();
-                return new BreakpointGroupListResult(groups, breakpoints.Breakpoints);
+                return new BreakpointGroupListResult(groups, selected);
             },
             cancellationToken);
     }
@@ -356,7 +360,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "breakpoint_enable", Title = "Breakpoint Enable", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Enables or disables breakpoints in a routed Visual Studio session. Pass continueExecution when disabling to resume the debugger afterward; such calls retain observed execution state. Compact output. Returns true when updated or false when unmatched; execution/modal evidence remains explicit when applicable.")]
+    [Description("Enables or disables breakpoints in a routed Visual Studio session. Pass continueExecution when disabling to resume the debugger afterward; such calls retain observed execution state. Compact output. Returns true when updated or false when unmatched. Resume requests return updated and resumeOutcome; pending or modal results retain recovery evidence.")]
     public Task<ToolResponse<BreakpointEnableResult>> BreakpointEnable(
         bool enabled,
         string? name = null,
@@ -480,7 +484,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_get_callstack", Title = "Debug Get Callstack", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists the paused debugger's call stack and caller frames. maxFrames defaults to 2; hasMore signals omitted frames. Updated VSIX versions return 1-based frameIndex and isCurrent. Use a returned frameIndex with debug_get_locals or debug_evaluate to inspect a caller without changing selection, or debug_select_frame to change selection. Optional threadId targets that debugger thread. expectedStopId/expectedGeneration reject a changed pause atomically; guards require an updated VSIX and never fall back. includeContext=true adds stop, process, thread, frame, and source identity. Compact output. Returns ordered frames with functionName/location and explicit 1-based frameIndex when available. hasMore appears when true; inspection/thread identity remains where applicable.")]
+    [Description("Lists the paused debugger's call stack and caller frames. maxFrames defaults to 2; hasMore signals omitted frames. Updated VSIX versions return a 1-based index and isCurrent. Use a returned index with debug_get_locals or debug_evaluate to inspect a caller without changing selection, or debug_select_frame to change selection. Optional threadId targets that debugger thread. expectedStopId/expectedGeneration reject a changed pause atomically; guards require an updated VSIX and never fall back. Compact output. Returns ordered frames with function/location and explicit 1-based index when available. hasMore appears when true.")]
     public Task<ToolResponse<CallStackResult>> DebugGetCallstack(
         string? sessionId = null,
         string? solutionName = null,
@@ -488,7 +492,7 @@ internal sealed partial class BrokerToolService
         [Description("Maximum number of call-stack frames to return. Defaults to 2.")]
         int maxFrames = DefaultCallStackFrameLimit,
         CancellationToken cancellationToken = default,
-        string? expectedStopId = null, long? expectedGeneration = null, int? threadId = null, bool includeContext = false)
+        string? expectedStopId = null, long? expectedGeneration = null, int? threadId = null)
     {
         if (expectedStopId is not null && string.IsNullOrWhiteSpace(expectedStopId) || expectedGeneration is < 0 || threadId is <= 0)
             return Task.FromResult(FailWithCode<CallStackResult>("Supply a nonempty expectedStopId, nonnegative generation, and positive threadId when specified.", ToolErrorCodes.InvalidRequest));
@@ -508,11 +512,11 @@ internal sealed partial class BrokerToolService
                 { CallStack = request, ThreadId = threadId, StackFrame = threadId.HasValue ? 1 : 0,
                     ExpectedStopId = expectedStopId, ExpectedGeneration = expectedGeneration }, ct)).CallStack
                     ?? throw new InvalidOperationException("Frame inspection did not return a call stack."),
-            cancellationToken, unsupportedByVsixMessage: expectedStopId is not null || expectedGeneration.HasValue ? StopGuardUnsupportedMessage : threadId.HasValue ? ThreadInspectionUnsupportedMessage : null, includeContext: includeContext);
+            cancellationToken, unsupportedByVsixMessage: expectedStopId is not null || expectedGeneration.HasValue ? StopGuardUnsupportedMessage : threadId.HasValue ? ThreadInspectionUnsupportedMessage : null);
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_select_frame", Title = "Select Debugger Stack Frame", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Selects a 1-based frameIndex from the current thread's debug_get_callstack result. Requires a paused debugger. Changes the inspection context for subsequent debug_get_locals, debug_evaluate, and watch queries without resuming execution or moving the instruction pointer. Refresh the call stack after stepping, continuing, or switching threads because frame indices may change. Requires an updated VSIX. Compact output. Returns only the selected frame with frameIndex/functionName/location; no repeated state.")]
+    [Description("Selects a 1-based frameIndex from the current thread's debug_get_callstack result. Requires a paused debugger. Changes the inspection context for subsequent debug_get_locals, debug_evaluate, and watch queries without resuming execution or moving the instruction pointer. Refresh the call stack after stepping, continuing, or switching threads because frame indices may change. Requires an updated VSIX. Compact output. Returns only the selected frame with index/function/location; no repeated state.")]
     public Task<ToolResponse<DebugSelectFrameResult>> DebugSelectFrame(
         [Description("1-based frameIndex from the current thread's latest call stack.")] int frameIndex,
         string? sessionId = null,
@@ -529,7 +533,7 @@ internal sealed partial class BrokerToolService
 
     [BrokerToolMetadata(BrokerToolCategory.Read, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_get_locals", Title = "Debug Get Locals", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns locals from a routed Visual Studio session. Omit both threadId and stackFrame to use the currently selected frame. Optional stackFrame is a 1-based index from the current thread's call stack; inspection uses that frame without changing the original selection. Requires a paused debugger when stackFrame is specified. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1. Compact output. Values are expression-keyed objects of debugger-formatted strings; objects use $preview and failed evaluations use $error. Duplicate or unnamed expressions retain arrays. Inspection state/context and different observations remain explicit.")]
+    [Description("Returns locals from a routed Visual Studio session. Omit both threadId and stackFrame to use the currently selected frame. Optional stackFrame is a 1-based index from the current thread's call stack; inspection uses that frame without changing the original selection. Requires a paused debugger when stackFrame is specified. Optional threadId targets another debugger thread without changing thread or frame selection; requires a paused debugger and an updated VSIX. With threadId, stackFrame indexes that thread and defaults to 1. Compact output. Values are expression-keyed objects of debugger-formatted strings; objects use $preview and failed evaluations use $error. Duplicate or unnamed expressions retain arrays. Returns the locals map or array directly on successful inspection.")]
     public Task<ToolResponse<LocalsResult>> DebugGetLocals(
         string? sessionId = null,
         string? solutionName = null,
@@ -542,7 +546,7 @@ internal sealed partial class BrokerToolService
         [Description("Optional opaque stopId from debug_status/debug_snapshot. Rejects stale context before inspection; requires an updated VSIX.")]
         string? expectedStopId = null,
         [Description("Optional generation from debug_status/debug_snapshot. Rejects context from a previous debugging session.")]
-        long? expectedGeneration = null, bool includeContext = false)
+        long? expectedGeneration = null)
     {
         if (expectedStopId is not null && string.IsNullOrWhiteSpace(expectedStopId))
             return Task.FromResult(ToolResponse<LocalsResult>.Fail("expectedStopId must be non-empty."));
@@ -561,7 +565,7 @@ internal sealed partial class BrokerToolService
                 : (await InspectDebugFrameAsync(connection, new DebugFrameInspectionRequest { ThreadId = threadId, StackFrame = stackFrame ?? (threadId.HasValue ? 1 : 0), ExpectedStopId = expectedStopId, ExpectedGeneration = expectedGeneration, IncludeLocals = true }, ct)).Locals
                     ?? throw new InvalidOperationException("Frame inspection did not return locals."),
             cancellationToken,
-            unsupportedByVsixMessage: expectedStopId is not null || expectedGeneration.HasValue ? StopGuardUnsupportedMessage : threadId.HasValue ? ThreadInspectionUnsupportedMessage : stackFrame.HasValue ? StackFrameUnsupportedMessage : includeContext ? "Inspection context requires an updated VSIX; no legacy fallback was attempted." : null, includeContext: includeContext);
+            unsupportedByVsixMessage: expectedStopId is not null || expectedGeneration.HasValue ? StopGuardUnsupportedMessage : threadId.HasValue ? ThreadInspectionUnsupportedMessage : stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_evaluate", Title = "Debug Evaluate", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
@@ -1021,7 +1025,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "debug_eval_many", Title = "Debug Eval Many", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Evaluates multiple debugger expressions in one pinned pause and frame; use this for a batch of targeted variable values instead of fetching all locals. Requires a paused debugger. stackFrame is a 1-based frameIndex; omit threadId/stackFrame for the selected frame, or supply threadId to default to its frame 1. Selection is preserved. Plain calls retain legacy compatibility; explicit selectors/guards require an updated VSIX and never fall back. Output omits identical child states that inherit the enclosing state. includeContext=true adds stop, process, thread, frame, and source identity. Compact output. Values are expression-keyed objects of debugger-formatted strings; objects use $preview and failed evaluations use $error. Duplicate or unnamed expressions retain arrays. Inspection state/context and different observations remain explicit.")]
+    [Description("Evaluates multiple debugger expressions in one pinned pause and frame; use this for a batch of targeted variable values instead of fetching all locals. Requires a paused debugger. stackFrame is a 1-based frameIndex; omit threadId/stackFrame for the selected frame, or supply threadId to default to its frame 1. Selection is preserved. Plain calls retain legacy compatibility; explicit selectors/guards require an updated VSIX and never fall back. Compact output. Values are expression-keyed objects of debugger-formatted strings; objects use $preview and failed evaluations use $error. Duplicate or unnamed expressions retain arrays. Returns results without debugger state on successful inspection.")]
     public Task<ToolResponse<DebugEvalManyResult>> DebugEvalMany(
         [Description("Required non-empty array of debugger expressions, evaluated in one pause and frame.")]
         string[] expressions,
@@ -1037,8 +1041,7 @@ internal sealed partial class BrokerToolService
         [Description("Optional opaque stopId from debug_status/debug_snapshot. Rejects stale context before inspection; requires an updated VSIX.")]
         string? expectedStopId = null,
         [Description("Optional generation from debug_status/debug_snapshot. Rejects context from a previous debugging session.")]
-        long? expectedGeneration = null,
-        [Description(InspectionContextDescription)] bool includeContext = false)
+        long? expectedGeneration = null)
     {
         if (expectedStopId is not null && string.IsNullOrWhiteSpace(expectedStopId))
             return Task.FromResult(ToolResponse<DebugEvalManyResult>.Fail("expectedStopId must be non-empty."));
@@ -1084,7 +1087,7 @@ internal sealed partial class BrokerToolService
                     return new DebugEvalManyResult(inspection.State, inspection.Results, inspection.Context);
                 }
                 catch (StreamJsonRpc.RemoteMethodNotFoundException) when (stackFrame is null && threadId is null &&
-                    expectedStopId is null && expectedGeneration is null && !includeContext)
+                    expectedStopId is null && expectedGeneration is null)
                 {
                     // A missing method cannot have evaluated any expression. Preserve the original
                     // current-frame API on older extensions; never bypass explicit targeting/guards.
@@ -1103,7 +1106,7 @@ internal sealed partial class BrokerToolService
                 }
             },
             cancellationToken,
-            unsupportedByVsixMessage: expectedStopId is not null || expectedGeneration.HasValue ? StopGuardUnsupportedMessage : threadId.HasValue ? ThreadInspectionUnsupportedMessage : stackFrame.HasValue ? StackFrameUnsupportedMessage : includeContext ? "Inspection context requires an updated VSIX; no legacy fallback was attempted." : null, includeContext: includeContext);
+            unsupportedByVsixMessage: expectedStopId is not null || expectedGeneration.HasValue ? StopGuardUnsupportedMessage : threadId.HasValue ? ThreadInspectionUnsupportedMessage : stackFrame.HasValue ? StackFrameUnsupportedMessage : null);
     }
     private static IEnumerable<BreakpointInfo> BreakpointsInGroup(
         IEnumerable<BreakpointInfo> breakpoints,
@@ -1319,7 +1322,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "thread_get_callstack", Title = "Thread Get Callstack", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Returns the call stack for a debugger thread when supported by the active debug engine. Compact output. Returns ordered frames with functionName/location and explicit 1-based frameIndex when available. hasMore appears when true; inspection/thread identity remains where applicable.")]
+    [Description("Returns the call stack for a debugger thread when supported by the active debug engine. Compact output. Returns ordered frames with function/location and explicit 1-based index when available. hasMore appears when true; inspection/thread identity remains where applicable.")]
     public Task<ToolResponse<ThreadCallStackResult>> ThreadGetCallstack(int threadId, string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default)
     {
         if (threadId <= 0)
@@ -1342,7 +1345,7 @@ internal sealed partial class BrokerToolService
             cancellationToken);
     [BrokerToolMetadata(BrokerToolCategory.Debug, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "process_list_local", Title = "Process List Local", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Lists local processes visible to Visual Studio for debugger attach workflows. Compact output. Returns the process array directly with id/name, optional transport/user information and isBeingDebugged only when true.")]
+    [Description("Lists local processes visible to Visual Studio for debugger attach. Compact output. Returns an array with id/name, optional user information, and isBeingDebugged when true.")]
     public Task<ToolResponse<LocalProcessListResult>> ProcessListLocal(string? sessionId = null, string? solutionName = null, string? solutionPath = null, CancellationToken cancellationToken = default) =>
         DispatchValueAsync(
             sessionId,

@@ -126,18 +126,16 @@ internal sealed class DebuggedProcessListResult
 
 internal sealed class LocalProcessInfo
 {
-    public LocalProcessInfo(int processId, string name, string transport, string userName, bool isBeingDebugged)
+    public LocalProcessInfo(int processId, string name, string userName, bool isBeingDebugged)
     {
         ProcessId = processId;
         Name = name;
-        Transport = transport;
         UserName = userName;
         IsBeingDebugged = isBeingDebugged;
     }
 
     public int ProcessId { get; }
     public string Name { get; }
-    public string Transport { get; }
     public string UserName { get; }
     public bool IsBeingDebugged { get; }
 
@@ -147,7 +145,6 @@ internal sealed class LocalProcessInfo
         return new LocalProcessInfo(
             process.ProcessID,
             process.Name ?? string.Empty,
-            string.Empty,
             string.Empty,
             isBeingDebugged);
     }
