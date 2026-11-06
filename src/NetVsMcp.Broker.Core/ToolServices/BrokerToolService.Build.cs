@@ -56,7 +56,7 @@ internal sealed partial class BrokerToolService
     }
     [BrokerToolMetadata(BrokerToolCategory.Build, requiresVisualStudioSession: true)]
     [McpServerTool(Name = "build_and_get_errors", Title = "Build And Get Errors", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false)]
-    [Description("Builds the routed solution with its active configuration and waits for completion. Returns build status and bounded diagnostics captured from this build's output. Use build.outcome and build.lastBuildInfo to check compilation. Compact output. Errors precede optional warnings. Truncated indicates omitted diagnostics. diagnosticsUnavailable explains when build output could not be attributed or read.")]
+    [Description("Builds the routed solution with its active configuration and waits for completion. Clears the Visual Studio Build output pane before building when available. Returns build status and bounded diagnostics captured from this build's output. Use build.outcome and build.lastBuildInfo to check compilation. Compact output. Errors precede optional warnings. Truncated indicates omitted diagnostics. diagnosticsUnavailable explains when build output could not be attributed or read.")]
     public Task<ToolResponse<BuildAndGetErrorsResult>> BuildAndGetErrors(
         bool includeWarnings = true,
         int maxItems = 100,

@@ -656,7 +656,7 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService, IDisposa
             Ticket = ticket;
             this.dte = dte;
             this.outputWindow = outputWindow;
-            Before = ReadText();
+            Before = ResetBuildPane() ? string.Empty : ReadText();
             try
             {
                 outputEvents = dte.Events.OutputWindowEvents[null];
@@ -688,6 +688,21 @@ internal sealed class BuildCapabilityService : IBuildCapabilityService, IDisposa
                     observedClears++;
             }
             catch (COMException) { }
+        }
+
+        private bool ResetBuildPane()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var id = VSConstants.OutputWindowPaneGuid.BuildOutputPane_guid;
+            try
+            {
+                // A successful clear establishes the boundary even when Visual Studio
+                // clears the pane internally without raising a DTE event.
+                return outputWindow is not null &&
+                    outputWindow.GetPane(ref id, out var pane) >= 0 && pane is not null &&
+                    pane.Clear() >= 0;
+            }
+            catch (COMException) { return false; }
         }
 
         private string? ReadText()

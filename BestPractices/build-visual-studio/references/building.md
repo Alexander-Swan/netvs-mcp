@@ -17,4 +17,4 @@ After `build_solution({ "waitForBuildToFinish": false, "sessionId": "..." })`, u
 
 `build_status.state` mirrors Visual Studio `SolutionBuild.BuildState`; `lastBuildInfo` is the error count from the most recently completed build.
 
-Use `build_and_get_errors({ "includeWarnings": true, "maxItems": 200, "sessionId": "..." })` for build status and diagnostics from that build’s Output pane. Check `truncated` for omitted rows and `diagnosticsUnavailable` when fresh output could not be read or attributed. `errors_list` separately reads the IDE’s mixed Error List.
+Use `build_and_get_errors({ "includeWarnings": true, "maxItems": 200, "sessionId": "..." })` for build status and diagnostics from that build’s Output pane. The tool clears the Build pane before starting when it can access the pane. Check `truncated` for omitted rows and `diagnosticsUnavailable` when fresh output could not be read or attributed. `errors_list` separately reads the IDE’s mixed Error List.
