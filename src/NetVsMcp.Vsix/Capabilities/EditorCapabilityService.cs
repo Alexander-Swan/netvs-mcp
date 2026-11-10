@@ -165,20 +165,25 @@ internal sealed class EditorCapabilityService : IEditorCapabilityService
             throw new InvalidOperationException("Visual Studio Find in Files failed.");
         }
 
-        if (findResult == vsFindResult.vsFindResultNotFound)
-        {
-            return new TextSearchResult(request.Query, 0, false, Array.Empty<TextSearchMatch>());
-        }
-
-        var resultsText = ReadFindResultsWindowText(dte);
-        return ParseVisualStudioFindResults(
-            resultsText,
+        TextSearchResult ReadResults() => ParseVisualStudioFindResults(
+            ReadFindResultsWindowText(dte),
             request.Query,
             request.MatchCase,
             request.WholeWord,
             request.UseRegex,
             maxResults,
             cancellationToken);
+
+        // Find can report completion before the IDE publishes the text to Find Results.
+        var result = ReadResults();
+        for (var attempt = 0; result.MatchCount == 0 && attempt < 10; attempt++)
+        {
+            await Task.Delay(100, cancellationToken).ConfigureAwait(false);
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+            result = ReadResults();
+        }
+
+        return result;
     }
 
     public async Task<EditorDocumentInfo> OpenDocumentAsync(string path, CancellationToken cancellationToken)
